@@ -1,0 +1,23 @@
+[
+  {
+    "suite": "com.ioeti.businessline.BusinessLinePersistenceTest",
+    "tests": 6,
+    "failures": 0,
+    "errors": 0,
+    "timestamp": "2026-10-19T11:00:58.549Z"
+  },
+  {
+    "suite": "com.ioeti.businessline.service.BusinessLineValidatorTest",
+    "tests": 4,
+    "failures": 0,
+    "errors": 0,
+    "timestamp": "2026-10-19T11:00:59.619Z"
+  },
+  {
+    "suite": "com.ioeti.core.text.ArabicTextNormalizerTest",
+    "tests": 6,
+    "failures": 0,
+    "errors": 0,
+    "timestamp": "2026-10-19T11:00:42.753Z"
+  }
+]

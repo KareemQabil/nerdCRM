@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<object-views xmlns="http://axelor.com/xml/ns/object-views"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://axelor.com/xml/ns/object-views https://axelor.com/xml/ns/object-views/object-views_8.2.xsd">
+
+  <!-- Root menu for every IOETI-specific screen. Child menus are contributed by IOETI modules. -->
+  <menuitem name="ioeti-root" title="IOETI" order="-3000" icon="building" icon-background="#0b6e4f"/>
+
+  <menuitem name="ioeti-root-config" parent="ioeti-root" title="Configuration" order="900"/>
+
+</object-views>

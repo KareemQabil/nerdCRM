@@ -1,0 +1,16 @@
+plugins {
+	id 'com.axelor.app'
+}
+
+apply from: new File(projectDir.canonicalFile, "../../gradle/ioeti-module.gradle")
+
+// IOETI shared kernel: root menu, Arabic text utilities, shared conventions.
+// Depends only on axelor-base so every IOETI bounded context can build on it.
+axelor {
+	title "IOETI Core"
+	description "IOETI shared kernel (menus, Arabic foundation, shared utilities)"
+}
+
+dependencies {
+	api project(":modules:axelor-base")
+}

@@ -1,0 +1,13 @@
+// Shared build conventions for every IOETI module. Apply from the module's build.gradle with:
+//   apply from: new File(projectDir.canonicalFile, "../../gradle/ioeti-module.gradle")
+//
+// IOETI modules live in <repo>/modules and are exposed to the upstream webapp through symlinks in
+// axelor-app/modules. The JDK canonicalises directory class path entries, so Axelor's MetaScanner
+// sees module metadata under the real path while Gradle passes the symlink path. Resolving the test
+// class path to canonical paths keeps both identical, otherwise entities of the module under test
+// are silently skipped by the JPA scanner.
+tasks.withType(Test).configureEach {
+	doFirst {
+		classpath = files(classpath.files.collect { it.canonicalFile })
+	}
+}

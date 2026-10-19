@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<object-views xmlns="http://axelor.com/xml/ns/object-views"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://axelor.com/xml/ns/object-views https://axelor.com/xml/ns/object-views/object-views_8.2.xsd">
+
+  <!-- Upstream Axelor Open Platform only offers en/fr as user languages (axelor-core views/User.xml).
+       IOETI is Arabic-first: add Arabic. Declared with an id so it is an IOETI contribution. -->
+  <selection name="select.language" id="ioeti-select-language">
+    <option value="en">English</option>
+    <option value="fr">French</option>
+    <option value="ar">Arabic</option>
+  </selection>
+
+</object-views>

@@ -1,0 +1,3 @@
+[submodule "axelor-app"]
+	path = axelor-app
+	url = https://github.com/axelor/open-suite-webapp

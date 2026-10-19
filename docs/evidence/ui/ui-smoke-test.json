@@ -1,0 +1,40 @@
+{
+  "base": "http://localhost:8080/axelor-erp",
+  "results": [
+    {
+      "check": "login through the web UI",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "check": "IOETI root menu is visible in the navigation",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "check": "business line grid lists the seeded lines with Arabic names",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "check": "native Opportunity form shows the IOETI 'Business line' field",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "check": "Arabic language switches the UI to RTL (after re-login)",
+      "result": "PASS",
+      "detail": "dir=rtl"
+    },
+    {
+      "check": "IOETI Arabic translations are applied (خطوط الأعمال, نشط)",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "check": "INFO upstream AOS labels stay English in Arabic mode (AOS ships no ar translations)",
+      "result": "PASS",
+      "detail": "still English: Code, Status, Messaging, Sales"
+    }
+  ]
+}

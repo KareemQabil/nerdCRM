@@ -1,0 +1,28 @@
+run3.log:[11:17:15] LOGIN PAGE 200 after ~140s
+run3.log:✅ [####--------------]  1/5 📦 Installing dependencies in 5.6s
+run3.log:✅ [#######-----------]  2/5 🧬 Generating app artifacts in 26.5s
+run3.log:✅ [###########-------]  3/5 🗄️ Applying database migrations in 4.9s
+run3.log:✅ [##############----]  4/5 🛠️ Initializing Open Mercato in 54.3s
+run3.log:✅ [####--------------] 1/5 App artifacts ready in 20.7s
+setup-classic.log:✅ [####--------------]  1/5 📦 Installing dependencies in 5.6s
+setup-classic.log:✅ [#######-----------]  2/5 🧬 Generating app artifacts in 26.5s
+setup-classic.log:✅ [###########-------]  3/5 🗄️ Applying database migrations in 4.9s
+setup-classic.log:✅ [##############----]  4/5 🛠️ Initializing Open Mercato in 54.3s
+setup-classic.log:✅ [####--------------] 1/5 App artifacts ready in 20.7s
+setup-classic.log:[##############----] 4/5 🔐 Warmed POST /api/auth/login in 28.3s (200)
+setup-classic.log:  ❌ App runtime emitted raw output     
+setup-classic.log: POST /api/auth/login 200 in 28.3s (next.js: 26.6s, application-code: 1689ms)
+setup-classic.log:💥 Failed: [server] Next.js dev server exited unexpectedly with exit code 0.
+setup-classic.log:❌ App runtime exited unexpectedly with exit code 1
+setup-classic.log: POST /api/auth/login 200 in 28.3s (next.js: 26.6s, application-code: 1689ms)
+setup-classic.log:💥 Failed: [server] Next.js dev server exited unexpectedly with exit code 0.
+dev-classic.log:✅ [#########---------]  2/4 🗄️ Applying database migrations in 2.0s
+dev-classic.log:✅ [#####-------------] 1/4 App artifacts ready in 29.4s
+dev-classic.log:[------------------] 0/4 🔐 Warmed POST /api/auth/login in 29.9s (200)
+dev-classic.log:  ❌ App runtime emitted raw output     
+dev-classic.log: POST /api/auth/login 200 in 29.9s (next.js: 27.9s, application-code: 1989ms)
+dev-classic.log:💥 Failed: [server] Next.js dev server exited unexpectedly with exit code 0.
+dev-classic.log:❌ App runtime exited unexpectedly with exit code 1
+dev-classic.log: POST /api/auth/login 200 in 29.9s (next.js: 27.9s, application-code: 1989ms)
+dev-classic.log:💥 Failed: [server] Next.js dev server exited unexpectedly with exit code 0.
+❌ Initialization failed: Metadata for entity ApiKey not found

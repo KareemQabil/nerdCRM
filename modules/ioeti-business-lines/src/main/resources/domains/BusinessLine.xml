@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<domain-models xmlns="http://axelor.com/xml/ns/domain-models"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://axelor.com/xml/ns/domain-models https://axelor.com/xml/ns/domain-models/domain-models_8.2.xsd">
+
+  <module name="ioeti" package="com.ioeti.businessline.db"/>
+
+  <!-- Explicit table name: IOETI tables are prefixed ioeti_ (default would be businessline_*). -->
+  <entity name="BusinessLine" table="ioeti_business_line">
+    <string name="code" title="Code" required="true" unique="true" max="20"
+      help="Upper-case identifier, e.g. ISO9001. Used in sequences, imports and APIs."/>
+    <string name="nameEn" title="English name" required="true" namecolumn="true"/>
+    <string name="nameAr" title="Arabic name" required="true"/>
+    <integer name="statusSelect" title="Status" selection="ioeti.business.line.status.select"
+      default="1" required="true"/>
+    <integer name="sequence" title="Display order"/>
+    <string name="description" title="Description" large="true"/>
+    <many-to-one name="responsibleTeam" ref="com.axelor.team.db.Team" title="Responsible team"/>
+    <many-to-one name="manager" ref="com.axelor.auth.db.User" title="Manager"/>
+
+    <extra-code><![CDATA[
+      public static final int STATUS_IN_SETUP = 1;
+      public static final int STATUS_ACTIVE = 2;
+      public static final int STATUS_SUSPENDED = 3;
+    ]]></extra-code>
+
+    <track>
+      <field name="code"/>
+      <field name="nameEn"/>
+      <field name="nameAr"/>
+      <field name="statusSelect"/>
+      <field name="responsibleTeam"/>
+      <field name="manager"/>
+    </track>
+  </entity>
+
+</domain-models>

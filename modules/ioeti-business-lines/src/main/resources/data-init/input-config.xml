@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<csv-inputs xmlns="http://axelor.com/xml/ns/data-import"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://axelor.com/xml/ns/data-import https://axelor.com/xml/ns/data-import/data-import_8.2.xsd">
+
+  <!-- Imported once, when the module is installed. Idempotent through the search keys. -->
+
+  <input file="ioeti_businessLine.csv" separator=";"
+    type="com.ioeti.businessline.db.BusinessLine" search="self.code = :code">
+    <bind column="code" to="code"/>
+    <bind column="nameEn" to="nameEn"/>
+    <bind column="nameAr" to="nameAr"/>
+    <bind column="statusSelect" to="statusSelect"/>
+    <bind column="sequence" to="sequence"/>
+    <bind column="description" to="description"/>
+  </input>
+
+  <input file="ioeti_auth_group.csv" separator=";" type="com.axelor.auth.db.Group"
+    search="self.code = :code">
+    <bind column="code" to="code"/>
+    <bind column="name" to="name"/>
+  </input>
+
+  <input file="ioeti_auth_permission.csv" separator=";" type="com.axelor.auth.db.Permission"
+    search="self.name = :name"
+    call="com.ioeti.businessline.imports.PermissionGroupImport:attachToGroup">
+    <bind column="name" to="name"/>
+    <bind column="object" to="object"/>
+    <bind to="canRead" eval="can_read == 'x'"/>
+    <bind to="canWrite" eval="can_write == 'x'"/>
+    <bind to="canCreate" eval="can_create == 'x'"/>
+    <bind to="canRemove" eval="can_remove == 'x'"/>
+    <bind to="canExport" eval="can_export == 'x'"/>
+    <bind column="condition" to="condition"/>
+    <bind column="conditionParams" to="conditionParams"/>
+  </input>
+
+</csv-inputs>

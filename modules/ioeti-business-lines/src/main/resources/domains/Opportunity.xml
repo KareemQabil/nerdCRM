@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<domain-models xmlns="http://axelor.com/xml/ns/domain-models"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://axelor.com/xml/ns/domain-models https://axelor.com/xml/ns/domain-models/domain-models_8.2.xsd">
+
+  <!-- Extension of the native CRM Opportunity (no upstream file is modified):
+       every opportunity can be attached to an IOETI business line. -->
+  <module name="crm" package="com.axelor.apps.crm.db"/>
+
+  <entity name="Opportunity">
+    <many-to-one name="ioetiBusinessLine" ref="com.ioeti.businessline.db.BusinessLine"
+      title="Business line"/>
+
+    <entity-listener class="com.ioeti.businessline.db.repo.OpportunityBusinessLineListener"/>
+  </entity>
+
+</domain-models>

@@ -1,0 +1,23 @@
+plugins {
+	id 'com.axelor.app'
+}
+
+apply from: new File(projectDir.canonicalFile, "../../gradle/ioeti-module.gradle")
+
+// IOETI business lines (ISO 9001, ISO 22000, Training, Recruitment, Fundraising, ...).
+// Architecture proof: own entity, extension of the native CRM Opportunity, service-layer validation,
+// record-level permission seeds, REST read API.
+axelor {
+	title "IOETI Business Lines"
+	description "IOETI business line registry and its links to native CRM objects"
+}
+
+// Reuse the upstream AOS dependency catalogue so library versions stay aligned with Axelor releases.
+apply from: rootProject.file("modules/axelor-open-suite/libs.gradle")
+
+dependencies {
+	api project(":modules:ioeti-core")
+	api project(":modules:axelor-crm")
+
+	implementation libs.swagger_jaxrs
+}

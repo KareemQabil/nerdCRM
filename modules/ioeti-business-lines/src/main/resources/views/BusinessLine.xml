@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<object-views xmlns="http://axelor.com/xml/ns/object-views"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://axelor.com/xml/ns/object-views https://axelor.com/xml/ns/object-views/object-views_8.2.xsd">
+
+  <grid name="ioeti-business-line-grid" title="Business lines"
+    model="com.ioeti.businessline.db.BusinessLine" orderBy="sequence,code">
+    <field name="sequence" width="80"/>
+    <field name="code"/>
+    <field name="nameEn"/>
+    <field name="nameAr"/>
+    <field name="statusSelect" widget="single-select"/>
+    <field name="responsibleTeam"/>
+    <field name="manager"/>
+  </grid>
+
+  <form name="ioeti-business-line-form" title="Business line"
+    model="com.ioeti.businessline.db.BusinessLine" width="large">
+    <panel name="mainPanel">
+      <field name="code" colSpan="3"/>
+      <field name="statusSelect" colSpan="3" widget="NavSelect"/>
+      <field name="sequence" colSpan="2"/>
+      <field name="nameEn" colSpan="6"/>
+      <field name="nameAr" colSpan="6"/>
+      <field name="responsibleTeam" colSpan="6"/>
+      <field name="manager" colSpan="6"/>
+      <field name="description" colSpan="12" widget="text"/>
+    </panel>
+    <panel-mail name="mailPanel">
+      <mail-messages limit="4"/>
+      <mail-followers/>
+    </panel-mail>
+  </form>
+
+  <action-view name="ioeti-action-business-line-all" title="Business lines"
+    model="com.ioeti.businessline.db.BusinessLine">
+    <view type="grid" name="ioeti-business-line-grid"/>
+    <view type="form" name="ioeti-business-line-form"/>
+  </action-view>
+
+</object-views>

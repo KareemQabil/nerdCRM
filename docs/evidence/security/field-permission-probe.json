@@ -1,0 +1,24 @@
+{
+  "setup_meta_permission_id": 2,
+  "setup_group_meta_permissions": [
+    2
+  ],
+  "setup_rules": [
+    [
+      "description",
+      false
+    ]
+  ],
+  "admin_generic_search_description": "Quality management system certification (readiness, Stage 1/2 audits, surveillance, renewal).",
+  "restricted_generic_search_description": "Quality management system certification (readiness, Stage 1/2 audits, surveillance, renewal).",
+  "restricted_generic_fetch_description": "Quality management system certification (readiness, Stage 1/2 audits, surveillance, renewal).",
+  "restricted_ioeti_api_keys": [
+    "code",
+    "id",
+    "nameAr",
+    "nameEn",
+    "responsibleTeam",
+    "sequence",
+    "status"
+  ]
+}

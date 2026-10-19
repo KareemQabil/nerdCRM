@@ -1,0 +1,2 @@
+"name";"object";"can_read";"can_write";"can_create";"can_remove";"can_export";"condition";"conditionParams";"group"
+"perm.ioeti.business-line.read-active";"com.ioeti.businessline.db.BusinessLine";"x";;;;;"self.statusSelect = 2";;"ioeti-bl-viewer"
