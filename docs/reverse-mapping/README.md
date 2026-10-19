@@ -15,8 +15,9 @@ This is a source-complete **tracked-file index** of **all 26 top-level AOS busin
 5. [Catalog, quote, contract, finance, operations and marketing mapping](CAPABILITY_COMMERCIAL_OPERATIONS_TRACE.csv): 84 capabilities.
 6. [ISO, external training, client recruitment, fundraising](CAPABILITY_SPECIALIZED_IOETI_TRACE.csv): 86 capabilities.
 7. [Documents, automation, admin, analytics, UX, security, deployment, integrations, scope](CAPABILITY_PLATFORM_AND_GOVERNANCE_TRACE.csv): 119 capabilities.
-8. [Pinned Studio 4.0.7 source ledger](platform-source-ledger/axelor-studio-4_0_7.csv), [Utils 4.0.2 source ledger](platform-source-ledger/axelor-utils-4_0_2.csv), and [Webapp wrapper ledger](platform-source-ledger/open-suite-webapp-v9_1_10.csv) extend coverage to metadata/BPM/DMN/exception utilities.
-9. [Gap register and dependencies](GAP_REGISTER.md) and [verified upstream service methods](SERVICE_METHOD_EVIDENCE.md).
+8. [API-001 Claude PR #6 reconciliation](PR6_API001_RECONCILIATION.md) — verified latest GitHub CI and remaining security boundary work.
+9. [Pinned Studio 4.0.7 source ledger](platform-source-ledger/axelor-studio-4_0_7.csv), [Utils 4.0.2 source ledger](platform-source-ledger/axelor-utils-4_0_2.csv), and [Webapp wrapper ledger](platform-source-ledger/open-suite-webapp-v9_1_10.csv) extend coverage to metadata/BPM/DMN/exception utilities.
+10. [Gap register and dependencies](GAP_REGISTER.md) and [verified upstream service methods](SERVICE_METHOD_EVIDENCE.md).
 
 **Total: 377 capability rows. In addition to 7,865 AOS files, the pinned Studio (1,825 files), Utils (494 files), and Webapp wrapper (56 files) have been indexed — **10,240 tracked-file ledger rows** across these sources. Axelor Open Platform 8.2.5 remains a binary dependency without a resolved version-specific public Git tree, so its internal implementation must be checked from exact dependency source JAR/decompiled symbols in a dedicated pass.** This is traceability coverage against *available documents*, not a functionality completion percentage.
 
@@ -75,7 +76,7 @@ This is a source-complete **tracked-file index** of **all 26 top-level AOS busin
 | IOETI capability | Code evidence | Runtime acceptance |
 |---|---|---|
 | Business Line registry, 5 seeds, custom model and Opportunity extension | `modules/ioeti-business-lines/domains`, repositories, services, `/ws/ioeti/business-lines`, UI list/details | Earlier dev smoke; multi-role production-quality test **not passed** |
-| Minimal Opportunity DTO list/get/create/rename | `OpportunityRestController.java`, custom page with create/rename | Live create/read/rename previously succeeded; stale-version expected 409 returned 500, unresolved at snapshot |
+| Minimal Opportunity DTO list/get/create/rename | `OpportunityRestController.java`, custom page with create/rename | Live create/read/rename previously succeeded; stale-version expected 409 returned 500 **in this branch's base snapshot**; **Claude PR #6 fixes it independently, passing latest backend CI** |
 | Read-only Lead list/detail | `LeadRestController.java`, `DirectoryPage.tsx` | UI contract tests use mocked responses; negative real role integration incomplete |
 | Read-only external customer/prospect Partner list/detail | `AccountRestController.java`, `RecordWorkspace.tsx` | UI contract tests; relationship 360 not built |
 | Session identity | `SessionRestController.java` | Session hardening/logout/CSRF tests missing |
