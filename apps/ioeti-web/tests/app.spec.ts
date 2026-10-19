@@ -127,7 +127,7 @@ test("reverse-mapped Leads list and secured detail route use specific DTO APIs",
   const row=page.locator(".directory-item").filter({hasText:"Nour Hassan"});
   await row.getByRole("button",{name:"عرض التفاصيل"}).click();
   await expect(page.getByRole("dialog")).toContainText("Nile View Hotel");
-  await page.getByRole("dialog").getByRole("button",{name:"إغلاق"}).click();
+  await page.getByRole("dialog").getByRole("button",{name:"إغلاق"}).last().click();
 });
 
 test("Account directory excludes unnecessary private data and uses authorized route",async ({page})=>{
@@ -139,5 +139,5 @@ test("Account directory excludes unnecessary private data and uses authorized ro
   const row=page.locator(".directory-item").filter({hasText:"Nile View Hotel"});
   await row.getByRole("button",{name:"عرض التفاصيل"}).click();
   await expect(page.getByRole("dialog")).toContainText("AC-901");
-  await page.getByRole("dialog").getByRole("button",{name:"إغلاق"}).click();
+  await page.getByRole("dialog").getByRole("button",{name:"إغلاق"}).last().click();
 });
