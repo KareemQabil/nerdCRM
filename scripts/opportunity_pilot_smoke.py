@@ -30,6 +30,19 @@ def main():
     anonymous = Client()
     status, _ = anonymous.call("GET", "/ws/ioeti/opportunities")
     require(status in (401, 403), "anonymous opportunities rejected")
+    # Reverse-mapped read-only domain endpoints must preserve the safe DTO allowlist.
+    for path, allowed in (
+        ("/ws/ioeti/leads", {"id", "name", "organization", "stage"}),
+        ("/ws/ioeti/accounts", {"id", "name", "reference", "customer", "prospect"}),
+    ):
+        status, payload = client.call("GET", path)
+        records = payload.get("object")
+        require(status == 200 and isinstance(records, list), path + " authorized list")
+        require(all(isinstance(item, dict) and set(item.keys()).issubset(allowed) for item in records),
+                path + " response field allowlist")
+        anon_status, anon_body = anonymous.call("GET", path)
+        require(anon_status in (401, 403) or anon_body.get("codeStatus") in (401, 403),
+                path + " anonymous denied")
     suffix = secrets.token_hex(4)
     created_id = None
     try:
