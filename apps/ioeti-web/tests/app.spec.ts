@@ -34,6 +34,11 @@ async function intercept(page: Page, config: { businessLineDenied?: boolean } = 
       { id: 902, name: "Delta Foods", reference: "AC-902", customer: true, prospect: false },
     ]);
     if (path.endsWith("/accounts/901") && method === "GET") return result({ id: 901, name: "Nile View Hotel", reference: "AC-901", customer: false, prospect: true });
+    if (/\/opportunities\/\d+$/.test(path) && method === "GET") {
+      const id = Number(path.split("/").at(-1));
+      const record = records.find(item => item.id === id);
+      return record ? result(record) : result(null,404);
+    }
     if (path.endsWith("/opportunities") && method === "GET") return result(records);
     if (path.endsWith("/opportunities") && method === "POST") {
       const body = route.request().postDataJSON() as { name: string; businessLineCode: string };
@@ -179,4 +184,44 @@ test("record page on mobile is never rendered as side drawer", async ({page})=>{
   await expect(page.locator(".record-workspace")).toBeVisible();
   await expect(page.locator(".record-drawer")).toHaveCount(0);
   await page.screenshot({path:"test-results/ioeti-account-record-page-mobile.png",fullPage:true});
+});
+
+test("Opportunity view details opens a full record page, supports browser history and safe context",async ({page})=>{
+  await intercept(page);
+  await page.goto("/");
+  await page.getByRole("button",{name:"المبيعات"}).click();
+  const row=page.getByRole("row").filter({hasText:"Hotel certification"});
+  await row.getByRole("button",{name:"التفاصيل"}).click();
+  await expect(page).toHaveURL(/#\/opportunities\/101$/);
+  await expect(page.locator(".opportunity-record h1")).toHaveText("Hotel certification");
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(page.locator(".opportunity-record")).toContainText("OP-101");
+  await expect(page.locator(".opportunity-record")).toContainText("Axelor CRM");
+  await expect(page.locator(".opportunity-record")).toContainText("لم يتم ربط");
+  await page.goBack();
+  await expect(page).toHaveURL(/#\/opportunities$/);
+  await expect(page.getByRole("row").filter({hasText:"Hotel certification"})).toBeVisible();
+});
+
+test("Opportunity direct deep link refetches the authorized record and rename stays a small modal",async ({page})=>{
+  await intercept(page);
+  await page.goto("/#/opportunities/101");
+  await expect(page.locator(".opportunity-record h1")).toHaveText("Hotel certification");
+  await page.locator(".opportunity-record").getByRole("button",{name:"تعديل اسم الفرصة"}).click();
+  await expect(page.getByRole("dialog")).toBeVisible();
+  await page.getByRole("textbox",{name:"اسم الفرصة"}).fill("Hotel certification v2");
+  await page.getByRole("button",{name:"حفظ التغييرات"}).click();
+  await expect(page.locator(".opportunity-record h1")).toHaveText("Hotel certification v2");
+  await expect(page.locator(".opportunity-record")).toContainText("v2");
+  await page.getByRole("button",{name:"الرجوع إلى الفرص"}).click();
+  await expect(page).toHaveURL(/#\/opportunities$/);
+});
+
+test("Opportunity record workspace remains a full page on mobile",async ({page})=>{
+  await page.setViewportSize({width:390,height:844});
+  await intercept(page);
+  await page.goto("/#/opportunities/101");
+  await expect(page.locator(".opportunity-record")).toBeVisible();
+  await expect(page.locator(".record-drawer")).toHaveCount(0);
+  await page.screenshot({path:"test-results/ioeti-opportunity-record-mobile.png",fullPage:true});
 });
