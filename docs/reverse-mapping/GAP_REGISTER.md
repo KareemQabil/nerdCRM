@@ -1,0 +1,95 @@
+# IOETI — priority gap register and hard dependencies
+
+**Scope:** all 377 capabilities in the accompanying CSV ledgers, regrouped here into blocking acceptance packages. P0 is a release blocker, P1 is full-business-operating-system scope, P2 requires owner approval or later roadmap. Evidence is in source index and docs/reference; a native model's existence does NOT close a GAP.
+
+## P0 — release blockers, before shared users/real data
+
+| GAP | Source-backed current state | Missing implementation + explicit acceptance test | Dependent work |
+|---|---|---|---|
+| G-001 Optimistic stale write semantics | Opportunity controller has version check; Axelor exception handler can emit 500 | Reuse `ConflictChecker` where suitable; map actual flush/commit conflicts to 409 without blanket exception masking; run two-writer PostgreSQL race and prove rejected write did not persist | All state-changing commands |
+| G-002 Request authentication context isolation | Previous agent reproduced thread-bound identity leak; request filter mitigation report | Root-cause reproduction across concurrent requests, metadata restore, background jobs, async, alternate endpoints; security code review + private upstream disclosure | EVERY API |
+| G-003 Field read redaction | Native `MetaPermission` GET leakage reported in existing security probes | Separate protected entities; explicit DTO allowlists; block generic REST for normal users without breaking admin; read/list/export/report negative tests | Finance, HR/candidate, donor, IDs |
+| G-004 Complete scoped permissions | Generic model/record rules partial; no verified Own/Team/Line/All custom policy | Effective action matrix per role, cross-team and line tests; deny cross-owner GET/list/update/export and related association leaks | All records |
+| G-005 Session, CSRF, logout, cookie policy | Custom UI session controller exists; full authentication protocol not verified | Secure cookie/CSRF strategy, session expiration, logout/revocation, anti brute force, response tests; no secrets in browser storage | Pilot |
+| G-006 Error body and API security | Axelor sometimes uses HTTP 200 embedded error; handler may leak internal message | Standard mapped HTTP status, typed stable body, no stacktraces/SQL details to client, correlation ID, unauthorized export tests | Entire UI |
+| G-007 Data/financial privacy | Lead/Partner DTO minimal; backend relationships not entirely audited | Explicit sensitivity model including costs, margins, trainee ID, expected salaries, CV, donor/pledge and audit decisions; structural separation + tests | Domain modules |
+| G-008 Production DB migration path | Dev schema update and PostgreSQL scripts but no verified production migration chain | Explicit migrations on scratch copy, forward/backward/recovery, no prod `ddl=update`, constraints indexes idempotence | Deployment |
+| G-009 Recovery and backups | PostgreSQL compose dev only | Automated encrypted snapshots, restore drill, target RPO/RTO, offsite retention and disaster runbook | Staging/production |
+| G-010 Controlled first pilot | UI demo uses fake memory data; partial integration | End-to-end actual Axelor/PostgreSQL with 2+ users (allowed/denied), create/read/change/reload, AR/EN/mobile, negative checks, reviewer signoff | Public/product access |
+| G-011 Security-sensitive issue handling | Detailed suspected upstream findings currently in repository docs | Coordinate security disclosure privately, sanitize public repro assets; do not publish exploitable details | Release and collaboration |
+| G-012 Real ISO decision impartiality | Internal QMS/field visits exist; no external certificate decision | Formal separation auditor/reviewer/issuer, conflict of interest check, role-based denial, approved scheme rules | ISO release |
+| G-013 Real recipient separation | Internal employee training/recruitment model exists | External trainee/candidate entities separate from employee HR data, tested privacy boundaries | Training/recruitment |
+| G-014 Data provisioning / secrets | Scripts create dev admin, public demo separate | Remove default credentials on shared deployment, rotate secrets, environment boundaries, TLS and access policy | Staging |
+
+## P1 — shared platform engine
+
+| GAP | Concrete deliverables | Acceptance |
+|---|---|---|
+| G-020 Business Line Engine | Versioned line, membership, service catalog, pipeline stage definitions, dependent policies | Add new ISO scheme *within existing ISO engine* via validated config without Java change |
+| G-021 Pipelines and stage gates | Distinct ISO/corporate training/public training/recruitment/fundraising stages, required fields, probabilities, reason, stage versions | Invalid transition rejected at API even if UI bypassed |
+| G-022 Assignment and SLA | Team hierarchy, round robin workload, holiday calendar, timers/rotting, escalations, reassign/delegate | Concurrent distribution no double assignment; reminders idempotent |
+| G-023 Activities, tasks and timeline | Lead, Account, Deal and Engagement related activity/event links, notes, reminders | Read each linked event only under its own ACL |
+| G-024 Handover/Engagement | Typed Handover and Engagement record linking won quote/contract/payment/operations | Sales→Ops signed handover with accept/reject/rework, no orphan jobs |
+| G-025 Approvals | Discount, legal, finance, stage gates; delegated and expiry policy | No unauthorized approve or cross-team approve, audit reason/version |
+| G-026 Templates and documents | Quote/contract/audit/training/ISO templates with bilingual RTL PDFs; DMS access, versioning | Golden PDF renders Arabic RTL and en/LTR, stores approved revision |
+| G-027 Notification + automation | Persisted events/outbox, retries, scheduled jobs, delivery status | At-least-once safe and idempotent processing; no duplicate invoice |
+| G-028 Admin operations | Fully custom permissions, business lines, stages, catalogs, templates, audit and job monitors | Business admin performs all daily configuration without opening Axelor UI |
+| G-029 Account 360 | Partner hierarchy contacts leads deals quotes invoices project ISO training recruiting fundraiser links | Permission-filtered tabs, role-specific redaction, browser full page not drawer |
+| G-030 App DX and CI | Deterministic build Java 21, node frontend; PostgreSQL tests; code quality dependency scan | Green CI on isolated branch and reproducible dev reset, no manual prod secret |
+| G-031 Performance/UX/accessibility | Search pagination N+1 load metrics, keyboard focus/mobile tests/theme contrast | Verified live data and no 200/error mismatch, full record routes |
+| G-032 Auditing/reports | Event provenance, manager/finance/sales/operations reports, export ACL | Reconcile booked/invoiced/collected; no unauthorized export fields |
+
+## P1 — commercial chain and cross-module lifecycle
+
+| GAP | Source reuse | What has to be built and tested |
+|---|---|---|
+| G-040 Lead lifecycle | `Lead`, `LeadStatus`, `ConvertLeadWizardService` | New→Working→MQL→Sales Accepted→SQL→Opportunity, side exits/reasons, dedup +20 and Arabic, consent, campaign attribution |
+| G-041 Opportunity pipeline | `Opportunity`, `OpportunityStatus`, `Event` | Per-line stages, line items, owner's next step, version consistency, lost reason, activity and cross-line scopes |
+| G-042 Pricing and quotes | `Product`, `PriceList`, `PricingRule`, `SaleOrder` | Bilingual services, ISO audit-day tiers, alternatives A/B/C, versions, discount approval, tax/currency, sent/accepted gates |
+| G-043 Contracts and MOUs | `Contract`, `ContractVersion` | Legal review, signed doc, amendment, renewal, configurable won requirements; 409 and version tests |
+| G-044 Milestones invoices payment | `Timetable`, `Invoice`, `InvoicePayment` | Event-based stages, invoice request decision, installment/payments/overdue/credit notes, finance scopes |
+| G-045 Marketing | `Campaign`, `TargetList`, `Lead` | Segments, spend/ROI, inbound forms/refs, events, consent suppression |
+| G-046 Ops project scheduling | `Project`, `ProjectTask`, `ResourceBooking` | Handovers, capacity, acceptance tasks, calendars, evidence |
+| G-047 Support optional | `helpdesk:Ticket` | Decide if client issue management needed vs customer requests; do not add generic helpdesk just because module exists |
+
+## P1 — specialized IOETI bounded contexts
+
+| GAP | Reuse | New domain and no-go condition |
+|---|---|---|
+| G-050 Client ISO certification | `Intervention`, `InterventionQuestion`, `QualityImprovement` | New ISO cycle, schemes, multi-site audits, Stage1/2, findings/CAPA, independent technical review, certificate statuses, annual surveillance & renewals. No grant without approval |
+| G-051 External training | `Training`, `TrainingSession` only as reference, `Project`, `Invoice` | New Course/Cohort/Trainee/Registration/Attendance/Assessment/TrainingCertificate; no Employee-only foreign key |
+| G-052 Recruitment agency | `JobApplication`, `HiringStage`, `Partner`, `Timetable` | ClientJobOrder, CandidateConsent, Submission, Interview, Placement, Fee, GuaranteeClaim, replacement workflow; never infer client from internal department |
+| G-053 Fundraising | `Partner`, `Opportunity`, `Campaign`, `Contract` | Donor, Grant, Pledge, RestrictedFunds policy, receipts and donor privacy; pledge not cash received |
+
+## P2 — deferred or owner-dependent (not silently shipped as V1)
+
+Advanced scoring and fuzzy dedup, automated WhatsApp/Meta/LinkedIn, Google/Microsoft calendar and SSO, digital signatures, complex cash forecasts, BI, health scoring, cross-sell, public verification/portals, QR attendance, applicant-trainee cross-sharing, sales commissions, e-invoicing and payment gateways. These are requested/described in SPEC or HANDOFF at varying release priorities; obtain owner sign-off before scope commit.
+
+## Open policy decisions — blockers to unambiguous completion
+
+| Decision ID | Requires confirmation |
+|---|---|
+| D-01 | Missing requirements chapters ISO, Recruitment, Fundraising, Admin, KB, Automation, Reporting and reference JSON workflow map |
+| D-02 | Certification authority, accreditation, impartiality and technical decision rules |
+| D-03 | Training threshold, enrollment/payment cancellation terms, certificate revocation and trainee retention |
+| D-04 | Recruitment fee, invoice milestone and guarantee policy per contract; candidate consent |
+| D-05 | Fundraising donor privacy, receipt/tax treatment, restricted grant accounting |
+| D-06 | Accounting depth: invoice request-only vs Axelor ledger posting; ETA e-invoice |
+| D-07 | Security scheme: scopes and field policies sign-off by IOETI; retention/MFA |
+| D-08 | Production hosting, SSL/domain, timezone, resource budgets, RPO/RTO, backup owner |
+| D-09 | Exact V1 acceptance vs P2 deferrals, support/Helpdesk/procurement need |
+| D-10 | Legal/scheme requirements for public certificate verification and externally shared data |
+
+## Explicit non-goals
+
+General ERP ledger replacement, payroll, internal HR full suite, video LMS streaming, manufacturing, warehouse, fleet, vehicle maintenance and generic supplier portal are outside the initial SPEC §1 scope. Their files remain indexed in Source Ledger for coverage but are **not automatic features** of this CRM.
+
+## Handoff sequence (no parallel file conflicts)
+
+1. Documentation branch merges/cherry-picks **mapping-only** files and no app code.
+2. Claude fixes stale version/HTTP 409 and authorization P0 on its own backend branch.
+3. Frontend owner retains native global sidebar and custom full-record UX; tests API contracts against stabilized DTOs.
+4. Each domain implementation creates independently reviewed migration, tests, API, UI and evidence; update capability row per proof.
+5. Phase acceptance is determined by source + runtime + UAT, not by number of code files written.
+
+Do not treat the P0→P1 migration as a calendar promise. Security must pass before real customer data is introduced.
