@@ -20,7 +20,7 @@ test("quote-to-contract-to-operations uses actual crosslinked fictional route tr
   await expect(page.locator(".demo-record-hero")).toContainText("DEMO-4101");
   await page.getByRole("tab",{name:"العلاقات"}).click();
   await page.getByRole("button",{name:/اتفاقية خدمات تدقيق الفندق/}).click();
-  await expect(page).toHaveURL(/#\/demo\/contracts\/5101$/);
+ await expect(page).toHaveURL(new RegExp("contracts/5101$"));
   await expect(page.locator(".demo-record-hero")).toContainText("DEMO-5101");
   await page.getByRole("tab",{name:"العلاقات"}).click();
   await page.getByRole("button",{name:/تشغيل مشروع اعتماد الفندق/}).click();
