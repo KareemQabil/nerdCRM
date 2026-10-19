@@ -142,6 +142,7 @@ test("pipeline board groups fictional records by stage and keeps full record nav
 });
 test("pipeline shares stage/search filters and supports slash-to-search keyboard access",async ({page})=>{
  await page.goto("/#/demo/quotes");
+ await expect(page.locator(".demo-workspace-heading h1")).toBeVisible();
  await page.keyboard.press("/");
  const search=page.getByRole("textbox",{name:"ابحث في السجلات التجريبية"});
  await expect(search).toBeFocused();
