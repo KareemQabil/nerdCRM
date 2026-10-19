@@ -304,3 +304,13 @@ test("real authenticated mode never mounts fictional operating workspaces",async
   await expect(page.getByRole("heading",{name:"أهلًا بك في IOETI"})).toBeVisible();
   await expect(page.getByRole("button",{name:"الشهادات"})).toBeDisabled();
 });
+
+test("real mode never downloads multi-domain demo workspace chunks or fixtures",async ({page})=>{
+  const fetched:string[]=[];
+  page.on("request",request=>fetched.push(request.url()));
+  await intercept(page);
+  await page.goto("/");
+  await page.getByRole("button",{name:"خريطة النظام"}).click();
+  await expect(page.getByRole("button",{name:"الشهادات"})).toBeDisabled();
+  expect(fetched.filter(url=>/DemoBusinessWorkspace|DemoExecutiveOverview|DemoDomainWorkbench|demoBusiness\.(ts|js)/.test(url))).toEqual([]);
+});

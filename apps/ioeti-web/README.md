@@ -82,13 +82,13 @@ The **existing module Sidebar is unchanged**. Clicking Account, Lead or Business
 Set `VITE_IOETI_DEMO=true` to open an interactive, browser-memory-only operating preview.
 All existing global Sidebar sections remain in the same positions; ISO, Training,
 Recruitment and Fundraising become clickable **only in demo mode**. The existing
-System Map opens twelve new domain workspaces:
+System Map opens sixteen domain workspaces:
 
 - Quotes, Service catalog, Contracts, Finance, Projects, Field visits,
   Quality/CAPA, Marketing, External Training, Agency Recruitment, ISO Certification,
   Fundraising/Grants.
 
-The `demoBusiness.ts` fixture defines **48 explicitly fictional, linked scenario records**
+The lazily used `demoBusiness.ts` fixture defines **48 explicitly fictional, linked scenario records**
 and separate in-memory actions. `DemoBusinessWorkspace` provides searchable lists,
 stage filters, deep-linkable full record pages, workflow timelines, notes, decision
 simulation with confirmation and narrative, record creation, and cross-domain links.
@@ -116,3 +116,5 @@ platform shortcuts without introducing a new sidebar category. The existing
 Settings sidebar item is enabled only in demo mode, opening the fictional
 Administration workspace. None of the workflows change server security,
 schedule jobs, publish templates or export customer data.
+
+**Bundle boundary:** `demoAreas.ts` contains only constant module IDs. `App.tsx` and `NativeModules.tsx` do not statically import the 48-row operating fixture; the scenario data and all interactive operating workspaces are loaded only from the demo route. The existing minimal Lead/Account/Opportunity preview fixtures live separately in `demo.ts` and remain unavailable to real APIs when demo mode is disabled. A production release should additionally verify the built asset inventory, not rely solely on source imports.
