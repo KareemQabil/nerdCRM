@@ -12,7 +12,6 @@ import com.axelor.utils.api.ResponseConstructor;
 import com.axelor.utils.api.SecurityCheck;
 import com.ioeti.businessline.db.BusinessLine;
 import com.ioeti.businessline.db.repo.BusinessLineRepository;
-import com.ioeti.businessline.security.BusinessLineEligibility;
 import com.ioeti.core.api.ApiException;
 import com.ioeti.core.api.IoetiEndpoint;
 import com.ioeti.core.api.RecordAccess;
@@ -29,7 +28,6 @@ import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import java.util.List;
-import java.util.Locale;
 
 /**
  * Small, allowlisted CRM contract used by the custom IOETI UI.
@@ -55,7 +53,7 @@ public class OpportunityRestController {
       throw ApiException.badRequest("Invalid pagination parameters.");
     }
     Query<Opportunity> query = readableOpportunities().order("-id");
-    List<OpportunityView> items = query.fetch(limit, offset).stream().map(this::view).toList();
+    List<OpportunityView> items = query.fetch(limit, offset).stream().map(OpportunityRestController::view).toList();
     return ResponseConstructor.build(Response.Status.OK, "Opportunities", items);
   }
 
@@ -78,7 +76,7 @@ public class OpportunityRestController {
     new SecurityCheck().createAccess(Opportunity.class).check();
     String name = checkName(command == null ? null : command.name());
     String code = command == null ? null : command.businessLineCode();
-    BusinessLine line = checkedLine(code);
+    BusinessLine line = LineSelection.eligible(code);
     Opportunity opportunity = new Opportunity();
     opportunity.setName(name);
     opportunity.setIoetiBusinessLine(line);
@@ -109,27 +107,7 @@ public class OpportunityRestController {
     return ResponseConstructor.build(Response.Status.OK, "Opportunity updated", view(opportunity));
   }
 
-  /** Unknown, unreadable and inactive lines are rejected identically (no existence oracle). */
-  private BusinessLine checkedLine(String rawCode) {
-    ApiException unavailable =
-      ApiException.invalidField("businessLineCode", "UNAVAILABLE", "Choose an active business line you can access.");
-    if (rawCode == null || rawCode.isBlank()) {
-      throw ApiException.invalidField("businessLineCode", "REQUIRED", "Business line is required.");
-    }
-    String code = rawCode.trim().toUpperCase(Locale.ROOT);
-    BusinessLine line = Beans.get(BusinessLineRepository.class).all()
-      .filter("self.code = :code").bind("code", code).fetchOne();
-    if (line == null
-      || !Beans.get(JpaSecurity.class).isPermitted(JpaSecurity.CAN_READ, BusinessLine.class, line.getId())
-      || !Integer.valueOf(BusinessLineRepository.STATUS_ACTIVE).equals(line.getStatusSelect())
-      // SEC-003: reading a line does not allow selling in it (fail-closed until D-07)
-      || !BusinessLineEligibility.canCreateIn(AuthUtils.getUser(), line)) {
-      throw unavailable;
-    }
-    return line;
-  }
-
-  private static String checkName(String name) {
+  static String checkName(String name) {
     String value = name == null ? "" : name.trim();
     if (value.length() < 3 || value.length() > 160) {
       throw ApiException.invalidField("name", "LENGTH", "Opportunity name must be between 3 and 160 characters.");
@@ -142,7 +120,7 @@ public class OpportunityRestController {
     return filter == null ? Query.of(Opportunity.class) : filter.build(Opportunity.class);
   }
 
-  private OpportunityView view(Opportunity opportunity) {
+  static OpportunityView view(Opportunity opportunity) {
     BusinessLine line = opportunity.getIoetiBusinessLine();
     boolean canReadLine = line != null &&
       Beans.get(JpaSecurity.class).isPermitted(JpaSecurity.CAN_READ, BusinessLine.class, line.getId());

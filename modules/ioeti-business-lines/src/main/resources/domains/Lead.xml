@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<domain-models xmlns="http://axelor.com/xml/ns/domain-models"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://axelor.com/xml/ns/domain-models https://axelor.com/xml/ns/domain-models/domain-models_8.2.xsd">
+
+  <!-- Extension of the native CRM Lead (no upstream file is modified): the business line a lead
+       belongs to, so SEC-003 line scopes (self.ioetiBusinessLine in (?)) apply to leads too and the
+       conversion can default the opportunity's line. -->
+  <module name="crm" package="com.axelor.apps.crm.db"/>
+
+  <entity name="Lead">
+    <many-to-one name="ioetiBusinessLine" ref="com.ioeti.businessline.db.BusinessLine"
+      title="Business line"/>
+  </entity>
+
+</domain-models>

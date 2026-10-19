@@ -1,0 +1,145 @@
+{
+  "results": [
+    {
+      "check": "company lead converts (201)",
+      "result": "PASS",
+      "detail": "201 {'codeStatus': 201, 'messageStatus': 'Lead converted', 'object': {'leadId': 29, 'accountId': 93, 'contactId': 94, 'opportunityId': 354}}"
+    },
+    {
+      "check": "account built from the lead (company, prospect)",
+      "result": "PASS",
+      "detail": "{'isProspect': True, 'name': 'Wave2 L1 Co ba1586', 'partnerTypeSelect': 1, 'id': 93, 'version': 1, 'isContact': False, '$attachments': 0, '$processInstanceId': None}"
+    },
+    {
+      "check": "contact built and attached to the account",
+      "result": "PASS",
+      "detail": "{'mainPartner': {'fullName': 'P0069 - Wave2 L1 Co ba1586', 'id': 93, '$version': 1}, 'name': 'Wave2 L1 ba1586', 'id': 94, 'version': 1, 'isContact': True, '$attachments': 0, '$processInstanceId': None"
+    },
+    {
+      "check": "opportunity linked: account, contact, owner, line, origin lead",
+      "result": "PASS",
+      "detail": "{'ioetiOriginLead': {'fullName': 'Wave2 L1 Co ba1586, Probe Wave2 L1 ba1586', 'id': 29, '$version': 2}, '$closedWonId': 5, 'partner': {'fullName': 'P0069 - Wave2 L1 Co ba1586', 'id': 93, '$version': 1"
+    },
+    {
+      "check": "lead shows converted, its account and opportunity",
+      "result": "PASS",
+      "detail": "{'id': 29, 'version': 2, 'name': 'Wave2 L1 Co ba1586, Probe Wave2 L1 ba1586', 'organization': 'Wave2 L1 Co ba1586', 'stage': 'Converted', 'converted': True, 'businessLineCode': 'ISO9001', 'accountId':"
+    },
+    {
+      "check": "lead persisted as converted with the native status",
+      "result": "PASS",
+      "detail": "{'leadStatus': {'name': 'Converted', 'id': 5, '$version': 0}, 'partner': {'fullName': 'P0069 - Wave2 L1 Co ba1586', 'id': 93, '$version': 1}, 'id': 29, 'isConverted': True, 'version': 2, '$attachments"
+    },
+    {
+      "check": "retry \u2192 409 ALREADY_CONVERTED",
+      "result": "PASS",
+      "detail": "409 {'code': 'ALREADY_CONVERTED', 'message': 'This lead has already been converted.', 'correlationId': 'c879a439-75a2-499e-869e-d0525519bb5c', 'fields': []}"
+    },
+    {
+      "check": "retry created nothing",
+      "result": "PASS",
+      "detail": "(1, 1)"
+    },
+    {
+      "check": "person lead \u2192 individual account, no contact, chosen opportunity name",
+      "result": "PASS",
+      "detail": "201 {'leadId': 30, 'accountId': 95, 'contactId': None, 'opportunityId': 355} {'firstName': 'Probe', 'name': 'Wave2 L2 ba1586', 'partnerTypeSelect': 2, 'id': 95, 'version': 1, '$attachments': 0, '$proc"
+    },
+    {
+      "check": "non-client and unknown account refused identically (422 accountId)",
+      "result": "PASS",
+      "detail": "{'non-client partner': (422, [{'field': 'accountId', 'code': 'UNAVAILABLE', 'message': 'Choose a customer or prospect account you can edit.'}]), 'unknown partner': (422, [{'field': 'accountId', 'code'"
+    },
+    {
+      "check": "refused account choice created nothing",
+      "result": "PASS",
+      "detail": "(0, 0)"
+    },
+    {
+      "check": "convert into existing account: no new account, opportunity on it",
+      "result": "PASS",
+      "detail": "201 {'leadId': 31, 'accountId': 96, 'contactId': 98, 'opportunityId': 356}"
+    },
+    {
+      "check": "another user's lead \u2192 same 404 as a missing id",
+      "result": "PASS",
+      "detail": "404 404"
+    },
+    {
+      "check": "read-only user \u2192 403",
+      "result": "PASS",
+      "detail": "403 {'code': 'FORBIDDEN', 'message': 'You do not have access to this action.', 'correlationId': '755184f3-beb9-490c-85cc-f18a17dd592f', 'fields': []}"
+    },
+    {
+      "check": "non-member business line \u2192 422 businessLineCode",
+      "result": "PASS",
+      "detail": "422 {'codeStatus': 422, 'messageStatus': 'Choose an active business line you can access.', 'error': {'code': 'VALIDATION_FAILED', 'message': 'Choose an active business line you can access.', 'correlat"
+    },
+    {
+      "check": "lost lead \u2192 422 CONVERSION_REJECTED (native rule, safe message)",
+      "result": "PASS",
+      "detail": "422 {'codeStatus': 422, 'messageStatus': 'This lead cannot be converted in its current state.', 'error': {'code': 'CONVERSION_REJECTED', 'message': 'This lead cannot be converted in its current state."
+    },
+    {
+      "check": "stale version \u2192 409",
+      "result": "PASS",
+      "detail": "409 {'code': 'CONFLICT', 'message': 'Record has changed; refresh and retry.', 'correlationId': '689e497e-b25f-42f9-b9c9-e43869530062', 'fields': []}"
+    },
+    {
+      "check": "missing version \u2192 400",
+      "result": "PASS",
+      "detail": "400"
+    },
+    {
+      "check": "refused L4 created nothing and stayed unconverted",
+      "result": "PASS",
+      "detail": "(0, 0)"
+    },
+    {
+      "check": "refused L5 created nothing and stayed unconverted",
+      "result": "PASS",
+      "detail": "(0, 0)"
+    },
+    {
+      "check": "refused L6 created nothing and stayed unconverted",
+      "result": "PASS",
+      "detail": "(0, 0)"
+    },
+    {
+      "check": "refused L7 created nothing and stayed unconverted",
+      "result": "PASS",
+      "detail": "(0, 0)"
+    },
+    {
+      "check": "concurrent double conversion: exactly one 201 and one 409 (20 leads)",
+      "result": "PASS",
+      "detail": "[([201, 409], (1, 1)), ([201, 409], (1, 1)), ([201, 409], (1, 1)), ([201, 409], (1, 1)), ([201, 409], (1, 1)), ([201, 409], (1, 1)), ([201, 409], (1, 1)), ([201, 409], (1, 1)), ([201, 409], (1, 1)), ("
+    },
+    {
+      "check": "concurrent double conversion: one opportunity and one account per lead",
+      "result": "PASS",
+      "detail": "[([201, 409], (1, 1)), ([201, 409], (1, 1)), ([201, 409], (1, 1)), ([201, 409], (1, 1)), ([201, 409], (1, 1)), ([201, 409], (1, 1)), ([201, 409], (1, 1)), ([201, 409], (1, 1)), ([201, 409], (1, 1)), ("
+    },
+    {
+      "check": "Account 360 contacts: the converted contact, safe fields only",
+      "result": "PASS",
+      "detail": "200 {'codeStatus': 200, 'messageStatus': 'Account contacts', 'object': [{'id': 94, 'name': 'P0070 - Wave2 L1 ba1586 Probe', 'jobTitle': None}]}"
+    },
+    {
+      "check": "Account 360 opportunities: owner sees the converted opportunity",
+      "result": "PASS",
+      "detail": "200 {'codeStatus': 200, 'messageStatus': 'Account opportunities', 'object': [{'id': 354, 'version': 0, 'name': 'Wave2 L1 Co ba1586', 'reference': 'O0102', 'businessLineCode': 'ISO9001', 'businessLineN"
+    },
+    {
+      "check": "Account 360 opportunities: another rep sees none (own scope)",
+      "result": "PASS",
+      "detail": "200 {'codeStatus': 200, 'messageStatus': 'Account opportunities', 'object': []}"
+    },
+    {
+      "check": "Account 360 on a non-client or missing partner \u2192 404",
+      "result": "PASS",
+      "detail": "404 404"
+    }
+  ],
+  "cleanup_complete": true
+}

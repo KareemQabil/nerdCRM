@@ -10,6 +10,8 @@
   <entity name="Opportunity">
     <many-to-one name="ioetiBusinessLine" ref="com.ioeti.businessline.db.BusinessLine"
       title="Business line"/>
+    <!-- lineage: the lead this opportunity was converted from (attribution is preserved) -->
+    <many-to-one name="ioetiOriginLead" ref="com.axelor.apps.crm.db.Lead" title="Origin lead"/>
 
     <entity-listener class="com.ioeti.businessline.db.repo.OpportunityBusinessLineListener"/>
   </entity>

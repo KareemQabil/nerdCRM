@@ -32,7 +32,8 @@ def main():
     require(status in (401, 403), "anonymous opportunities rejected")
     # Reverse-mapped read-only domain endpoints must preserve the safe DTO allowlist.
     for path, allowed in (
-        ("/ws/ioeti/leads", {"id", "name", "organization", "stage"}),
+        ("/ws/ioeti/leads", {"id", "version", "name", "organization", "stage", "converted",
+                             "businessLineCode", "accountId", "opportunityId"}),
         ("/ws/ioeti/accounts", {"id", "name", "reference", "customer", "prospect"}),
     ):
         status, payload = client.call("GET", path)

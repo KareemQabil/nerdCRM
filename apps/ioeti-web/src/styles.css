@@ -741,3 +741,11 @@ td code { display: inline-block; font: 11px Inter,monospace; color: var(--on-sur
 .demo-board-disclaimer{font-size:10px;color:var(--on-surface-variant);margin:2px 4px 0;line-height:1.7;}
 @media(max-width:650px){.demo-view-switch{flex:1;justify-content:center;}.demo-view-switch button{flex:1;padding:9px 8px;}.demo-board-column{min-width:min(78vw,280px);flex-basis:min(78vw,280px);}.demo-board-scroller{gap:9px;}}
 @media(prefers-reduced-motion:reduce){.demo-board-card{transition:none;}.demo-board-card:hover{transform:none;}}
+/* Wave 2: lead conversion and Account 360 */
+.lead-convert .record-content-card{max-width:760px;margin-top:20px;}
+.lead-convert .drawer-actions{display:flex;flex-wrap:wrap;gap:10px;}
+.convert-account{display:grid;gap:12px;border:1px solid var(--outline-variant);border-radius:var(--radius);padding:14px 16px;margin:0;}
+.convert-account legend{font-size:12px;font-weight:700;padding-inline:6px;}
+.opportunity-form .convert-choice{display:flex;align-items:center;gap:10px;font-weight:500;}
+.opportunity-form .convert-choice input{width:auto;min-height:0;}
+.account-360 .directory-item{padding-inline:4px;}

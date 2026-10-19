@@ -60,4 +60,10 @@ If any PR changes before it is merged, re-run section 2 against the new heads. C
 | 4 | Wave 2 slice: Lead qualification and conversion to Account/Contact/Opportunity, then Account 360 | G-040, G-029 | 1–3 |
 | 5 | Wave 3: catalog/pricing, quote, approvals, contract, milestones | G-042–G-044 | 4; D-06 for finance |
 
+Draft PRs, each stacked on the previous one:
+- 1: #15;
+- 2: #16;
+- 3: #17;
+- 4, part 1 (conversion and Account 360): branch `claude/ioeti-wave2-lead-conversion`.
+
 Policy-dependent steps follow `docs/decisions/OPEN_IOETI_POLICY_DECISIONS.md`.
