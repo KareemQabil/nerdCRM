@@ -93,3 +93,24 @@ General ERP ledger replacement, payroll, internal HR full suite, video LMS strea
 5. Phase acceptance is determined by source + runtime + UAT, not by number of code files written.
 
 Do not treat the P0→P1 migration as a calendar promise. Security must pass before real customer data is introduced.
+
+## P0 engineering status from the stacked Claude PRs (2026-10-19)
+
+This section is appended; the rows above are unchanged. Status reflects live Axelor 9.1.10 + PostgreSQL 16 evidence. PRs are drafts awaiting owner review.
+
+| GAP | Status | Evidence / PR | Remaining |
+|---|---|---|---|
+| G-001 | Engineering done | #6: 409 on stale and concurrent writes, data unchanged. Also applied to conversion (#18) and quotations (#19). | — |
+| G-002 | Engineering done for HTTP | #9: 0 leaks under load in CI | WebSocket and background jobs (#10) |
+| G-003 | Partial | DTO allowlists on every IOETI endpoint; contacts expose no e-mail or phone | Field-level policy (D-07) |
+| G-004 | Mechanism done | #17: Own/Team/Line/All, 65/65 | Production role matrix (D-07) |
+| G-005 | Done except HTTPS | #16: 20/20 plus expiry job | `Secure` cookie test needs HTTPS staging |
+| G-006 | Done for `/ws/ioeti` | #15: error contract, oracle removal, generic `/ws/rest` closed | — |
+| G-007 | Open | — | PII classification and masking |
+| G-008 | Engineering done | Platform PR: versioned migrations, verified chain, CI gate | Production run per runbook (D-08) |
+| G-009 | Engineering done | Platform PR: encrypted drill 10/10 plus restore boot test | Schedule, off-site copies, custody, RPO/RTO (D-08) |
+| G-010 | Partial | Multi-user live probes for leads, opportunities and quotations | Reviewer UAT sign-off |
+| G-011 | In progress | Private disclosure draft held outside the repository | Owner action (see the decisions file) |
+| G-012 | Policy-blocked | — | D-02 |
+| G-013 | Not started | — | Training/recruitment bounded contexts (D-03/D-04 for gated parts) |
+| G-014 | Partial | `.env` secrets outside git; template documents production settings | Production secret store (D-08) |
