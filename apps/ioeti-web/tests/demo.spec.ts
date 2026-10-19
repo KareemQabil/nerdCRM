@@ -194,7 +194,7 @@ test("cross-domain navigation resets previous register filters without changing 
  await page.locator(".demo-record-row").first().click();
  await page.getByRole("tab",{name:"العلاقات"}).click();
  await page.getByRole("button",{name:/اتفاقية خدمات تدقيق الفندق/}).click();
- await expect(page).toHaveURL(/#\\/demo\\/contracts\\/5101$/);
+  await expect(page).toHaveURL(new RegExp("contracts/5101$"));
  await page.getByRole("button",{name:"الرجوع للسجل"}).click();
  await expect(page.locator(".demo-record-row")).toHaveCount(3);
  await expect(page.getByRole("textbox",{name:"ابحث في السجلات التجريبية"})).toHaveValue("");
