@@ -2,9 +2,9 @@ package com.ioeti.core.security;
 
 import com.axelor.auth.AuthUtils;
 import com.axelor.auth.db.User;
-import com.axelor.utils.api.HttpExceptionHandler;
 import com.axelor.utils.api.ResponseConstructor;
-import jakarta.ws.rs.ForbiddenException;
+import com.ioeti.core.api.ApiException;
+import com.ioeti.core.api.IoetiEndpoint;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
@@ -17,11 +17,11 @@ import jakarta.ws.rs.core.Response;
 public class IdentityBoundaryRestController {
 
   @GET
-  @HttpExceptionHandler
+  @IoetiEndpoint
   public Response stats() {
     User user = AuthUtils.getUser();
     if (user == null || !AuthUtils.isAdmin(user)) {
-      throw new ForbiddenException("Administrators only.");
+      throw ApiException.forbidden();
     }
     return ResponseConstructor.build(
         Response.Status.OK, "Request identity boundary", RequestIdentityBoundary.stats());

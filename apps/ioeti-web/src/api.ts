@@ -23,8 +23,29 @@ type Envelope<T> = {
   codeStatus?: number; messageStatus?: string; object?: T; status?: number;
   data?: unknown; message?: string;
 };
+export type ApiFieldError = { field: string; code: string };
+/** statusCode plus the stable IOETI error contract (error.code / error.fields); the UI localizes these. */
 export class ApiError extends Error {
-  constructor(public readonly statusCode: number, message: string) { super(message); }
+  constructor(
+    public readonly statusCode: number,
+    message: string,
+    public readonly code: string | null = null,
+    public readonly fields: ApiFieldError[] = [],
+  ) { super(message); }
+}
+async function contractDetails(response: Response): Promise<{ code: string | null; fields: ApiFieldError[] }> {
+  try {
+    const body = await response.clone().json() as { error?: { code?: unknown; fields?: unknown } };
+    const error = body?.error;
+    const fields = Array.isArray(error?.fields)
+      ? error.fields.filter((f): f is ApiFieldError =>
+          !!f && typeof (f as ApiFieldError).field === "string" && typeof (f as ApiFieldError).code === "string")
+        .map(f => ({ field: f.field, code: f.code }))
+      : [];
+    return { code: typeof error?.code === "string" ? error.code : null, fields };
+  } catch {
+    return { code: null, fields: [] };
+  }
 }
 async function request(path: string, options?: RequestInit): Promise<Response> {
   let response: Response;
@@ -38,10 +59,12 @@ async function request(path: string, options?: RequestInit): Promise<Response> {
     throw new ApiError(0, "Backend is unreachable");
   }
   if (response.status === 401 || response.status === 403) {
-    throw new ApiError(response.status, response.status === 401 ? "Session expired" : "Access denied");
+    const { code } = await contractDetails(response);
+    throw new ApiError(response.status, response.status === 401 ? "Session expired" : "Access denied", code);
   }
   if (!response.ok) {
-    throw new ApiError(response.status, response.status === 409 ? "Record was changed elsewhere" : "Request failed");
+    const { code, fields } = await contractDetails(response);
+    throw new ApiError(response.status, response.status === 409 ? "Record was changed elsewhere" : "Request failed", code, fields);
   }
   return response;
 }
