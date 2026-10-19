@@ -98,6 +98,7 @@ for(const file of matrices){
   seen.add(id);capCount++;
   const raw=row[get("upstream_source_symbols")]||"";
   for(const symbol of raw.split(";")){
+   if(symbol.trim()==="none"){skipped++;continue;}
    const [alias,name]=symbol.trim().split(":");
    if(!alias||!name){errors.push("Malformed source symbol "+id+" "+symbol);continue;}
    const repoName=aliases[alias];
