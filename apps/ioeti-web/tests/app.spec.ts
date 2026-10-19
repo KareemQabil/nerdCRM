@@ -287,10 +287,11 @@ test("Opportunity compact modal traps focus, escapes safely and restores origina
   const dialog=page.getByRole("dialog");
   await expect(dialog).toBeVisible();
   await expect(dialog.getByRole("textbox",{name:"اسم الفرصة"})).toBeFocused();
+  await dialog.getByRole("button",{name:"حفظ التغييرات"}).focus();
+  await page.keyboard.press("Tab");
+  await expect(dialog.getByRole("button",{name:"رجوع"}).first()).toBeFocused();
   await page.keyboard.press("Shift+Tab");
   await expect(dialog.getByRole("button",{name:"حفظ التغييرات"})).toBeFocused();
-  await page.keyboard.press("Tab");
-  await expect(dialog.getByRole("button",{name:"رجوع"})).toBeFocused();
   await page.keyboard.press("Escape");
   await expect(dialog).toHaveCount(0);
   await expect(create).toBeFocused();
