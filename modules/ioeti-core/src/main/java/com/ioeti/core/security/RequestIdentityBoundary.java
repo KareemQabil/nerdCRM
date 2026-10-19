@@ -32,10 +32,15 @@ public final class RequestIdentityBoundary {
 
   /** Registers the filter on the servlet context being initialized, if there is one. */
   public static void register() {
-    register(new ServletContextAccess().servletContext());
+    register(servletContext());
   }
 
-  static void register(ServletContext context) {
+  /** The servlet context being initialized, or null outside a web container (tests, tools). */
+  public static ServletContext servletContext() {
+    return new ServletContextAccess().servletContext();
+  }
+
+  public static void register(ServletContext context) {
     if (context == null) {
       return;
     }
