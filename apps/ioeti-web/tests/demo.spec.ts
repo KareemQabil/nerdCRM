@@ -123,3 +123,46 @@ test("fundraising preview distinguishes pledged from collected cash and recruitm
  await candidates.nth(1).check();
  await expect(hiring).toContainText("1");
 });
+
+
+test("pipeline board groups fictional records by stage and keeps full record navigation",async ({page})=>{
+ await page.goto("/#/demo/quotes");
+ await expect(page.locator(".demo-record-row")).toHaveCount(3);
+ await page.getByRole("button",{name:"لوحة المراحل"}).click();
+ const board=page.getByTestId("demo-pipeline-board");
+ await expect(board).toBeVisible();
+ await expect(board.locator(".demo-board-column")).toHaveCount(5);
+ await expect(board.locator(".demo-board-card")).toHaveCount(3);
+ await board.locator(".demo-board-card").first().click();
+ await expect(page.locator(".demo-record-hero h1")).toBeVisible();
+ await page.getByRole("button",{name:"الرجوع للسجل"}).click();
+ await page.getByRole("button",{name:"قائمة"}).click();
+ await expect(page.locator(".demo-record-row")).toHaveCount(3);
+ await expect(board).toHaveCount(0);
+});
+test("pipeline shares stage/search filters and supports slash-to-search keyboard access",async ({page})=>{
+ await page.goto("/#/demo/quotes");
+ await page.keyboard.press("/");
+ const search=page.getByRole("textbox",{name:"ابحث في السجلات التجريبية"});
+ await expect(search).toBeFocused();
+ await search.fill("Nile View");
+ await page.getByRole("button",{name:"لوحة المراحل"}).click();
+ const board=page.getByTestId("demo-pipeline-board");
+ await expect(board.locator(".demo-board-card")).toHaveCount(1);
+ await page.getByRole("combobox",{name:"المرحلة"}).selectOption("2");
+ await expect(board.locator(".demo-board-card")).toHaveCount(1);
+ await page.getByRole("combobox",{name:"المرحلة"}).selectOption("1");
+ await expect(board).toHaveCount(0);
+ await expect(page.getByText("لا توجد سيناريوهات مطابقة للبحث")).toBeVisible();
+});
+test("pipeline uses English LTR and horizontal mobile scrolling inside the workspace",async ({page})=>{
+ await page.setViewportSize({width:390,height:844});
+ await page.goto("/#/training");
+ await page.getByRole("button",{name:"اللغة"}).click();
+ await expect(page.locator("html")).toHaveAttribute("dir","ltr");
+ await page.getByRole("button",{name:"Pipeline board"}).click();
+ const board=page.getByTestId("demo-pipeline-board");
+ await expect(board.locator(".demo-board-column")).toHaveCount(6);
+ await expect(board.locator(".demo-board-card")).toHaveCount(3);
+ await expect(page.locator("body")).toHaveJSProperty("scrollWidth",390);
+});
