@@ -1,11 +1,8 @@
 package com.ioeti.commercial.rest;
 
-import com.axelor.apps.base.AxelorException;
 import com.axelor.apps.base.db.Company;
 import com.axelor.apps.base.db.Partner;
 import com.axelor.apps.base.db.Product;
-import com.axelor.apps.base.db.repo.TraceBackRepository;
-import com.axelor.apps.base.exceptions.ObserverBaseException;
 import com.axelor.apps.crm.db.Opportunity;
 import com.axelor.apps.sale.db.SaleOrder;
 import com.axelor.apps.sale.db.SaleOrderLine;
@@ -21,10 +18,8 @@ import com.axelor.utils.api.ResponseConstructor;
 import com.axelor.utils.api.SecurityCheck;
 import com.ioeti.commercial.service.QuoteService;
 import com.ioeti.core.api.ApiException;
-import com.ioeti.core.api.CorrelationId;
 import com.ioeti.core.api.IoetiEndpoint;
 import com.ioeti.core.api.RecordAccess;
-import com.ioeti.core.web.OptimisticLockConflicts;
 import io.swagger.v3.oas.annotations.Operation;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.GET;
@@ -37,8 +32,6 @@ import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import java.math.BigDecimal;
 import java.util.List;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * Draft quotations for opportunities (Wave 3), on native AOS {@code SaleOrder} records.
@@ -52,7 +45,6 @@ import org.slf4j.LoggerFactory;
 @Produces(MediaType.APPLICATION_JSON)
 public class QuoteRestController {
 
-  private static final Logger LOG = LoggerFactory.getLogger(QuoteRestController.class);
 
   static final String TAX_STATUS = "BLOCKED_BY_POLICY";
   static final BigDecimal MAX_QUANTITY = new BigDecimal("100000");
@@ -157,38 +149,9 @@ public class QuoteRestController {
     return quantity;
   }
 
-  @FunctionalInterface
-  interface NativeCommand {
-    void run() throws AxelorException;
-  }
-
-  /**
-   * Runs a native AOS write that commits on return. A concurrent write answers 409; a native rule
-   * answers 422. AOS reports some rules through CDI observers, wrapped in {@code
-   * ObserverBaseException} around the {@code AxelorException}.
-   */
-  static void runNative(NativeCommand command) {
-    OptimisticLockConflicts.translate(() -> {
-      try {
-        command.run();
-      } catch (AxelorException e) {
-        throw rejected(e);
-      } catch (ObserverBaseException e) {
-        if (e.getCause() instanceof AxelorException cause) throw rejected(cause);
-        throw e;
-      }
-    });
-  }
-
-  /** A native AOS rule refused the command: logged here (with the correlation id), never sent. */
-  static ApiException rejected(AxelorException e) {
-    LOG.warn("Quotation command refused by AOS [correlationId={}, category={}]: {}",
-        CorrelationId.current(), e.getCategory(), e.getMessage());
-    if (e.getCategory() == TraceBackRepository.CATEGORY_CONFIGURATION_ERROR) {
-      return new ApiException(
-          422, "SETUP_REQUIRED", "Sales setup for this company or product is incomplete.", null);
-    }
-    return new ApiException(422, "QUOTE_REJECTED", "The quotation cannot be changed this way.", null);
+  /** Native quotation writes: see {@link NativeCommands} for the error mapping. */
+  static void runNative(NativeCommands.NativeCommand command) {
+    NativeCommands.run(command, "QUOTE_REJECTED", "The quotation cannot be changed this way.");
   }
 
   static QuoteView view(SaleOrder quote) {

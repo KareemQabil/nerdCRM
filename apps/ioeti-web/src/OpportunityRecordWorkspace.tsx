@@ -8,6 +8,7 @@ import type { Opportunity } from "./api";
 import { DEMO_MODE } from "./demo";
 import type { Language } from "./preferences";
 import { QuotesPanel } from "./QuotesPanel";
+import { ContractPanel } from "./ContractPanel";
 
 type Props = {
   record: Opportunity; language: Language; onBack: () => void;
@@ -113,7 +114,7 @@ export function OpportunityRecordWorkspace({record,language,onBack,onRename,onPr
           {[
             {name:c.timeline,detail:c.timelineNote,icon:CalendarClock},
             ...(DEMO_MODE?[{name:c.quote,detail:c.quoteNote,icon:FileText}]:[]),
-            {name:c.contract,detail:c.contractNote,icon:ClipboardCheck}
+            ...(DEMO_MODE?[{name:c.contract,detail:c.contractNote,icon:ClipboardCheck}]:[])
           ].map(section=>{const Icon=section.icon;return <div className="opportunity-link-placeholder" key={section.name}>
             <Icon size={19}/><div><strong>{section.name}</strong><p>{section.detail}</p></div><span className="opportunity-link-pending" aria-label={c.missing}>—</span>
           </div>})}
@@ -121,6 +122,7 @@ export function OpportunityRecordWorkspace({record,language,onBack,onRename,onPr
       </section>
     </div>
     {!DEMO_MODE&&<QuotesPanel opportunityId={record.id} opportunityVersion={record.version} language={language} onOpportunityChanged={onRecordChanged}/>}
+    {!DEMO_MODE&&<ContractPanel opportunityId={record.id} opportunityVersion={record.version} language={language} onOpportunityChanged={onRecordChanged}/>}
     <section className="record-flow-card" aria-labelledby="opportunity-journey-title">
       <div className="record-flow-title"><div className="record-section-icon"><Workflow size={20}/></div><div>
         <h2 id="opportunity-journey-title">{c.stepsTitle}</h2><p>{c.stepsDesc}</p>

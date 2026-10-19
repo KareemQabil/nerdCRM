@@ -1,0 +1,57 @@
+# Wave 3 part 2b (draft contracts), local run 2026-10-19, Axelor 9.1.10 + PostgreSQL 16, branch claude/ioeti-wave3-contracts
+backup-drill: 10/10 checks passed · backup 8.6 MB in 1.83 s · restore 22.57 s
+env_PROBE_CONVERT_ROUNDS_10_python3_scripts_lead_conversion_: 28/28 checks passed
+env_PROBE_QUOTE_ROUNDS_10_python3_scripts_quote_probe.py: 44/44 checks passed
+env_PROBE_RESTORES_2_PROBE_WORKERS_2_PROBE_MIN_SECONDS_20_py: IDENTITY_PROBE {"checks": 291590, "leaks": 0} boundary {"present": tru
+migrate-verify: 8/8 checks passed
+python3_scripts_api_contract_probe.py: 31/31 checks passed
+python3_scripts_api_smoke_test.py: 16/16 checks passed
+python3_scripts_opportunity_concurrency_probe.py_20: 13/13 checks passed
+python3_scripts_opportunity_pilot_smoke.py: PILOT_CONTRACT=PASS
+python3_scripts_scope_matrix_probe.py: 65/65 checks passed
+python3_scripts_session_security_probe.py: 20/20 checks passed
+## quote_probe.py (PROBE_QUOTE_ROUNDS=10)
+PASS catalog: sellable products only (non-sellable hidden)
+PASS catalog: safe fields only (no cost, supplier or stock data)
+PASS catalog: overlong search → 422
+PASS no company for the user (several exist) → 422 SETUP_REQUIRED, nothing created
+PASS opportunity without account → 422 ACCOUNT_REQUIRED, nothing created
+PASS stale opportunity version → 409, nothing created
+PASS another rep's opportunity → same 404 as a missing id
+PASS read-only user → 403, nothing created
+PASS draft quotation created from the opportunity (201)
+PASS no tax amounts exposed (D-06)
+PASS persisted natively: salesperson, account, opportunity, company, draft
+PASS owner lists the opportunity's quotations
+PASS another rep: quotation and its opportunity's list answer like missing ids (404)
+PASS line added with the native computation: 2 × 1500.00 = 3000.00 before tax
+PASS stale quotation version → 409, no line added
+PASS unknown and non-sellable products refused identically (422 productId)
+PASS quantity 0, 5 decimals, above 100000 → 422
+PASS product without accounting setup → 422 SETUP_REQUIRED (no 500, no raw message)
+PASS another rep → 404
+PASS refused line commands added nothing
+PASS concurrent line additions: one 201 and one 409, one line per round (10 rounds)
+PASS quotation total matches its lines after concurrency
+PASS milestone added: 30 % of the total before tax, state PLANNED
+PASS booked / invoiced / collected kept apart and zero for a draft; invoicing policy-blocked
+PASS milestones above 100 % in total → 422 TOTAL_EXCEEDED, nothing added
+PASS bad percentage, date or title → 422, nothing added
+PASS stale quotation version → 409, nothing added
+PASS another rep: milestones answer like a missing quotation (404)
+PASS concurrent milestone additions: one 201 and one 409, total stays at 70 %
+PASS milestone amounts follow a line change (native updateTimetableAmounts)
+PASS invoicing a milestone → 422 BLOCKED_BY_POLICY (D-06), no invoice created
+PASS remove: stale → 409, another rep → 404, unknown milestone → 404; nothing removed
+PASS owner removes an uninvoiced milestone
+PASS contract: no company for the user → 422 SETUP_REQUIRED, nothing created
+PASS contract: bad type → 422, no account → 422 ACCOUNT_REQUIRED, stale → 409; nothing created
+PASS contract: another rep's opportunity → same 404 as missing; read-only → 403; nothing created
+PASS draft contract created from the opportunity (native), activation policy-blocked
+PASS persisted natively: customer contract, draft, account, opportunity, company
+PASS second contract for the same opportunity → 409 CONTRACT_EXISTS, still one
+PASS concurrent contract creation: one 201 and one 409, exactly one contract
+PASS contract reads: owner lists it; another rep gets the same 404 as a missing id
+PASS activation → 422 BLOCKED_BY_POLICY (D-11); handover of a draft → 422 CONTRACT_NOT_ACTIVE; still draft
+PASS finalize → 422 BLOCKED_BY_POLICY (D-06, D-11); still a draft
+PASS finalize by another rep → 404
