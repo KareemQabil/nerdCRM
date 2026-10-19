@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import {
   ArrowLeft, ArrowRight, BadgeCheck, Building2, ChevronLeft, ChevronRight,
-  CircleDashed, FileClock, Layers3, LockKeyhole, Network, ShieldCheck, UserRound, UsersRound
+  CircleDashed, FileClock, Layers3, LockKeyhole, Network, ShieldCheck, UserRound
 } from "lucide-react";
 import type { AccountSummary, LeadSummary } from "./api";
 import type { Language } from "./preferences";

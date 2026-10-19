@@ -116,8 +116,8 @@ export function OpportunitiesPage({ language, lines, labels }: Props) {
     </div>
     {more && <div className="load-more"><button type="button" className="btn btn-secondary" disabled={loadingMore} onClick={() => void loadMore()}>{loadingMore ? labels.loading : labels.moreRecords}</button></div>}
     <p className="scope-note"><ShieldCheck size={16}/>{labels.permissionNotice}</p>
-    {mode && <div className="drawer-overlay" onMouseDown={e => { if (e.target === e.currentTarget) setMode(null); }}>
-      <section className="record-drawer" role="dialog" aria-modal="true" aria-labelledby="opportunity-form-title">
+    {mode && <div className="drawer-overlay action-modal-overlay" onMouseDown={e => { if (e.target === e.currentTarget) setMode(null); }}>
+      <section className="action-modal" role="dialog" aria-modal="true" aria-labelledby="opportunity-form-title">
         <header className="drawer-header"><div className="detail-kicker">{labels.sales}</div><button ref={closeRef} type="button" className="icon-button" aria-label={labels.back} onClick={() => setMode(null)}><X size={18}/></button></header>
         <div className="drawer-body"><h2 id="opportunity-form-title">{mode.type === "create" ? labels.newOpportunity : labels.editOpportunity}</h2><p>{labels.opportunityFormHint}</p>
           <form id="opportunity-form" className="opportunity-form" onSubmit={e => void save(e)}>
