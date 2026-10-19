@@ -2,6 +2,7 @@ package com.ioeti.core.web;
 
 import com.axelor.auth.AuthUtils;
 import com.axelor.auth.db.User;
+import com.ioeti.core.api.IoetiEndpoint;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
@@ -20,6 +21,7 @@ import org.apache.shiro.subject.Subject;
 public class SessionRestController {
 
   @GET
+  @IoetiEndpoint
   public Response me() {
     Subject subject = AuthUtils.getSubject();
     if (subject == null || !subject.isAuthenticated()) {

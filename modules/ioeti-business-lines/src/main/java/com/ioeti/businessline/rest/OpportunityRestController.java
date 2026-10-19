@@ -1,7 +1,6 @@
 package com.ioeti.businessline.rest;
 
 import com.axelor.apps.crm.db.Opportunity;
-import com.axelor.apps.crm.db.repo.OpportunityRepository;
 import com.axelor.apps.crm.service.OpportunityService;
 import com.axelor.auth.AuthUtils;
 import com.axelor.db.JpaSecurity;
@@ -9,17 +8,17 @@ import com.axelor.db.Query;
 import com.axelor.inject.Beans;
 import com.axelor.rpc.filter.Filter;
 import com.axelor.utils.api.ConflictChecker;
-import com.axelor.utils.api.HttpExceptionHandler;
 import com.axelor.utils.api.ResponseConstructor;
 import com.axelor.utils.api.SecurityCheck;
 import com.ioeti.businessline.db.BusinessLine;
 import com.ioeti.businessline.db.repo.BusinessLineRepository;
+import com.ioeti.core.api.ApiException;
+import com.ioeti.core.api.IoetiEndpoint;
+import com.ioeti.core.api.RecordAccess;
 import com.ioeti.core.web.OptimisticLockConflicts;
 import io.swagger.v3.oas.annotations.Operation;
-import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.GET;
-import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.PUT;
 import jakarta.ws.rs.Path;
@@ -46,13 +45,13 @@ public class OpportunityRestController {
 
   @GET
   @Operation(summary = "List visible opportunities (bounded result)", tags = {"IOETI opportunities"})
-  @HttpExceptionHandler
+  @IoetiEndpoint
   public Response list(@QueryParam("limit") Integer requestedLimit, @QueryParam("offset") Integer requestedOffset) {
     new SecurityCheck().readAccess(Opportunity.class).check();
     int limit = requestedLimit == null ? 25 : requestedLimit;
     int offset = requestedOffset == null ? 0 : requestedOffset;
     if (limit < 1 || limit > MAX_PAGE_SIZE || offset < 0 || offset > 10000) {
-      throw new BadRequestException("Invalid pagination parameters.");
+      throw ApiException.badRequest("Invalid pagination parameters.");
     }
     Query<Opportunity> query = readableOpportunities().order("-id");
     List<OpportunityView> items = query.fetch(limit, offset).stream().map(this::view).toList();
@@ -62,19 +61,19 @@ public class OpportunityRestController {
   @GET
   @Path("/{id}")
   @Operation(summary = "Read an opportunity only when authorized for this record", tags = {"IOETI opportunities"})
-  @HttpExceptionHandler
+  @IoetiEndpoint
   public Response get(@PathParam("id") Long id) {
-    Opportunity opportunity = Beans.get(OpportunityRepository.class).find(id);
-    if (opportunity == null) throw new NotFoundException();
-    new SecurityCheck().readAccess(Opportunity.class, id).check();
+    // unknown and unreadable ids answer the same 404 (no existence oracle)
+    Opportunity opportunity = RecordAccess.readable(Opportunity.class, id);
     return ResponseConstructor.build(Response.Status.OK, "Opportunity", view(opportunity));
   }
 
   @POST
   @Consumes(MediaType.APPLICATION_JSON)
   @Operation(summary = "Create a minimal new opportunity with native Axelor business rules", tags = {"IOETI opportunities"})
-  @HttpExceptionHandler
+  @IoetiEndpoint
   public Response create(CreateOpportunity command) {
+    if (command == null) throw ApiException.badRequest("Request body is required.");
     new SecurityCheck().createAccess(Opportunity.class).check();
     String name = checkName(command == null ? null : command.name());
     String code = command == null ? null : command.businessLineCode();
@@ -93,14 +92,12 @@ public class OpportunityRestController {
   @Path("/{id}")
   @Consumes(MediaType.APPLICATION_JSON)
   @Operation(summary = "Update an opportunity title with permission and version checks", tags = {"IOETI opportunities"})
-  @HttpExceptionHandler
+  @IoetiEndpoint
   public Response rename(@PathParam("id") Long id, RenameOpportunity command) {
     if (command == null || command.version() == null) {
-      throw new BadRequestException("Record version is required.");
+      throw ApiException.badRequest("Record version is required.");
     }
-    new SecurityCheck().writeAccess(Opportunity.class, id).check();
-    Opportunity opportunity = Beans.get(OpportunityRepository.class).find(id);
-    if (opportunity == null) throw new NotFoundException();
+    Opportunity opportunity = RecordAccess.writable(Opportunity.class, id);
     // Stale client version: native AOS check, ClientErrorException(409).
     ConflictChecker.checkVersion(opportunity, command.version());
     opportunity.setName(checkName(command.name()));
@@ -111,17 +108,20 @@ public class OpportunityRestController {
     return ResponseConstructor.build(Response.Status.OK, "Opportunity updated", view(opportunity));
   }
 
+  /** Unknown, unreadable and inactive lines are rejected identically (no existence oracle). */
   private BusinessLine checkedLine(String rawCode) {
+    ApiException unavailable =
+      ApiException.invalidField("businessLineCode", "UNAVAILABLE", "Choose an active business line you can access.");
     if (rawCode == null || rawCode.isBlank()) {
-      throw new BadRequestException("Business line is required.");
+      throw ApiException.invalidField("businessLineCode", "REQUIRED", "Business line is required.");
     }
     String code = rawCode.trim().toUpperCase(Locale.ROOT);
     BusinessLine line = Beans.get(BusinessLineRepository.class).all()
       .filter("self.code = :code").bind("code", code).fetchOne();
-    if (line == null) throw new BadRequestException("Unknown business line.");
-    new SecurityCheck().readAccess(BusinessLine.class, line.getId()).check();
-    if (!Integer.valueOf(BusinessLineRepository.STATUS_ACTIVE).equals(line.getStatusSelect())) {
-      throw new BadRequestException("Business line is not active.");
+    if (line == null
+      || !Beans.get(JpaSecurity.class).isPermitted(JpaSecurity.CAN_READ, BusinessLine.class, line.getId())
+      || !Integer.valueOf(BusinessLineRepository.STATUS_ACTIVE).equals(line.getStatusSelect())) {
+      throw unavailable;
     }
     return line;
   }
@@ -129,7 +129,7 @@ public class OpportunityRestController {
   private static String checkName(String name) {
     String value = name == null ? "" : name.trim();
     if (value.length() < 3 || value.length() > 160) {
-      throw new BadRequestException("Opportunity name must be between 3 and 160 characters.");
+      throw ApiException.invalidField("name", "LENGTH", "Opportunity name must be between 3 and 160 characters.");
     }
     return value;
   }

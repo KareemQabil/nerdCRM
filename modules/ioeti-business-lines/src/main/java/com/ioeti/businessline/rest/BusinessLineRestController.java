@@ -4,11 +4,12 @@ import com.axelor.db.JpaSecurity;
 import com.axelor.db.Query;
 import com.axelor.inject.Beans;
 import com.axelor.rpc.filter.Filter;
-import com.axelor.utils.api.HttpExceptionHandler;
 import com.axelor.utils.api.ResponseConstructor;
 import com.axelor.utils.api.SecurityCheck;
 import com.ioeti.businessline.db.BusinessLine;
 import com.ioeti.businessline.db.repo.BusinessLineRepository;
+import com.ioeti.core.api.ApiException;
+import com.ioeti.core.api.IoetiEndpoint;
 import io.swagger.v3.oas.annotations.Operation;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.Path;
@@ -36,7 +37,7 @@ public class BusinessLineRestController {
       summary = "List business lines visible to the current user",
       tags = {"IOETI business lines"})
   @GET
-  @HttpExceptionHandler
+  @IoetiEndpoint
   public Response list(@QueryParam("activeOnly") boolean activeOnly) {
     new SecurityCheck().readAccess(BusinessLine.class).check();
     List<BusinessLineResponse> lines =
@@ -56,7 +57,7 @@ public class BusinessLineRestController {
       tags = {"IOETI business lines"})
   @GET
   @Path("/{code}")
-  @HttpExceptionHandler
+  @IoetiEndpoint
   public Response get(@PathParam("code") String code) {
     new SecurityCheck().readAccess(BusinessLine.class).check();
     String wanted = code == null ? "" : code.trim().toUpperCase(Locale.ROOT);
@@ -67,8 +68,7 @@ public class BusinessLineRestController {
             line ->
                 ResponseConstructor.build(
                     Response.Status.OK, "Business line", BusinessLineResponse.of(line)))
-        .orElseGet(
-            () -> ResponseConstructor.build(Response.Status.NOT_FOUND, "Business line not found"));
+        .orElseThrow(ApiException::notFound);
   }
 
   /** Query restricted by the record-level conditions of the current user's permissions. */

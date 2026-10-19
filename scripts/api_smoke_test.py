@@ -176,9 +176,8 @@ def main():
           f"http={status} body={json.dumps(body, ensure_ascii=False)[:200]}")
 
     status, body = viewer.call("POST", f"/ws/rest/{BL}/search", {"fields": ["code"], "limit": 50})
-    gcodes = [r.get("code") for r in body.get("data", [])] if ok(body) else []
-    check("NEG generic /ws/rest search applies the same record filter",
-          ok(body) and test_code not in gcodes and "ISO9001" in gcodes, f"codes={gcodes}")
+    check("NEG generic /ws/rest is closed to non-maintenance users (SEC-002)",
+          status == 403 and "data" not in body, f"http={status}")
 
     status, body = viewer.call("POST", f"/ws/rest/{BL}/{iso_id}", {"data": {"id": iso_id, "nameEn": "hacked"}})
     check("NEG viewer cannot update a business line (no write permission)",

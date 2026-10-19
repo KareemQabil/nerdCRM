@@ -60,6 +60,8 @@ jobs:
           python3 scripts/install_apps.py
           python3 scripts/opportunity_pilot_smoke.py
           python3 scripts/opportunity_concurrency_probe.py 20
+          # SEC-002: error contract, existence oracle, generic API exposure
+          python3 scripts/api_contract_probe.py
           # SEC-001: mixed sessions + admin metadata reloads; fails on any cross-identity result
           PROBE_RESTORES=2 PROBE_WORKERS=2 PROBE_MIN_SECONDS=20 \
             python3 scripts/identity_isolation_probe.py
@@ -71,6 +73,7 @@ jobs:
           path: |
             logs/identity-isolation-probe.json
             logs/opportunity-concurrency-probe.json
+            logs/api-contract-probe.json
           if-no-files-found: ignore
       - name: Attach Axelor integration logs
         if: failure()

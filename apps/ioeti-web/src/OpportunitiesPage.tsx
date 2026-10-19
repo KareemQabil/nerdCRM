@@ -165,6 +165,12 @@ export function OpportunitiesPage({ language, lines, labels }: Props) {
     } catch (reason) {
       if (reason instanceof ApiError && reason.statusCode === 409) setFormError(labels.conflict);
       else if (reason instanceof ApiError && reason.statusCode === 403) setFormError(labels.forbidden);
+      else if (reason instanceof ApiError && reason.statusCode === 422) {
+        // server validation (IOETI error contract): localize by field, never show raw server text
+        const field = reason.fields[0]?.field;
+        setFormError(field === "name" ? labels.invalidName
+          : field === "businessLineCode" ? labels.lineUnavailable : labels.unavailable);
+      }
       else setFormError(reason instanceof Error ? reason.message : labels.unavailable);
     } finally { setSaving(false); }
   }

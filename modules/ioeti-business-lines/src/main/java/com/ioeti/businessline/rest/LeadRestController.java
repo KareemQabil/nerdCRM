@@ -5,13 +5,13 @@ import com.axelor.db.JpaSecurity;
 import com.axelor.db.Query;
 import com.axelor.inject.Beans;
 import com.axelor.rpc.filter.Filter;
-import com.axelor.utils.api.HttpExceptionHandler;
 import com.axelor.utils.api.ResponseConstructor;
 import com.axelor.utils.api.SecurityCheck;
+import com.ioeti.core.api.ApiException;
+import com.ioeti.core.api.IoetiEndpoint;
+import com.ioeti.core.api.RecordAccess;
 import io.swagger.v3.oas.annotations.Operation;
-import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.GET;
-import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
@@ -29,13 +29,13 @@ import java.util.List;
 public class LeadRestController {
   @GET
   @Operation(summary = "Read authorized leads using the existing Axelor CRM model", tags = {"IOETI leads"})
-  @HttpExceptionHandler
+  @IoetiEndpoint
   public Response list(@QueryParam("limit") Integer requestedLimit, @QueryParam("offset") Integer requestedOffset) {
     new SecurityCheck().readAccess(Lead.class).check();
     int limit = requestedLimit == null ? 25 : requestedLimit;
     int offset = requestedOffset == null ? 0 : requestedOffset;
     if (limit < 1 || limit > 50 || offset < 0 || offset > 10000) {
-      throw new BadRequestException("Invalid pagination parameters");
+      throw ApiException.badRequest("Invalid pagination parameters.");
     }
     Filter condition = Beans.get(JpaSecurity.class).getFilter(JpaSecurity.CAN_READ, Lead.class);
     Query<Lead> query = condition == null ? Query.of(Lead.class) : condition.build(Lead.class);
@@ -46,16 +46,10 @@ public class LeadRestController {
   @GET
   @Path("/{id}")
   @Operation(summary = "Read one lead with record-level permission checks", tags = {"IOETI leads"})
-  @HttpExceptionHandler
+  @IoetiEndpoint
   public Response get(@PathParam("id") Long id) {
-    new SecurityCheck().readAccess(Lead.class, id).check();
-    Filter condition = Beans.get(JpaSecurity.class).getFilter(JpaSecurity.CAN_READ, Lead.class);
-    Query<Lead> query = condition == null ? Query.of(Lead.class) : condition.build(Lead.class);
-    Lead lead = query.filter("self.id = :id").bind("id", id).fetchOne();
-    // Preserve record-level security even if Query.filter replaces earlier predicates:
-    if (lead == null || !Beans.get(JpaSecurity.class).isPermitted(JpaSecurity.CAN_READ, Lead.class, id)) {
-      throw new NotFoundException();
-    }
+    // unknown and unreadable ids answer the same 404 (no existence oracle)
+    Lead lead = RecordAccess.readable(Lead.class, id);
     return ResponseConstructor.build(Response.Status.OK, "Lead", project(lead));
   }
 
