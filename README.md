@@ -3,8 +3,7 @@
 Built on **Axelor Open Suite 9.1.10** (Community, AGPL-3.0) without modifying upstream code.
 IOETI-specific code lives in `modules/ioeti-*`; Axelor is a pinned git submodule in `axelor-app/`.
 
-Status: development foundation (phase 1). Runs locally, two IOETI modules installed, one vertical
-slice (Business Lines) with tests. See `docs/EXECUTION_REPORT.md`.
+Status: Axelor foundation (phase 1) plus custom IOETI React UI (design + read-only Business Lines vertical slice). See `docs/EXECUTION_REPORT.md` for backend checks and `apps/ioeti-web/README.md` for frontend scope; frontend is not production-ready.
 
 ## Quick start (Linux / macOS / WSL2)
 ```bash
@@ -15,6 +14,12 @@ scripts/ioeti.sh install-apps  # once per database, in a second terminal after "
 scripts/ioeti.sh test | smoke | ui | health | restore-meta | status
 ```
 Windows: WSL2 recommended; `scripts\ioeti.ps1` covers init/db-up/build/run/health.
+
+## Custom IOETI interface
+
+The product UI is independent from Axelor (ADR-001). Run the local React app from apps/ioeti-web with npm install && npm run dev after starting Axelor. Inspired by user-supplied NerdPOS design tokens and five-level attention hierarchy: Light, Dark and Luxury themes; Arabic RTL/English LTR; compact/comfortable density; alternate navigation; real read-only Business Lines data. No mock CRM records.
+
+The original Axelor UI is retained for developer/maintenance only. See docs/design/NERDPOS_PHILOSOPHY_TO_CRM.md.
 
 ## Documentation
 | Document | Content |
