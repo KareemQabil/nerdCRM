@@ -1,0 +1,46 @@
+# IOETI custom web application
+
+An independent React/TypeScript design foundation using the supplied NerdPOS design system and hierarchy philosophy, adapted for a real Axelor-backed CRM.
+
+## Start locally
+
+1. Start the existing Axelor stack using the repository's docs/DEVELOPMENT_GUIDE.md.
+2. Make sure ioeti-core and ioeti-business-lines are installed and /ws/ioeti/business-lines works.
+3. From the repo root:
+
+```bash
+cd apps/ioeti-web
+npm install
+npm run dev
+```
+
+Open http://127.0.0.1:5173. The dev server proxies /axelor-erp to http://127.0.0.1:8080. Override IOETI_AXELOR_ORIGIN for a different **local** Axelor origin. The dev server binds to loopback only.
+
+Use a **development-only** account that has permission to read BusinessLine. The browser submits credentials to the same-origin proxied Axelor /callback and verifies the session with GET /ws/ioeti/business-lines. There are no hard-coded credentials, mock business records, browser-stored tokens or generic REST calls.
+
+Scripts:
+- npm run dev — start local UI.
+- npm run typecheck — TypeScript validation.
+- npm run build — typecheck and production asset build.
+- npm run preview — preview assets locally (NOT a production deployment).
+
+## First accessible vertical slice
+
+- Real session-gated app shell.
+- Arabic RTL / English LTR.
+- Three NerdPOS-inspired themes: Light, Dark, Luxury.
+- Density (compact/comfortable) and sidebar layout (rail/expanded).
+- Overview counts based ONLY on the returned visible business lines.
+- Business Lines list with search, filters and detail drawer.
+- Design system lab for live theme and component inspection.
+
+**Not implemented:** opportunities, client management, quote flow, ISO operations or admin writes. Their entries are disabled rather than faked.
+
+**Security gates:** This UI is a development prototype only. There is no verified server-side logout workflow, no hardened auth/session gateway, no CSRF threat model, and upstream permission/context findings remain unresolved. The app must not be publicly exposed or deployed to production. Native Axelor stays maintenance-only in the intended architecture.
+
+Fonts: Almarai and Inter via Google Fonts, with system fallbacks when offline. No proprietary font assets are committed.
+
+## Design documents
+
+- docs/decisions/ADR-001-FULLY-CUSTOM-UI.md
+- docs/design/NERDPOS_PHILOSOPHY_TO_CRM.md
