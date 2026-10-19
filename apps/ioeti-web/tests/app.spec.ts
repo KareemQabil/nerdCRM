@@ -276,3 +276,22 @@ test("capability flow on mobile remains within current navigation and supports E
   await journey.getByRole("tab",{name:/Grant application/}).click();
   await expect(journey.getByRole("tabpanel")).toContainText("Grant");
 });
+
+test("Opportunity compact modal traps focus, escapes safely and restores originating button focus",async ({page})=>{
+  await intercept(page);
+  await page.goto("/");
+  await page.getByRole("button",{name:"المبيعات"}).click();
+  const create=page.getByRole("button",{name:"فرصة جديدة"});
+  await create.focus();
+  await create.click();
+  const dialog=page.getByRole("dialog");
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByRole("textbox",{name:"اسم الفرصة"})).toBeFocused();
+  await page.keyboard.press("Shift+Tab");
+  await expect(dialog.getByRole("button",{name:"حفظ التغييرات"})).toBeFocused();
+  await page.keyboard.press("Tab");
+  await expect(dialog.getByRole("button",{name:"رجوع"})).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(dialog).toHaveCount(0);
+  await expect(create).toBeFocused();
+});

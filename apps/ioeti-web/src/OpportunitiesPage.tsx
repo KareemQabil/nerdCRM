@@ -29,6 +29,8 @@ export function OpportunitiesPage({ language, lines, labels }: Props) {
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState("");
   const closeRef = useRef<HTMLButtonElement>(null);
+  const dialogRef = useRef<HTMLElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
   const previousFocus = useRef<HTMLElement | null>(null);
   const isRTL = language === "ar";
   const arrow = isRTL ? <ArrowLeft size={17} /> : <ArrowRight size={17}/>;
@@ -113,11 +115,25 @@ export function OpportunitiesPage({ language, lines, labels }: Props) {
 
   useEffect(() => {
     if (!mode) return;
-    closeRef.current?.focus();
-    function escape(event: KeyboardEvent) { if (event.key === "Escape") setMode(null); }
-    document.addEventListener("keydown", escape);
-    return () => { document.removeEventListener("keydown", escape); previousFocus.current?.focus(); };
+    inputRef.current?.focus();
+    return () => { previousFocus.current?.focus(); };
   }, [mode]);
+
+  function onDialogKeyDown(event: React.KeyboardEvent<HTMLElement>) {
+    if (event.key === "Escape") {
+      event.stopPropagation();
+      if (!saving) setMode(null);
+      return;
+    }
+    if (event.key !== "Tab" || !dialogRef.current) return;
+    const focusable = Array.from(dialogRef.current.querySelectorAll<HTMLElement>(
+      'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+    )).filter(node => node.getClientRects().length > 0);
+    if (!focusable.length) { event.preventDefault(); dialogRef.current.focus(); return; }
+    const first = focusable[0], last = focusable[focusable.length - 1];
+    if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+    else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+  }
 
   function openCreate(event: React.MouseEvent<HTMLButtonElement>) {
     previousFocus.current = event.currentTarget;
@@ -201,17 +217,17 @@ export function OpportunitiesPage({ language, lines, labels }: Props) {
     {more && <div className="load-more"><button type="button" className="btn btn-secondary" disabled={loadingMore} onClick={() => void loadMore()}>{loadingMore ? labels.loading : labels.moreRecords}</button></div>}
     <p className="scope-note"><ShieldCheck size={16}/>{labels.permissionNotice}</p>
     </div>)}
-    {mode && <div className="drawer-overlay action-modal-overlay" onMouseDown={e => { if (e.target === e.currentTarget) setMode(null); }}>
-      <section className="action-modal" role="dialog" aria-modal="true" aria-labelledby="opportunity-form-title">
-        <header className="drawer-header"><div className="detail-kicker">{labels.sales}</div><button ref={closeRef} type="button" className="icon-button" aria-label={labels.back} onClick={() => setMode(null)}><X size={18}/></button></header>
-        <div className="drawer-body"><h2 id="opportunity-form-title">{mode.type === "create" ? labels.newOpportunity : labels.editOpportunity}</h2><p>{labels.opportunityFormHint}</p>
+    {mode && <div className="drawer-overlay action-modal-overlay" onMouseDown={e => { if (!saving && e.target === e.currentTarget) setMode(null); }}>
+      <section ref={dialogRef} className="action-modal" role="dialog" aria-modal="true" aria-labelledby="opportunity-form-title" aria-describedby="opportunity-form-description" tabIndex={-1} onKeyDown={onDialogKeyDown}>
+        <header className="drawer-header"><div className="detail-kicker">{labels.sales}</div><button ref={closeRef} type="button" className="icon-button" aria-label={labels.back} disabled={saving} onClick={() => setMode(null)}><X size={18}/></button></header>
+        <div className="drawer-body"><h2 id="opportunity-form-title">{mode.type === "create" ? labels.newOpportunity : labels.editOpportunity}</h2><p id="opportunity-form-description">{labels.opportunityFormHint}</p>
           <form id="opportunity-form" className="opportunity-form" onSubmit={e => void save(e)}>
-            <label><span>{labels.opportunityName}</span><input autoFocus maxLength={160} value={name} onChange={e => setName(e.target.value)} required minLength={3}/></label>
+            <label><span>{labels.opportunityName}</span><input ref={inputRef} maxLength={160} value={name} onChange={e => setName(e.target.value)} required minLength={3}/></label>
             {mode.type === "create" && <label><span>{labels.businessLines}</span><select required value={businessLineCode} onChange={e => setBusinessLineCode(e.target.value)}><option value="">{labels.chooseLine}</option>{lines.filter(line => line.status === 2).map(line => <option key={line.id} value={line.code}>{isRTL ? line.nameAr : line.nameEn}</option>)}</select></label>}
             {formError && <div className="login-error" role="alert"><CircleAlert size={17}/>{formError}</div>}
           </form>
         </div>
-        <footer className="drawer-footer drawer-actions"><button className="btn btn-secondary" type="button" onClick={() => setMode(null)}>{labels.back}</button><button className="btn btn-primary" type="submit" form="opportunity-form" disabled={saving}><Save size={16}/>{saving ? labels.loading : labels.save}</button></footer>
+        <footer className="drawer-footer drawer-actions"><button className="btn btn-secondary" type="button" disabled={saving} onClick={() => setMode(null)}>{labels.back}</button><button className="btn btn-primary" type="submit" form="opportunity-form" disabled={saving}><Save size={16}/>{saving ? labels.loading : labels.save}</button></footer>
       </section>
     </div>}
   </section>;
