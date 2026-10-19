@@ -52,6 +52,11 @@ class QuoteRulesTest {
           new AxelorException(TraceBackRepository.CATEGORY_CONFIGURATION_ERROR, "x"), "x");
     }));
     assertEquals("SETUP_REQUIRED", observed.code());
+    ApiException wrapped = assertThrows(ApiException.class, () -> QuoteRestController.runNative(() -> {
+      throw new jakarta.persistence.PersistenceException(
+          new AxelorException(TraceBackRepository.CATEGORY_CONFIGURATION_ERROR, "no sequence"));
+    }));
+    assertEquals("SETUP_REQUIRED", wrapped.code());
     assertThrows(IllegalStateException.class, () -> QuoteRestController.runNative(() -> {
       throw new IllegalStateException("bug");
     }));

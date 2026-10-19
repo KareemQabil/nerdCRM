@@ -773,3 +773,10 @@ td code { display: inline-block; font: 11px Inter,monospace; color: var(--on-sur
 .milestone-figures dd{margin:4px 0 0;font-weight:700;font-size:12px;}
 .milestone-form{grid-template-columns:minmax(0,2fr) minmax(0,1fr) minmax(0,1fr) auto;align-items:end;margin-top:0;}
 @media(max-width:740px){.milestone-figures{grid-template-columns:repeat(2,minmax(0,1fr));}.milestone-form{grid-template-columns:1fr;}}
+/* Wave 3: contract on the opportunity page */
+.contract-panel{margin-top:20px;}
+.contract-create{display:flex;flex-wrap:wrap;align-items:end;gap:14px;}
+.contract-create p{flex-basis:100%;margin:0;font-size:12px;color:var(--on-surface-variant);}
+.contract-create label{display:grid;gap:8px;font-size:12px;font-weight:700;}
+.contract-create select{color:var(--on-surface);background:var(--glass-light);border:1px solid var(--outline);border-radius:var(--radius);min-height:var(--control-height);padding:8px 12px;}
+.contract-body{display:grid;gap:14px;}

@@ -18,6 +18,8 @@ dependencies {
 	api project(":modules:axelor-sale")
 	// payment milestones are the native supplychain Timetable on SaleOrder (Wave 3 part 2)
 	api project(":modules:axelor-supplychain")
+	// customer contracts are the native axelor-contract Contract (Wave 3 part 2b)
+	api project(":modules:axelor-contract")
 
 	implementation libs.swagger_jaxrs
 }

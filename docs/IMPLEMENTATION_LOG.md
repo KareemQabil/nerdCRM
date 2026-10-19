@@ -327,3 +327,34 @@ Full report: `docs/slices/W3-payment-milestones.md`.
 | Web mocked | 27/27 |
 | Web demo | 14/14 |
 | Build | pass |
+
+## 2026-10-19 · Wave 3 part 2b · Draft customer contracts (signature and handover fail closed)
+
+Full report: `docs/slices/W3-draft-contracts.md`.
+
+### Change
+- `/ws/ioeti/contracts` (list, get, create draft) through the native `ContractService.generateContractFromOpportunity`; the user chooses the contract type.
+- One contract per opportunity, held under concurrency by a `PESSIMISTIC_FORCE_INCREMENT` lock on the opportunity.
+- `activate` answers 422 `BLOCKED_BY_POLICY` (D-11). `handover` answers 422 `CONTRACT_NOT_ACTIVE` for a contract that isn't active, otherwise `BLOCKED_BY_POLICY`.
+- Shared `NativeCommands` error mapping: an `AxelorException` anywhere in the cause chain becomes `SETUP_REQUIRED` or the command's own code.
+- UI: contract section on the opportunity page.
+- D-11 widened to cover contract signature and handover.
+
+### Evidence (local; CI on the PR)
+| Check | Result |
+|---|---|
+| Quote probe (quotations, milestones and 9 contract checks; 10 rounds) | 44/44 |
+| Lead conversion | 28/28 |
+| Pilot | PASS |
+| Two-writer | 13/13 |
+| Contract | 31/31 |
+| Smoke | 16/16 |
+| Identity | 0/291,590 |
+| Scopes | 65/65 |
+| Session | 20/20 |
+| Migration verify | 8/8 |
+| Backup drill | 10/10 |
+| JUnit | 59/59 (+2 `ContractRulesTest`, +1 wrapped-refusal case) |
+| Web mocked | 28/28 |
+| Web demo | 14/14 |
+| Build | pass |

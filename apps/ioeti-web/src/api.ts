@@ -270,3 +270,23 @@ export async function removeMilestone(quoteId: number, milestoneId: number, vers
   if (DEMO_MODE) throw new ApiError(403, "Preview mode is read-only");
   return wrapped<MilestonePlan>(`/ws/ioeti/quotes/${encodeURIComponent(quoteId)}/milestones/${encodeURIComponent(milestoneId)}?version=${encodeURIComponent(version)}`, { method: "DELETE" });
 }
+
+/** Wave 3: draft customer contracts (native AOS Contract). Activation and handover are policy-blocked (D-11). */
+export type Contract = {
+  id: number; version: number; reference: string | null; name: string | null; status: string | null;
+  contractType: "BILLING" | "FRAMEWORK" | null; opportunityId: number | null; accountId: number | null;
+  accountName: string | null; currency: string | null; activationStatus: string;
+};
+export async function getContracts(opportunityId: number): Promise<Contract[]> {
+  if (DEMO_MODE) return [];
+  const values = await wrapped<Contract[]>(`/ws/ioeti/contracts?opportunityId=${encodeURIComponent(opportunityId)}`);
+  if (!Array.isArray(values)) throw new ApiError(502, "Invalid contracts response");
+  return values;
+}
+export async function createContract(opportunityId: number, opportunityVersion: number, contractType: "BILLING" | "FRAMEWORK"): Promise<Contract> {
+  if (DEMO_MODE) throw new ApiError(403, "Preview mode is read-only");
+  return wrapped<Contract>("/ws/ioeti/contracts", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ opportunityId, opportunityVersion, contractType }),
+  });
+}
