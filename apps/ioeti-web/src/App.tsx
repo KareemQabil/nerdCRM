@@ -34,7 +34,7 @@ function IconButton({ children, onClick, label, className = "" }: { children: Re
 export function App() {
   const prefs = usePreferences();
   const labels = t(prefs.language);
-  const [page, setPage] = useState<Page>("home");
+  const [page, setPage] = useState<Page>(getPageFromLocation);
   const [session, setSession] = useState<Session>("checking");
   const [identity, setIdentity] = useState<SessionIdentity | null>(null);
   const [lines, setLines] = useState<BusinessLine[]>([]);
@@ -44,8 +44,6 @@ export function App() {
   const [status, setStatus] = useState<LineFilter>("all");
   const [mobileNav, setMobileNav] = useState(false);
   const [busy, setBusy] = useState(false);
-  const selectedReturnFocus = useRef<HTMLButtonElement | null>(null);
-  const drawerCloseRef = useRef<HTMLButtonElement | null>(null);
 
   async function refresh() {
     setBusy(true);
@@ -89,18 +87,22 @@ export function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Preserve side navigation. Browser history is for record pages, not a new nav.
   useEffect(() => {
-    if (!selected) return;
-    drawerCloseRef.current?.focus();
-    function onEscape(e: KeyboardEvent) {
-      if (e.key === "Escape") setSelected(null);
-    }
-    document.addEventListener("keydown", onEscape);
-    return () => {
-      document.removeEventListener("keydown", onEscape);
-      selectedReturnFocus.current?.focus();
+    const sync = () => {
+      setPage(getPageFromLocation());
+      const match = window.location.hash.match(/^#\/businessLines\/(\d+)$/);
+      if (!match) { setSelected(null); return; }
+      const id = Number(match[1]);
+      setSelected(lines.find(line => line.id === id) || null);
     };
-  }, [selected]);
+    window.addEventListener("popstate", sync);
+    window.addEventListener("hashchange", sync);
+    return () => {
+      window.removeEventListener("popstate", sync);
+      window.removeEventListener("hashchange", sync);
+    };
+  }, [lines]);
 
   const matching = useMemo(() => lines.filter((line) => {
     const query = search.trim().toLocaleLowerCase();
@@ -112,10 +114,25 @@ export function App() {
   const activeCount = lines.filter((line) => line.status === 2).length;
   const isRTL = prefs.language === "ar";
 
-  function navigate(next: Page) { setPage(next); setMobileNav(false); setSelected(null); }
-  function openLine(line: BusinessLine, source: HTMLButtonElement) {
-    selectedReturnFocus.current = source;
-    setSelected(line);
+  function navigate(next: Page) {
+    setPage(next); setMobileNav(false); setSelected(null);
+    if (window.location.hash !== "#/" + next) {
+      window.history.pushState(null, "", "#/" + next);
+    }
+    window.scrollTo({ top: 0, behavior: "instant" });
+  }
+  function openLine(line: BusinessLine) {
+    setPage("businessLines"); setSelected(line);
+    window.history.pushState({ ioetiBusinessLine: true }, "", "#/businessLines/" + line.id);
+    window.scrollTo({ top: 0, behavior: "instant" });
+  }
+  function backFromBusinessLine() {
+    if (window.history.state?.ioetiBusinessLine) {
+      window.history.back();
+    } else {
+      window.history.replaceState(null, "", "#/businessLines");
+      setSelected(null); setPage("businessLines");
+    }
   }
 
   if (session === "checking") return <div className="centered-loading"><span className="brand-emblem"><Layers3 size={28} /></span><span>{labels.loading}</span></div>;
@@ -188,6 +205,7 @@ export function App() {
 
       <main id="main-content" className="main-content">
         {loadError && <div className="error-banner" role="alert"><CircleAlert size={18}/><span>{labels.unavailable}: {loadError}</span><button className="btn btn-secondary" type="button" onClick={() => void refresh()}>{labels.retry}</button></div>}
+        {page === "businessLines" && selected && <BusinessLineWorkspace line={selected} labels={labels} onBack={backFromBusinessLine} />}
         {page === "home" && <section className="page-enter">
           <div className="hero-card">
             <div className="hero-text"><span className="eyebrow"><span className="live-pulse"/>{labels.product}</span><h1>{labels.welcome}</h1><p>{labels.overview}</p>
@@ -201,7 +219,7 @@ export function App() {
           </div>
           <div className="section-top"><div><span className="eyebrow">{labels.workspace}</span><h2>{labels.businessLines}</h2></div><button className="btn btn-secondary" type="button" onClick={() => navigate("businessLines")}>{labels.view}{isRTL ? <ArrowLeft size={16}/> : <ArrowRight size={16}/>}</button></div>
           <div className="lines-preview">
-            {lines.length === 0 ? <div className="empty-state">{labels.noAccess}</div> : lines.slice(0, 5).map((line) => <button key={line.id} className="preview-row" type="button" onClick={(event) => openLine(line, event.currentTarget)}><div className="line-monogram">{line.code.slice(0, 2)}</div><div className="line-name"><strong>{isRTL ? line.nameAr : line.nameEn}</strong><small dir="ltr">{line.code}</small></div><StatusPill status={line.status} labels={labels}/><ChevronDown className="row-chevron" size={17}/></button>)}
+            {lines.length === 0 ? <div className="empty-state">{labels.noAccess}</div> : lines.slice(0, 5).map((line) => <button key={line.id} className="preview-row" type="button" onClick={() => openLine(line)}><div className="line-monogram">{line.code.slice(0, 2)}</div><div className="line-name"><strong>{isRTL ? line.nameAr : line.nameEn}</strong><small dir="ltr">{line.code}</small></div><StatusPill status={line.status} labels={labels}/><ChevronDown className="row-chevron" size={17}/></button>)}
           </div>
           <p className="scope-note"><ShieldCheck size={15}/>{DEMO_MODE ? (isRTL ? "كل البيانات الظاهرة افتراضية ولا تمثل عملاء IOETI" : "All displayed business records are fictional") : labels.visualNote}</p>
         </section>}
@@ -210,7 +228,7 @@ export function App() {
         {page === "leads" && <DirectoryPage kind="leads" language={prefs.language} />}
         {page === "accounts" && <DirectoryPage kind="accounts" language={prefs.language} />}
         {page === "capabilities" && <NativeModules language={prefs.language} onOpen={navigate} />}
-        {page === "businessLines" && <section className="page-enter">
+        {page === "businessLines" && !selected && <section className="page-enter">
           <PageTitle eyebrow={labels.workspace} title={labels.businessLines} description={labels.description} />
           <div className="list-toolbar"><label className="search-field"><Search size={18}/><span className="sr-only">{labels.search}</span><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder={labels.search}/>{search && <button type="button" aria-label={labels.back} onClick={() => setSearch("")}><X size={16}/></button>}</label>
             <div className="toolbar-end"><div className="segmented" role="group" aria-label={labels.status}>{(["all","active","setup","suspended"] as LineFilter[]).map((x) => <button key={x} type="button" className={status === x ? "chosen" : ""} aria-pressed={status === x} onClick={() => setStatus(x)}>{labels[x]}</button>)}</div>
@@ -218,7 +236,7 @@ export function App() {
           </div>
           <div className="data-panel"><div className="data-panel-heading"><strong>{labels.allLines}</strong><span>{matching.length} {labels.result}</span></div>
             {matching.length === 0 ? <div className="empty-state"><CircleHelp size={28}/>{labels.empty}</div> : <div className="table-scroll"><table><thead><tr><th>{labels.businessLines}</th><th>{labels.code}</th><th>{labels.team}</th><th>{labels.status}</th><th><span className="sr-only">{labels.actions}</span></th></tr></thead>
-            <tbody>{matching.map((line) => <tr key={line.id}><td><div className="table-primary"><div className="line-monogram">{line.code.slice(0, 2)}</div><div><strong>{isRTL ? line.nameAr : line.nameEn}</strong><small>{isRTL ? line.nameEn : line.nameAr}</small></div></div></td><td><code dir="ltr">{line.code}</code></td><td>{line.responsibleTeam || labels.none}</td><td><StatusPill status={line.status} labels={labels}/></td><td><button className="text-action" type="button" onClick={(event) => openLine(line, event.currentTarget)}>{labels.details}{isRTL ? <ArrowLeft size={15}/> : <ArrowRight size={15}/>}</button></td></tr>)}</tbody></table></div>}
+            <tbody>{matching.map((line) => <tr key={line.id}><td><div className="table-primary"><div className="line-monogram">{line.code.slice(0, 2)}</div><div><strong>{isRTL ? line.nameAr : line.nameEn}</strong><small>{isRTL ? line.nameEn : line.nameAr}</small></div></div></td><td><code dir="ltr">{line.code}</code></td><td>{line.responsibleTeam || labels.none}</td><td><StatusPill status={line.status} labels={labels}/></td><td><button className="text-action" type="button" onClick={() => openLine(line)}>{labels.details}{isRTL ? <ArrowLeft size={15}/> : <ArrowRight size={15}/>}</button></td></tr>)}</tbody></table></div>}
           </div>
           <p className="scope-note"><LockKeyhole size={15}/>{labels.visualNote}</p>
         </section>}
@@ -226,14 +244,38 @@ export function App() {
         {page === "design" && <DesignLab labels={labels}/>}
       </main>
     </div>
-    {selected && <div className="drawer-overlay" onMouseDown={(e) => { if (e.currentTarget === e.target) setSelected(null); }}><section role="dialog" aria-modal="true" aria-labelledby="line-dialog-title" className="record-drawer">
-      <div className="drawer-header"><div className="detail-kicker">{labels.businessLines}</div><IconButton label={labels.back} onClick={() => setSelected(null)}><X size={19}/></IconButton></div>
-      <div className="drawer-body"><div className="detail-icon"><Layers3 size={28}/></div><h2 id="line-dialog-title">{isRTL ? selected.nameAr : selected.nameEn}</h2><p>{isRTL ? selected.nameEn : selected.nameAr}</p><StatusPill status={selected.status} labels={labels}/>
-        <dl className="detail-list"><div><dt>{labels.code}</dt><dd dir="ltr">{selected.code}</dd></div><div><dt>{labels.team}</dt><dd>{selected.responsibleTeam || labels.none}</dd></div><div><dt>{labels.status}</dt><dd>{statusName(selected.status, labels)}</dd></div></dl>
-        <p className="scope-note">{DEMO_MODE ? (isRTL ? "هذه البيانات توضيحية فقط" : "Sample data for preview only") : labels.noOperations}</p>
-      </div><div className="drawer-footer"><button ref={drawerCloseRef} type="button" className="btn btn-secondary" onClick={() => setSelected(null)}>{labels.back}</button></div>
-    </section></div>}
   </div>;
+}
+
+
+function BusinessLineWorkspace({ line, labels, onBack }: { line: BusinessLine; labels: ReturnType<typeof t>; onBack: () => void }) {
+  const language = usePreferences().language;
+  const ar = language === "ar";
+  const heading = useRef<HTMLHeadingElement>(null);
+  useEffect(() => { heading.current?.focus(); }, [line.id]);
+  return <article className="record-workspace page-enter">
+    <div className="record-context-bar">
+      <button type="button" className="record-back" onClick={onBack}>{ar?<ArrowRight size={17}/>:<ArrowLeft size={17}/>} {labels.businessLines}</button>
+      <span className="record-context-separator">/</span><strong className="record-current">{ar?line.nameAr:line.nameEn}</strong>
+    </div>
+    <div className="record-hero">
+      <div className="record-hero-main">
+        <span className="eyebrow">{labels.businessLines} · IOETI</span>
+        <div className="record-hero-heading"><span className="record-identity-icon"><Layers3 size={28}/></span><div>
+          <h1 tabIndex={-1} ref={heading}>{ar?line.nameAr:line.nameEn}</h1>
+          <div className="record-tags"><StatusPill status={line.status} labels={labels}/><span className="record-ref" dir="ltr">{line.code}</span></div>
+        </div></div>
+        <p className="record-hero-description">{ar?"ملف خط الأعمال وإعداده، بعيدًا عن نافذة جانبية ضيقة.":"Business line context and configuration, not a cramped drawer."}</p>
+      </div><span className="record-readonly-pill"><LockKeyhole size={14}/>{ar?"عرض فقط":"Read only"}</span>
+    </div>
+    <div className="record-section-label"><strong className="record-label-active">{ar?"معلومات أساسية":"Overview"}</strong><span>{labels.businessLines}</span></div>
+    <div className="record-content-grid">
+      <section className="record-content-card"><div className="record-section-header"><div className="record-section-icon"><Layers3 size={20}/></div><h2>{ar?"بيانات النشاط":"Business line details"}</h2></div>
+      <dl className="record-properties"><div><dt>{labels.code}</dt><dd dir="ltr">{line.code}</dd></div><div><dt>{labels.team}</dt><dd>{line.responsibleTeam||labels.none}</dd></div><div><dt>{labels.status}</dt><dd>{statusName(line.status,labels)}</dd></div></dl></section>
+      <section className="record-content-card"><div className="record-section-header"><div className="record-section-icon"><Workflow size={20}/></div><h2>{ar?"التكوين وسير العمل":"Configuration & workflow"}</h2></div>
+      <div className="record-related-empty"><CircleHelp size={27}/><strong>{ar?"لم تُربط الإعدادات الديناميكية بعد":"Dynamic configuration not connected"}</strong><p>{ar?"خطوات Pipeline والموافقات والتسليم تحتاج APIs وصلاحيات مستقلة.":"Pipeline, approvals and handover require dedicated authorized APIs."}</p></div></section>
+    </div>
+  </article>;
 }
 
 function Metric({ icon: Icon, label, value }: { icon: IconType; label: string; value: string }) {
