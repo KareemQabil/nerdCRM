@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { ArrowLeft, ArrowRight, CheckCircle2, ChevronDown, Layers3, LockKeyhole, Search, ShieldAlert, Workflow } from "lucide-react";
 import type { Language } from "./preferences";
+import { CapabilityJourney, type JourneyKey } from "./CapabilityJourney";
 
 type Capability = {
   id: string; ar: string; en: string; entity: string; upstream: string;
@@ -98,6 +99,8 @@ export function NativeModules({ language, onOpen }: { language: Language; onOpen
         {uiConnection[active.id]&&<button type="button" className="btn btn-primary" onClick={()=>onOpen(uiConnection[active.id])}>{ar?"افتح واجهة القراءة المرتبطة":"Open connected read-only UI"}{arrow}</button>}
         <button type="button" className="btn btn-secondary" onClick={()=>setActive(null)}>{ar?"إغلاق":"Close"}</button>
       </div></div>
+
+      <CapabilityJourney id={active.id as JourneyKey} language={language}/>
       <div className="cap-detail-cols">
         <div><span className="detail-kicker">{ar?"الكائنات البرمجية المثبتة بالمصدر":"Grounded domain models"}</span><p><code dir="ltr">{active.entity}</code></p>
           <span className="detail-kicker">{ar?"خريطة صفحات الواجهة":"Planned custom UI surfaces"}</span><div className="cap-page-list">{(ar?active.pagesAr:active.pagesEn).map((p,i)=><div key={p}><span>{String(i+1).padStart(2,"0")}</span><strong>{p}</strong>{arrow}</div>)}</div></div>

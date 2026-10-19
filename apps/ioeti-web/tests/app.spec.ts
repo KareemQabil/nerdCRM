@@ -225,3 +225,54 @@ test("Opportunity record workspace remains a full page on mobile",async ({page})
   await expect(page.locator(".record-drawer")).toHaveCount(0);
   await page.screenshot({path:"test-results/ioeti-opportunity-record-mobile.png",fullPage:true});
 });
+
+test("source-driven capability journey is interactive but does not perform unsupported actions",async ({page})=>{
+  let unplannedCalls=0;
+  await intercept(page);
+  page.on("request",request=>{
+    if(request.url().includes("/axelor-erp/ws/ioeti/certification/"))unplannedCalls++;
+  });
+  await page.goto("/");
+  await page.getByRole("button",{name:"خريطة النظام"}).click();
+  await page.getByRole("button",{name:/إدارة شهادات ISO/}).click();
+  const journey=page.getByRole("region",{name:"رحلة العمل المقترحة"});
+  await expect(journey).toBeVisible();
+  await expect(journey.getByRole("tab")).toHaveCount(5);
+  await journey.getByRole("tab",{name:/Stage 1 وStage 2/}).click();
+  await expect(journey.getByRole("tabpanel")).toContainText("Intervention");
+  await expect(journey.getByRole("tabpanel")).toContainText("/ws/ioeti/certification/audits/{id}/submit");
+  await expect(journey).toContainText("لا يتم إرسال أي طلبات");
+  expect(unplannedCalls).toBe(0);
+  await page.screenshot({path:"test-results/ioeti-iso-workflow-map.png",fullPage:true});
+});
+
+test("external training and agency recruitment journeys clearly distinguish native HR from new customer models",async ({page})=>{
+  await intercept(page);
+  await page.goto("/");
+  await page.getByRole("button",{name:"خريطة النظام"}).click();
+  await page.getByRole("button",{name:/التدريب الخارجي/}).click();
+  const region=page.getByRole("region",{name:"رحلة العمل المقترحة"});
+  await region.getByRole("tab",{name:/تسجيل المتدربين/}).click();
+  await expect(region.getByRole("tabpanel")).toContainText("NEW: Trainee");
+  await expect(region.getByRole("tabpanel")).toContainText("غير موصل");
+  await page.getByRole("button",{name:/التوظيف للعملاء/}).click();
+  await expect(region.getByRole("tab")).toHaveCount(4);
+  await region.getByRole("tab",{name:/مشاركة الملفات والمقابلات/}).click();
+  await expect(region.getByRole("tabpanel")).toContainText("CandidateSubmission");
+  await expect(region.getByRole("tabpanel")).toContainText("CandidateConsent");
+});
+
+test("capability flow on mobile remains within current navigation and supports English",async ({page})=>{
+  await page.setViewportSize({width:390,height:844});
+  await intercept(page);
+  await page.goto("/");
+  await page.getByRole("button",{name:"التنقل"}).click();
+  await page.getByRole("button",{name:"خريطة النظام"}).click();
+  await page.getByRole("button",{name:/تنمية الموارد/}).click();
+  await expect(page.getByRole("region",{name:"رحلة العمل المقترحة"})).toBeVisible();
+  await page.getByRole("button",{name:"اللغة"}).click();
+  const journey=page.getByRole("region",{name:"Planned business journey"});
+  await expect(journey).toBeVisible();
+  await journey.getByRole("tab",{name:/Grant application/}).click();
+  await expect(journey.getByRole("tabpanel")).toContainText("Grant");
+});
