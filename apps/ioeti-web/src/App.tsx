@@ -13,6 +13,7 @@ import { DirectoryPage } from "./DirectoryPage";
 import { DEMO_MODE } from "./demo";
 import { DEMO_AREAS, type DemoArea } from "./demoBusiness";
 const DemoBusinessWorkspace = lazy(() => import("./DemoBusinessWorkspace"));
+const DemoExecutiveOverview = lazy(() => import("./DemoExecutiveOverview"));
 import { t } from "./labels";
 import { usePreferences, type Theme } from "./preferences";
 
@@ -250,6 +251,7 @@ export function App() {
             </div>
             <div className="hero-graphic" aria-hidden="true"><div className="orb orb-a"/><div className="orb orb-b"/><div className="orb-core"><Layers3 size={45}/></div></div>
           </div>
+          {DEMO_MODE && <Suspense fallback={<div role="status" className="empty-state">{labels.loading}</div>}><DemoExecutiveOverview language={prefs.language} onOpen={navigateDemo}/></Suspense>}
           <div className="stats-grid">
             <Metric icon={Layers3} label={labels.linesCount} value={lines.length.toString()} />
             <Metric icon={Check} label={labels.activeCount} value={activeCount.toString()} />
