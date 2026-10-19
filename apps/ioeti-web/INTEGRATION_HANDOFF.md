@@ -97,3 +97,12 @@ Mapping PR #7: immutable source evidence, 377 business capabilities, 52 API/UX s
 Product owners: policies for certification/accreditation, external training eligibility and fees, recruitment replacement guarantees, grants/donations, finance and tax.
 
 **The demo is a UX/acceptance reference, not an implementation declaration.**
+
+## Pipeline board + accessible record navigation (UI-only extension)
+
+- Operating registers offer **List / Pipeline board** views from the same filtered in-memory records. Pipeline columns group cards by the configured stages; cards navigate to full record workspaces.
+- **No drag/drop, bulk stage updates, database mutations or live approval actions.** Stage change still requires opening the fictional record, supplying a review note and confirming the simulated transition. Never wire a card movement directly to an Axelor mutation.
+- A real backend pipeline must first return role-scoped lists, authorized stage labels, opaque permitted commands and safe aggregates from dedicated `/ws/ioeti/*` DTOs. Use server-validated versions and a 409 conflict contract. The board must not infer rights from fixture states or generic `/ws/rest` entities.
+- Search and selected stage are shared by List and Board but reset when changing business domain. Arabic RTL reverses horizontal presentation without changing workflow order. The board scrolls within its own container on narrow screens.
+- In a full record, the tab strip supports RTL-aware arrow keys, Home and End with programmatic `aria-controls` relationships. The **Back to register** action returns to the current domain; browser Back still traverses linked record history.
+- Test gate: `npm run test:demo` covers board grouping/filtering/deep navigation, shortcut search, tab accessibility, cross-domain filter resets and mobile English view. It remains **demo-only**, never evidence for production roles or API security.
