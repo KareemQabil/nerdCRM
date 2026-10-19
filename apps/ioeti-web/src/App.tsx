@@ -49,6 +49,7 @@ export function App() {
   const prefs = usePreferences();
   const labels = t(prefs.language);
   const [page, setPage] = useState<Page>(getPageFromLocation);
+  const [routeHash,setRouteHash] = useState(() => window.location.hash);
   const [session, setSession] = useState<Session>("checking");
   const [identity, setIdentity] = useState<SessionIdentity | null>(null);
   const [lines, setLines] = useState<BusinessLine[]>([]);
@@ -104,6 +105,7 @@ export function App() {
   // Preserve side navigation. Browser history is for record pages, not a new nav.
   useEffect(() => {
     const sync = () => {
+      setRouteHash(window.location.hash);
       setPage(getPageFromLocation());
       const match = window.location.hash.match(/^#\/businessLines\/(\d+)$/);
       if (!match) { setSelected(null); return; }
@@ -133,7 +135,7 @@ export function App() {
     : page === "recruitment" ? "recruiting"
     : page === "fundraising" ? "fundraising"
     : page === "demo" ? (() => {
-        const candidate = window.location.hash.split("/")[2] as DemoArea | undefined;
+        const candidate = routeHash.split("/")[2] as DemoArea | undefined;
         return candidate && DEMO_AREAS.includes(candidate) ? candidate : "quotes";
       })() : null;
   function navigateDemo(area: DemoArea, id?: number) {

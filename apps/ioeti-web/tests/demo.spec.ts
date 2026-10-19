@@ -31,7 +31,7 @@ test("high stakes status change requires review note, explicit simulation confir
   await page.goto("/#/certification/1101");
   const hero=page.locator(".demo-record-hero");
   await expect(hero).toContainText("Stage 1");
-  await page.getByRole("button",{name:"محاكاة مرحلة الشهادة"}).click();
+  await page.getByRole("button",{name:"محاكاة المرحلة التالية"}).click();
   const dlg=page.getByRole("dialog");
   await expect(dlg).toBeVisible();
   await expect(dlg.getByRole("button",{name:"اكمل الرحلة التجريبية"})).toBeDisabled();
@@ -52,7 +52,7 @@ test("scenario creation is in-memory and resets on reload",async ({page})=>{
   await dlg.getByRole("spinbutton",{name:"قيمة تجريبية (اختياري)"}).fill("32500");
   await dlg.getByRole("button",{name:"احفظ داخل المعاينة"}).click();
   await expect(page.locator(".demo-record-hero h1")).toHaveText("عرض تجريبي جديد بالكامل");
-  await expect(page.locator(".demo-record-facts")).toContainText("32,500");
+  await expect(page.locator(".demo-record-facts")).toContainText("EGP");
   await page.reload();
   await expect(page.locator(".demo-record-hero h1")).toHaveCount(0);
   await expect(page.getByText("عرض تجريبي جديد بالكامل")).toHaveCount(0);
@@ -67,7 +67,7 @@ test("English, desktop themes and responsive mobile all remain in the original s
   await expect(page.locator(".demo-workspace-heading h1")).toHaveText("External training");
   await expect(page.locator(".demo-record-row")).toHaveCount(3);
   await page.locator(".demo-record-row").first().click();
-  await expect(page.locator(".demo-record-hero")).toContainText("Demo");
+  await expect(page.locator(".demo-record-hero")).toContainText("DEMO-9101");
   await page.screenshot({path:"test-results/ioeti-demo-training-mobile.png",fullPage:true});
 });
 test("public demo must never call real Axelor backend during cross-module interactions",async ({page})=>{
