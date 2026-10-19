@@ -1,0 +1,10 @@
+PASS applied migrations are unchanged (checksums)
+PASS source has IOETI-owned objects to compare
+PASS scratch copy has the same IOETI objects as the source
+PASS drift guard detects an IOETI object that no migration covers (negative control)
+PASS every IOETI-owned object is covered by a migration (rollback chain leaves nothing)
+PASS forward chain reproduces the Hibernate-generated schema exactly
+PASS forward chain is idempotent (second run changes nothing)
+PASS runner applies the full chain once and records it
+
+8/8 checks passed

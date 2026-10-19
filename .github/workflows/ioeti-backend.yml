@@ -29,6 +29,8 @@ jobs:
         run: bash scripts/ioeti.sh test --stacktrace
       - name: Start isolated PostgreSQL 16
         run: bash scripts/ioeti.sh db-up
+      - name: Install age (backup encryption for the restore drill)
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq age
       - name: Run real Axelor / PostgreSQL pilot contract and SEC-001 identity isolation
         timeout-minutes: 40
         shell: bash
@@ -74,6 +76,11 @@ jobs:
           # SEC-004: cookies, fixation, CSRF, logout, per-user login throttle (runs last: it
           # throttles one throw-away user)
           python3 scripts/session_security_probe.py
+          # G-008: versioned IOETI schema migrations: record them, then prove the chain on a scratch copy
+          python3 scripts/db_migrate.py apply
+          python3 scripts/db_migrate.py verify
+          # G-009: encrypted backup → restore into a new database → identical data → tamper/wrong-key refused
+          python3 scripts/backup_restore_drill.py
       - name: Attach security probe reports (no credentials or response bodies)
         if: always()
         uses: actions/upload-artifact@v4
@@ -87,6 +94,8 @@ jobs:
             logs/scope-matrix-probe.json
             logs/lead-conversion-probe.json
             logs/quote-probe.json
+            logs/migration-verify.json
+            logs/backup-restore-drill.json
           if-no-files-found: ignore
       - name: Attach Axelor integration logs
         if: failure()

@@ -269,3 +269,29 @@ With the installed apps (`contract` brings in `supplychain`, `stock` and `accoun
 | Web mocked | 26/26 |
 | Web demo | 14/14 |
 | Build | pass |
+
+## 2026-10-19 · Platform part 1 · Versioned migrations (G-008) and encrypted backup/restore (G-009)
+
+Runbook: `docs/runbooks/DATABASE_MIGRATIONS_AND_RECOVERY.md`.
+
+### Change
+- `db/migrations/V001–V003` with rollbacks, covering every IOETI-owned object.
+- `scripts/db_migrate.py`:
+  - `apply` with an immutable checksum ledger;
+  - `verify` on a schema-only scratch copy, with a built-in negative control.
+- `scripts/backup_restore_drill.py`: `pg_dump` piped into `age`, restore into a new database, identity checks, tamper and wrong-key checks.
+- Both run in backend CI.
+- AGENTS.md rule: a new IOETI schema object needs a migration.
+
+### Evidence (local)
+| Check | Result |
+|---|---|
+| Migration verify | 8/8 |
+| Drift, live (column added on the dev DB) | detected |
+| Tampered applied migration | `verify` and `apply` refuse it |
+| Backup drill | 10/10: 1,184 tables, identical counts, 8.5 MB backup in about 2 s, restore 24–30 s |
+| Restore boot test | Axelor on the restored DB (all 7 connections there); pilot PASS, contract 31/31; about 4 min end-to-end |
+
+### Not done
+- Production schedule, off-site copies, retention, key custody, PITR, encryption at rest (D-08).
+- Upstream AOS schema stays on Axelor `ddl=update`, which runs only on a restored staging copy, per the runbook.
