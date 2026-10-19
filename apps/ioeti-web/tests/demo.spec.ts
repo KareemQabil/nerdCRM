@@ -133,6 +133,7 @@ test("pipeline board groups fictional records by stage and keeps full record nav
  await expect(board).toBeVisible();
  await expect(board.locator(".demo-board-column")).toHaveCount(5);
  await expect(board.locator(".demo-board-card")).toHaveCount(3);
+ await page.screenshot({path:"test-results/ioeti-quote-pipeline-arabic-desktop.png",fullPage:true});
  await board.locator(".demo-board-card").first().click();
  await expect(page.locator(".demo-record-hero h1")).toBeVisible();
  await page.getByRole("button",{name:"الرجوع للسجل"}).click();
@@ -166,6 +167,7 @@ test("pipeline uses English LTR and horizontal mobile scrolling inside the works
  await expect(board.locator(".demo-board-column")).toHaveCount(6);
  await expect(board.locator(".demo-board-card")).toHaveCount(3);
  await expect(page.locator("body")).toHaveJSProperty("scrollWidth",390);
+ await page.screenshot({path:"test-results/ioeti-training-pipeline-english-mobile.png",fullPage:true});
 });
 
 
