@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, ArrowRight, Building2, CircleAlert, Layers3, LockKeyhole, RefreshCw, Search, UserRound, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, Building2, CircleAlert, Layers3, LockKeyhole, RefreshCw, Search, UserRound } from "lucide-react";
 import { ApiError, getAccount, getAccounts, getLead, getLeads, type AccountSummary, type LeadSummary } from "./api";
 import { DEMO_MODE } from "./demo";
 import type { Language } from "./preferences";
+import { RecordWorkspace } from "./RecordWorkspace";
 
 type Kind = "leads" | "accounts";
 type Row = LeadSummary | AccountSummary;
@@ -47,8 +48,9 @@ export function DirectoryPage({kind,language}: Props) {
   const [hasMore,setHasMore]=useState(false);
   const [selected,setSelected]=useState<Row|null>(null);
   const [detailLoading,setDetailLoading]=useState(false);
-  const dialogClose=useRef<HTMLButtonElement>(null);
   const focusReturn=useRef<HTMLElement|null>(null);
+  const listScroll=useRef(0);
+  const returningFromDetail=useRef(false);
   const load = useCallback(async () => {
     setLoading(true);setError("");
     try {
@@ -62,12 +64,40 @@ export function DirectoryPage({kind,language}: Props) {
     } finally{setLoading(false);}
   },[kind,l.noPermission,l.unavailable]);
   useEffect(()=>{void load()},[load]);
+
+  // Deep-linkable record pages. The global navigation remains unchanged.
   useEffect(()=>{
-    if(!selected)return;
-    dialogClose.current?.focus();
-    const onKey=(e:KeyboardEvent)=>{if(e.key==="Escape")setSelected(null);};
-    document.addEventListener("keydown",onKey);
-    return()=>{document.removeEventListener("keydown",onKey);focusReturn.current?.focus();};
+    let generation=0;
+    const sync=()=>{
+      const mine=++generation;
+      const match=window.location.hash.match(/^#\/(leads|accounts)\/(\d+)$/);
+      if(!match||match[1]!==kind){
+        setSelected(null);
+        return;
+      }
+      const id=Number(match[2]);
+      if(!Number.isSafeInteger(id)||id<=0){setSelected(null);return;}
+      setDetailLoading(true);
+      void (kind==="leads"?getLead(id):getAccount(id))
+        .then(record=>{if(mine===generation)setSelected(record);})
+        .catch(error=>{if(mine===generation){setSelected(null);setError(error instanceof Error?error.message:l.unavailable);}})
+        .finally(()=>{if(mine===generation)setDetailLoading(false);});
+    };
+    sync();
+    window.addEventListener("popstate",sync);
+    window.addEventListener("hashchange",sync);
+    return()=>{generation++;window.removeEventListener("popstate",sync);window.removeEventListener("hashchange",sync);};
+  },[kind,l.unavailable]);
+
+  useEffect(()=>{
+    if(selected){returningFromDetail.current=true;return;}
+    if(returningFromDetail.current){
+      returningFromDetail.current=false;
+      requestAnimationFrame(()=>{
+        window.scrollTo({top:listScroll.current,behavior:"instant"});
+        focusReturn.current?.focus();
+      });
+    }
   },[selected]);
   const visible=useMemo(()=>items.filter(item=>{
     const query=filter.trim().toLocaleLowerCase();
@@ -75,11 +105,28 @@ export function DirectoryPage({kind,language}: Props) {
     const haystack=isLead(item)?[item.name,item.organization,item.stage]:[item.name,item.reference];
     return haystack.some(value=>(value||"").toLocaleLowerCase().includes(query));
   }),[filter,items]);
-  async function open(item:Row,button:HTMLButtonElement){
-    focusReturn.current=button;setDetailLoading(true);setError("");
-    try{setSelected(kind==="leads"?await getLead(item.id):await getAccount(item.id));}
-    catch(e){setError(e instanceof Error?e.message:l.unavailable);}
+
+  async function showRecord(item:Row,source?:HTMLButtonElement){
+    if(source)focusReturn.current=source;
+    if(!selected)listScroll.current=window.scrollY;
+    setDetailLoading(true);setError("");
+    try{
+      const record=kind==="leads"?await getLead(item.id):await getAccount(item.id);
+      const route="#/"+kind+"/"+item.id;
+      if(window.location.hash!==route){
+        window.history.pushState({ioetiRecordDetail:true,kind,id:item.id},"",route);
+      }
+      setSelected(record);
+    }catch(e){setError(e instanceof Error?e.message:l.unavailable);}
     finally{setDetailLoading(false);}
+  }
+  function backToList(){
+    if(window.history.state?.ioetiRecordDetail){
+      window.history.back();
+    }else{
+      window.history.replaceState(null,"","#/"+kind);
+      setSelected(null);
+    }
   }
   async function more(){
     if(busyMore)return;
@@ -90,6 +137,14 @@ export function DirectoryPage({kind,language}: Props) {
       setHasMore(result.length===25);
     }catch(e){setError(e instanceof Error?e.message:l.unavailable);}
     finally{setBusyMore(false);}
+  }
+  if(selected){
+    const index=visible.findIndex(row=>row.id===selected.id);
+    return <RecordWorkspace
+      kind={kind} language={language} record={selected} onBack={backToList}
+      onPrevious={index>0?()=>void showRecord(visible[index-1]):undefined}
+      onNext={index>=0&&index<visible.length-1?()=>void showRecord(visible[index+1]):undefined}
+    />;
   }
   return <section className="page-enter directory-explorer">
     <div className="directory-head">
@@ -113,26 +168,11 @@ export function DirectoryPage({kind,language}: Props) {
           <div className="line-monogram">{item.name.trim().slice(0,1).toLocaleUpperCase()}</div>
           <div className="directory-record"><strong>{item.name}</strong><small>{isLead(item)?item.organization||"—":item.reference||"—"}</small></div>
           <div className="directory-state">{isLead(item)?item.stage||"—":(item.customer?l.active:l.prospect)}</div>
-          <button className="text-action" disabled={detailLoading} type="button" onClick={e=>void open(item,e.currentTarget)}>{l.details}{ar?<ArrowLeft size={16}/>:<ArrowRight size={16}/>}</button>
+          <button className="text-action" disabled={detailLoading} type="button" onClick={e=>void showRecord(item,e.currentTarget)}>{l.details}{ar?<ArrowLeft size={16}/>:<ArrowRight size={16}/>}</button>
         </article>)}
       </div>}
     </div>
     {hasMore&&<div className="load-more"><button className="btn btn-secondary" type="button" disabled={busyMore} onClick={()=>void more()}>{busyMore?l.loading:l.more}</button></div>}
     <div className="directory-next"><LockKeyhole size={18}/><span>{kind==="leads"?l.next:l.nextAccounts}</span></div>
-    {selected&&<div className="drawer-overlay" onMouseDown={e=>{if(e.currentTarget===e.target)setSelected(null)}}>
-      <section className="record-drawer" role="dialog" aria-modal="true" aria-labelledby="directory-detail-title">
-        <div className="drawer-header"><div className="detail-kicker">{kind==="leads"?l.leads:l.accounts}</div><button className="icon-button" type="button" ref={dialogClose} aria-label={l.close} onClick={()=>setSelected(null)}><X size={18}/></button></div>
-        <div className="drawer-body">
-          <div className="detail-icon">{kind==="leads"?<UserRound size={28}/>:<Building2 size={28}/>}</div>
-          <h2 id="directory-detail-title">{selected.name}</h2><p>{l.readOnly}</p>
-          <dl className="detail-list">
-            <div><dt>{l.record}</dt><dd>#{selected.id}</dd></div>
-            <div><dt>{isLead(selected)?l.organization:l.reference}</dt><dd>{(isLead(selected)?selected.organization:selected.reference)||"—"}</dd></div>
-            <div><dt>{l.status}</dt><dd>{isLead(selected)?selected.stage||"—":selected.customer?l.active:l.prospect}</dd></div>
-          </dl>
-          <p className="scope-note"><LockKeyhole size={15}/>{l.readOnly}</p>
-        </div>
-        <div className="drawer-footer"><button className="btn btn-secondary" type="button" onClick={()=>setSelected(null)}>{l.close}</button></div>
-      </section></div>}
   </section>;
 }
