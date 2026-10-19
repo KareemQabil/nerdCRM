@@ -3,12 +3,9 @@
  * This file is never consulted in connected Axelor mode. Records and edits are
  * deliberately NOT persisted. Never place real client names or secrets here.
  */
-export const DEMO_AREAS = [
-  "quotes","catalog","contracts","finance","projects","visits",
-  "quality","marketing","learning","recruiting","certification","fundraising",
-  "documents","automations","reports","admin"
-] as const;
-export type DemoArea = typeof DEMO_AREAS[number];
+import { DEMO_AREAS, type DemoArea } from "./demoAreas";
+export { DEMO_AREAS };
+export type { DemoArea };
 export type DemoStage = { ar:string; en:string };
 export type DemoConfig = { ar:string; en:string; subtitleAr:string; subtitleEn:string;
   nounAr:string; nounEn:string; source:string; stages:readonly DemoStage[];

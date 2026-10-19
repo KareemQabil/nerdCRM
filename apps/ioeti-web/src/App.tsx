@@ -11,7 +11,7 @@ import { OpportunitiesPage } from "./OpportunitiesPage";
 import { NativeModules } from "./NativeModules";
 import { DirectoryPage } from "./DirectoryPage";
 import { DEMO_MODE } from "./demo";
-import { DEMO_AREAS, type DemoArea } from "./demoBusiness";
+import { DEMO_AREAS, type DemoArea } from "./demoAreas";
 const DemoBusinessWorkspace = lazy(() => import("./DemoBusinessWorkspace"));
 const DemoExecutiveOverview = lazy(() => import("./DemoExecutiveOverview"));
 import { t } from "./labels";

@@ -3,7 +3,7 @@ import { ArrowLeft, ArrowRight, CheckCircle2, ChevronDown, Layers3, LockKeyhole,
 import type { Language } from "./preferences";
 import { CapabilityJourney, type JourneyKey } from "./CapabilityJourney";
 import { DEMO_MODE } from "./demo";
-import { DEMO_AREAS, type DemoArea } from "./demoBusiness";
+import { DEMO_AREAS, type DemoArea } from "./demoAreas";
 
 type Capability = {
   id: string; ar: string; en: string; entity: string; upstream: string;
