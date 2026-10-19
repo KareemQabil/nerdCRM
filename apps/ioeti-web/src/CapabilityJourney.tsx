@@ -90,7 +90,7 @@ export const capabilityJourneys: Record<JourneyKey, Stage[]> = {
   recruiting:[
     stage("طلب التوظيف من العميل","Client job order","NEW: ClientJobOrder","GET /ws/ioeti/recruitment/job-orders/{id}","Full record",gates.scope,gates.scopeEn),
     stage("مطابقة المرشحين","Candidate screening","NEW: CandidateConsent","GET /ws/ioeti/recruitment/job-orders/{id}","Full workflow",gates.policy,gates.policyEn),
-    stage("مشاركة الملفات والمقابلات","Submission & interviews","NEW: CandidateSubmission","POST /ws/ioeti/recruitment/job-orders/{id}/submit-candidate","Restricted wizard",gates.links,gates.linksEn),
+    stage("مشاركة الملفات والمقابلات","Submission & interviews","NEW: CandidateSubmission · CandidateConsent","POST /ws/ioeti/recruitment/job-orders/{id}/submit-candidate","Restricted wizard",gates.links,gates.linksEn),
     stage("التعيين والضمان","Placement & guarantee","NEW: Placement · GuaranteeClaim","POST /ws/ioeti/recruitment/placements/{id}/verify","Full workflow",gates.safety,gates.safetyEn),
   ],
   certification:[
