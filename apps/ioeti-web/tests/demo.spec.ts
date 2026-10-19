@@ -167,3 +167,33 @@ test("pipeline uses English LTR and horizontal mobile scrolling inside the works
  await expect(board.locator(".demo-board-card")).toHaveCount(3);
  await expect(page.locator("body")).toHaveJSProperty("scrollWidth",390);
 });
+
+
+test("RTL record tabs support arrow navigation, Home, End and linked panel semantics",async ({page})=>{
+ await page.goto("/#/demo/quotes/4101");
+ const overview=page.getByRole("tab",{name:"نظرة عامة"});
+ await expect(overview).toBeVisible();
+ await overview.focus();
+ await page.keyboard.press("ArrowLeft");
+ const activity=page.getByRole("tab",{name:"الأنشطة"});
+ await expect(activity).toBeFocused();
+ await expect(activity).toHaveAttribute("aria-selected","true");
+ await expect(page.getByRole("tabpanel")).toHaveAttribute("aria-labelledby",await activity.getAttribute("id"));
+ await page.keyboard.press("End");
+ await expect(page.getByRole("tab",{name:"العلاقات"})).toBeFocused();
+ await page.keyboard.press("Home");
+ await expect(overview).toBeFocused();
+});
+test("cross-domain navigation resets previous register filters without changing source records",async ({page})=>{
+ await page.goto("/#/demo/quotes");
+ await expect(page.locator(".demo-record-row")).toHaveCount(3);
+ await page.getByRole("textbox",{name:"ابحث في السجلات التجريبية"}).fill("Nile View");
+ await expect(page.locator(".demo-record-row")).toHaveCount(1);
+ await page.locator(".demo-record-row").first().click();
+ await page.getByRole("tab",{name:"العلاقات"}).click();
+ await page.getByRole("button",{name:/اتفاقية خدمات تدقيق الفندق/}).click();
+ await expect(page).toHaveURL(/#\\/demo\\/contracts\\/5101$/);
+ await page.getByRole("button",{name:"الرجوع للسجل"}).click();
+ await expect(page.locator(".demo-record-row")).toHaveCount(3);
+ await expect(page.getByRole("textbox",{name:"ابحث في السجلات التجريبية"})).toHaveValue("");
+});
