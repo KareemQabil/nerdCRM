@@ -209,7 +209,7 @@ export function App() {
         {page === "opportunities" && <OpportunitiesPage language={prefs.language} lines={lines} labels={labels} />}
         {page === "leads" && <DirectoryPage kind="leads" language={prefs.language} />}
         {page === "accounts" && <DirectoryPage kind="accounts" language={prefs.language} />}
-        {page === "capabilities" && <NativeModules language={prefs.language} />}
+        {page === "capabilities" && <NativeModules language={prefs.language} onOpen={navigate} />}
         {page === "businessLines" && <section className="page-enter">
           <PageTitle eyebrow={labels.workspace} title={labels.businessLines} description={labels.description} />
           <div className="list-toolbar"><label className="search-field"><Search size={18}/><span className="sr-only">{labels.search}</span><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder={labels.search}/>{search && <button type="button" aria-label={labels.back} onClick={() => setSearch("")}><X size={16}/></button>}</label>
