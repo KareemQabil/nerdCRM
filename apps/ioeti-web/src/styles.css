@@ -658,3 +658,11 @@ td code { display: inline-block; font: 11px Inter,monospace; color: var(--on-sur
 .demo-exec-lane-foot small{font-size:10px;}
 @media(max-width:1000px){.demo-exec-grid{grid-template-columns:1fr;}}
 @media(max-width:650px){.demo-exec-metrics{grid-template-columns:repeat(2,minmax(0,1fr));}.demo-exec-metric{padding:12px;}.demo-focus-status{display:none;}.demo-focus-row{grid-template-columns:32px minmax(0,1fr) 17px;}}
+
+.demo-platform-links{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:17px 0 24px;}
+.demo-platform-links button{min-width:0;display:flex;align-items:center;gap:9px;text-align:start;border:1px solid var(--outline-variant);color:var(--on-surface);background:var(--surface);border-radius:var(--radius-lg);padding:14px;transition:border-color var(--duration-fast),background var(--duration-fast);}
+.demo-platform-links button:hover{border-color:var(--primary);background:var(--surface-variant);}
+.demo-platform-links button>svg:first-child{color:var(--on-primary-container);flex:none;}
+.demo-platform-links button span{flex:1;min-width:0;font-size:11px;font-weight:700;line-height:1.7;}
+@media(max-width:940px){.demo-platform-links{grid-template-columns:repeat(2,minmax(0,1fr));}}
+@media(max-width:480px){.demo-platform-links{grid-template-columns:1fr;}}
