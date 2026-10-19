@@ -112,6 +112,7 @@ for(const file of matrices){
  }
 }
 if(capCount!==377)errors.push("Capability count changed; update and rebaseline check: "+capCount);
+const contracts=JSON.parse(readFileSync(join(dir,"UI_API_SURFACE_CONTRACTS.json"),"utf8"));
 const securityRows=csv(join(dir,"API_SECURITY_NEGATIVE_MATRIX.csv"));
 const policyHeader=securityRows[0];
 const policyCol=Object.fromEntries(policyHeader.map((v,i)=>[v,i]));
@@ -127,7 +128,7 @@ for(const fields of securityRows.slice(1)){
    errors.push("Security matrix references missing UI surface "+id);
 }
 
-const contracts=JSON.parse(readFileSync(join(dir,"UI_API_SURFACE_CONTRACTS.json"),"utf8"));
+
 if(!Array.isArray(contracts.surfaces))errors.push("UI contracts must contain surfaces array");
 else {
  const surfaceIds=new Set();
