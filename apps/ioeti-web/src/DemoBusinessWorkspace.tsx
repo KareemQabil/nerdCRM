@@ -113,6 +113,9 @@ function DemoBusinessInner({area,language,onNavigateArea}:Props){
   return()=>{window.removeEventListener("hashchange",sync);window.removeEventListener("popstate",sync);};
  },[area,root]);
  useEffect(()=>{titleRef.current?.focus();},[selectedId,area]);
+ // Filters are per-workstream, not global. Keep them when opening/backing a record,
+ // but never leak a search term or stage from a different domain.
+ useEffect(()=>{setQuery("");setStageFilter("all");setView("list");},[area]);
  // / focuses register search, but never interrupts inputs or simulated dialogs.
  useEffect(()=>{
   if(selectedId!==null||dialog)return;
@@ -154,6 +157,18 @@ function DemoBusinessInner({area,language,onNavigateArea}:Props){
   const first=nodes[0],last=nodes[nodes.length-1];
   if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus();}
   else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus();}
+ }
+ function tabKeydown(e:ReactKeyboardEvent<HTMLDivElement>){
+  const keys=["overview","timeline","relationships"] as const;
+  const current=keys.indexOf(tab);
+  let next:number|null=null;
+  if(e.key==="Home")next=0;
+  if(e.key==="End")next=keys.length-1;
+  if(e.key==="ArrowRight")next=(current+(rtl?-1:1)+keys.length)%keys.length;
+  if(e.key==="ArrowLeft")next=(current+(rtl?1:-1)+keys.length)%keys.length;
+  if(next===null)return;
+  e.preventDefault();setTab(keys[next]);
+  e.currentTarget.querySelectorAll<HTMLButtonElement>('[role="tab"]')[next]?.focus();
  }
  function save(e:FormEvent<HTMLFormElement>){
   e.preventDefault();setError("");
@@ -200,13 +215,13 @@ function DemoBusinessInner({area,language,onNavigateArea}:Props){
         </div>
       </div>
     </div>
-    <div className="demo-record-tabs" role="tablist" aria-label={strings.detail}>
-      {(["overview","timeline","relationships"] as const).map(key=><button key={key} role="tab" aria-selected={tab===key} onClick={()=>setTab(key)} className={tab===key?"active":""} type="button">
+    <div className="demo-record-tabs" role="tablist" aria-label={strings.detail} onKeyDown={tabKeydown}>
+      {(["overview","timeline","relationships"] as const).map(key=><button key={key} role="tab" id={`demo-tab-${area}-${key}`} aria-controls={`demo-panel-${area}`} aria-selected={tab===key} tabIndex={tab===key?0:-1} onClick={()=>setTab(key)} className={tab===key?"active":""} type="button">
         {key==="overview"?strings.overview:key==="timeline"?strings.timeline:strings.relationships}
       </button>)}
     </div>
     {notice&&<div role="status" className="demo-notice"><CheckCircle2 size={17}/>{notice}</div>}
-    <div className="demo-tab-panel" role="tabpanel">
+    <div className="demo-tab-panel" role="tabpanel" id={`demo-panel-${area}`} aria-labelledby={`demo-tab-${area}-${tab}`} tabIndex={0}>
       {tab==="overview"&&<>
         <div className="demo-detail-grid">
           <div className="demo-panel">
