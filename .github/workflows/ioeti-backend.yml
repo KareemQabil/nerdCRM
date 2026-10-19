@@ -40,8 +40,8 @@ jobs:
           trap 'kill "$server_pid" 2>/dev/null || true' EXIT
           ready=0
           for attempt in $(seq 1 150); do
-            if curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8080/axelor-erp/ | grep -Eq '^(200|302)
-; then
+            code=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8080/axelor-erp/ || true)
+            if [[ "$code" == "200" || "$code" == "302" ]]; then
               ready=1
               break
             fi
