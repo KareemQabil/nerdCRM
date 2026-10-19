@@ -136,13 +136,13 @@ function DemoBusinessInner({area,language,onNavigateArea}:Props){
  },[dialog]);
  const open=(id:number)=>{
   setError("");setNotice("");setSelectedId(id);setTab("overview");
-  window.history.pushState({ioetiDemo:true,area,id},"",root+"/"+id);
+  window.history.pushState({ioetiDemo:true,area,id,origin:"register"},"",root+"/"+id);
   window.scrollTo({top:0,behavior:"instant"});
  };
  const back=()=>{
   setSelectedId(null);setError("");setNotice("");
-  if(window.history.state?.ioetiDemo)window.history.back();
-  else window.history.replaceState(null,"",root);
+  if(window.history.state?.ioetiDemo && window.history.state.origin==="register")window.history.back();
+  else{window.history.replaceState(null,"",root);window.dispatchEvent(new PopStateEvent("popstate"));}
  };
  function openDialog(next:DialogKind,button:HTMLButtonElement){
   returnRef.current=button;setError("");setNote("");setConfirmed(false);
