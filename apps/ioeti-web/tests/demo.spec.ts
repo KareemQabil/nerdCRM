@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-const moduleRoutes=["quotes","catalog","contracts","finance","projects","visits","quality","marketing","training","recruitment","certification","fundraising"];
+const moduleRoutes=["quotes","catalog","contracts","finance","projects","visits","quality","marketing","training","recruitment","certification","fundraising","documents","automations","reports","settings"];
 test("all twelve fictional business workspaces open real page flows, not drawers",async ({page})=>{
   for(const area of moduleRoutes){
     const route=["training","recruitment","certification","fundraising"].includes(area)?"#/"+area:"#/demo/"+area;

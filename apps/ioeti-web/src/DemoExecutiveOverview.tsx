@@ -17,7 +17,7 @@ export default function DemoExecutiveOverview({language,onOpen}:{language:Langua
   ...rows.filter(r=>r.area==="fundraising"&&r.stage>=2),
   ...rows.filter(r=>r.area==="recruiting"&&r.stage>=2)
  ].slice(0,6);
- const lanes:DemoArea[]=["certification","learning","recruiting","fundraising","quotes","contracts"];
+ const lanes:DemoArea[]=["certification","learning","recruiting","fundraising","quotes","contracts","reports","admin","automations","documents"];
  return <section className="demo-executive" aria-label={rtl?"لوحة التحكم التجريبية":"Fictional dashboard"}>
    <div className="demo-exec-head">
      <div><span className="eyebrow"><Sparkles size={15}/>{rtl?"PREVIEW · سيناريوهات افتراضية":"PREVIEW · Fictional scenarios"}</span>

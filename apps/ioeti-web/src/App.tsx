@@ -17,19 +17,19 @@ const DemoExecutiveOverview = lazy(() => import("./DemoExecutiveOverview"));
 import { t } from "./labels";
 import { usePreferences, type Theme } from "./preferences";
 
-type Page = "home" | "businessLines" | "opportunities" | "leads" | "accounts" | "capabilities" | "design" | "demo" | "certification" | "training" | "recruitment" | "fundraising";
+type Page = "home" | "businessLines" | "opportunities" | "leads" | "accounts" | "capabilities" | "design" | "demo" | "certification" | "training" | "recruitment" | "fundraising" | "settings";
 type Session = "checking" | "login" | "authenticated";
 type LineFilter = "all" | "active" | "setup" | "suspended";
 type IconType = typeof House;
 function getPageFromDemoArea(area: DemoArea): Page {
-  return area === "certification" ? "certification" : area === "learning" ? "training"
+  return area === "admin" ? "settings" : area === "certification" ? "certification" : area === "learning" ? "training"
     : area === "recruiting" ? "recruitment" : area === "fundraising" ? "fundraising" : "demo";
 }
 
-const allPages: Page[] = ["home","businessLines","opportunities","leads","accounts","capabilities","design","demo","certification","training","recruitment","fundraising"];
+const allPages: Page[] = ["home","businessLines","opportunities","leads","accounts","capabilities","design","demo","certification","training","recruitment","fundraising","settings"];
 function getPageFromLocation(): Page {
   const segment = window.location.hash.match(/^#\/([^/]+)/)?.[1];
-  if (!DEMO_MODE && ["demo","certification","training","recruitment","fundraising"].includes(segment||"")) return "home";
+  if (!DEMO_MODE && ["demo","certification","training","recruitment","fundraising","settings"].includes(segment||"")) return "home";
   return allPages.includes(segment as Page) ? segment as Page : "home";
 }
 
@@ -134,13 +134,14 @@ export function App() {
     : page === "training" ? "learning"
     : page === "recruitment" ? "recruiting"
     : page === "fundraising" ? "fundraising"
+    : page === "settings" ? "admin"
     : page === "demo" ? (() => {
         const candidate = routeHash.split("/")[2] as DemoArea | undefined;
         return candidate && DEMO_AREAS.includes(candidate) ? candidate : "quotes";
       })() : null;
   function navigateDemo(area: DemoArea, id?: number) {
     if (!DEMO_MODE) return;
-    const root = area === "certification" ? "#/certification"
+    const root = area === "admin" ? "#/settings" : area === "certification" ? "#/certification"
       : area === "learning" ? "#/training"
       : area === "recruiting" ? "#/recruitment"
       : area === "fundraising" ? "#/fundraising"
@@ -199,7 +200,7 @@ export function App() {
   ];
   const secondaryNav: { id: Page | string; label: string; icon: IconType; disabled?: boolean }[] = [
     { id: "design", label: labels.design, icon: Palette },
-    { id: "settings", label: labels.settings, icon: Settings2, disabled: true },
+    { id: "settings", label: labels.settings, icon: Settings2, disabled: !DEMO_MODE },
   ];
 
   function renderNav(items: typeof mainNav) {
@@ -233,7 +234,7 @@ export function App() {
       <header className="top-bar">
         <div className="top-start">
           <IconButton className="mobile-menu" label={labels.navigation} onClick={() => setMobileNav(true)}><Menu size={19}/></IconButton>
-          <div className="breadcrumb"><span>{labels.workspace}</span><span className="crumb-separator">/</span><strong>{page === "home" ? labels.home : page === "businessLines" ? labels.businessLines : page === "opportunities" ? labels.opportunities : page === "leads" ? labels.leads : page === "accounts" ? labels.accountDirectory : page === "capabilities" ? labels.capabilityMap : activeDemoArea ? (isRTL ? {quotes:"عروض الأسعار",catalog:"كتالوج الخدمات",contracts:"العقود",finance:"المالية",projects:"المشروعات",visits:"الزيارات",quality:"الجودة",marketing:"التسويق",learning:"التدريب",recruiting:"التوظيف",certification:"الشهادات",fundraising:"التمويل"}[activeDemoArea] : {quotes:"Quotations",catalog:"Service catalog",contracts:"Contracts",finance:"Finance",projects:"Projects",visits:"Visits",quality:"Quality",marketing:"Marketing",learning:"Training",recruiting:"Recruitment",certification:"Certification",fundraising:"Fundraising"}[activeDemoArea]) : labels.design}</strong></div>
+          <div className="breadcrumb"><span>{labels.workspace}</span><span className="crumb-separator">/</span><strong>{page === "home" ? labels.home : page === "businessLines" ? labels.businessLines : page === "opportunities" ? labels.opportunities : page === "leads" ? labels.leads : page === "accounts" ? labels.accountDirectory : page === "capabilities" ? labels.capabilityMap : activeDemoArea ? (isRTL ? {quotes:"عروض الأسعار",catalog:"كتالوج الخدمات",contracts:"العقود",finance:"المالية",projects:"المشروعات",visits:"الزيارات",quality:"الجودة",marketing:"التسويق",learning:"التدريب",recruiting:"التوظيف",certification:"الشهادات",fundraising:"التمويل",documents:"المستندات",automations:"الأتمتة",reports:"التقارير",admin:"الإعدادات"}[activeDemoArea] : {quotes:"Quotations",catalog:"Service catalog",contracts:"Contracts",finance:"Finance",projects:"Projects",visits:"Visits",quality:"Quality",marketing:"Marketing",learning:"Training",recruiting:"Recruitment",certification:"Certification",fundraising:"Fundraising",documents:"Documents",automations:"Automations",reports:"Reports",admin:"Settings"}[activeDemoArea]) : labels.design}</strong></div>
         </div>
         <div className="top-actions">
           <span className="server-status"><span className="live-pulse"/>{DEMO_MODE ? (isRTL ? "بيانات افتراضية" : "Sample data") : labels.connected}</span>

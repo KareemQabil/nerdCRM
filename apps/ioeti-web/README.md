@@ -88,7 +88,7 @@ System Map opens twelve new domain workspaces:
   Quality/CAPA, Marketing, External Training, Agency Recruitment, ISO Certification,
   Fundraising/Grants.
 
-The `demoBusiness.ts` fixture defines **36 explicitly fictional, linked scenario records**
+The `demoBusiness.ts` fixture defines **48 explicitly fictional, linked scenario records**
 and separate in-memory actions. `DemoBusinessWorkspace` provides searchable lists,
 stage filters, deep-linkable full record pages, workflow timelines, notes, decision
 simulation with confirmation and narrative, record creation, and cross-domain links.
@@ -107,3 +107,12 @@ Run `npm test` for mocked API-contract tests in non-demo mode and
 Demo business-stage logic is an **interaction contract**, not certified ISO,
 accounting, legal, privacy or recruitment policy. Backend API and authorization
 integration remains separate work for Claude.
+
+### Expanded platform-control demo
+The same in-memory-only experience also covers Documents/Knowledge,
+Automations/Approvals, Analytics/Reporting, and Administration/Business-line
+configuration. These four areas are reachable through the System Map's
+platform shortcuts without introducing a new sidebar category. The existing
+Settings sidebar item is enabled only in demo mode, opening the fictional
+Administration workspace. None of the workflows change server security,
+schedule jobs, publish templates or export customer data.

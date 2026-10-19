@@ -87,6 +87,11 @@ export function NativeModules({ language, onOpen, onOpenDemo }: { language: Lang
       <div><strong>{capabilities.filter(x=>x.stage!=="new").length}</strong><span>{ar?"تعتمد على موديولات Axelor":"Native foundations"}</span></div>
       <div><strong>{capabilities.filter(x=>x.stage==="new").length}</strong><span>{ar?"تحتاج منطق IOETI إضافيًا":"IOETI domains required"}</span></div>
     </div>
+    {DEMO_MODE && <div className="demo-platform-links" role="group" aria-label={ar?"معاينة نظام التشغيل":"Operating platform preview"}>
+      {(["admin","automations","reports","documents"] as DemoArea[]).map(area=><button type="button" key={area} onClick={()=>onOpenDemo(area)}>
+        <Layers3 size={18}/><span>{ar?({admin:"إدارة النظام",automations:"الأتمتة والموافقات",reports:"التحليلات والتقارير",documents:"المستندات والمعرفة"} as Record<string,string>)[area]:({admin:"Administration",automations:"Automations",reports:"Analytics",documents:"Documents"} as Record<string,string>)[area]}</span>{arrow}
+      </button>)}
+    </div>}
     <label className="search-field cap-search"><Search size={17}/><span className="sr-only">{ar?"بحث":"Search"}</span><input value={query} placeholder={ar?"ابحث بالموديول أو الكيان البرمجي":"Search model, module or domain"} onChange={e=>setQuery(e.target.value)}/></label>
     <div className="capability-grid">
       {visible.map(item=><button type="button" className={"cap-card"+(active?.id===item.id?" selected":"")} key={item.id} onClick={()=>setActive(active?.id===item.id?null:item)} aria-expanded={active?.id===item.id}>

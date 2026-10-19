@@ -87,7 +87,7 @@ function DemoBusinessInner({area,language,onNavigateArea}:Props){
  const Back=rtl?ArrowRight:ArrowLeft,Forward=rtl?ArrowLeft:ArrowRight;
  const root=DEMO_AREAS.includes(area) ? (["certification","learning","recruiting","fundraising"].includes(area)
   ? "#/"+({certification:"certification",learning:"training",recruiting:"recruitment",fundraising:"fundraising"} as Record<string,string>)[area]
-  : "#/demo/"+area):"#/demo/quotes";
+  : area === "admin" ? "#/settings" : "#/demo/"+area):"#/demo/quotes";
  const all=demoBusinessStore.list(area);
  const visible=useMemo(()=>all.filter(row=>{
   if(stageFilter!=="all" && row.stage!==Number(stageFilter))return false;
