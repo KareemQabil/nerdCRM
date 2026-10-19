@@ -15,7 +15,8 @@ This is a source-complete **tracked-file index** of **all 26 top-level AOS busin
 5. [Catalog, quote, contract, finance, operations and marketing mapping](CAPABILITY_COMMERCIAL_OPERATIONS_TRACE.csv): 84 capabilities.
 6. [ISO, external training, client recruitment, fundraising](CAPABILITY_SPECIALIZED_IOETI_TRACE.csv): 86 capabilities.
 7. [Documents, automation, admin, analytics, UX, security, deployment, integrations, scope](CAPABILITY_PLATFORM_AND_GOVERNANCE_TRACE.csv): 119 capabilities.
-8. [API-001 Claude PR #6 reconciliation](PR6_API001_RECONCILIATION.md) — verified latest GitHub CI and remaining security boundary work.
+8. [SEC-001 identity-isolation PR #9 reconciliation](PR9_SEC001_RECONCILIATION.md) — request-boundary fix reviewed by Claude on exact AOP version; local evidence only until CI and residuals close.
+9. [API-001 Claude PR #6 reconciliation](PR6_API001_RECONCILIATION.md) — verified latest GitHub CI and remaining security boundary work.
 9. [Pinned Studio 4.0.7 source ledger](platform-source-ledger/axelor-studio-4_0_7.csv), [Utils 4.0.2 source ledger](platform-source-ledger/axelor-utils-4_0_2.csv), and [Webapp wrapper ledger](platform-source-ledger/open-suite-webapp-v9_1_10.csv) extend coverage to metadata/BPM/DMN/exception utilities.
 10. [Gap register and dependencies](GAP_REGISTER.md) and [verified upstream service methods](SERVICE_METHOD_EVIDENCE.md).
 
