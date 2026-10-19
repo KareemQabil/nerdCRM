@@ -118,3 +118,9 @@ Administration workspace. None of the workflows change server security,
 schedule jobs, publish templates or export customer data.
 
 **Bundle boundary:** `demoAreas.ts` contains only constant module IDs. `App.tsx` and `NativeModules.tsx` do not statically import the 48-row operating fixture; the scenario data and all interactive operating workspaces are loaded only from the demo route. The existing minimal Lead/Account/Opportunity preview fixtures live separately in `demo.ts` and remain unavailable to real APIs when demo mode is disabled. A production release should additionally verify the built asset inventory, not rely solely on source imports.
+
+### Pipeline board and keyboard navigation (fictional preview)
+
+Each operating demo register includes a theme-aware **List / Pipeline board** switch with stage grouping and shared search. Click a card to open the complete record workspace. Stages are *not* draggable and do not make backend writes; any transition remains a clearly labeled, confirmed in-memory simulation. Press `/` while on the register to focus search. Record detail tabs support Home/End and RTL-aware arrow keys. The Back-to-register control stays within the current module when arriving from a cross-domain relation.
+
+Production connectors must add authorized, versioned stage-command DTOs and negative-permission checks before enabling equivalent functionality for live customer data. `npm run test:demo` covers these interactions; it does not replace backend security validation.
