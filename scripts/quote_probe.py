@@ -17,6 +17,9 @@ Checks:
                    product without accounting setup → 422 SETUP_REQUIRED; another rep → 404
   concurrency      two sessions add a line with the same version: exactly one 201 and one 409,
                    one line added (PROBE_QUOTE_ROUNDS rounds, default 5)
+  milestones       native Timetable: amount = % of total, total ≤ 100 % (also under concurrency), stale → 409,
+                   bad input → 422, another rep → 404, amounts follow line changes, booked / invoiced /
+                   collected reported apart (all zero for a draft), invoicing → 422 BLOCKED_BY_POLICY (D-06)
   finalize         422 BLOCKED_BY_POLICY (D-06, D-11), quotation stays a draft
 Report: logs/quote-probe.json.
 """
@@ -37,10 +40,11 @@ STOCK_LOCATION, STOCK_CONFIG = "com.axelor.apps.stock.db.StockLocation", "com.ax
 ACCOUNT, ACCOUNT_CONFIG = "com.axelor.apps.account.db.Account", "com.axelor.apps.account.db.AccountConfig"
 ACCOUNT_MANAGEMENT = "com.axelor.apps.account.db.AccountManagement"
 SALE_ORDER, SALE_ORDER_LINE = "com.axelor.apps.sale.db.SaleOrder", "com.axelor.apps.sale.db.SaleOrderLine"
+TIMETABLE, INVOICE = "com.axelor.apps.supplychain.db.Timetable", "com.axelor.apps.account.db.Invoice"
 MISSING = 987654322
 ROUNDS = int(os.environ.get("PROBE_QUOTE_ROUNDS", "5"))
 RESULTS = []
-CLEANUP_ORDER = {SALE_ORDER_LINE: 0, SALE_ORDER: 1, OPP: 2, ACCOUNT_MANAGEMENT: 3, PRODUCT: 4, PARTNER: 5,
+CLEANUP_ORDER = {TIMETABLE: 0, SALE_ORDER_LINE: 0, SALE_ORDER: 1, OPP: 2, ACCOUNT_MANAGEMENT: 3, PRODUCT: 4, PARTNER: 5,
                  ACCOUNT: 6, ACCOUNT_CONFIG: 7, STOCK_CONFIG: 7, STOCK_LOCATION: 8, USER: 9, GROUP: 10,
                  PERM: 11, COMPANY: 12}
 
@@ -117,6 +121,8 @@ def main():
                      perm("so", SALE_ORDER, "self.salespersonUser = ?", canRead=True, canWrite=True, canCreate=True),
                      perm("sol", SALE_ORDER_LINE, "self.saleOrder.salespersonUser = ?", canRead=True, canWrite=True,
                           canCreate=True),
+                     perm("tt", TIMETABLE, "self.saleOrder.salespersonUser = ?", canRead=True, canWrite=True,
+                          canCreate=True, canRemove=True),
                      perm("product", PRODUCT, canRead=True), perm("partner", PARTNER, canRead=True)]
         ro_perms = [perm("ro.opp", OPP, canRead=True), perm("ro.so", SALE_ORDER, canRead=True),
                     perm("ro.product", PRODUCT, canRead=True), perm("ro.partner", PARTNER, canRead=True)]
@@ -265,7 +271,77 @@ def main():
         check("quotation total matches its lines after concurrency",
               total == 3000 + 1500 * sum(1 for o in outcomes if o[1] == 1), total)
 
-        # --- 6. finalize is policy-blocked -----------------------------------------------------------------
+        # --- 6. payment milestones (native Timetable) ------------------------------------------------------
+        def milestones_of():
+            return len(search(TIMETABLE, f"self.saleOrder.id = {qid}"))
+
+        def add_milestone(client, **body):
+            return client.call("POST", f"/ws/ioeti/quotes/{qid}/milestones",
+                               {"version": version(SALE_ORDER, qid), "title": "Contract signature",
+                                "percentage": 30, "dueDate": "2027-01-31", **body})
+
+        def near(x, y):
+            return abs(float(x or 0) - float(y or 0)) < 0.011
+
+        quote_total = float(fetch(SALE_ORDER, qid, ["exTaxTotal"]).get("exTaxTotal") or 0)
+        s, body = add_milestone(a)
+        plan = body.get("object") or {}
+        first = (plan.get("milestones") or [{}])[0]
+        check("milestone added: 30 % of the total before tax, state PLANNED",
+              s == 201 and len(plan.get("milestones") or []) == 1 and near(first.get("amountBeforeTax"), quote_total * 0.3)
+              and first.get("state") == "PLANNED", f"{s} {plan}")
+        check("booked / invoiced / collected kept apart and zero for a draft; invoicing policy-blocked",
+              plan.get("bookingStatus") == "NOT_BOOKED" and near(plan.get("bookedBeforeTax"), 0)
+              and near(plan.get("invoiced"), 0) and near(plan.get("collected"), 0)
+              and plan.get("invoicingStatus") == "BLOCKED_BY_POLICY", plan)
+        s, body = add_milestone(a, percentage=80)
+        check("milestones above 100 % in total → 422 TOTAL_EXCEEDED, nothing added",
+              s == 422 and (body.get("error", {}).get("fields") or [{}])[0].get("code") == "TOTAL_EXCEEDED"
+              and milestones_of() == 1, f"{s} {body.get('error')}")
+        bad = [add_milestone(a, **b)[0] for b in ({"percentage": 0}, {"percentage": "33.333"}, {"percentage": "100.01"},
+                                                 {"dueDate": "31/01/2027"}, {"title": "ab"})]
+        check("bad percentage, date or title → 422, nothing added", bad == [422] * 5 and milestones_of() == 1, bad)
+        s, _ = add_milestone(a, version=version(SALE_ORDER, qid) - 1)
+        check("stale quotation version → 409, nothing added", s == 409 and milestones_of() == 1, s)
+        s_list, _ = b.call("GET", f"/ws/ioeti/quotes/{qid}/milestones")
+        s_add, _ = add_milestone(b)
+        check("another rep: milestones answer like a missing quotation (404)", s_list == s_add == 404 and milestones_of() == 1,
+              f"{s_list} {s_add}")
+        current, gate, answers = version(SALE_ORDER, qid), threading.Barrier(2), []
+
+        def race(client):
+            gate.wait()
+            answers.append(client.call("POST", f"/ws/ioeti/quotes/{qid}/milestones",
+                                       {"version": current, "title": "Delivery", "percentage": 40,
+                                        "dueDate": "2027-03-31"})[0])
+
+        threads = [threading.Thread(target=race, args=(c,)) for c in (a, a2)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+        check("concurrent milestone additions: one 201 and one 409, total stays at 70 %",
+              sorted(answers) == [201, 409] and milestones_of() == 2, f"{sorted(answers)} {milestones_of()}")
+        add_line(a, quantity=1)
+        new_total = float(fetch(SALE_ORDER, qid, ["exTaxTotal"]).get("exTaxTotal") or 0)
+        rows = search(TIMETABLE, f"self.saleOrder.id = {qid}", ("percentage", "amount"))
+        check("milestone amounts follow a line change (native updateTimetableAmounts)",
+              new_total > quote_total and all(near(r.get("amount"), new_total * float(r["percentage"]) / 100) for r in rows),
+              f"{new_total} {rows}")
+        target = rows[0]["id"]
+        s, body = a.call("POST", f"/ws/ioeti/quotes/{qid}/milestones/{target}/invoice")
+        check("invoicing a milestone → 422 BLOCKED_BY_POLICY (D-06), no invoice created",
+              s == 422 and body.get("error", {}).get("code") == "BLOCKED_BY_POLICY"
+              and len(search(INVOICE, f"self.saleOrder.id = {qid}")) == 0, f"{s} {body.get('error')}")
+        s_stale, _ = a.call("DELETE", f"/ws/ioeti/quotes/{qid}/milestones/{target}?version={version(SALE_ORDER, qid) - 1}")
+        s_other, _ = b.call("DELETE", f"/ws/ioeti/quotes/{qid}/milestones/{target}?version={version(SALE_ORDER, qid)}")
+        s_missing, _ = a.call("DELETE", f"/ws/ioeti/quotes/{qid}/milestones/{MISSING}?version={version(SALE_ORDER, qid)}")
+        check("remove: stale → 409, another rep → 404, unknown milestone → 404; nothing removed",
+              (s_stale, s_other, s_missing) == (409, 404, 404) and milestones_of() == 2, (s_stale, s_other, s_missing))
+        s, body = a.call("DELETE", f"/ws/ioeti/quotes/{qid}/milestones/{target}?version={version(SALE_ORDER, qid)}")
+        check("owner removes an uninvoiced milestone", s == 200 and milestones_of() == 1, f"{s} {body.get('error')}")
+
+        # --- 7. finalize is policy-blocked -----------------------------------------------------------------
         s, body = a.call("POST", f"/ws/ioeti/quotes/{qid}/finalize")
         check("finalize → 422 BLOCKED_BY_POLICY (D-06, D-11); still a draft",
               s == 422 and body.get("error", {}).get("code") == "BLOCKED_BY_POLICY"
@@ -285,6 +361,8 @@ def main():
                     created.append((SALE_ORDER, row["id"]))
         quote_ids = [rid for model, rid in created if model == SALE_ORDER]
         if quote_ids:
+            for row in search(TIMETABLE, f"self.saleOrder.id in ({','.join(map(str, quote_ids))})"):
+                created.append((TIMETABLE, row["id"]))
             for row in search(SALE_ORDER_LINE, f"self.saleOrder.id in ({','.join(map(str, quote_ids))})"):
                 created.append((SALE_ORDER_LINE, row["id"]))
         complete, leftovers = cleanup(admin, created, CLEANUP_ORDER)

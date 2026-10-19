@@ -762,3 +762,14 @@ td code { display: inline-block; font: 11px Inter,monospace; color: var(--on-sur
 .quote-finalize small{font-size:11px;color:var(--on-surface-variant);max-width:420px;}
 @media(max-width:640px){.quote-line-form{grid-template-columns:1fr;}}
 .quote-code{display:block;font-size:10px;color:var(--on-surface-variant);}
+/* Wave 3: payment milestones */
+.milestones{display:grid;gap:14px;border-top:1px solid var(--outline-variant);padding-top:18px;}
+.milestones-head{display:flex;gap:10px;align-items:flex-start;}
+.milestones-head h3{font-size:14px;margin:0;}
+.milestones-head p{font-size:11px;margin:4px 0 0;color:var(--on-surface-variant);}
+.milestone-figures{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:0;}
+.milestone-figures div{background:var(--surface-variant);border-radius:var(--radius);padding:10px 12px;}
+.milestone-figures dt{font-size:10px;color:var(--on-surface-variant);}
+.milestone-figures dd{margin:4px 0 0;font-weight:700;font-size:12px;}
+.milestone-form{grid-template-columns:minmax(0,2fr) minmax(0,1fr) minmax(0,1fr) auto;align-items:end;margin-top:0;}
+@media(max-width:740px){.milestone-figures{grid-template-columns:repeat(2,minmax(0,1fr));}.milestone-form{grid-template-columns:1fr;}}

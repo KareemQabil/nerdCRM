@@ -473,6 +473,10 @@ test("lead conversion: server refusals are localized, never shown raw, and nothi
   await expect(page.locator("body")).not.toContainText("c0ffee00");
 });
 
+const emptyPlan = (quoteVersion: number) => ({ quoteId: 7, quoteVersion, currency: "EGP", totalBeforeTax: "3000.00",
+  plannedPercentage: "0", plannedAmountBeforeTax: "0", bookingStatus: "NOT_BOOKED", bookedBeforeTax: "0", invoiced: "0",
+  collected: "0", invoicingStatus: "BLOCKED_BY_POLICY", milestones: [] as unknown[] });
+
 test("quotations: opportunity page creates a draft from the catalog, before tax only, finalize blocked by policy", async ({page}) => {
   await intercept(page);
   const ok = (object: unknown, code = 200) => ({ status: code, contentType: "application/json", body: JSON.stringify({ codeStatus: code, messageStatus: "ok", object }) });
@@ -490,6 +494,7 @@ test("quotations: opportunity page creates a draft from the catalog, before tax 
       quantity: "2.0000000000", unit: "Day", unitPriceBeforeTax: "1500.00", totalBeforeTax: "3000.00" }] };
     return route.fulfill(ok(quote, 201));
   });
+  await page.route(/\/axelor-erp\/ws\/ioeti\/quotes\/\d+\/milestones/, route => route.fulfill(ok(emptyPlan(quote.version))));
   await page.goto("/#/opportunities/101");
   await expect(page.getByRole("heading", { name: "عروض الأسعار" })).toBeVisible();
   await page.getByRole("button", { name: "عرض سعر جديد" }).click();
@@ -525,4 +530,43 @@ test("quotations: setup and account refusals are localized, never raw", async ({
   await expect(page.getByRole("alert")).toHaveText(/إعداد المبيعات لهذه الشركة أو لهذا المنتج غير مكتمل/);
   await expect(page.locator("body")).not.toContainText("deadbeef");
   await expect(page.locator("body")).not.toContainText("Sales setup internal");
+});
+
+test("payment milestones: added with the quotation version; booked, invoiced and collected stay separate; refusals localized", async ({page}) => {
+  await intercept(page);
+  const ok = (object: unknown, code = 200) => ({ status: code, contentType: "application/json", body: JSON.stringify({ codeStatus: code, messageStatus: "ok", object }) });
+  const quote = { id: 7, version: 3, reference: "#7", status: "DRAFT", opportunityId: 101, accountId: 901, accountName: "Nile View Hotel",
+    currency: "EGP", totalBeforeTax: "3000.00", taxStatus: "BLOCKED_BY_POLICY", lines: [] };
+  let plan = { ...emptyPlan(3) };
+  const posts: unknown[] = [];
+  await page.route(/\/axelor-erp\/ws\/ioeti\/quotes\?opportunityId=101$/, route => route.fulfill(ok([quote])));
+  await page.route(/\/axelor-erp\/ws\/ioeti\/quotes\/7\/milestones$/, route => {
+    if (route.request().method() === "GET") return route.fulfill(ok(plan));
+    const body = route.request().postDataJSON() as { percentage: number };
+    posts.push(body);
+    if (Number(plan.plannedPercentage) + body.percentage > 100) return route.fulfill({ status: 422, contentType: "application/json", body: JSON.stringify({ codeStatus: 422, messageStatus: "x",
+      error: { code: "VALIDATION_FAILED", message: "x", correlationId: "feedface1", fields: [{ field: "percentage", code: "TOTAL_EXCEEDED", message: "x" }] } }) });
+    plan = { ...plan, quoteVersion: 4, plannedPercentage: "30", plannedAmountBeforeTax: "900.00",
+      milestones: [{ id: 51, title: "Contract signature", percentage: "30.00", amountBeforeTax: "900.00", dueDate: "2027-01-31", state: "PLANNED", invoiceReference: null }] };
+    return route.fulfill(ok(plan, 201));
+  });
+  await page.goto("/#/opportunities/101");
+  await expect(page.getByRole("heading", { name: "دفعات السداد" })).toBeVisible();
+  await expect(page.locator(".milestone-figures")).toContainText("غير محجوز بعد");
+  await page.getByLabel("اسم الدفعة").fill("Contract signature");
+  await page.getByLabel("النسبة %").fill("30");
+  await page.getByLabel("تاريخ الاستحقاق").fill("2027-01-31");
+  await page.getByRole("button", { name: "إضافة دفعة" }).click();
+  await expect(page.locator(".milestones table")).toContainText("Contract signature");
+  await expect(page.locator(".milestones table")).toContainText("مخططة");
+  expect(posts[0]).toEqual({ version: 3, title: "Contract signature", percentage: 30, dueDate: "2027-01-31" });
+  await page.getByLabel("اسم الدفعة").fill("Too much");
+  await page.getByLabel("النسبة %").fill("80");
+  await page.getByLabel("تاريخ الاستحقاق").fill("2027-02-28");
+  await page.getByRole("button", { name: "إضافة دفعة" }).click();
+  await expect(page.getByRole("alert")).toHaveText(/مجموع نسب الدفعات لا يمكن أن يتجاوز 100%/);
+  expect(posts[1]).toMatchObject({ version: 4 });
+  await expect(page.locator("body")).not.toContainText("feedface");
+  await expect(page.getByText("إصدار الفواتير من الدفعات متوقف حتى اعتماد سياسة المالية (D-06).")).toBeVisible();
+  await page.screenshot({ path: "test-results/ioeti-quote-milestones.png", fullPage: true });
 });

@@ -65,6 +65,8 @@ Draft PRs, each stacked on the previous one:
 - 2: #16;
 - 3: #17;
 - 4, part 1 (conversion and Account 360): #18;
-- 5, part 1 (catalog and draft quotations): branch `claude/ioeti-wave3-quotes`.
+- 5, part 1 (catalog and draft quotations): #19;
+- platform part 1 (migrations and backup): #20;
+- 5, part 2a (payment milestones): branch `claude/ioeti-wave3-milestones`.
 
 Policy-dependent steps follow `docs/decisions/OPEN_IOETI_POLICY_DECISIONS.md`.

@@ -8,6 +8,7 @@ import com.axelor.apps.crm.db.Opportunity;
 import com.axelor.apps.sale.db.SaleOrder;
 import com.axelor.apps.sale.service.saleorder.opportunity.OpportunitySaleOrderService;
 import com.axelor.apps.sale.service.saleorderline.creation.SaleOrderLineGeneratorService;
+import com.axelor.apps.supplychain.service.saleorder.SaleOrderSupplychainService;
 import com.axelor.auth.db.User;
 import com.google.inject.Inject;
 import com.google.inject.persist.Transactional;
@@ -23,7 +24,8 @@ import java.util.Optional;
  *       salesperson, contact, team, currency, default price list and fiscal position come from the
  *       opportunity and its account, exactly as in the native "Create quotation" button.
  *   <li>Lines: {@code SaleOrderLineGeneratorService.createSaleOrderLine}, the same path the AOS mobile
- *       API uses. It refuses non-draft quotations and recomputes the order totals.
+ *       API uses. It refuses non-draft quotations and recomputes the order totals. Payment
+ *       milestones are then recomputed with the native {@code updateTimetableAmounts}.
  * </ul>
  */
 public class QuoteService {
@@ -31,15 +33,18 @@ public class QuoteService {
   private final OpportunitySaleOrderService opportunitySaleOrderService;
   private final SaleOrderLineGeneratorService saleOrderLineGeneratorService;
   private final CompanyRepository companyRepository;
+  private final SaleOrderSupplychainService saleOrderSupplychainService;
 
   @Inject
   public QuoteService(
       OpportunitySaleOrderService opportunitySaleOrderService,
       SaleOrderLineGeneratorService saleOrderLineGeneratorService,
-      CompanyRepository companyRepository) {
+      CompanyRepository companyRepository,
+      SaleOrderSupplychainService saleOrderSupplychainService) {
     this.opportunitySaleOrderService = opportunitySaleOrderService;
     this.saleOrderLineGeneratorService = saleOrderLineGeneratorService;
     this.companyRepository = companyRepository;
+    this.saleOrderSupplychainService = saleOrderSupplychainService;
   }
 
   /**
@@ -67,6 +72,10 @@ public class QuoteService {
   public SaleOrder addLine(SaleOrder quote, Product product, BigDecimal quantity)
       throws AxelorException {
     saleOrderLineGeneratorService.createSaleOrderLine(quote, product, quantity);
+    // the native form does this on line change; the line generator does not: keep payment
+    // milestones (Timetable) at their percentage of the new total
+    saleOrderSupplychainService.updateTimetableAmounts(quote);
+    saleOrderSupplychainService.updateAmountToBeSpreadOverTheTimetable(quote);
     return quote;
   }
 }
