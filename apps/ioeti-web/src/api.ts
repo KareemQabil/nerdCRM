@@ -6,6 +6,8 @@ export type BusinessLine = {
   id: number; code: string; nameAr: string; nameEn: string;
   status: number; sequence: number | null; responsibleTeam: string | null;
 };
+export type LeadSummary = { id: number; name: string; organization: string | null; stage: string | null };
+export type AccountSummary = { id: number; name: string; reference: string | null; customer: boolean; prospect: boolean };
 export type SessionIdentity = { code: string; name: string; language: string | null };
 export type Opportunity = {
   id: number;
@@ -109,4 +111,26 @@ export async function renameOpportunity(id: number, name: string, version: numbe
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ name, version }),
   });
+}
+
+/** Read-only reverse-mapped models, never Axelor generic REST. */
+export async function getLeads(offset = 0, limit = 25): Promise<LeadSummary[]> {
+  if (DEMO_MODE) return demoStore.leads(offset, limit);
+  const values = await wrapped<LeadSummary[]>(`/ws/ioeti/leads?limit=${limit}&offset=${offset}`);
+  if (!Array.isArray(values)) throw new ApiError(502, "Invalid lead response");
+  return values;
+}
+export async function getLead(id: number): Promise<LeadSummary> {
+  if (DEMO_MODE) return demoStore.lead(id);
+  return wrapped<LeadSummary>(`/ws/ioeti/leads/${id}`);
+}
+export async function getAccounts(offset = 0, limit = 25): Promise<AccountSummary[]> {
+  if (DEMO_MODE) return demoStore.accounts(offset, limit);
+  const values = await wrapped<AccountSummary[]>(`/ws/ioeti/accounts?limit=${limit}&offset=${offset}`);
+  if (!Array.isArray(values)) throw new ApiError(502, "Invalid accounts response");
+  return values;
+}
+export async function getAccount(id: number): Promise<AccountSummary> {
+  if (DEMO_MODE) return demoStore.account(id);
+  return wrapped<AccountSummary>(`/ws/ioeti/accounts/${id}`);
 }

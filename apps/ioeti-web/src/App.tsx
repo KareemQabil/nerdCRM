@@ -4,16 +4,17 @@ import {
   Check, ChevronDown, CircleAlert, CircleHelp, Crown, GraduationCap,
   HeartHandshake, House, Layers3, LockKeyhole, Menu,
   Moon, Palette, RefreshCw, Search, Settings2,
-  ShieldCheck, Sun, Workflow, X,
+  ShieldCheck, Sun, Workflow, UsersRound, X,
 } from "lucide-react";
 import { ApiError, getBusinessLines, getSession, signIn, type BusinessLine, type SessionIdentity } from "./api";
 import { OpportunitiesPage } from "./OpportunitiesPage";
 import { NativeModules } from "./NativeModules";
+import { DirectoryPage } from "./DirectoryPage";
 import { DEMO_MODE } from "./demo";
 import { t } from "./labels";
 import { usePreferences, type Theme } from "./preferences";
 
-type Page = "home" | "businessLines" | "opportunities" | "capabilities" | "design";
+type Page = "home" | "businessLines" | "opportunities" | "leads" | "accounts" | "capabilities" | "design";
 type Session = "checking" | "login" | "authenticated";
 type LineFilter = "all" | "active" | "setup" | "suspended";
 type IconType = typeof House;
@@ -131,8 +132,9 @@ export function App() {
     { id: "home", label: labels.home, icon: House },
     { id: "businessLines", label: labels.businessLines, icon: Layers3 },
     { id: "opportunities", label: labels.sales, icon: Activity },
+    { id: "leads", label: labels.leads, icon: UsersRound },
     { id: "capabilities", label: labels.capabilityMap, icon: Workflow },
-    { id: "clients", label: labels.clients, icon: Building2, disabled: true },
+    { id: "accounts", label: labels.accountDirectory, icon: Building2 },
     { id: "certification", label: labels.certification, icon: BadgeCheck, disabled: true },
     { id: "training", label: labels.training, icon: GraduationCap, disabled: true },
     { id: "recruitment", label: labels.recruitment, icon: BriefcaseBusiness, disabled: true },
@@ -174,7 +176,7 @@ export function App() {
       <header className="top-bar">
         <div className="top-start">
           <IconButton className="mobile-menu" label={labels.navigation} onClick={() => setMobileNav(true)}><Menu size={19}/></IconButton>
-          <div className="breadcrumb"><span>{labels.workspace}</span><span className="crumb-separator">/</span><strong>{page === "home" ? labels.home : page === "businessLines" ? labels.businessLines : page === "opportunities" ? labels.opportunities : page === "capabilities" ? labels.capabilityMap : labels.design}</strong></div>
+          <div className="breadcrumb"><span>{labels.workspace}</span><span className="crumb-separator">/</span><strong>{page === "home" ? labels.home : page === "businessLines" ? labels.businessLines : page === "opportunities" ? labels.opportunities : page === "leads" ? labels.leads : page === "accounts" ? labels.accountDirectory : page === "capabilities" ? labels.capabilityMap : labels.design}</strong></div>
         </div>
         <div className="top-actions">
           <span className="server-status"><span className="live-pulse"/>{DEMO_MODE ? (isRTL ? "بيانات افتراضية" : "Sample data") : labels.connected}</span>
@@ -205,6 +207,8 @@ export function App() {
         </section>}
 
         {page === "opportunities" && <OpportunitiesPage language={prefs.language} lines={lines} labels={labels} />}
+        {page === "leads" && <DirectoryPage kind="leads" language={prefs.language} />}
+        {page === "accounts" && <DirectoryPage kind="accounts" language={prefs.language} />}
         {page === "capabilities" && <NativeModules language={prefs.language} />}
         {page === "businessLines" && <section className="page-enter">
           <PageTitle eyebrow={labels.workspace} title={labels.businessLines} description={labels.description} />
