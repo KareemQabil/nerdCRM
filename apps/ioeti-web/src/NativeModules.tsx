@@ -2,6 +2,8 @@ import { useState } from "react";
 import { ArrowLeft, ArrowRight, CheckCircle2, ChevronDown, Layers3, LockKeyhole, Search, ShieldAlert, Workflow } from "lucide-react";
 import type { Language } from "./preferences";
 import { CapabilityJourney, type JourneyKey } from "./CapabilityJourney";
+import { DEMO_MODE } from "./demo";
+import { DEMO_AREAS, type DemoArea } from "./demoBusiness";
 
 type Capability = {
   id: string; ar: string; en: string; entity: string; upstream: string;
@@ -68,7 +70,7 @@ const capabilities: Capability[] = [
     gapAr:"بيانات المانحين والمنح والتعهدات والإيصالات والتقارير",gapEn:"Donor profiles, grants, pledges, receipts and reports",
     pagesAr:["المانحون","الحملات","التعهدات","الإيصالات"],pagesEn:["Donors","Campaigns","Pledges","Receipts"]},
 ];
-export function NativeModules({ language, onOpen }: { language: Language; onOpen: (page: "leads" | "accounts" | "opportunities") => void }) {
+export function NativeModules({ language, onOpen, onOpenDemo }: { language: Language; onOpen: (page: "leads" | "accounts" | "opportunities") => void; onOpenDemo: (area: DemoArea) => void }) {
   const ar = language === "ar";
   const [active,setActive]=useState<Capability|null>(null);
   const [query,setQuery]=useState("");
@@ -97,6 +99,11 @@ export function NativeModules({ language, onOpen }: { language: Language; onOpen
       <div className="cap-detail-heading"><div><span className="eyebrow">{active.upstream}</span><h2>{ar?active.ar:active.en}</h2></div>
       <div className="cap-detail-actions">
         {uiConnection[active.id]&&<button type="button" className="btn btn-primary" onClick={()=>onOpen(uiConnection[active.id])}>{ar?"افتح واجهة القراءة المرتبطة":"Open connected read-only UI"}{arrow}</button>}
+        {DEMO_MODE && DEMO_AREAS.includes(active.id as DemoArea) &&
+          <button type="button" className="btn btn-primary" onClick={()=>onOpenDemo(active.id as DemoArea)}>
+            {ar?"افتح الديمو التفاعلي الكامل":"Open interactive module demo"}{arrow}
+          </button>}
+
         <button type="button" className="btn btn-secondary" onClick={()=>setActive(null)}>{ar?"إغلاق":"Close"}</button>
       </div></div>
 

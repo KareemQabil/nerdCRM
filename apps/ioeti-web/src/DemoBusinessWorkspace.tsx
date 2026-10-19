@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type FormEvent, type KeyboardEvent } from "react";
 import {
- ArrowLeft, ArrowRight, ArrowUpRight, BadgeCheck, CalendarDays, Check, CheckCircle2,
+ ArrowLeft, ArrowRight, BadgeCheck, CalendarDays, Check, CheckCircle2,
  ChevronLeft, ChevronRight, CircleHelp, ClipboardList, Clock3, FileText, Filter,
  GitBranch, Layers3, LockKeyhole, MessageSquarePlus, Plus, Search, ShieldAlert,
- Sparkles, UsersRound, Wallet, Workflow, X
+ Sparkles, UsersRound, Workflow, X
 } from "lucide-react";
 import type { Language } from "./preferences";
 import { DEMO_MODE } from "./demo";

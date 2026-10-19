@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { lazy, Suspense, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import {
   Activity, ArrowLeft, ArrowRight, BadgeCheck, BriefcaseBusiness, Building2,
   Check, ChevronDown, CircleAlert, CircleHelp, Crown, GraduationCap,
@@ -11,16 +11,24 @@ import { OpportunitiesPage } from "./OpportunitiesPage";
 import { NativeModules } from "./NativeModules";
 import { DirectoryPage } from "./DirectoryPage";
 import { DEMO_MODE } from "./demo";
+import { DEMO_AREAS, type DemoArea } from "./demoBusiness";
+const DemoBusinessWorkspace = lazy(() => import("./DemoBusinessWorkspace"));
 import { t } from "./labels";
 import { usePreferences, type Theme } from "./preferences";
 
-type Page = "home" | "businessLines" | "opportunities" | "leads" | "accounts" | "capabilities" | "design";
+type Page = "home" | "businessLines" | "opportunities" | "leads" | "accounts" | "capabilities" | "design" | "demo" | "certification" | "training" | "recruitment" | "fundraising";
 type Session = "checking" | "login" | "authenticated";
 type LineFilter = "all" | "active" | "setup" | "suspended";
 type IconType = typeof House;
-const allPages: Page[] = ["home","businessLines","opportunities","leads","accounts","capabilities","design"];
+function getPageFromDemoArea(area: DemoArea): Page {
+  return area === "certification" ? "certification" : area === "learning" ? "training"
+    : area === "recruiting" ? "recruitment" : area === "fundraising" ? "fundraising" : "demo";
+}
+
+const allPages: Page[] = ["home","businessLines","opportunities","leads","accounts","capabilities","design","demo","certification","training","recruitment","fundraising"];
 function getPageFromLocation(): Page {
   const segment = window.location.hash.match(/^#\/([^/]+)/)?.[1];
+  if (!DEMO_MODE && ["demo","certification","training","recruitment","fundraising"].includes(segment||"")) return "home";
   return allPages.includes(segment as Page) ? segment as Page : "home";
 }
 
@@ -118,6 +126,30 @@ export function App() {
   }), [lines, search, status]);
   const activeCount = lines.filter((line) => line.status === 2).length;
   const isRTL = prefs.language === "ar";
+  const activeDemoArea: DemoArea | null = !DEMO_MODE ? null
+    : page === "certification" ? "certification"
+    : page === "training" ? "learning"
+    : page === "recruitment" ? "recruiting"
+    : page === "fundraising" ? "fundraising"
+    : page === "demo" ? (() => {
+        const candidate = window.location.hash.split("/")[2] as DemoArea | undefined;
+        return candidate && DEMO_AREAS.includes(candidate) ? candidate : "quotes";
+      })() : null;
+  function navigateDemo(area: DemoArea, id?: number) {
+    if (!DEMO_MODE) return;
+    const root = area === "certification" ? "#/certification"
+      : area === "learning" ? "#/training"
+      : area === "recruiting" ? "#/recruitment"
+      : area === "fundraising" ? "#/fundraising"
+      : "#/demo/" + area;
+    const route = id == null ? root : root + "/" + id;
+    setPage(getPageFromDemoArea(area));
+    setMobileNav(false); setSelected(null);
+    if (window.location.hash !== route) window.history.pushState({ioetiDemo:true,area,id},"",route);
+    window.dispatchEvent(new PopStateEvent("popstate"));
+    window.scrollTo({ top: 0, behavior: "instant" });
+  }
+
 
   function navigate(next: Page) {
     setPage(next); setMobileNav(false); setSelected(null);
@@ -157,10 +189,10 @@ export function App() {
     { id: "leads", label: labels.leads, icon: UsersRound },
     { id: "capabilities", label: labels.capabilityMap, icon: Workflow },
     { id: "accounts", label: labels.accountDirectory, icon: Building2 },
-    { id: "certification", label: labels.certification, icon: BadgeCheck, disabled: true },
-    { id: "training", label: labels.training, icon: GraduationCap, disabled: true },
-    { id: "recruitment", label: labels.recruitment, icon: BriefcaseBusiness, disabled: true },
-    { id: "fundraising", label: labels.fundraising, icon: HeartHandshake, disabled: true },
+    { id: "certification", label: labels.certification, icon: BadgeCheck, disabled: !DEMO_MODE },
+    { id: "training", label: labels.training, icon: GraduationCap, disabled: !DEMO_MODE },
+    { id: "recruitment", label: labels.recruitment, icon: BriefcaseBusiness, disabled: !DEMO_MODE },
+    { id: "fundraising", label: labels.fundraising, icon: HeartHandshake, disabled: !DEMO_MODE },
   ];
   const secondaryNav: { id: Page | string; label: string; icon: IconType; disabled?: boolean }[] = [
     { id: "design", label: labels.design, icon: Palette },
@@ -198,7 +230,7 @@ export function App() {
       <header className="top-bar">
         <div className="top-start">
           <IconButton className="mobile-menu" label={labels.navigation} onClick={() => setMobileNav(true)}><Menu size={19}/></IconButton>
-          <div className="breadcrumb"><span>{labels.workspace}</span><span className="crumb-separator">/</span><strong>{page === "home" ? labels.home : page === "businessLines" ? labels.businessLines : page === "opportunities" ? labels.opportunities : page === "leads" ? labels.leads : page === "accounts" ? labels.accountDirectory : page === "capabilities" ? labels.capabilityMap : labels.design}</strong></div>
+          <div className="breadcrumb"><span>{labels.workspace}</span><span className="crumb-separator">/</span><strong>{page === "home" ? labels.home : page === "businessLines" ? labels.businessLines : page === "opportunities" ? labels.opportunities : page === "leads" ? labels.leads : page === "accounts" ? labels.accountDirectory : page === "capabilities" ? labels.capabilityMap : activeDemoArea ? (isRTL ? {quotes:"عروض الأسعار",catalog:"كتالوج الخدمات",contracts:"العقود",finance:"المالية",projects:"المشروعات",visits:"الزيارات",quality:"الجودة",marketing:"التسويق",learning:"التدريب",recruiting:"التوظيف",certification:"الشهادات",fundraising:"التمويل"}[activeDemoArea] : {quotes:"Quotations",catalog:"Service catalog",contracts:"Contracts",finance:"Finance",projects:"Projects",visits:"Visits",quality:"Quality",marketing:"Marketing",learning:"Training",recruiting:"Recruitment",certification:"Certification",fundraising:"Fundraising"}[activeDemoArea]) : labels.design}</strong></div>
         </div>
         <div className="top-actions">
           <span className="server-status"><span className="live-pulse"/>{DEMO_MODE ? (isRTL ? "بيانات افتراضية" : "Sample data") : labels.connected}</span>
@@ -232,7 +264,7 @@ export function App() {
         {page === "opportunities" && <OpportunitiesPage language={prefs.language} lines={lines} labels={labels} />}
         {page === "leads" && <DirectoryPage kind="leads" language={prefs.language} />}
         {page === "accounts" && <DirectoryPage kind="accounts" language={prefs.language} />}
-        {page === "capabilities" && <NativeModules language={prefs.language} onOpen={navigate} />}
+        {page === "capabilities" && <NativeModules language={prefs.language} onOpen={navigate} onOpenDemo={navigateDemo} />}
         {page === "businessLines" && !selected && <section className="page-enter">
           <PageTitle eyebrow={labels.workspace} title={labels.businessLines} description={labels.description} />
           <div className="list-toolbar"><label className="search-field"><Search size={18}/><span className="sr-only">{labels.search}</span><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder={labels.search}/>{search && <button type="button" aria-label={labels.back} onClick={() => setSearch("")}><X size={16}/></button>}</label>
@@ -246,6 +278,9 @@ export function App() {
           <p className="scope-note"><LockKeyhole size={15}/>{labels.visualNote}</p>
         </section>}
 
+        {activeDemoArea && <Suspense fallback={<div className="empty-state" role="status">{labels.loading}</div>}>
+          <DemoBusinessWorkspace key={activeDemoArea} area={activeDemoArea} language={prefs.language} onNavigateArea={navigateDemo}/>
+        </Suspense>}
         {page === "design" && <DesignLab labels={labels}/>}
       </main>
     </div>
