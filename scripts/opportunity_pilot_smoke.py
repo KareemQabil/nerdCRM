@@ -52,6 +52,14 @@ def main():
         require(status == 200 and (reloaded.get("object") or {}).get("name") == newname, "rename persisted across fresh query")
         status, old = client.call("PUT", f"/ws/ioeti/opportunities/{created_id}",
             {"name": "This should never be saved", "version": version})
+        # Diagnostic log only bounded status and non-sensitive version numbers.
+        print("PILOT_VERSION_PROBE",
+              "initial", version,
+              "after_update", (reloaded.get("object") or {}).get("version"),
+              "stale_http", status,
+              "stale_code", old.get("codeStatus"),
+              "stale_state", old.get("status"),
+              "stale_message", str(old.get("messageStatus"))[:100])
         require(status == 409 or old.get("codeStatus") == 409, "stale version refused")
         print("PILOT_CONTRACT=PASS")
     finally:
