@@ -59,3 +59,16 @@ isolated Axelor dev environment and execute the role/security gates described
 in docs/PILOT_PLAN.md before calling the first real pilot accepted.
 
 The custom UI is still NOT production-ready.
+
+## Native module reverse mapping (incremental)
+
+Read-only Lead Inbox and Account Directory have been added using the pinned native
+Axelor Lead and Partner models. These surfaces use only explicit IOETI DTO endpoints,
+not Axelor's unrestricted generic REST or direct JPA entities. They have no writes.
+
+In Vercel demo mode the two directories use **fictional in-memory examples**.
+Real mode uses authenticated Axelor endpoints. The "System map" page opens the
+first connected UI surfaces, while other modules remain architectural previews.
+See docs/UX_REVERSE_MAPPING.md.
+
+Do not deploy the real backend publicly until its security gates are closed.

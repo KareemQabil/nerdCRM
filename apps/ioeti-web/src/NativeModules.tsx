@@ -67,11 +67,12 @@ const capabilities: Capability[] = [
     gapAr:"بيانات المانحين والمنح والتعهدات والإيصالات والتقارير",gapEn:"Donor profiles, grants, pledges, receipts and reports",
     pagesAr:["المانحون","الحملات","التعهدات","الإيصالات"],pagesEn:["Donors","Campaigns","Pledges","Receipts"]},
 ];
-export function NativeModules({ language }: { language: Language }) {
+export function NativeModules({ language, onOpen }: { language: Language; onOpen: (page: "leads" | "accounts" | "opportunities") => void }) {
   const ar = language === "ar";
   const [active,setActive]=useState<Capability|null>(null);
   const [query,setQuery]=useState("");
   const visible=capabilities.filter(x=>[x.ar,x.en,x.entity,x.upstream].join(" ").toLocaleLowerCase().includes(query.toLocaleLowerCase().trim()));
+  const uiConnection: Record<string, "leads" | "accounts" | "opportunities"> = { leads: "leads", accounts: "accounts" };
   const statusLabel=(x:Capability)=>x.stage==="new"?(ar?"مطلوب موديول IOETI":"IOETI module required"):(ar?"موديول Axelor موجود":"Existing Axelor domain");
   const arrow=ar?<ArrowLeft size={17}/>:<ArrowRight size={17}/>;
   return <section className="page-enter capability-explorer">
@@ -93,7 +94,10 @@ export function NativeModules({ language }: { language: Language }) {
     </div>
     {active && <section className="cap-detail" aria-live="polite">
       <div className="cap-detail-heading"><div><span className="eyebrow">{active.upstream}</span><h2>{ar?active.ar:active.en}</h2></div>
-      <button type="button" className="btn btn-secondary" onClick={()=>setActive(null)}>{ar?"إغلاق":"Close"}</button></div>
+      <div className="cap-detail-actions">
+        {uiConnection[active.id]&&<button type="button" className="btn btn-primary" onClick={()=>onOpen(uiConnection[active.id])}>{ar?"افتح واجهة القراءة المرتبطة":"Open connected read-only UI"}{arrow}</button>}
+        <button type="button" className="btn btn-secondary" onClick={()=>setActive(null)}>{ar?"إغلاق":"Close"}</button>
+      </div></div>
       <div className="cap-detail-cols">
         <div><span className="detail-kicker">{ar?"الكائنات البرمجية المثبتة بالمصدر":"Grounded domain models"}</span><p><code dir="ltr">{active.entity}</code></p>
           <span className="detail-kicker">{ar?"خريطة صفحات الواجهة":"Planned custom UI surfaces"}</span><div className="cap-page-list">{(ar?active.pagesAr:active.pagesEn).map((p,i)=><div key={p}><span>{String(i+1).padStart(2,"0")}</span><strong>{p}</strong>{arrow}</div>)}</div></div>

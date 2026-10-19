@@ -24,6 +24,16 @@ async function intercept(page: Page, config: { businessLineDenied?: boolean } = 
       if (config.businessLineDenied) return route.fulfill({ status: 403, body: "{}" });
       return result(lines);
     }
+    if (path.endsWith("/leads") && method === "GET") return result([
+      { id: 207, name: "Nour Hassan", organization: "Nile View Hotel", stage: "New" },
+      { id: 206, name: "Mona Saber", organization: "Delta Foods", stage: "Qualified" },
+    ]);
+    if (path.endsWith("/leads/207") && method === "GET") return result({ id: 207, name: "Nour Hassan", organization: "Nile View Hotel", stage: "New" });
+    if (path.endsWith("/accounts") && method === "GET") return result([
+      { id: 901, name: "Nile View Hotel", reference: "AC-901", customer: false, prospect: true },
+      { id: 902, name: "Delta Foods", reference: "AC-902", customer: true, prospect: false },
+    ]);
+    if (path.endsWith("/accounts/901") && method === "GET") return result({ id: 901, name: "Nile View Hotel", reference: "AC-901", customer: false, prospect: true });
     if (path.endsWith("/opportunities") && method === "GET") return result(records);
     if (path.endsWith("/opportunities") && method === "POST") {
       const body = route.request().postDataJSON() as { name: string; businessLineCode: string };
@@ -103,4 +113,31 @@ test("mobile Arabic navigation reaches live opportunity route", async ({ page })
   await page.getByRole("button", { name: "المبيعات" }).click();
   await expect(page.getByText("Hotel certification")).toBeVisible();
   await page.screenshot({ path: "test-results/ioeti-arabic-mobile-opportunities.png", fullPage: true });
+});
+
+test("reverse-mapped Leads list and secured detail route use specific DTO APIs",async ({page})=>{
+  await intercept(page);
+  await page.goto("/");
+  await page.getByRole("button",{name:"العملاء المحتملون"}).click();
+  await expect(page.getByText("Nour Hassan")).toBeVisible();
+  await page.getByPlaceholder("ابحث في السجلات المحمّلة...").fill("Delta");
+  await expect(page.getByText("Mona Saber")).toBeVisible();
+  await expect(page.getByText("Nour Hassan")).toHaveCount(0);
+  await page.getByPlaceholder("ابحث في السجلات المحمّلة...").fill("");
+  const row=page.locator(".directory-item").filter({hasText:"Nour Hassan"});
+  await row.getByRole("button",{name:"عرض التفاصيل"}).click();
+  await expect(page.getByRole("dialog")).toContainText("Nile View Hotel");
+  await page.getByRole("dialog").getByRole("button",{name:"إغلاق"}).click();
+});
+
+test("Account directory excludes unnecessary private data and uses authorized route",async ({page})=>{
+  await intercept(page);
+  await page.goto("/");
+  await page.getByRole("button",{name:"حسابات العملاء"}).click();
+  await expect(page.getByText("Nile View Hotel")).toBeVisible();
+  await expect(page.getByText("Delta Foods")).toBeVisible();
+  const row=page.locator(".directory-item").filter({hasText:"Nile View Hotel"});
+  await row.getByRole("button",{name:"عرض التفاصيل"}).click();
+  await expect(page.getByRole("dialog")).toContainText("AC-901");
+  await page.getByRole("dialog").getByRole("button",{name:"إغلاق"}).click();
 });

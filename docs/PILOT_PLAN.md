@@ -73,3 +73,23 @@ ISO audits, external training, client recruitment and donor/grant management get
 their own bounded contexts reusing these shared business capabilities.
 
 No timeline estimate is treated as a guarantee; gate completion depends on test evidence.
+
+## Reverse mapping tranche — actual sources to UX
+
+Read-only native-domain DTO endpoints and corresponding user experiences have been
+added for `Lead` and `Partner` under `/ws/ioeti/leads` and
+`/ws/ioeti/accounts`. Customer directory deliberately excludes internal,
+employee, vendor-only and contact-only records, with minimal response fields.
+
+These endpoints are built from confirmed pinned Axelor 9.1.10 domain XML and
+apply existing server-side model/record ACL. Frontend screens are fully custom.
+
+Status:
+- Code implemented; frontend/browser contract tests added.
+- The demo uses explicit fictional fixtures and never calls live Axelor.
+- Actual production-like two-user permission tests and backend integration evidence
+  are required before the read-only screens are promoted to operational status.
+- Lead conversion/assignment, Account 360 detail composition and write operations
+  remain future vertical slices.
+
+See `docs/UX_REVERSE_MAPPING.md` and `docs/MODULE_REUSE_MATRIX.md`.
