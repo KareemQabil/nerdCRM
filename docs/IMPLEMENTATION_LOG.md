@@ -40,7 +40,7 @@ Branch `claude/ioeti-production-hardening-and-domain-slices` (stacked on
 | Live 2-writer race, simultaneous PUT with same version (`opportunity_concurrency_probe.py`) | 20/20 rounds: loser got 500 with raw Hibernate text | 40/40 rounds: one 200 + one 409 (commit-time path), stored state = winner, version +1, 0 lost updates |
 | Same race after admin `restoreAll` | – | 20/20 pass |
 | Negative: missing version / anonymous / user without Opportunity permission / stale single write | stale single write → 500 | 400 / 401 / 403 / 409, record unchanged |
-| JUnit (HSQLDB, real Guice + `@Transactional` boundary) | – | 26/26 incl. `OpportunityConflictTest` (3) and `OptimisticLockConflictsTest` (4) |
+| JUnit (HSQLDB, real Guice + `@Transactional` boundary) | 16/16 | 23/23 incl. `OpportunityConflictTest` (3) and `OptimisticLockConflictsTest` (4) |
 | API smoke (16, 6 negative) and record-filter leak probe after `restoreAll` | – | 16/16, 0/100 leaks |
 
 ### Not done / limitations
