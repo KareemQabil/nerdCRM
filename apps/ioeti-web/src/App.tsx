@@ -18,6 +18,11 @@ type Page = "home" | "businessLines" | "opportunities" | "leads" | "accounts" | 
 type Session = "checking" | "login" | "authenticated";
 type LineFilter = "all" | "active" | "setup" | "suspended";
 type IconType = typeof House;
+const allPages: Page[] = ["home","businessLines","opportunities","leads","accounts","capabilities","design"];
+function getPageFromLocation(): Page {
+  const segment = window.location.hash.match(/^#\/([^/]+)/)?.[1];
+  return allPages.includes(segment as Page) ? segment as Page : "home";
+}
 
 function statusName(status: number, labels: ReturnType<typeof t>) {
   if (status === 2) return labels.active;

@@ -126,8 +126,12 @@ test("reverse-mapped Leads list and secured detail route use specific DTO APIs",
   await page.getByPlaceholder("ابحث في السجلات المحمّلة...").fill("");
   const row=page.locator(".directory-item").filter({hasText:"Nour Hassan"});
   await row.getByRole("button",{name:"عرض التفاصيل"}).click();
-  await expect(page.getByRole("dialog")).toContainText("Nile View Hotel");
-  await page.getByRole("dialog").getByRole("button",{name:"إغلاق"}).last().click();
+  await expect(page.locator(".record-workspace")).toContainText("Nile View Hotel");
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(page).toHaveURL(/#\/leads\/207$/);
+  await page.getByRole("button",{name:"الرجوع إلى العملاء المحتملين"}).click();
+  await expect(page).toHaveURL(/#\/leads$/);
+  await expect(page.getByText("Nour Hassan")).toBeVisible();
 });
 
 test("Account directory excludes unnecessary private data and uses authorized route",async ({page})=>{
@@ -138,6 +142,41 @@ test("Account directory excludes unnecessary private data and uses authorized ro
   await expect(page.getByText("Delta Foods")).toBeVisible();
   const row=page.locator(".directory-item").filter({hasText:"Nile View Hotel"});
   await row.getByRole("button",{name:"عرض التفاصيل"}).click();
-  await expect(page.getByRole("dialog")).toContainText("AC-901");
-  await page.getByRole("dialog").getByRole("button",{name:"إغلاق"}).last().click();
+  await expect(page.locator(".record-workspace")).toContainText("AC-901");
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(page).toHaveURL(/#\/accounts\/901$/);
+  await page.goBack();
+  await expect(page).toHaveURL(/#\/accounts$/);
+  await expect(page.getByText("Nile View Hotel")).toBeVisible();
+});
+
+test("account details use full-page context, preserve filtered list and direct URL", async ({page})=>{
+  await intercept(page);
+  await page.goto("/");
+  await page.getByRole("button",{name:"حسابات العملاء"}).click();
+  const search=page.getByPlaceholder("ابحث في السجلات المحمّلة...");
+  await search.fill("Nile");
+  await page.locator(".directory-item").filter({hasText:"Nile View Hotel"})
+    .getByRole("button",{name:"عرض التفاصيل"}).click();
+  await expect(page).toHaveURL(/#\/accounts\/901$/);
+  await expect(page.locator(".record-workspace h1")).toHaveText("Nile View Hotel");
+  await expect(page.locator(".side-panel")).toBeVisible();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await page.reload();
+  await expect(page.locator(".record-workspace h1")).toHaveText("Nile View Hotel");
+  await page.getByRole("button",{name:"الرجوع إلى حسابات العملاء"}).click();
+  await expect(page.getByRole("heading",{name:"دليل حسابات العملاء"})).toBeVisible();
+});
+
+test("record page on mobile is never rendered as side drawer", async ({page})=>{
+  await page.setViewportSize({width:390,height:844});
+  await intercept(page);
+  await page.goto("/");
+  await page.getByRole("button",{name:"التنقل"}).click();
+  await page.getByRole("button",{name:"حسابات العملاء"}).click();
+  await page.locator(".directory-item").filter({hasText:"Nile View Hotel"})
+    .getByRole("button",{name:"عرض التفاصيل"}).click();
+  await expect(page.locator(".record-workspace")).toBeVisible();
+  await expect(page.locator(".record-drawer")).toHaveCount(0);
+  await page.screenshot({path:"test-results/ioeti-account-record-page-mobile.png",fullPage:true});
 });
