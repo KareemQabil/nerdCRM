@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import {
   BadgeCheck, Check, CheckCircle2, ClipboardCheck, FileCheck2, FileText,
   GitBranch, LockKeyhole, Plus, ShieldAlert, UserRound, Wallet, Workflow
@@ -30,7 +30,7 @@ export function DemoDomainWorkbench({area,record,language}:{area:DemoArea;record
     <div><span className="eyebrow">{rtl?"مساحة محاكاة":"SIMULATION LAB"}</span><h3>{title}</h3></div>
     <span className="demo-workbench-flag"><LockKeyhole size={13}/>{rtl?"غير متصل":"Offline mock"}</span>
   </div>;
- let body:React.ReactNode=null;
+ let body:ReactNode=null;
  if(area==="quotes"||area==="catalog"){
    const base=area==="quotes"?4200:2500;
    const subtotal=units*base;

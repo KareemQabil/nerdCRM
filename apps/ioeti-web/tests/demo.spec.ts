@@ -81,3 +81,45 @@ test("public demo must never call real Axelor backend during cross-module intera
   await page.getByRole("dialog").getByRole("button",{name:"احفظ داخل المعاينة"}).click();
   expect(calls).toEqual([]);
 });
+
+test("specialized quotation workbench computes only fictional price previews",async ({page})=>{
+ await page.goto("/#/demo/quotes/4101");
+ const board=page.getByRole("region",{name:"تجربة عملية داخل الملف"});
+ await expect(board).toBeVisible();
+ await board.getByRole("spinbutton",{name:"وحدات الخدمة"}).fill("3");
+ await board.getByRole("spinbutton",{name:"نسبة الخصم التجريبية"}).fill("10");
+ await expect(board).toContainText("11,340 EGP");
+ await expect(board).toContainText("قواعد الضريبة");
+});
+test("ISO evidence gate and training attendance are interactive but never issue credentials",async ({page})=>{
+ await page.goto("/#/certification/1101");
+ const iso=page.getByRole("region",{name:"تجربة عملية داخل الملف"});
+ await expect(iso.getByRole("checkbox")).toHaveCount(6);
+ await iso.getByRole("checkbox").first().check();
+ await expect(iso).toContainText("1/6");
+ await expect(iso).toContainText("إصدار الشهادة قرار مستقل");
+ await page.goto("/#/training/9101");
+ const training=page.getByRole("region",{name:"تجربة عملية داخل الملف"});
+ await expect(training).toContainText("6/12");
+ await training.getByRole("checkbox").first().check();
+ await expect(training).toContainText("17%");
+ await training.getByRole("button",{name:"مقعد افتراضي إضافي"}).click();
+ await expect(training).toContainText("7/12");
+});
+test("fundraising preview distinguishes pledged from collected cash and recruitment requires mock consent",async ({page})=>{
+ await page.goto("/#/fundraising/1201");
+ const pledge=page.getByRole("region",{name:"تجربة عملية داخل الملف"});
+ await expect(pledge).toContainText("150,000 EGP");
+ await pledge.getByRole("spinbutton",{name:"مبلغ محصل للمحاكاة (EGP)"}).fill("2500");
+ await pledge.getByRole("button",{name:"سجل تحصيلًا تجريبيًا"}).click();
+ await expect(pledge).toContainText("2,500 EGP");
+ await page.goto("/#/recruitment/10101");
+ const hiring=page.getByRole("region",{name:"تجربة عملية داخل الملف"});
+ const candidates=hiring.getByRole("checkbox");
+ await expect(candidates).toHaveCount(5);
+ await expect(candidates.nth(1)).toBeDisabled();
+ await candidates.first().check();
+ await expect(candidates.nth(1)).toBeEnabled();
+ await candidates.nth(1).check();
+ await expect(hiring).toContainText("1");
+});

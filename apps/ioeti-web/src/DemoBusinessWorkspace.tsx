@@ -8,6 +8,7 @@ import {
 import type { Language } from "./preferences";
 import { DEMO_MODE } from "./demo";
 import { DEMO_AREAS, demoBusinessStore, demoConfigs, type DemoArea, type DemoRecord } from "./demoBusiness";
+import { DemoDomainWorkbench } from "./DemoDomainWorkbench";
 
 type Props={area:DemoArea;language:Language;onNavigateArea:(area:DemoArea,id?:number)=>void};
 type DialogKind="create"|"advance"|"note";
@@ -213,6 +214,7 @@ function DemoBusinessInner({area,language,onNavigateArea}:Props){
             <div className="demo-security-note"><ShieldAlert size={17}/><span>{config[language==="ar"?"safeguardsAr":"safeguardsEn"]}</span></div>
           </div>
         </div>
+        <DemoDomainWorkbench key={area+":"+record.id} area={area} record={record} language={language}/>
       </>}
       {tab==="timeline"&&<div className="demo-panel demo-wide-panel">
         <div className="demo-section-heading"><span className="record-section-icon"><Clock3 size={20}/></span><div><h2>{strings.activity}</h2><p>{strings.activityHint}</p></div></div>
