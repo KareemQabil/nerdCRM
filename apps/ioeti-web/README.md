@@ -76,3 +76,34 @@ Do not deploy the real backend publicly until its security gates are closed.
 ## Record navigation (corrected UX decision)
 
 The **existing module Sidebar is unchanged**. Clicking Account, Lead or Business Line **View details** opens a full record workspace, not a slide-over. Contextual list→record flow supports record URL, browser Back/Forward, and return to list with current search. Small Opportunity create/rename operations use a centered modal. See `docs/design/RECORD_INTERACTION_RULES.md`.
+
+## Complete fictional operating-demo architecture (separate from real mode)
+
+Set `VITE_IOETI_DEMO=true` to open an interactive, browser-memory-only operating preview.
+All existing global Sidebar sections remain in the same positions; ISO, Training,
+Recruitment and Fundraising become clickable **only in demo mode**. The existing
+System Map opens twelve new domain workspaces:
+
+- Quotes, Service catalog, Contracts, Finance, Projects, Field visits,
+  Quality/CAPA, Marketing, External Training, Agency Recruitment, ISO Certification,
+  Fundraising/Grants.
+
+The `demoBusiness.ts` fixture defines **36 explicitly fictional, linked scenario records**
+and separate in-memory actions. `DemoBusinessWorkspace` provides searchable lists,
+stage filters, deep-linkable full record pages, workflow timelines, notes, decision
+simulation with confirmation and narrative, record creation, and cross-domain links.
+Examples include Quote → Contract → Project → Visit/ISO or Corporate Training.
+The UI is Arabic-first and supports the same English mode and Light/Dark/Luxury
+tokens. **No actions produce a real invoice, signature, certificate, payment,
+candidate share, email or backend write.**
+
+The real production build only invokes these demo screens behind `DEMO_MODE`
+and does not enable the four not-yet-secured specialized sidebar sections.
+A lazily-loaded React chunk isolates the sample workspace from the initial
+authenticated application's execution path. Do not place real data in demo fixtures.
+
+Run `npm test` for mocked API-contract tests in non-demo mode and
+`npm run test:demo` for browser-only fictional workflow E2E coverage. CI runs both.
+Demo business-stage logic is an **interaction contract**, not certified ISO,
+accounting, legal, privacy or recruitment policy. Backend API and authorization
+integration remains separate work for Claude.

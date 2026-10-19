@@ -296,3 +296,11 @@ test("Opportunity compact modal traps focus, escapes safely and restores origina
   await expect(dialog).toHaveCount(0);
   await expect(create).toBeFocused();
 });
+
+test("real authenticated mode never mounts fictional operating workspaces",async ({page})=>{
+  await intercept(page);
+  await page.goto("/#/demo/quotes");
+  await expect(page.locator(".demo-business")).toHaveCount(0);
+  await expect(page.getByRole("heading",{name:"أهلًا بك في IOETI"})).toBeVisible();
+  await expect(page.getByRole("button",{name:"الشهادات"})).toBeDisabled();
+});
