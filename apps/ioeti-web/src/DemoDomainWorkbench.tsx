@@ -25,7 +25,7 @@ export function DemoDomainWorkbench({area,record,language}:{area:DemoArea;record
  const format=(amount:number)=>new Intl.NumberFormat("en-EG",{maximumFractionDigits:0}).format(amount)+" EGP";
  const inputNumber=(value:number,onChange:(x:number)=>void,max?:number)=><input type="number" min={0} max={max} value={value}
      onChange={e=>onChange(Math.max(0,Math.min(max??Number.MAX_SAFE_INTEGER,Number(e.target.value)||0)))}/>;
- const fields=(...rows:[string,string][])=>rows.map(([k,v])=><div className="demo-workbench-stat" key={k}><span>{k}</span><strong>{v}</strong></div>);
+ const fields=(label:string,value:string)=><div className="demo-workbench-stat"><span>{label}</span><strong>{value}</strong></div>;
  const heading=<div className="demo-workbench-heading"><div className="record-section-icon"><Workflow size={21}/></div>
     <div><span className="eyebrow">{rtl?"مساحة محاكاة":"SIMULATION LAB"}</span><h3>{title}</h3></div>
     <span className="demo-workbench-flag"><LockKeyhole size={13}/>{rtl?"غير متصل":"Offline mock"}</span>
