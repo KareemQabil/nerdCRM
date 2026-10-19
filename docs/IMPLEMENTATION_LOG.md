@@ -295,3 +295,35 @@ Runbook: `docs/runbooks/DATABASE_MIGRATIONS_AND_RECOVERY.md`.
 ### Not done
 - Production schedule, off-site copies, retention, key custody, PITR, encryption at rest (D-08).
 - Upstream AOS schema stays on Axelor `ddl=update`, which runs only on a restored staging copy, per the runbook.
+
+## 2026-10-19 · Wave 3 part 2a · Payment milestones (booked / invoiced / collected kept apart)
+
+Full report: `docs/slices/W3-payment-milestones.md`.
+
+### Change
+- `/ws/ioeti/quotes/{id}/milestones` (list, add, remove) on the native supplychain `Timetable`, with amounts from the native `TimetableService.computeAmount`.
+- The total ≤ 100 % invariant is held by a `PESSIMISTIC_FORCE_INCREMENT` lock on the quotation, plus the version check.
+- The add-line command now calls the native `updateTimetableAmounts`, so milestone amounts follow line changes.
+- Invoicing a milestone answers 422 `BLOCKED_BY_POLICY` (D-06).
+- Separate `booked`, `invoiced` and `collected` figures.
+- UI: payment-plan section in the quotations panel.
+- No new IOETI schema (native tables only), so `db_migrate verify` still passes unchanged.
+
+### Evidence (local; CI on the PR)
+| Check | Result |
+|---|---|
+| Quote probe (24 quotation + 11 milestone checks, 10 rounds) | 35/35 |
+| Lead conversion | 28/28 |
+| Pilot | PASS |
+| Two-writer | 13/13 |
+| Contract | 31/31 |
+| Smoke | 16/16 |
+| Identity | 0/349,241 |
+| Scopes | 65/65 |
+| Session | 20/20 |
+| Migration verify | 8/8 |
+| Backup drill | 10/10 |
+| JUnit | 56/56 (+3 `MilestoneRulesTest`) |
+| Web mocked | 27/27 |
+| Web demo | 14/14 |
+| Build | pass |

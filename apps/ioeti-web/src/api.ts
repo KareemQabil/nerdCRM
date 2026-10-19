@@ -247,3 +247,26 @@ export async function addQuoteLine(id: number, version: number, productId: numbe
     body: JSON.stringify({ version, productId, quantity: Number(quantity) }),
   });
 }
+
+/** Wave 3: payment milestones (native Timetable). Booked, invoiced and collected are separate figures. */
+export type Milestone = { id: number; title: string; percentage: string; amountBeforeTax: string | null; dueDate: string | null; state: string; invoiceReference: string | null };
+export type MilestonePlan = {
+  quoteId: number; quoteVersion: number; currency: string | null; totalBeforeTax: string | null;
+  plannedPercentage: string; plannedAmountBeforeTax: string; bookingStatus: string; bookedBeforeTax: string;
+  invoiced: string; collected: string; invoicingStatus: string; milestones: Milestone[];
+};
+export async function getMilestones(quoteId: number): Promise<MilestonePlan> {
+  if (DEMO_MODE) throw new ApiError(403, "Preview mode is read-only");
+  return wrapped<MilestonePlan>(`/ws/ioeti/quotes/${encodeURIComponent(quoteId)}/milestones`);
+}
+export async function addMilestone(quoteId: number, version: number, title: string, percentage: string, dueDate: string): Promise<MilestonePlan> {
+  if (DEMO_MODE) throw new ApiError(403, "Preview mode is read-only");
+  return wrapped<MilestonePlan>(`/ws/ioeti/quotes/${encodeURIComponent(quoteId)}/milestones`, {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ version, title, percentage: Number(percentage), dueDate }),
+  });
+}
+export async function removeMilestone(quoteId: number, milestoneId: number, version: number): Promise<MilestonePlan> {
+  if (DEMO_MODE) throw new ApiError(403, "Preview mode is read-only");
+  return wrapped<MilestonePlan>(`/ws/ioeti/quotes/${encodeURIComponent(quoteId)}/milestones/${encodeURIComponent(milestoneId)}?version=${encodeURIComponent(version)}`, { method: "DELETE" });
+}
