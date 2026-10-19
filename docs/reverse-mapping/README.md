@@ -15,9 +15,10 @@ This is a source-complete **tracked-file index** of **all 26 top-level AOS busin
 5. [Catalog, quote, contract, finance, operations and marketing mapping](CAPABILITY_COMMERCIAL_OPERATIONS_TRACE.csv): 84 capabilities.
 6. [ISO, external training, client recruitment, fundraising](CAPABILITY_SPECIALIZED_IOETI_TRACE.csv): 86 capabilities.
 7. [Documents, automation, admin, analytics, UX, security, deployment, integrations, scope](CAPABILITY_PLATFORM_AND_GOVERNANCE_TRACE.csv): 119 capabilities.
-8. [Gap register and dependencies](GAP_REGISTER.md) and [verified upstream service methods](SERVICE_METHOD_EVIDENCE.md).
+8. [Pinned Studio 4.0.7 source ledger](platform-source-ledger/axelor-studio-4_0_7.csv), [Utils 4.0.2 source ledger](platform-source-ledger/axelor-utils-4_0_2.csv), and [Webapp wrapper ledger](platform-source-ledger/open-suite-webapp-v9_1_10.csv) extend coverage to metadata/BPM/DMN/exception utilities.
+9. [Gap register and dependencies](GAP_REGISTER.md) and [verified upstream service methods](SERVICE_METHOD_EVIDENCE.md).
 
-**Total: 377 capability rows**. This is traceability coverage against *available documents*, not a functionality completion percentage.
+**Total: 377 capability rows. In addition to 7,865 AOS files, the pinned Studio (1,825 files), Utils (494 files), and Webapp wrapper (56 files) have been indexed — **10,240 tracked-file ledger rows** across these sources. Axelor Open Platform 8.2.5 remains a binary dependency without a resolved version-specific public Git tree, so its internal implementation must be checked from exact dependency source JAR/decompiled symbols in a dedicated pass.** This is traceability coverage against *available documents*, not a functionality completion percentage.
 
 ## Baseline requirement provenance
 
@@ -49,11 +50,13 @@ This is a source-complete **tracked-file index** of **all 26 top-level AOS busin
 | `clientPortal`, `contract`, `crm`, `fleet`, `gdpr`, `helpdesk`, `hr` | matching `axelor-*` directory, except `hr` = `axelor-human-resource` |
 | `intervention`, `maintenance`, `marketing`, `mobile`, `production`, `project`, `purchase` | matching `axelor-*`, except `mobile` = `axelor-mobile-settings` |
 | `quality`, `sale`, `stock`, `supplierMgmt`, `supplierPortal`, `supplychain`, `talent` | matching `axelor-*` |
-| `AOP` | External pinned Axelor Open Platform / Studio / Utils binary API — **not enumerated** by AOS repository tree |
+| `studio` | Pinned [axelor-studio 4.0.7](platform-source-ledger/axelor-studio-4_0_7.csv), including MetaJsonModel/Field, StudioApp, WkfProcess, WkfDmnModel |
+| `utils` | Pinned [axelor-utils 4.0.2](platform-source-ledger/axelor-utils-4_0_2.csv), including ConflictChecker/HttpExceptionHandlerImpl |
+| `AOP` | Axelor Open Platform 8.2.5 runtime artifacts; **exact version-specific public source Git tree not resolved**; confirm against binary/source JAR, not the moving master branch |
 | `ioeti` | Existing local code or an architecture placeholder; inspect IOETI_REPO_FILE_LEDGER.csv and code for precise grounding |
 | `none` | No native module; out of scope or new domain |
 
-**Reference existence check:** all **468 individual `axelor-*` symbol occurrences** across the 377 capabilities for aliases inside the 26 AOS modules resolved to a matching `.xml` or `.java` file by exact basename in the saved raw ledgers (0 unresolved). This verifies **source symbol existence only**, not implementation of the claimed business semantics. AOP/Studio/IOETI placeholders were intentionally excluded from this filename check. Names frequently refer to native INTERNAL processes which require explicit adaptation.
+**Reference existence check:** all **468 individual `axelor-*` symbol occurrences** across the 377 capabilities for aliases inside the 26 AOS modules resolved to a matching `.xml` or `.java` file by exact basename in the saved raw ledgers (0 unresolved). This verifies **source symbol existence only**, not implementation of the claimed business semantics. AOP/IOETI placeholders were intentionally excluded from this filename check; Studio refs were newly reclassified after indexing pinned Studio 4.0.7. Names frequently refer to native INTERNAL processes which require explicit adaptation.
 
 ## Critical distinctions that prevent false reuse
 
