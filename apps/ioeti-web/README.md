@@ -44,3 +44,18 @@ Fonts: Almarai and Inter via Google Fonts, with system fallbacks when offline. N
 
 - docs/decisions/ADR-001-FULLY-CUSTOM-UI.md
 - docs/design/NERDPOS_PHILOSOPHY_TO_CRM.md
+
+## Phase 2: first real CRM interaction
+
+The frontend now has an Opportunities page backed by dedicated IOETI endpoints:
+`GET /ws/ioeti/session`, `GET /ws/ioeti/opportunities`,
+`GET /ws/ioeti/opportunities/{id}`, `POST /ws/ioeti/opportunities`,
+and `PUT /ws/ioeti/opportunities/{id}`. Creation and rename use Axelor
+OpportunityService; record visibility and writes use Axelor permissions.
+
+Frontend tests use **mocked contract-shaped HTTP** to verify the UX; this is not
+proof of backend integration. Run `scripts/ioeti.sh pilot-smoke` against a real,
+isolated Axelor dev environment and execute the role/security gates described
+in docs/PILOT_PLAN.md before calling the first real pilot accepted.
+
+The custom UI is still NOT production-ready.

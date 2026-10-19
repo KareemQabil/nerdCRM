@@ -6,11 +6,12 @@ import {
   Moon, Palette, RefreshCw, Search, Settings2,
   ShieldCheck, Sun, X,
 } from "lucide-react";
-import { ApiError, getBusinessLines, signIn, type BusinessLine } from "./api";
+import { ApiError, getBusinessLines, getSession, signIn, type BusinessLine, type SessionIdentity } from "./api";
+import { OpportunitiesPage } from "./OpportunitiesPage";
 import { t } from "./labels";
 import { usePreferences, type Theme } from "./preferences";
 
-type Page = "home" | "businessLines" | "design";
+type Page = "home" | "businessLines" | "opportunities" | "design";
 type Session = "checking" | "login" | "authenticated";
 type LineFilter = "all" | "active" | "setup" | "suspended";
 type IconType = typeof House;
@@ -32,6 +33,7 @@ export function App() {
   const labels = t(prefs.language);
   const [page, setPage] = useState<Page>("home");
   const [session, setSession] = useState<Session>("checking");
+  const [identity, setIdentity] = useState<SessionIdentity | null>(null);
   const [lines, setLines] = useState<BusinessLine[]>([]);
   const [loadError, setLoadError] = useState("");
   const [selected, setSelected] = useState<BusinessLine | null>(null);
@@ -50,7 +52,7 @@ export function App() {
       setLines(values);
       setSession("authenticated");
     } catch (error) {
-      if (error instanceof ApiError && (error.statusCode === 401 || error.statusCode === 403)) {
+      if (error instanceof ApiError && error.statusCode === 401) {
         setSession("login");
         setLines([]);
       } else {
@@ -61,10 +63,27 @@ export function App() {
     }
   }
   useEffect(() => {
-    // Verify a real Axelor session; do not simulate authentication.
-    void getBusinessLines()
-      .then((values) => { setLines(values); setSession("authenticated"); })
-      .catch(() => { setSession("login"); });
+    // Identity and per-module permissions are independent concepts.
+    void getSession()
+      .then(async (user) => {
+        setIdentity(user);
+        setSession("authenticated");
+        try { setLines(await getBusinessLines()); }
+        catch (error) {
+          if (error instanceof ApiError && error.statusCode === 401) { setSession("login"); return; }
+          setLoadError(error instanceof ApiError && error.statusCode === 403
+            ? (prefs.language === "ar" ? "حسابك لا يملك صلاحية قراءة خطوط الأعمال." : "No permission to read business lines.")
+            : (error instanceof Error ? error.message : "Could not load business lines"));
+        }
+      })
+      .catch((error) => {
+        if (!(error instanceof ApiError) || error.statusCode !== 401) {
+          setLoadError(error instanceof Error ? error.message : "Server unavailable");
+        }
+        setSession("login");
+      });
+    // Use the initial locale for this one-time authenticated bootstrap.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -97,17 +116,19 @@ export function App() {
   }
 
   if (session === "checking") return <div className="centered-loading"><span className="brand-emblem"><Layers3 size={28} /></span><span>{labels.loading}</span></div>;
-  if (session === "login") return <Login labels={labels} onSuccess={async () => {
-    const values = await getBusinessLines();
-    setLines(values);
+  if (session === "login") return <Login labels={labels} initialError={loadError} onSuccess={async () => {
+    const user = await getSession();
+    setIdentity(user);
     setSession("authenticated");
     setLoadError("");
+    try { setLines(await getBusinessLines()); }
+    catch (error) { setLoadError(error instanceof Error ? error.message : labels.unavailable); }
   }} />;
 
   const mainNav: { id: Page | string; label: string; icon: IconType; disabled?: boolean }[] = [
     { id: "home", label: labels.home, icon: House },
     { id: "businessLines", label: labels.businessLines, icon: Layers3 },
-    { id: "sales", label: labels.sales, icon: Activity, disabled: true },
+    { id: "opportunities", label: labels.sales, icon: Activity },
     { id: "clients", label: labels.clients, icon: Building2, disabled: true },
     { id: "certification", label: labels.certification, icon: BadgeCheck, disabled: true },
     { id: "training", label: labels.training, icon: GraduationCap, disabled: true },
@@ -149,13 +170,13 @@ export function App() {
       <header className="top-bar">
         <div className="top-start">
           <IconButton className="mobile-menu" label={labels.navigation} onClick={() => setMobileNav(true)}><Menu size={19}/></IconButton>
-          <div className="breadcrumb"><span>{labels.workspace}</span><span className="crumb-separator">/</span><strong>{page === "home" ? labels.home : page === "businessLines" ? labels.businessLines : labels.design}</strong></div>
+          <div className="breadcrumb"><span>{labels.workspace}</span><span className="crumb-separator">/</span><strong>{page === "home" ? labels.home : page === "businessLines" ? labels.businessLines : page === "opportunities" ? labels.opportunities : labels.design}</strong></div>
         </div>
         <div className="top-actions">
           <span className="server-status"><span className="live-pulse"/>{labels.connected}</span>
           <button className="language-button" type="button" onClick={() => prefs.setLanguage(isRTL ? "en" : "ar")} aria-label={labels.language}>{isRTL ? "EN" : "ع"}</button>
           <div className="top-divider"/>
-          <span className="account-avatar" aria-label={labels.workspace}>I</span>
+          <span className="account-avatar" aria-label={identity?.name || labels.workspace} title={identity?.name || identity?.code || ""}>{(identity?.name || identity?.code || "I").slice(0,1).toUpperCase()}</span>
         </div>
       </header>
 
@@ -179,6 +200,7 @@ export function App() {
           <p className="scope-note"><ShieldCheck size={15}/>{labels.visualNote}</p>
         </section>}
 
+        {page === "opportunities" && <OpportunitiesPage language={prefs.language} lines={lines} labels={labels} />}
         {page === "businessLines" && <section className="page-enter">
           <PageTitle eyebrow={labels.workspace} title={labels.businessLines} description={labels.description} />
           <div className="list-toolbar"><label className="search-field"><Search size={18}/><span className="sr-only">{labels.search}</span><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder={labels.search}/>{search && <button type="button" aria-label={labels.back} onClick={() => setSearch("")}><X size={16}/></button>}</label>
@@ -212,7 +234,7 @@ function PageTitle({ eyebrow, title, description }: { eyebrow: string; title: st
   return <div className="page-title"><span className="eyebrow">{eyebrow}</span><h1>{title}</h1><p>{description}</p></div>;
 }
 
-function Login({ labels, onSuccess }: { labels: ReturnType<typeof t>; onSuccess: () => Promise<void> }) {
+function Login({ labels, onSuccess, initialError }: { labels: ReturnType<typeof t>; onSuccess: () => Promise<void>; initialError?: string }) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [pending, setPending] = useState(false);
@@ -231,7 +253,7 @@ function Login({ labels, onSuccess }: { labels: ReturnType<typeof t>; onSuccess:
       <form onSubmit={(e) => void submit(e)} className="login-form">
         <label>{labels.username}<input autoComplete="username" value={username} onChange={(e) => setUsername(e.target.value)} required autoFocus /></label>
         <label>{labels.password}<input type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required /></label>
-        {error && <div className="login-error" role="alert"><CircleAlert size={17}/>{error}</div>}
+        {(error || initialError) && <div className="login-error" role="alert"><CircleAlert size={17}/>{error || initialError}</div>}
         <button type="submit" className="btn btn-primary login-submit" disabled={pending}>{pending ? labels.loading : labels.loginButton}{<ArrowLeft size={18}/>}</button>
       </form>
     </div>

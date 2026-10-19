@@ -1,0 +1,35 @@
+name: IOETI Axelor modules
+on:
+  pull_request:
+    paths:
+      - "modules/**"
+      - "gradle/**"
+      - "scripts/ioeti.sh"
+      - ".github/workflows/ioeti-backend.yml"
+  push:
+    paths:
+      - "modules/**"
+      - "gradle/**"
+      - "scripts/ioeti.sh"
+      - ".github/workflows/ioeti-backend.yml"
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    permissions:
+      contents: read
+    steps:
+      - name: Allow HTTPS for public Axelor submodule
+        run: git config --global url."https://github.com/".insteadOf "git@github.com:"
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Bootstrap pinned upstream and link modules
+        run: scripts/ioeti.sh init
+      - name: Build and run IOETI tests
+        run: scripts/ioeti.sh test --stacktrace
