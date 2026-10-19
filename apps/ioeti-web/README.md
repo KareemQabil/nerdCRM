@@ -72,3 +72,7 @@ first connected UI surfaces, while other modules remain architectural previews.
 See docs/UX_REVERSE_MAPPING.md.
 
 Do not deploy the real backend publicly until its security gates are closed.
+
+## Record navigation (corrected UX decision)
+
+The **existing module Sidebar is unchanged**. Clicking Account, Lead or Business Line **View details** opens a full record workspace, not a slide-over. Contextual list→record flow supports record URL, browser Back/Forward, and return to list with current search. Small Opportunity create/rename operations use a centered modal. See `docs/design/RECORD_INTERACTION_RULES.md`.

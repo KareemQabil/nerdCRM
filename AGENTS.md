@@ -1,5 +1,9 @@
 # AGENTS.md — rules for AI coding agents (Codex, Claude, …) and humans
 
+## UI interaction rules — record details are NEVER the navigation drawer
+
+Keep existing global left/right App navigation and module switching unchanged. The user explicitly corrected the distinction: **"View details" opens a full record page within the current shell, never a narrow drawer.** Follow docs/design/RECORD_INTERACTION_RULES.md. A bounded quick edit may use a centered modal; a complex workflow must be a full page. Per-module record UX is driven by task/decision complexity, not generic CRUD templates.
+
 ## Product direction — authoritative UI decision
 
 **Accepted ADR-001:** IOETI is a fully custom React/TypeScript user experience. Axelor is the domain engine, NOT the final UI, including everyday admin. Read docs/decisions/ADR-001-FULLY-CUSTOM-UI.md and docs/design/NERDPOS_PHILOSOPHY_TO_CRM.md. Native Axelor views are developer/maintenance-only. Design tokens, themes, RTL/LTR, layouts and UI components belong under apps/ioeti-web. Never build normal IOETI workflows in native Axelor views as the final product. Never substitute generic /ws/rest for explicit, authorized IOETI API contracts.
