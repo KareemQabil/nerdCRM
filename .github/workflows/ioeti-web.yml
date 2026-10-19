@@ -25,6 +25,8 @@ jobs:
         run: npx playwright install --with-deps chromium
       - name: Browser contract tests (mocked IOETI endpoints)
         run: npm test
+      - name: Interactive in-memory domain demo tests
+        run: npm run test:demo
       - name: Attach visual regression screenshots
         if: always()
         uses: actions/upload-artifact@v4
