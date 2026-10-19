@@ -6,8 +6,11 @@ import com.axelor.inject.Beans;
 import com.axelor.rpc.filter.Filter;
 import com.axelor.utils.api.ResponseConstructor;
 import com.axelor.utils.api.SecurityCheck;
+import com.axelor.auth.AuthUtils;
+import com.axelor.auth.db.User;
 import com.ioeti.businessline.db.BusinessLine;
 import com.ioeti.businessline.db.repo.BusinessLineRepository;
+import com.ioeti.businessline.security.BusinessLineEligibility;
 import com.ioeti.core.api.ApiException;
 import com.ioeti.core.api.IoetiEndpoint;
 import io.swagger.v3.oas.annotations.Operation;
@@ -38,15 +41,19 @@ public class BusinessLineRestController {
       tags = {"IOETI business lines"})
   @GET
   @IoetiEndpoint
-  public Response list(@QueryParam("activeOnly") boolean activeOnly) {
+  public Response list(
+      @QueryParam("activeOnly") boolean activeOnly, @QueryParam("creatable") boolean creatable) {
     new SecurityCheck().readAccess(BusinessLine.class).check();
+    User user = AuthUtils.getUser();
     List<BusinessLineResponse> lines =
         readableLines().order("sequence").order("code").fetch().stream()
             .filter(
                 line ->
-                    !activeOnly
+                    !(activeOnly || creatable)
                         || Integer.valueOf(BusinessLineRepository.STATUS_ACTIVE)
                             .equals(line.getStatusSelect()))
+            // SEC-003: only lines the user may start opportunities in
+            .filter(line -> !creatable || BusinessLineEligibility.canCreateIn(user, line))
             .map(BusinessLineResponse::of)
             .toList();
     return ResponseConstructor.build(Response.Status.OK, "Business lines", lines);

@@ -33,7 +33,17 @@ Sessions and authentication (SEC-004, `scripts/session_security_probe.py`):
 | Login throttle per address, and its release after the window | ✅ (expiry job) |
 | `Secure` cookies over HTTPS | ⬜ needs an HTTPS staging environment |
 
+Record scopes (SEC-003, `scripts/scope_matrix_probe.py`, test-only role fixtures):
+
+| Scope | List = scope | GET in/out (out = missing) | PUT in/out, no change on refusal | Generic API | Create by membership |
+|---|---|---|---|---|---|
+| Own (RepA, RepB) | ✅ | ✅ | ✅ | ✅ 403 | ✅ refused without membership |
+| Team (Manager) | ✅ | ✅ | ✅ | ✅ 403 | ➖ |
+| Business Line (LineIso; LineNone with no lines) | ✅ | ✅ | ✅ | ✅ 403 | ✅ member line only; revocation effective next request |
+| All | ✅ | ✅ | ✅ | ✅ 403 | ➖ |
+| Read-only (no opportunity permission) | ✅ 403 | ✅ 403 | ➖ | ✅ 403 | ➖ |
+
 Not yet covered (blocking for the multi-user pilot, see GAP register):
-- Own/Team/Line/All role matrix across all endpoints (SEC-003).
+- Production role matrix (D-07); scopes on leads, accounts and future domains.
 - WebSocket and scheduled-job identity (issue #10).
 - Export, attachment and PDF parity (not built yet).

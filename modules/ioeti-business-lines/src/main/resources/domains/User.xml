@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<domain-models xmlns="http://axelor.com/xml/ns/domain-models"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://axelor.com/xml/ns/domain-models https://axelor.com/xml/ns/domain-models/domain-models_8.2.xsd">
+
+  <!-- SEC-003: business-line membership of a user (no upstream file is modified).
+       Used by permission conditions, e.g. condition "self.ioetiBusinessLine in (?)" with
+       conditionParams "__user__.ioetiBusinessLines", and by the opportunity create rule. -->
+  <module name="auth" package="com.axelor.auth.db"/>
+
+  <entity name="User">
+    <many-to-many name="ioetiBusinessLines" ref="com.ioeti.businessline.db.BusinessLine"
+      title="Business lines" table="ioeti_user_business_line" column="user_id"
+      column2="business_line_id"/>
+  </entity>
+
+</domain-models>

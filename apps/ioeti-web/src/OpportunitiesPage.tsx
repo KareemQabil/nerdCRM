@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import { ArrowLeft, ArrowRight, CircleAlert, Plus, RefreshCw, Save, Search, ShieldCheck, X } from "lucide-react";
 import {
-  ApiError, createOpportunity, getOpportunities, getOpportunity, renameOpportunity,
+  ApiError, createOpportunity, getCreatableBusinessLines, getOpportunities, getOpportunity, renameOpportunity,
   type BusinessLine, type Opportunity,
 } from "./api";
 import { type Language } from "./preferences";
@@ -11,8 +11,10 @@ type Labels = Record<string, string>;
 type Props = { language: Language; lines: BusinessLine[]; labels: Labels };
 type Mode = { type: "create" } | { type: "rename"; item: Opportunity };
 
-export function OpportunitiesPage({ language, lines, labels }: Props) {
+export function OpportunitiesPage({ language, labels }: Props) {
   const [items, setItems] = useState<Opportunity[]>([]);
+  // SEC-003: the create form offers only lines the server allows this user to sell in
+  const [creatable, setCreatable] = useState<BusinessLine[] | null>(null);
   const [selected,setSelected] = useState<Opportunity|null>(null);
   const [detailLoading,setDetailLoading] = useState(false);
   const listScroll = useRef(0);
@@ -137,8 +139,11 @@ export function OpportunitiesPage({ language, lines, labels }: Props) {
 
   function openCreate(event: React.MouseEvent<HTMLButtonElement>) {
     previousFocus.current = event.currentTarget;
-    setName(""); setBusinessLineCode(lines.find(line => line.status === 2)?.code || "");
+    setName(""); setBusinessLineCode(""); setCreatable(null);
     setFormError(""); setMode({ type: "create" });
+    void getCreatableBusinessLines()
+      .then(values => { setCreatable(values); setBusinessLineCode(values[0]?.code || ""); })
+      .catch(() => { setCreatable([]); setFormError(labels.unavailable); });
   }
   function openRename(source: HTMLButtonElement | null, item: Opportunity) {
     previousFocus.current = source;
@@ -229,11 +234,12 @@ export function OpportunitiesPage({ language, lines, labels }: Props) {
         <div className="drawer-body"><h2 id="opportunity-form-title">{mode.type === "create" ? labels.newOpportunity : labels.editOpportunity}</h2><p id="opportunity-form-description">{labels.opportunityFormHint}</p>
           <form id="opportunity-form" className="opportunity-form" onSubmit={e => void save(e)}>
             <label><span>{labels.opportunityName}</span><input ref={inputRef} maxLength={160} value={name} onChange={e => setName(e.target.value)} required minLength={3}/></label>
-            {mode.type === "create" && <label><span>{labels.businessLines}</span><select required value={businessLineCode} onChange={e => setBusinessLineCode(e.target.value)}><option value="">{labels.chooseLine}</option>{lines.filter(line => line.status === 2).map(line => <option key={line.id} value={line.code}>{isRTL ? line.nameAr : line.nameEn}</option>)}</select></label>}
+            {mode.type === "create" && <label><span>{labels.businessLines}</span><select required value={businessLineCode} disabled={creatable === null} onChange={e => setBusinessLineCode(e.target.value)}><option value="">{creatable === null ? labels.loading : labels.chooseLine}</option>{(creatable || []).map(line => <option key={line.id} value={line.code}>{isRTL ? line.nameAr : line.nameEn}</option>)}</select></label>}
+            {mode.type === "create" && creatable !== null && creatable.length === 0 && !formError && <div className="login-error" role="status"><CircleAlert size={17}/>{labels.noCreatableLines}</div>}
             {formError && <div className="login-error" role="alert"><CircleAlert size={17}/>{formError}</div>}
           </form>
         </div>
-        <footer className="drawer-footer drawer-actions"><button className="btn btn-secondary" type="button" disabled={saving} onClick={() => setMode(null)}>{labels.back}</button><button className="btn btn-primary" type="submit" form="opportunity-form" disabled={saving}><Save size={16}/>{saving ? labels.loading : labels.save}</button></footer>
+        <footer className="drawer-footer drawer-actions"><button className="btn btn-secondary" type="button" disabled={saving} onClick={() => setMode(null)}>{labels.back}</button><button className="btn btn-primary" type="submit" form="opportunity-form" disabled={saving || (mode.type === "create" && !creatable?.length)}><Save size={16}/>{saving ? labels.loading : labels.save}</button></footer>
       </section>
     </div>}
   </section>;

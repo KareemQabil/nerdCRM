@@ -166,6 +166,24 @@ test("throttled sign-in shows a localized wait message, not a generic failure", 
   await expect(page.getByText("محاولات دخول كثيرة جدًا. انتظر بضع دقائق ثم حاول مرة أخرى.")).toBeVisible();
 });
 
+test("create form offers only lines the server allows; none assigned disables saving with an explanation", async ({ page }) => {
+  await intercept(page);
+  let creatable = [lines[1]];
+  await page.route(/\/axelor-erp\/ws\/ioeti\/business-lines\?creatable=true$/, route => route.fulfill({
+    status: 200, contentType: "application/json", body: JSON.stringify({ codeStatus: 200, messageStatus: "ok", object: creatable }),
+  }));
+  await page.goto("/");
+  await page.getByRole("button", { name: "المبيعات" }).click();
+  await page.getByRole("button", { name: "فرصة جديدة" }).click();
+  const select = page.getByLabel("خطوط الأعمال");
+  await expect(select.locator("option")).toHaveText(["اختر خط الأعمال", "التدريب"]);
+  await page.getByRole("button", { name: "رجوع" }).first().click();
+  creatable = [];
+  await page.getByRole("button", { name: "فرصة جديدة" }).click();
+  await expect(page.getByText("لم يتم تعيينك على أي خط أعمال بعد؛ اطلب من المسؤول إضافتك")).toBeVisible();
+  await expect(page.getByRole("button", { name: "حفظ التغييرات" })).toBeDisabled();
+});
+
 test("lack of BusinessLine permissions is not treated as failed session login", async ({ page }) => {
   await intercept(page, { businessLineDenied: true });
   await page.goto("/");
