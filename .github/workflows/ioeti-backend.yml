@@ -30,6 +30,6 @@ jobs:
           java-version: "21"
       - uses: gradle/actions/setup-gradle@v4
       - name: Bootstrap pinned upstream and link modules
-        run: scripts/ioeti.sh init
+        run: bash scripts/ioeti.sh init
       - name: Build and run IOETI tests
-        run: scripts/ioeti.sh test --stacktrace
+        run: bash scripts/ioeti.sh test --stacktrace
