@@ -1,0 +1,105 @@
+{
+  "results": [
+    {
+      "check": "login with fixture user",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "check": "session id rotated at login (no fixation)",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "check": "session cookie is HttpOnly",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "check": "session cookie SameSite is Lax or Strict",
+      "result": "PASS",
+      "detail": "lax"
+    },
+    {
+      "check": "CSRF cookie is readable by the page (needed to send the header)",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "check": "browser write with the CSRF token succeeds",
+      "result": "PASS",
+      "detail": "201"
+    },
+    {
+      "check": "browser write refused: no token",
+      "result": "PASS",
+      "detail": "403"
+    },
+    {
+      "check": "browser create refused: no token",
+      "result": "PASS",
+      "detail": "403"
+    },
+    {
+      "check": "browser write refused: forged token",
+      "result": "PASS",
+      "detail": "403"
+    },
+    {
+      "check": "browser create refused: forged token",
+      "result": "PASS",
+      "detail": "403"
+    },
+    {
+      "check": "safe read needs no CSRF token",
+      "result": "PASS",
+      "detail": "200"
+    },
+    {
+      "check": "refused writes left the record unchanged",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "check": "refused creates persisted nothing",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "check": "logout accepted",
+      "result": "PASS",
+      "detail": "204"
+    },
+    {
+      "check": "old session cookie refused after logout",
+      "result": "PASS",
+      "detail": "401"
+    },
+    {
+      "check": "old session cookie cannot read data after logout",
+      "result": "PASS",
+      "detail": "401"
+    },
+    {
+      "check": "wrong passwords rejected",
+      "result": "PASS",
+      "detail": "[401, 401, 401, 401, 401]"
+    },
+    {
+      "check": "6th attempt throttled even with the right password (429)",
+      "result": "PASS",
+      "detail": "429"
+    },
+    {
+      "check": "throttle response carries Retry-After and the error contract",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "check": "other users from the same address can still sign in",
+      "result": "PASS",
+      "detail": ""
+    }
+  ],
+  "cleanup_complete": true
+}

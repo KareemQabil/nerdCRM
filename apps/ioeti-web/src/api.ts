@@ -125,6 +125,13 @@ export async function getBusinessLines(): Promise<BusinessLine[]> {
   if (!Array.isArray(values)) throw new ApiError(502, "Invalid business-line list");
   return values;
 }
+/** Lines the signed-in user may start opportunities in (server rule: membership until D-07). */
+export async function getCreatableBusinessLines(): Promise<BusinessLine[]> {
+  if (DEMO_MODE) return (await demoStore.lines()).filter(line => line.status === 2);
+  const values = await wrapped<BusinessLine[]>("/ws/ioeti/business-lines?creatable=true");
+  if (!Array.isArray(values)) throw new ApiError(502, "Invalid business-line list");
+  return values;
+}
 export async function getOpportunities(offset = 0, limit = 25): Promise<Opportunity[]> {
   if (DEMO_MODE) return demoStore.list(offset, limit);
   const values = await wrapped<Opportunity[]>(`/ws/ioeti/opportunities?limit=${limit}&offset=${offset}`);

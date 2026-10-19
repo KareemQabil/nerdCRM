@@ -1,0 +1,330 @@
+{
+  "results": [
+    {
+      "check": "RepA: list shows exactly its scope",
+      "result": "PASS",
+      "detail": "http=200 seen=['O1'] expected=['O1']"
+    },
+    {
+      "check": "RepA: GET O1 in scope",
+      "result": "PASS",
+      "detail": "200"
+    },
+    {
+      "check": "RepA: GET O2 out of scope",
+      "result": "PASS",
+      "detail": "404"
+    },
+    {
+      "check": "RepA: GET O3 out of scope",
+      "result": "PASS",
+      "detail": "404"
+    },
+    {
+      "check": "RepB: list shows exactly its scope",
+      "result": "PASS",
+      "detail": "http=200 seen=['O2'] expected=['O2']"
+    },
+    {
+      "check": "RepB: GET O1 out of scope",
+      "result": "PASS",
+      "detail": "404"
+    },
+    {
+      "check": "RepB: GET O2 in scope",
+      "result": "PASS",
+      "detail": "200"
+    },
+    {
+      "check": "RepB: GET O3 out of scope",
+      "result": "PASS",
+      "detail": "404"
+    },
+    {
+      "check": "Manager: list shows exactly its scope",
+      "result": "PASS",
+      "detail": "http=200 seen=['O1', 'O3'] expected=['O1', 'O3']"
+    },
+    {
+      "check": "Manager: GET O1 in scope",
+      "result": "PASS",
+      "detail": "200"
+    },
+    {
+      "check": "Manager: GET O2 out of scope",
+      "result": "PASS",
+      "detail": "404"
+    },
+    {
+      "check": "Manager: GET O3 in scope",
+      "result": "PASS",
+      "detail": "200"
+    },
+    {
+      "check": "LineIso: list shows exactly its scope",
+      "result": "PASS",
+      "detail": "http=200 seen=['O1'] expected=['O1']"
+    },
+    {
+      "check": "LineIso: GET O1 in scope",
+      "result": "PASS",
+      "detail": "200"
+    },
+    {
+      "check": "LineIso: GET O2 out of scope",
+      "result": "PASS",
+      "detail": "404"
+    },
+    {
+      "check": "LineIso: GET O3 out of scope",
+      "result": "PASS",
+      "detail": "404"
+    },
+    {
+      "check": "LineNone: list shows exactly its scope",
+      "result": "PASS",
+      "detail": "http=200 seen=[] expected=[]"
+    },
+    {
+      "check": "LineNone: GET O1 out of scope",
+      "result": "PASS",
+      "detail": "404"
+    },
+    {
+      "check": "LineNone: GET O2 out of scope",
+      "result": "PASS",
+      "detail": "404"
+    },
+    {
+      "check": "LineNone: GET O3 out of scope",
+      "result": "PASS",
+      "detail": "404"
+    },
+    {
+      "check": "All: list shows exactly its scope",
+      "result": "PASS",
+      "detail": "http=200 seen=['O1', 'O2', 'O3'] expected=['O1', 'O2', 'O3']"
+    },
+    {
+      "check": "All: GET O1 in scope",
+      "result": "PASS",
+      "detail": "200"
+    },
+    {
+      "check": "All: GET O2 in scope",
+      "result": "PASS",
+      "detail": "200"
+    },
+    {
+      "check": "All: GET O3 in scope",
+      "result": "PASS",
+      "detail": "200"
+    },
+    {
+      "check": "ReadOnly: opportunities model denied (403)",
+      "result": "PASS",
+      "detail": "403"
+    },
+    {
+      "check": "ReadOnly: GET O1 out of scope",
+      "result": "PASS",
+      "detail": "403"
+    },
+    {
+      "check": "ReadOnly: GET O2 out of scope",
+      "result": "PASS",
+      "detail": "403"
+    },
+    {
+      "check": "ReadOnly: GET O3 out of scope",
+      "result": "PASS",
+      "detail": "403"
+    },
+    {
+      "check": "RepA: PUT O1 -> 200",
+      "result": "PASS",
+      "detail": "200"
+    },
+    {
+      "check": "RepA: PUT O2 -> 404",
+      "result": "PASS",
+      "detail": "404"
+    },
+    {
+      "check": "RepA: PUT O3 -> 404",
+      "result": "PASS",
+      "detail": "404"
+    },
+    {
+      "check": "RepB: PUT O1 -> 404",
+      "result": "PASS",
+      "detail": "404"
+    },
+    {
+      "check": "RepB: PUT O2 -> 200",
+      "result": "PASS",
+      "detail": "200"
+    },
+    {
+      "check": "RepB: PUT O3 -> 404",
+      "result": "PASS",
+      "detail": "404"
+    },
+    {
+      "check": "Manager: PUT O1 -> 200",
+      "result": "PASS",
+      "detail": "200"
+    },
+    {
+      "check": "Manager: PUT O2 -> 404",
+      "result": "PASS",
+      "detail": "404"
+    },
+    {
+      "check": "Manager: PUT O3 -> 200",
+      "result": "PASS",
+      "detail": "200"
+    },
+    {
+      "check": "LineIso: PUT O1 -> 200",
+      "result": "PASS",
+      "detail": "200"
+    },
+    {
+      "check": "LineIso: PUT O2 -> 404",
+      "result": "PASS",
+      "detail": "404"
+    },
+    {
+      "check": "LineIso: PUT O3 -> 404",
+      "result": "PASS",
+      "detail": "404"
+    },
+    {
+      "check": "LineNone: PUT O1 -> 404",
+      "result": "PASS",
+      "detail": "404"
+    },
+    {
+      "check": "LineNone: PUT O2 -> 404",
+      "result": "PASS",
+      "detail": "404"
+    },
+    {
+      "check": "LineNone: PUT O3 -> 404",
+      "result": "PASS",
+      "detail": "404"
+    },
+    {
+      "check": "All: PUT O1 -> 200",
+      "result": "PASS",
+      "detail": "200"
+    },
+    {
+      "check": "All: PUT O2 -> 200",
+      "result": "PASS",
+      "detail": "200"
+    },
+    {
+      "check": "All: PUT O3 -> 200",
+      "result": "PASS",
+      "detail": "200"
+    },
+    {
+      "check": "O1: name never changed by any write",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "check": "O2: name never changed by any write",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "check": "O3: name never changed by any write",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "check": "RepA: generic /ws/rest refused",
+      "result": "PASS",
+      "detail": "403"
+    },
+    {
+      "check": "RepB: generic /ws/rest refused",
+      "result": "PASS",
+      "detail": "403"
+    },
+    {
+      "check": "Manager: generic /ws/rest refused",
+      "result": "PASS",
+      "detail": "403"
+    },
+    {
+      "check": "LineIso: generic /ws/rest refused",
+      "result": "PASS",
+      "detail": "403"
+    },
+    {
+      "check": "LineNone: generic /ws/rest refused",
+      "result": "PASS",
+      "detail": "403"
+    },
+    {
+      "check": "All: generic /ws/rest refused",
+      "result": "PASS",
+      "detail": "403"
+    },
+    {
+      "check": "ReadOnly: generic /ws/rest refused",
+      "result": "PASS",
+      "detail": "403"
+    },
+    {
+      "check": "LineIso: create in ISO9001 -> 201",
+      "result": "PASS",
+      "detail": "201"
+    },
+    {
+      "check": "LineIso: create in TRAINING -> 422",
+      "result": "PASS",
+      "detail": "422"
+    },
+    {
+      "check": "RepA: create in ISO9001 -> 422",
+      "result": "PASS",
+      "detail": "422"
+    },
+    {
+      "check": "LineNone: create in ISO9001 -> 422",
+      "result": "PASS",
+      "detail": "422"
+    },
+    {
+      "check": "LineIso: creatable lines = its memberships",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "check": "RepA (no membership): no creatable lines",
+      "result": "PASS",
+      "detail": "[]"
+    },
+    {
+      "check": "membership removed by admin",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "check": "LineIso: revoked membership hides O1 on the next request (404)",
+      "result": "PASS",
+      "detail": "404"
+    },
+    {
+      "check": "LineIso: revoked membership refuses create (422)",
+      "result": "PASS",
+      "detail": "422"
+    }
+  ],
+  "cleanup_complete": true
+}

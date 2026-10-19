@@ -162,3 +162,39 @@ Tested live:
 - HTTPS `Secure`-cookie verification (needs a staging environment).
 - Multi-node throttle store.
 - Secret vault (D-08).
+
+## 2026-10-19 · SEC-003 part 1 · Own / Team / Business Line / All scopes
+
+Branch `claude/ioeti-sec-003-scopes` (stacked on SEC-004, PR #16).
+- **Mechanism:** LIVE_INTEGRATION_PASS and NEGATIVE_SECURITY_PASS.
+- **Production roles:** BLOCKED_POLICY (D-07).
+
+Full report: `docs/security/SEC-003-scopes.md`.
+
+### Change
+- New `User.ioetiBusinessLines` membership.
+- Scopes are native permission conditions on `__user__`, `__user__.teamSet` and `__user__.ioetiBusinessLines`.
+- Create eligibility: admin or line member (PROPOSED, fail-closed).
+- `?creatable=true` line list; the UI create form uses it and explains the case with no assignment.
+- `scripts/probe_fixtures.py` gives verified clean-up of Axelor-generated per-user records.
+
+### Evidence
+| Check | Result |
+|---|---|
+| Scope matrix | 65/65 |
+| Pilot | PASS |
+| Two-writer | 13/13 |
+| Contract | 31/31 |
+| Smoke | 16/16 |
+| Identity | 0/333,281 |
+| Session | 20/20 |
+| JUnit | 50/50 |
+| Web mocked | 22/22 |
+| Web demo | 14/14 |
+
+### Not done
+- Production roles (D-07).
+- Nested teams.
+- Delegation.
+- Lead and Partner line scope.
+- A versioned migration for the new join table (G-008).

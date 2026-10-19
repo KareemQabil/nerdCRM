@@ -65,6 +65,8 @@ jobs:
           # SEC-001: mixed sessions + admin metadata reloads; fails on any cross-identity result
           PROBE_RESTORES=2 PROBE_WORKERS=2 PROBE_MIN_SECONDS=20 \
             python3 scripts/identity_isolation_probe.py
+          # SEC-003: Own / Team / Business Line / All scopes (test-only role fixtures)
+          python3 scripts/scope_matrix_probe.py
           # SEC-004: cookies, fixation, CSRF, logout, per-user login throttle (runs last: it
           # throttles one throw-away user)
           python3 scripts/session_security_probe.py
@@ -78,6 +80,7 @@ jobs:
             logs/opportunity-concurrency-probe.json
             logs/api-contract-probe.json
             logs/session-security-probe.json
+            logs/scope-matrix-probe.json
           if-no-files-found: ignore
       - name: Attach Axelor integration logs
         if: failure()

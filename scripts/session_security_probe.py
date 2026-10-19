@@ -24,6 +24,7 @@ import urllib.request
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from api_smoke_test import BASE, ENV, OPP, ROOT, Client, axelor_password_hash, ok, rest_create  # noqa: E402
+from probe_fixtures import cleanup  # noqa: E402
 
 USER, GROUP, PERM = "com.axelor.auth.db.User", "com.axelor.auth.db.Group", "com.axelor.auth.db.Permission"
 MAIL = "com.axelor.mail.db.MailMessage"
@@ -56,26 +57,6 @@ def send(client, method, path, body=None, headers=None, timeout=60):
             return err.code, dict(err.headers), {}
 
 
-def delete(admin, model, rid):
-    """Deletes a fixture. A test user that cannot be deleted is blocked and stripped instead."""
-    if ok(admin.call("DELETE", f"/ws/rest/{model}/{rid}")[1]):
-        return True
-    if model != USER:
-        return False
-    # change tracking authored by the test user references it; remove those messages first
-    _, found = admin.call("POST", f"/ws/rest/{MAIL}/search",
-                          {"fields": ["id"], "limit": 500, "data": {"_domain": f"self.author.id = {int(rid)}"}})
-    for row in found.get("data") or []:
-        admin.call("DELETE", f"/ws/rest/{MAIL}/{row['id']}")
-    if ok(admin.call("DELETE", f"/ws/rest/{model}/{rid}")[1]):
-        return True
-    _, cur = admin.call("POST", f"/ws/rest/{USER}/{rid}/fetch", {"fields": ["version"]})
-    version = (cur.get("data") or [{}])[0].get("version")
-    admin.call("POST", f"/ws/rest/{USER}/{rid}", {"data": {"id": rid, "version": version, "blocked": True,
-                                                           "group": None, "password": secrets.token_hex(32)}})
-    return False  # still reported as incomplete
-
-
 def admin_client():
     client = Client()
     assert client.login(os.environ.get("IOETI_ADMIN_USER", ENV.get("IOETI_ADMIN_USER", "admin")),
@@ -101,9 +82,13 @@ def default_mode(admin, created, tag):
     created.append((GROUP, body["data"][0]["id"]))
     group_id = body["data"][0]["id"]
     login = f"sec004.a.{tag}"
+    _, lines = admin.call("GET", "/ws/ioeti/business-lines")
+    iso_id = next(l["id"] for l in lines["object"] if l["code"] == "ISO9001")
     _, body = rest_create(admin, USER, {"code": login, "name": "SEC-004 A", "blocked": False,
                                         "password": axelor_password_hash(password),
-                                        "group": {"id": group_id}, "language": "en"})
+                                        "group": {"id": group_id}, "language": "en",
+                                        # SEC-003: creating in a line requires membership
+                                        "ioetiBusinessLines": [{"id": iso_id}]})
     created.append((USER, body["data"][0]["id"]))
     check("login with fixture user", c.login(login, password) == 200)
     jar = cookies(c)
@@ -196,11 +181,8 @@ def main():
     except AssertionError as e:
         check("probe ran to completion", False, repr(e))
     finally:
-        cleanup = admin_client()
-        order = {OPP: 0, USER: 1, GROUP: 2, PERM: 3}
-        results = [delete(cleanup, m, i) for m, i in sorted(created, key=lambda c: order.get(c[0], 9))]
-        complete = all(results)
-        print("CLEANUP", "complete" if complete else "INCOMPLETE", len(results))
+        complete, leftovers = cleanup(admin_client(), created, {OPP: 0, USER: 1, GROUP: 2, PERM: 3})
+        print("CLEANUP", "complete" if complete else f"INCOMPLETE {leftovers}", len(created))
         if not complete:
             exit_code = 1
         os.makedirs(os.path.join(ROOT, "logs"), exist_ok=True)
