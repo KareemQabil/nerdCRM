@@ -1,3 +1,4 @@
+import { DEMO_MODE, demoStore } from "./demo";
 // Custom IOETI endpoints only. The browser never imports unrestricted Axelor models.
 // Auth uses a same-origin Vite development proxy. Do not deploy the proxy publicly.
 const PREFIX = "/axelor-erp";
@@ -58,6 +59,7 @@ async function wrapped<T>(path: string, options?: RequestInit): Promise<T> {
   return body.object;
 }
 export async function getSession(): Promise<SessionIdentity> {
+  if (DEMO_MODE) return demoStore.session();
   const response = await request("/ws/ioeti/session");
   const body: unknown = await response.json();
   if (!body || typeof body !== "object" || typeof (body as SessionIdentity).code !== "string") {
@@ -66,6 +68,7 @@ export async function getSession(): Promise<SessionIdentity> {
   return body as SessionIdentity;
 }
 export async function signIn(username: string, password: string): Promise<SessionIdentity> {
+  if (DEMO_MODE) throw new ApiError(403, "Preview mode does not accept credentials");
   const response = await request("/callback", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -76,19 +79,23 @@ export async function signIn(username: string, password: string): Promise<Sessio
   return getSession();
 }
 export async function getBusinessLines(): Promise<BusinessLine[]> {
+  if (DEMO_MODE) return demoStore.lines();
   const values = await wrapped<BusinessLine[]>("/ws/ioeti/business-lines");
   if (!Array.isArray(values)) throw new ApiError(502, "Invalid business-line list");
   return values;
 }
 export async function getOpportunities(offset = 0, limit = 25): Promise<Opportunity[]> {
+  if (DEMO_MODE) return demoStore.list(offset, limit);
   const values = await wrapped<Opportunity[]>(`/ws/ioeti/opportunities?limit=${limit}&offset=${offset}`);
   if (!Array.isArray(values)) throw new ApiError(502, "Invalid opportunity list");
   return values;
 }
 export async function getOpportunity(id: number): Promise<Opportunity> {
+  if (DEMO_MODE) return demoStore.get(id);
   return wrapped<Opportunity>(`/ws/ioeti/opportunities/${encodeURIComponent(id)}`);
 }
 export async function createOpportunity(name: string, businessLineCode: string): Promise<Opportunity> {
+  if (DEMO_MODE) return demoStore.create(name, businessLineCode);
   return wrapped<Opportunity>("/ws/ioeti/opportunities", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -96,6 +103,7 @@ export async function createOpportunity(name: string, businessLineCode: string):
   });
 }
 export async function renameOpportunity(id: number, name: string, version: number): Promise<Opportunity> {
+  if (DEMO_MODE) return demoStore.rename(id, name, version);
   return wrapped<Opportunity>(`/ws/ioeti/opportunities/${encodeURIComponent(id)}`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },

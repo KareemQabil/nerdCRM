@@ -8,10 +8,12 @@ import {
 } from "lucide-react";
 import { ApiError, getBusinessLines, getSession, signIn, type BusinessLine, type SessionIdentity } from "./api";
 import { OpportunitiesPage } from "./OpportunitiesPage";
+import { NativeModules } from "./NativeModules";
+import { DEMO_MODE } from "./demo";
 import { t } from "./labels";
 import { usePreferences, type Theme } from "./preferences";
 
-type Page = "home" | "businessLines" | "opportunities" | "design";
+type Page = "home" | "businessLines" | "opportunities" | "capabilities" | "design";
 type Session = "checking" | "login" | "authenticated";
 type LineFilter = "all" | "active" | "setup" | "suspended";
 type IconType = typeof House;
@@ -129,6 +131,7 @@ export function App() {
     { id: "home", label: labels.home, icon: House },
     { id: "businessLines", label: labels.businessLines, icon: Layers3 },
     { id: "opportunities", label: labels.sales, icon: Activity },
+    { id: "capabilities", label: labels.capabilityMap, icon: Workflow },
     { id: "clients", label: labels.clients, icon: Building2, disabled: true },
     { id: "certification", label: labels.certification, icon: BadgeCheck, disabled: true },
     { id: "training", label: labels.training, icon: GraduationCap, disabled: true },
@@ -155,6 +158,7 @@ export function App() {
   }
 
   return <div className="app-frame">
+    {DEMO_MODE && <div className="demo-banner" role="status"><ShieldCheck size={15}/><span>{isRTL ? "نسخة معاينة عامة · بيانات افتراضية للتصميم فقط · أي تعديل مؤقت وغير محفوظ" : "Public UI preview · Sample data only · Edits are temporary and never saved"}</span></div>}
     <a className="skip-link" href="#main-content">{labels.workspace}</a>
     {mobileNav && <button className="nav-backdrop" type="button" aria-label={labels.back} onClick={() => setMobileNav(false)} />}
     <aside className={"side-panel" + (mobileNav ? " mobile-open" : "")}>
@@ -163,17 +167,17 @@ export function App() {
       <nav aria-label={labels.workspace} className="side-nav">{renderNav(mainNav)}</nav>
       <div className="side-spacer"/>
       <nav aria-label={labels.settings} className="side-nav side-footer-nav">{renderNav(secondaryNav)}</nav>
-      <div className="side-footnote"><span className="live-pulse" /><span className="footnote-label">{labels.connected}</span></div>
+      <div className="side-footnote"><span className="live-pulse" /><span className="footnote-label">{DEMO_MODE ? (isRTL ? "معاينة تجريبية" : "Preview mode") : labels.connected}</span></div>
     </aside>
 
     <div className="app-stage">
       <header className="top-bar">
         <div className="top-start">
           <IconButton className="mobile-menu" label={labels.navigation} onClick={() => setMobileNav(true)}><Menu size={19}/></IconButton>
-          <div className="breadcrumb"><span>{labels.workspace}</span><span className="crumb-separator">/</span><strong>{page === "home" ? labels.home : page === "businessLines" ? labels.businessLines : page === "opportunities" ? labels.opportunities : labels.design}</strong></div>
+          <div className="breadcrumb"><span>{labels.workspace}</span><span className="crumb-separator">/</span><strong>{page === "home" ? labels.home : page === "businessLines" ? labels.businessLines : page === "opportunities" ? labels.opportunities : page === "capabilities" ? labels.capabilityMap : labels.design}</strong></div>
         </div>
         <div className="top-actions">
-          <span className="server-status"><span className="live-pulse"/>{labels.connected}</span>
+          <span className="server-status"><span className="live-pulse"/>{DEMO_MODE ? (isRTL ? "بيانات افتراضية" : "Sample data") : labels.connected}</span>
           <button className="language-button" type="button" onClick={() => prefs.setLanguage(isRTL ? "en" : "ar")} aria-label={labels.language}>{isRTL ? "EN" : "ع"}</button>
           <div className="top-divider"/>
           <span className="account-avatar" aria-label={identity?.name || labels.workspace} title={identity?.name || identity?.code || ""}>{(identity?.name || identity?.code || "I").slice(0,1).toUpperCase()}</span>
@@ -197,10 +201,11 @@ export function App() {
           <div className="lines-preview">
             {lines.length === 0 ? <div className="empty-state">{labels.noAccess}</div> : lines.slice(0, 5).map((line) => <button key={line.id} className="preview-row" type="button" onClick={(event) => openLine(line, event.currentTarget)}><div className="line-monogram">{line.code.slice(0, 2)}</div><div className="line-name"><strong>{isRTL ? line.nameAr : line.nameEn}</strong><small dir="ltr">{line.code}</small></div><StatusPill status={line.status} labels={labels}/><ChevronDown className="row-chevron" size={17}/></button>)}
           </div>
-          <p className="scope-note"><ShieldCheck size={15}/>{labels.visualNote}</p>
+          <p className="scope-note"><ShieldCheck size={15}/>{DEMO_MODE ? (isRTL ? "كل البيانات الظاهرة افتراضية ولا تمثل عملاء IOETI" : "All displayed business records are fictional") : labels.visualNote}</p>
         </section>}
 
         {page === "opportunities" && <OpportunitiesPage language={prefs.language} lines={lines} labels={labels} />}
+        {page === "capabilities" && <NativeModules language={prefs.language} />}
         {page === "businessLines" && <section className="page-enter">
           <PageTitle eyebrow={labels.workspace} title={labels.businessLines} description={labels.description} />
           <div className="list-toolbar"><label className="search-field"><Search size={18}/><span className="sr-only">{labels.search}</span><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder={labels.search}/>{search && <button type="button" aria-label={labels.back} onClick={() => setSearch("")}><X size={16}/></button>}</label>
@@ -221,7 +226,7 @@ export function App() {
       <div className="drawer-header"><div className="detail-kicker">{labels.businessLines}</div><IconButton label={labels.back} onClick={() => setSelected(null)}><X size={19}/></IconButton></div>
       <div className="drawer-body"><div className="detail-icon"><Layers3 size={28}/></div><h2 id="line-dialog-title">{isRTL ? selected.nameAr : selected.nameEn}</h2><p>{isRTL ? selected.nameEn : selected.nameAr}</p><StatusPill status={selected.status} labels={labels}/>
         <dl className="detail-list"><div><dt>{labels.code}</dt><dd dir="ltr">{selected.code}</dd></div><div><dt>{labels.team}</dt><dd>{selected.responsibleTeam || labels.none}</dd></div><div><dt>{labels.status}</dt><dd>{statusName(selected.status, labels)}</dd></div></dl>
-        <p className="scope-note">{labels.noOperations}</p>
+        <p className="scope-note">{DEMO_MODE ? (isRTL ? "هذه البيانات توضيحية فقط" : "Sample data for preview only") : labels.noOperations}</p>
       </div><div className="drawer-footer"><button ref={drawerCloseRef} type="button" className="btn btn-secondary" onClick={() => setSelected(null)}>{labels.back}</button></div>
     </section></div>}
   </div>;
