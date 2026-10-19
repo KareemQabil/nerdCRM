@@ -2,13 +2,14 @@ import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type FormEv
 import {
  ArrowLeft, ArrowRight, BadgeCheck, CalendarDays, Check, CheckCircle2,
  ChevronLeft, ChevronRight, CircleHelp, ClipboardList, Clock3, FileText, Filter,
- GitBranch, Layers3, LockKeyhole, MessageSquarePlus, Plus, Search, ShieldAlert,
+ GitBranch, Layers3, LayoutList, Columns3, LockKeyhole, MessageSquarePlus, Plus, Search, ShieldAlert,
  Sparkles, UsersRound, Workflow, X
 } from "lucide-react";
 import type { Language } from "./preferences";
 import { DEMO_MODE } from "./demo";
 import { DEMO_AREAS, demoBusinessStore, demoConfigs, type DemoArea, type DemoRecord } from "./demoBusiness";
 import { DemoDomainWorkbench } from "./DemoDomainWorkbench";
+import { DemoPipelineBoard } from "./DemoPipelineBoard";
 
 type Props={area:DemoArea;language:Language;onNavigateArea:(area:DemoArea,id?:number)=>void};
 type DialogKind="create"|"advance"|"note";
@@ -33,7 +34,7 @@ const en={
   detail:"Workspace",status:"Current state",mockBanner:"PUBLIC DEMO · NOT AN OFFICIAL IOETI RECORD",
   nextAction:"Next simulated action",notImplemented:"Backend contract pending",
   rowCount:"sample records",journey:"Operating journey",scope:"No production data connected",
-  allAreas:"Explore adjacent workstreams",
+  listView:"List",boardView:"Pipeline board",allAreas:"Explore adjacent workstreams",
   see:"Open",
 };
 const ar:typeof en={
@@ -57,7 +58,7 @@ const ar:typeof en={
  detail:"ملف التشغيل",status:"الحالة الحالية",mockBanner:"DEMO عام · ليس سجلًا رسميًا في IOETI",
  nextAction:"الإجراء التجريبي التالي",notImplemented:"عقد الـBackend لم ينفذ بعد",
  rowCount:"سجلًا تجريبيًا",journey:"رحلة التشغيل",scope:"غير متصل ببيانات إنتاج حقيقية",
- allAreas:"استعرض مسارات العمل المرتبطة",
+ listView:"قائمة",boardView:"لوحة المراحل",allAreas:"استعرض مسارات العمل المرتبطة",
  see:"افتح",
 };
 function money(value:number|null,language:Language){
@@ -78,12 +79,14 @@ function DemoBusinessInner({area,language,onNavigateArea}:Props){
  const [selectedId,setSelectedId]=useState<number|null>(null);
  const [query,setQuery]=useState("");
  const [stageFilter,setStageFilter]=useState("all");
+ const [view,setView]=useState<"list"|"board">("list");
  const [tab,setTab]=useState<"overview"|"timeline"|"relationships">("overview");
  const [dialog,setDialog]=useState<DialogKind|null>(null);
  const [title,setTitle]=useState(""),[company,setCompany]=useState(""),[amount,setAmount]=useState("");
  const [note,setNote]=useState(""),[confirmed,setConfirmed]=useState(false);
  const [error,setError]=useState(""),[notice,setNotice]=useState("");
  const titleRef=useRef<HTMLHeadingElement>(null),dialogRef=useRef<HTMLElement>(null),returnRef=useRef<HTMLButtonElement|null>(null);
+ const searchRef=useRef<HTMLInputElement>(null);
  const strings=language==="ar"?ar:en,config=demoConfigs[area],rtl=language==="ar";
  const Back=rtl?ArrowRight:ArrowLeft,Forward=rtl?ArrowLeft:ArrowRight;
  const root=DEMO_AREAS.includes(area) ? (["certification","learning","recruiting","fundraising"].includes(area)
@@ -110,6 +113,18 @@ function DemoBusinessInner({area,language,onNavigateArea}:Props){
   return()=>{window.removeEventListener("hashchange",sync);window.removeEventListener("popstate",sync);};
  },[area,root]);
  useEffect(()=>{titleRef.current?.focus();},[selectedId,area]);
+ // / focuses register search, but never interrupts inputs or simulated dialogs.
+ useEffect(()=>{
+  if(selectedId!==null||dialog)return;
+  const focusSearch=(event:KeyboardEvent)=>{
+   const element=event.target;
+   if(event.key!=="/"||event.ctrlKey||event.altKey||event.metaKey||event.shiftKey||
+     (element instanceof HTMLElement && (element.isContentEditable||["INPUT","TEXTAREA","SELECT"].includes(element.tagName))))return;
+   event.preventDefault();searchRef.current?.focus();
+  };
+  window.addEventListener("keydown",focusSearch);
+  return()=>window.removeEventListener("keydown",focusSearch);
+ },[selectedId,dialog]);
  useEffect(()=>{
   if(!dialog)return;
   const first=dialogRef.current?.querySelector<HTMLElement>("input:not([disabled]),textarea:not([disabled]),button:not([disabled])");
@@ -147,7 +162,7 @@ function DemoBusinessInner({area,language,onNavigateArea}:Props){
     if(title.trim().length<3||company.trim().length<3)throw Error(strings.titleRequired);
     if(amount.trim()&&(!Number.isFinite(Number(amount))||Number(amount)<0))throw Error(strings.error);
     const made=demoBusinessStore.create(area,title,company,amount.trim()?Number(amount):null);
-    setDialog(null);setNotice(strings.added);open(made.id);
+    setDialog(null);open(made.id);setNotice(strings.added);
    }else if(record&&dialog==="advance"){
     if(!confirmed)throw Error(strings.confirm);
     demoBusinessStore.transition(area,record.id,record.version,note);
@@ -245,19 +260,23 @@ function DemoBusinessInner({area,language,onNavigateArea}:Props){
      <div className="demo-summary-card"><Clock3 size={21}/><span>{strings.notImplemented}</span><strong>{all.filter(x=>x.stage<config.stages.length-1).length}</strong></div>
    </div>
    <div className="demo-overview-flow" aria-label={strings.journey}>
-    {config.stages.map((step,i)=><button key={i} type="button" onClick={()=>setStageFilter(stageFilter===String(i)?"all":String(i))} className={"demo-flow-step"+(stageFilter===String(i)?" chosen":"")}>
+    {config.stages.map((step,i)=><button key={i} type="button" onClick={()=>setStageFilter(stageFilter===String(i)?"all":String(i))} aria-pressed={stageFilter===String(i)} className={"demo-flow-step"+(stageFilter===String(i)?" chosen":"")}>
       <span>{String(i+1).padStart(2,"0")}</span><strong>{step[language]}</strong><small>{countByStage[i]} {strings.rowCount}</small>
     </button>)}
    </div>
    <div className="demo-toolbar">
     <label className="search-field"><Search size={18}/><span className="sr-only">{strings.search}</span>
-      <input aria-label={strings.search} value={query} onChange={e=>setQuery(e.target.value)} placeholder={strings.search}/></label>
+      <input ref={searchRef} aria-label={strings.search} value={query} onChange={e=>setQuery(e.target.value)} placeholder={strings.search}/></label>
     <label className="demo-filter-label"><Filter size={15}/><span className="sr-only">{strings.stage}</span>
       <select aria-label={strings.stage} value={stageFilter} onChange={e=>setStageFilter(e.target.value)}><option value="all">{strings.all}</option>
         {config.stages.map((step,i)=><option key={i} value={i}>{step[language]}</option>)}</select></label>
+    <div className="demo-view-switch" role="group" aria-label={rtl?"طريقة عرض السجلات":"Record layout"}>
+     <button type="button" className={view==="list"?"active":""} aria-pressed={view==="list"} onClick={()=>setView("list")}><LayoutList size={16}/>{strings.listView}</button>
+     <button type="button" className={view==="board"?"active":""} aria-pressed={view==="board"} onClick={()=>setView("board")}><Columns3 size={16}/>{strings.boardView}</button>
+    </div>
     <button className="btn btn-primary" type="button" onClick={e=>openDialog("create",e.currentTarget)}><Plus size={17}/>{strings.new}</button>
    </div>
-   <div className="demo-data-panel">
+   {view==="board" && visible.length>0 ? <DemoPipelineBoard area={area} language={language} rows={visible} onOpen={open}/> : <div className="demo-data-panel">
     <div className="demo-data-head"><strong>{strings.records}</strong><span>{visible.length} {strings.rowCount}</span></div>
     {visible.length===0?<div className="empty-state">{strings.none}</div>:<div className="demo-record-list">{visible.map(row=><button key={row.id} type="button" className="demo-record-row" onClick={()=>open(row.id)}>
      <span className="demo-record-monogram"><FileText size={20}/></span>
@@ -266,7 +285,7 @@ function DemoBusinessInner({area,language,onNavigateArea}:Props){
      <span className="demo-record-value" dir="ltr">{money(row.value,language)}</span>
      <span className="demo-record-date"><CalendarDays size={14}/>{formatDate(row.due,language)}</span><Forward size={17} className="demo-record-arrow"/>
     </button>)}</div>}
-   </div>
+   </div>}
    <p className="scope-note"><LockKeyhole size={15}/>{strings.notBackend}</p>
   </>}
   {dialog&&<div className="demo-dialog-backdrop" onMouseDown={event=>{if(event.target===event.currentTarget)setDialog(null);}}>
