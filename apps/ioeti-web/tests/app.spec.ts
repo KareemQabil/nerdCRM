@@ -73,13 +73,13 @@ test("opportunity create and rename use typed application endpoints", async ({ p
   await page.getByRole("button", { name: "المبيعات" }).click();
   await expect(page.getByText("Hotel certification")).toBeVisible();
   await page.getByRole("button", { name: "فرصة جديدة" }).click();
-  await page.getByLabel("اسم الفرصة").fill("New customer opportunity");
+  await page.getByRole("textbox", { name: "اسم الفرصة" }).fill("New customer opportunity");
   await page.getByLabel("خطوط الأعمال").selectOption("ISO9001");
   await page.getByRole("button", { name: "حفظ التغييرات" }).click();
   await expect(page.getByText("New customer opportunity")).toBeVisible();
   const row = page.getByRole("row").filter({ hasText: "New customer opportunity" });
   await row.getByRole("button", { name: /تعديل اسم الفرصة/ }).click();
-  await page.getByLabel("اسم الفرصة").fill("New customer opportunity updated");
+  await page.getByRole("textbox", { name: "اسم الفرصة" }).fill("New customer opportunity updated");
   await page.getByRole("button", { name: "حفظ التغييرات" }).click();
   await expect(page.getByText("New customer opportunity updated")).toBeVisible();
 });
