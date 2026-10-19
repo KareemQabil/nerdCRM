@@ -178,7 +178,7 @@ test("RTL record tabs support arrow navigation, Home, End and linked panel seman
  const activity=page.getByRole("tab",{name:"الأنشطة"});
  await expect(activity).toBeFocused();
  await expect(activity).toHaveAttribute("aria-selected","true");
- await expect(page.getByRole("tabpanel")).toHaveAttribute("aria-labelledby",await activity.getAttribute("id"));
+ await expect(page.getByRole("tabpanel")).toHaveAttribute("aria-labelledby","demo-tab-quotes-timeline");
  await page.keyboard.press("End");
  await expect(page.getByRole("tab",{name:"العلاقات"})).toBeFocused();
  await page.keyboard.press("Home");
