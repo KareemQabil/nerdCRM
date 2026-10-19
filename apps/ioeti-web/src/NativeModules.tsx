@@ -1,6 +1,9 @@
 import { useState } from "react";
 import { ArrowLeft, ArrowRight, CheckCircle2, ChevronDown, Layers3, LockKeyhole, Search, ShieldAlert, Workflow } from "lucide-react";
 import type { Language } from "./preferences";
+import { CapabilityJourney, type JourneyKey } from "./CapabilityJourney";
+import { DEMO_MODE } from "./demo";
+import { DEMO_AREAS, type DemoArea } from "./demoAreas";
 
 type Capability = {
   id: string; ar: string; en: string; entity: string; upstream: string;
@@ -67,7 +70,7 @@ const capabilities: Capability[] = [
     gapAr:"بيانات المانحين والمنح والتعهدات والإيصالات والتقارير",gapEn:"Donor profiles, grants, pledges, receipts and reports",
     pagesAr:["المانحون","الحملات","التعهدات","الإيصالات"],pagesEn:["Donors","Campaigns","Pledges","Receipts"]},
 ];
-export function NativeModules({ language, onOpen }: { language: Language; onOpen: (page: "leads" | "accounts" | "opportunities") => void }) {
+export function NativeModules({ language, onOpen, onOpenDemo }: { language: Language; onOpen: (page: "leads" | "accounts" | "opportunities") => void; onOpenDemo: (area: DemoArea) => void }) {
   const ar = language === "ar";
   const [active,setActive]=useState<Capability|null>(null);
   const [query,setQuery]=useState("");
@@ -84,6 +87,11 @@ export function NativeModules({ language, onOpen }: { language: Language; onOpen
       <div><strong>{capabilities.filter(x=>x.stage!=="new").length}</strong><span>{ar?"تعتمد على موديولات Axelor":"Native foundations"}</span></div>
       <div><strong>{capabilities.filter(x=>x.stage==="new").length}</strong><span>{ar?"تحتاج منطق IOETI إضافيًا":"IOETI domains required"}</span></div>
     </div>
+    {DEMO_MODE && <div className="demo-platform-links" role="group" aria-label={ar?"معاينة نظام التشغيل":"Operating platform preview"}>
+      {(["admin","automations","reports","documents"] as DemoArea[]).map(area=><button type="button" key={area} onClick={()=>onOpenDemo(area)}>
+        <Layers3 size={18}/><span>{ar?({admin:"إدارة النظام",automations:"الأتمتة والموافقات",reports:"التحليلات والتقارير",documents:"المستندات والمعرفة"} as Record<string,string>)[area]:({admin:"Administration",automations:"Automations",reports:"Analytics",documents:"Documents"} as Record<string,string>)[area]}</span>{arrow}
+      </button>)}
+    </div>}
     <label className="search-field cap-search"><Search size={17}/><span className="sr-only">{ar?"بحث":"Search"}</span><input value={query} placeholder={ar?"ابحث بالموديول أو الكيان البرمجي":"Search model, module or domain"} onChange={e=>setQuery(e.target.value)}/></label>
     <div className="capability-grid">
       {visible.map(item=><button type="button" className={"cap-card"+(active?.id===item.id?" selected":"")} key={item.id} onClick={()=>setActive(active?.id===item.id?null:item)} aria-expanded={active?.id===item.id}>
@@ -96,8 +104,15 @@ export function NativeModules({ language, onOpen }: { language: Language; onOpen
       <div className="cap-detail-heading"><div><span className="eyebrow">{active.upstream}</span><h2>{ar?active.ar:active.en}</h2></div>
       <div className="cap-detail-actions">
         {uiConnection[active.id]&&<button type="button" className="btn btn-primary" onClick={()=>onOpen(uiConnection[active.id])}>{ar?"افتح واجهة القراءة المرتبطة":"Open connected read-only UI"}{arrow}</button>}
+        {DEMO_MODE && DEMO_AREAS.includes(active.id as DemoArea) &&
+          <button type="button" className="btn btn-primary" onClick={()=>onOpenDemo(active.id as DemoArea)}>
+            {ar?"افتح الديمو التفاعلي الكامل":"Open interactive module demo"}{arrow}
+          </button>}
+
         <button type="button" className="btn btn-secondary" onClick={()=>setActive(null)}>{ar?"إغلاق":"Close"}</button>
       </div></div>
+
+      <CapabilityJourney id={active.id as JourneyKey} language={language}/>
       <div className="cap-detail-cols">
         <div><span className="detail-kicker">{ar?"الكائنات البرمجية المثبتة بالمصدر":"Grounded domain models"}</span><p><code dir="ltr">{active.entity}</code></p>
           <span className="detail-kicker">{ar?"خريطة صفحات الواجهة":"Planned custom UI surfaces"}</span><div className="cap-page-list">{(ar?active.pagesAr:active.pagesEn).map((p,i)=><div key={p}><span>{String(i+1).padStart(2,"0")}</span><strong>{p}</strong>{arrow}</div>)}</div></div>

@@ -8,11 +8,13 @@ import com.axelor.db.JpaSecurity;
 import com.axelor.db.Query;
 import com.axelor.inject.Beans;
 import com.axelor.rpc.filter.Filter;
+import com.axelor.utils.api.ConflictChecker;
 import com.axelor.utils.api.HttpExceptionHandler;
 import com.axelor.utils.api.ResponseConstructor;
 import com.axelor.utils.api.SecurityCheck;
 import com.ioeti.businessline.db.BusinessLine;
 import com.ioeti.businessline.db.repo.BusinessLineRepository;
+import com.ioeti.core.web.OptimisticLockConflicts;
 import io.swagger.v3.oas.annotations.Operation;
 import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.Consumes;
@@ -24,12 +26,10 @@ import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.QueryParam;
-import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import java.util.List;
 import java.util.Locale;
-import java.util.Objects;
 
 /**
  * Small, allowlisted CRM contract used by the custom IOETI UI.
@@ -101,11 +101,13 @@ public class OpportunityRestController {
     new SecurityCheck().writeAccess(Opportunity.class, id).check();
     Opportunity opportunity = Beans.get(OpportunityRepository.class).find(id);
     if (opportunity == null) throw new NotFoundException();
-    if (!Objects.equals(opportunity.getVersion(), command.version())) {
-      throw new WebApplicationException("Record has changed; refresh and retry.", Response.Status.CONFLICT);
-    }
+    // Stale client version: native AOS check, ClientErrorException(409).
+    ConflictChecker.checkVersion(opportunity, command.version());
     opportunity.setName(checkName(command.name()));
-    Beans.get(OpportunityService.class).saveOpportunity(opportunity);
+    // Another writer committed after the check: saveOpportunity is @Transactional and commits on
+    // return, so the versioned UPDATE fails here and is answered with 409 instead of 500.
+    OptimisticLockConflicts.translate(
+      () -> Beans.get(OpportunityService.class).saveOpportunity(opportunity));
     return ResponseConstructor.build(Response.Status.OK, "Opportunity updated", view(opportunity));
   }
 

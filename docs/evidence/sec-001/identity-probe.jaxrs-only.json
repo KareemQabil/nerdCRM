@@ -1,0 +1,56 @@
+{
+  "base": "http://localhost:8080/axelor-erp",
+  "restores": 2,
+  "workers_per_principal": 2,
+  "baseline_leaks": {},
+  "restores_ok": [
+    true,
+    true,
+    "client-aborted"
+  ],
+  "concurrent_seconds": 225.7,
+  "worker_errors": [],
+  "boundary": {
+    "present": false,
+    "before_load": null,
+    "after_load": null
+  },
+  "checks": {
+    "A:effective_identity": 6042,
+    "A:ioeti_lines_scope": 6042,
+    "A:native_rest_lines_scope": 6042,
+    "A:ioeti_opportunity_scope": 6042,
+    "A:native_rest_opportunity_scope": 6042,
+    "A:denied_write_refused": 6042,
+    "B:effective_identity": 6018,
+    "B:ioeti_lines_scope": 6018,
+    "B:native_rest_lines_scope": 6018,
+    "B:ioeti_opportunity_scope": 6018,
+    "B:native_rest_opportunity_scope": 6018,
+    "B:denied_write_refused": 6018,
+    "RO:effective_identity": 7234,
+    "RO:ioeti_lines_scope": 7234,
+    "RO:native_rest_lines_scope": 7234,
+    "RO:opportunities_denied": 7234,
+    "RO:native_rest_opportunity_scope": 7234,
+    "RO:denied_write_refused": 7234,
+    "ANON:public_info_has_no_identity": 20857,
+    "ANON:protected_refused": 62571,
+    "BLK:session_refused": 20544,
+    "OUT:session_refused": 20508,
+    "OUT:data_refused": 20508,
+    "BLK:data_refused": 20544,
+    "ADMIN:denied_writes_left_records_unchanged": 1,
+    "ADMIN:business_line_unchanged": 1
+  },
+  "leaks": {},
+  "leak_examples": [],
+  "summary": {
+    "checks": 281298,
+    "leaks": 0
+  },
+  "cleanup": {
+    "complete": true,
+    "records": 12
+  }
+}

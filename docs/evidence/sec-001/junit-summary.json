@@ -1,0 +1,55 @@
+{
+  "suites": [
+    {
+      "suite": "com.ioeti.businessline.BusinessLinePersistenceTest",
+      "tests": 6,
+      "skipped": 0,
+      "failures": 0,
+      "errors": 0
+    },
+    {
+      "suite": "com.ioeti.businessline.OpportunityConflictTest",
+      "tests": 3,
+      "skipped": 0,
+      "failures": 0,
+      "errors": 0
+    },
+    {
+      "suite": "com.ioeti.businessline.RequestIdentityBoundaryIntegrationTest",
+      "tests": 3,
+      "skipped": 0,
+      "failures": 0,
+      "errors": 0
+    },
+    {
+      "suite": "com.ioeti.businessline.service.BusinessLineValidatorTest",
+      "tests": 4,
+      "skipped": 0,
+      "failures": 0,
+      "errors": 0
+    },
+    {
+      "suite": "com.ioeti.core.security.RequestIdentityBoundaryFilterTest",
+      "tests": 8,
+      "skipped": 0,
+      "failures": 0,
+      "errors": 0
+    },
+    {
+      "suite": "com.ioeti.core.text.ArabicTextNormalizerTest",
+      "tests": 6,
+      "skipped": 0,
+      "failures": 0,
+      "errors": 0
+    },
+    {
+      "suite": "com.ioeti.core.web.OptimisticLockConflictsTest",
+      "tests": 4,
+      "skipped": 0,
+      "failures": 0,
+      "errors": 0
+    }
+  ],
+  "total": 34,
+  "failed": 0
+}
