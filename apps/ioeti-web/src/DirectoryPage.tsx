@@ -4,6 +4,7 @@ import { ApiError, getAccount, getAccounts, getLead, getLeads, type AccountSumma
 import { DEMO_MODE } from "./demo";
 import type { Language } from "./preferences";
 import { RecordWorkspace } from "./RecordWorkspace";
+import { LeadConvertPage } from "./LeadConvertPage";
 
 type Kind = "leads" | "accounts";
 type Row = LeadSummary | AccountSummary;
@@ -16,10 +17,10 @@ const strings = {
     search:"ابحث في السجلات المحمّلة...",record:"السجل",organization:"الجهة",status:"الحالة",reference:"المرجع",
     active:"عميل",prospect:"محتمل",empty:"لا توجد نتائج",loading:"جار تحميل البيانات المسموح بها...",
     more:"تحميل المزيد",refresh:"تحديث",details:"عرض التفاصيل",close:"إغلاق",unavailable:"تعذّر جلب السجلات",
-    offline:"معلومات النطاق قيد التوصيل بالـBackend",readOnly:"عرض فقط · لم تُبنَ إجراءات الإنشاء/التحويل الآمنة بعد",
+    offline:"معلومات النطاق قيد التوصيل بالـBackend",readOnly:"بيانات حية ضمن نطاق صلاحياتك",
     demo:"هذه السجلات خيالية للمعاينة فقط",noPermission:"ليس لديك صلاحية قراءة هذا الموديول.",
     source:"المصدر", leadSource:"Axelor Lead · LeadStatus", accountSource:"Axelor Partner",
-    next:"القادم: تأهيل/توزيع العملاء المحتملين من Axelor", nextAccounts:"القادم: Account 360 وروابط جهات الاتصال",
+    next:"القادم: تأهيل/توزيع العملاء المحتملين من Axelor", nextAccounts:"Account 360: الفرص وجهات الاتصال داخل صفحة الحساب",
   },
   en: {
     leads:"Lead inbox",accounts:"Account directory",
@@ -28,10 +29,10 @@ const strings = {
     search:"Search loaded records...",record:"Record",organization:"Organization",status:"Status",reference:"Reference",
     active:"Customer",prospect:"Prospect",empty:"No results",loading:"Loading authorized records...",
     more:"Load more",refresh:"Refresh",details:"Details",close:"Close",unavailable:"Could not load records",
-    offline:"Backend domain connection is in progress",readOnly:"Read only · safe create/convert commands are not implemented yet",
+    offline:"Backend domain connection is in progress",readOnly:"Live data within your permissions",
     demo:"All records are fictional and for visual review only",noPermission:"No permission to read this module.",
     source:"Source",leadSource:"Axelor Lead · LeadStatus",accountSource:"Axelor Partner",
-    next:"Next: Axelor-native lead qualification and routing", nextAccounts:"Next: Account 360 and contact associations",
+    next:"Next: Axelor-native lead qualification and routing", nextAccounts:"Account 360: opportunities and contacts on each account page",
   },
 } as const;
 
@@ -47,6 +48,7 @@ export function DirectoryPage({kind,language}: Props) {
   const [error,setError]=useState("");
   const [hasMore,setHasMore]=useState(false);
   const [selected,setSelected]=useState<Row|null>(null);
+  const [convertId,setConvertId]=useState<number|null>(null);
   const [detailLoading,setDetailLoading]=useState(false);
   const focusReturn=useRef<HTMLElement|null>(null);
   const listScroll=useRef(0);
@@ -70,6 +72,10 @@ export function DirectoryPage({kind,language}: Props) {
     let generation=0;
     const sync=()=>{
       const mine=++generation;
+      const convert=kind==="leads"?window.location.hash.match(/^#\/leads\/(\d+)\/convert$/):null;
+      const target=convert?Number(convert[1]):null;
+      setConvertId(target!==null&&Number.isSafeInteger(target)&&target>0?target:null);
+      if(convert){setSelected(null);return;}
       const match=window.location.hash.match(/^#\/(leads|accounts)\/(\d+)$/);
       if(!match||match[1]!==kind){
         setSelected(null);
@@ -138,6 +144,7 @@ export function DirectoryPage({kind,language}: Props) {
     }catch(e){setError(e instanceof Error?e.message:l.unavailable);}
     finally{setBusyMore(false);}
   }
+  if(convertId!==null)return <LeadConvertPage leadId={convertId} language={language}/>;
   if(selected){
     const index=visible.findIndex(row=>row.id===selected.id);
     return <RecordWorkspace

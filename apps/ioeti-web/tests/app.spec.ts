@@ -398,3 +398,75 @@ test("real mode never downloads multi-domain demo workspace chunks or fixtures",
   await expect(page.getByRole("button",{name:"الشهادات"})).toBeDisabled();
   expect(fetched.filter(url=>/DemoBusinessWorkspace|DemoExecutiveOverview|DemoDomainWorkbench|demoBusiness\.(ts|js)/.test(url))).toEqual([]);
 });
+
+async function conversionMocks(page: Page, convert: (body: Record<string, unknown>) => { status: number; body: unknown }) {
+  await intercept(page);
+  let lead = { id: 207, version: 3, name: "Nour Hassan", organization: "Nile View Hotel", stage: "New", converted: false,
+    businessLineCode: "TRAINING", accountId: null as number | null, opportunityId: null as number | null };
+  const requests: Record<string, unknown>[] = [];
+  const ok = (object: unknown, code = 200) => ({ status: code, contentType: "application/json", body: JSON.stringify({ codeStatus: code, messageStatus: "ok", object }) });
+  await page.route(/\/axelor-erp\/ws\/ioeti\/business-lines\?creatable=true$/, route => route.fulfill(ok(lines)));
+  await page.route(/\/axelor-erp\/ws\/ioeti\/leads\/207$/, route => route.fulfill(ok(lead)));
+  await page.route(/\/axelor-erp\/ws\/ioeti\/leads\/207\/convert$/, route => {
+    const body = route.request().postDataJSON() as Record<string, unknown>;
+    requests.push({ ...body, csrf: route.request().headers()["x-csrf-token"] ?? null });
+    const answer = convert(body);
+    if (answer.status === 201) lead = { ...lead, version: 4, converted: true, stage: "Converted", accountId: 901, opportunityId: 140 };
+    return route.fulfill(answer.status === 201 ? ok(answer.body, 201)
+      : { status: answer.status, contentType: "application/json", body: JSON.stringify(answer.body) });
+  });
+  await page.route(/\/axelor-erp\/ws\/ioeti\/accounts\/901\/opportunities$/, route => route.fulfill(ok([
+    { id: 140, version: 0, name: "Nile View Hotel", reference: "OP-140", businessLineCode: "TRAINING",
+      businessLineNameAr: "التدريب", businessLineNameEn: "Training", stage: "New" }])));
+  await page.route(/\/axelor-erp\/ws\/ioeti\/accounts\/901\/contacts$/, route => route.fulfill(ok([
+    { id: 950, name: "Nour Hassan", jobTitle: null }])));
+  return requests;
+}
+const contractError = (status: number, code: string, field?: string) => ({ status, body: {
+  codeStatus: status, messageStatus: "x", error: { code, message: "x", correlationId: "c0ffee00", fields: field ? [{ field, code: "UNAVAILABLE", message: "x" }] : [] } } });
+
+test("lead conversion: full-page wizard converts once, then links the account and its Account 360", async ({page}) => {
+  await page.context().addCookies([{ name: "CSRF-TOKEN", value: "csrf-207", url: "http://127.0.0.1:5173" }]);
+  const requests = await conversionMocks(page, () => ({ status: 201, body: { leadId: 207, accountId: 901, contactId: 950, opportunityId: 140 } }));
+  await page.goto("/#/leads/207");
+  await page.getByRole("link", { name: "تحويل إلى حساب وفرصة" }).click();
+  await expect(page).toHaveURL(/#\/leads\/207\/convert$/);
+  await expect(page.getByRole("heading", { name: "تحويل العميل المحتمل" })).toBeVisible();
+  await expect(page.getByLabel("اسم الفرصة التجارية")).toHaveValue("Nile View Hotel");
+  await expect(page.getByLabel("خط الأعمال")).toHaveValue("TRAINING");
+  await page.getByRole("button", { name: "تحويل", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "تم التحويل" })).toBeVisible();
+  expect(requests).toEqual([{ version: 3, opportunityName: "Nile View Hotel", businessLineCode: "TRAINING", csrf: "csrf-207" }]);
+  await page.screenshot({ path: "test-results/ioeti-lead-converted.png", fullPage: true });
+  await page.getByRole("link", { name: "فتح الحساب" }).click();
+  await expect(page).toHaveURL(/#\/accounts\/901$/);
+  await expect(page.locator(".record-workspace h1")).toHaveText("Nile View Hotel");
+  await expect(page.getByRole("tab", { name: /الفرص التجارية \(1\)/ })).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByRole("tabpanel")).toContainText("OP-140");
+  await page.getByRole("tab", { name: /جهات الاتصال/ }).click();
+  await expect(page.getByRole("tabpanel")).toContainText("Nour Hassan");
+  await page.goto("/#/leads/207");
+  await expect(page.getByRole("link", { name: "تحويل إلى حساب وفرصة" })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "فتح الفرصة" })).toHaveAttribute("href", "#/opportunities/140");
+});
+
+test("lead conversion: server refusals are localized, never shown raw, and nothing is claimed", async ({page}) => {
+  const answers = [contractError(422, "VALIDATION_FAILED", "accountId"), contractError(422, "CONVERSION_REJECTED"),
+    contractError(409, "CONFLICT"), contractError(409, "ALREADY_CONVERTED")];
+  const requests = await conversionMocks(page, () => answers.shift()!);
+  await page.goto("/#/leads/207/convert");
+  await page.getByLabel("إضافة إلى حساب موجود").check();
+  await page.getByLabel("اختر الحساب").selectOption("902");
+  const convert = page.getByRole("button", { name: "تحويل", exact: true });
+  await convert.click();
+  await expect(page.getByRole("alert")).toHaveText(/لا يمكنك إضافة الفرصة إلى هذا الحساب/);
+  expect(requests[0]).toMatchObject({ accountId: 902 });
+  await convert.click();
+  await expect(page.getByRole("alert")).toHaveText(/لا يمكن تحويل هذا العميل المحتمل في حالته الحالية/);
+  await convert.click();
+  await expect(page.getByRole("alert")).toHaveText(/عدّل شخص آخر هذا السجل/);
+  await convert.click();
+  await expect(page.getByRole("alert")).toHaveText(/تم تحويل هذا العميل المحتمل من قبل/);
+  await expect(page.getByRole("heading", { name: "تم التحويل" })).toHaveCount(0);
+  await expect(page.locator("body")).not.toContainText("c0ffee00");
+});

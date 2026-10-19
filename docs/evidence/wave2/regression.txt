@@ -1,0 +1,39 @@
+# Wave 2 part 1, local run 2026-10-19, Axelor 9.1.10 + PostgreSQL 16, branch claude/ioeti-wave2-lead-conversion
+## lead_conversion_probe.py (PROBE_CONVERT_ROUNDS=20)
+PASS company lead converts (201)
+PASS account built from the lead (company, prospect)
+PASS contact built and attached to the account
+PASS opportunity linked: account, contact, owner, line, origin lead
+PASS lead shows converted, its account and opportunity
+PASS lead persisted as converted with the native status
+PASS retry → 409 ALREADY_CONVERTED
+PASS retry created nothing
+PASS person lead → individual account, no contact, chosen opportunity name
+PASS non-client and unknown account refused identically (422 accountId)
+PASS refused account choice created nothing
+PASS convert into existing account: no new account, opportunity on it
+PASS another user's lead → same 404 as a missing id
+PASS read-only user → 403
+PASS non-member business line → 422 businessLineCode
+PASS lost lead → 422 CONVERSION_REJECTED (native rule, safe message)
+PASS stale version → 409
+PASS missing version → 400
+PASS refused L4 created nothing and stayed unconverted
+PASS refused L5 created nothing and stayed unconverted
+PASS refused L6 created nothing and stayed unconverted
+PASS refused L7 created nothing and stayed unconverted
+PASS concurrent double conversion: exactly one 201 and one 409 (20 leads)
+PASS concurrent double conversion: one opportunity and one account per lead
+PASS Account 360 contacts: the converted contact, safe fields only
+PASS Account 360 opportunities: owner sees the converted opportunity
+PASS Account 360 opportunities: another rep sees none (own scope)
+PASS Account 360 on a non-client or missing partner → 404
+28/28 checks passed
+## regression on the same build
+regress-python3_scripts_opportunity_pilot_smoke.py: PILOT_CONTRACT=PASS
+regress-python3_scripts_opportunity_concurrency_probe.py_20: 13/13 checks passed
+regress-python3_scripts_api_contract_probe.py: 31/31 checks passed
+regress-python3_scripts_api_smoke_test.py: 16/16 checks passed
+regress-python3_scripts_scope_matrix_probe.py: 65/65 checks passed
+regress-python3_scripts_session_security_probe.py: 20/20 checks passed
+identity_isolation_probe: IDENTITY_PROBE {"checks": 324655, "leaks": 0} boundary {"pre
