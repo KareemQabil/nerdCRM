@@ -121,6 +121,51 @@ test("server validation errors are localized from the IOETI error contract, not 
   await expect(page.getByText("Choose an active business line you can access.")).toHaveCount(0);
 });
 
+test("unsafe requests send Axelor's CSRF token from its cookie; safe ones do not", async ({ page, context }) => {
+  await context.addCookies([{ name: "CSRF-TOKEN", value: "csrf-token-123", domain: "127.0.0.1", path: "/" }]);
+  await intercept(page);
+  const seen: { method: string; token: string | null }[] = [];
+  page.on("request", request => {
+    if (request.url().includes("/ws/ioeti/opportunities")) {
+      seen.push({ method: request.method(), token: request.headers()["x-csrf-token"] ?? null });
+    }
+  });
+  await page.goto("/");
+  await page.getByRole("button", { name: "المبيعات" }).click();
+  await page.getByRole("button", { name: "فرصة جديدة" }).click();
+  await page.getByRole("textbox", { name: "اسم الفرصة" }).fill("CSRF protected create");
+  await page.getByLabel("خطوط الأعمال").selectOption("ISO9001");
+  await page.getByRole("button", { name: "حفظ التغييرات" }).click();
+  await expect(page.getByText("CSRF protected create")).toBeVisible();
+  expect(seen.filter(r => r.method === "POST").map(r => r.token)).toEqual(["csrf-token-123"]);
+  expect(seen.filter(r => r.method === "GET").every(r => r.token === null)).toBe(true);
+});
+
+test("sign out ends the server session and returns to the sign-in screen", async ({ page }) => {
+  await intercept(page);
+  let loggedOut = false;
+  await page.route("**/axelor-erp/logout", route => { loggedOut = true; return route.fulfill({ status: 204, body: "" }); });
+  await page.goto("/");
+  await expect(page.getByText("أهلًا بك في IOETI")).toBeVisible();
+  await page.getByRole("button", { name: "تسجيل الخروج" }).click();
+  await expect(page.getByRole("button", { name: /دخول|تسجيل الدخول/ })).toBeVisible();
+  expect(loggedOut).toBe(true);
+});
+
+test("throttled sign-in shows a localized wait message, not a generic failure", async ({ page }) => {
+  await page.route("**/axelor-erp/ws/ioeti/session", route => route.fulfill({ status: 401, body: "" }));
+  await page.route("**/axelor-erp/callback", route => route.fulfill({
+    status: 429, contentType: "application/json", headers: { "Retry-After": "600" },
+    body: JSON.stringify({ codeStatus: 429, messageStatus: "Too many requests; try again later.",
+      error: { code: "RATE_LIMITED", message: "Too many requests; try again later.", correlationId: "c-1", fields: [] } }),
+  }));
+  await page.goto("/");
+  await page.getByLabel(/اسم المستخدم|Username/).fill("sales.a");
+  await page.getByLabel(/كلمة المرور|Password/).fill("wrong");
+  await page.locator("form.login-form button[type=submit]").click();
+  await expect(page.getByText("محاولات دخول كثيرة جدًا. انتظر بضع دقائق ثم حاول مرة أخرى.")).toBeVisible();
+});
+
 test("lack of BusinessLine permissions is not treated as failed session login", async ({ page }) => {
   await intercept(page, { businessLineDenied: true });
   await page.goto("/");

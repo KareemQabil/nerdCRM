@@ -47,13 +47,20 @@ async function contractDetails(response: Response): Promise<{ code: string | nul
     return { code: null, fields: [] };
   }
 }
+/** Axelor's CSRF token (pac4j cookie CSRF-TOKEN, readable by design); required on unsafe methods. */
+function csrfToken(): string | null {
+  const match = document.cookie.split("; ").find(part => part.startsWith("CSRF-TOKEN="));
+  return match ? decodeURIComponent(match.slice("CSRF-TOKEN=".length)) : null;
+}
 async function request(path: string, options?: RequestInit): Promise<Response> {
   let response: Response;
+  const method = (options?.method || "GET").toUpperCase();
+  const token = method === "GET" || method === "HEAD" ? null : csrfToken();
   try {
     response = await fetch(PREFIX + path, {
       credentials: "same-origin", cache: "no-store",
-      headers: { Accept: "application/json", ...options?.headers },
       ...options,
+      headers: { Accept: "application/json", ...options?.headers, ...(token ? { "X-CSRF-Token": token } : {}) },
     });
   } catch {
     throw new ApiError(0, "Backend is unreachable");
@@ -102,6 +109,15 @@ export async function signIn(username: string, password: string): Promise<Sessio
   // Verify Axelor session instead of trusting HTTP 200 or access to one business module.
   if (!response.ok) throw new ApiError(response.status, "Authentication failed");
   return getSession();
+}
+/** Ends the server session (pac4j /logout); the old session cookie is then refused. */
+export async function signOut(): Promise<void> {
+  if (DEMO_MODE) return;
+  try {
+    await fetch(PREFIX + "/logout", { credentials: "same-origin", cache: "no-store" });
+  } catch {
+    throw new ApiError(0, "Backend is unreachable");
+  }
 }
 export async function getBusinessLines(): Promise<BusinessLine[]> {
   if (DEMO_MODE) return demoStore.lines();
