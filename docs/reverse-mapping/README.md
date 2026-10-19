@@ -32,6 +32,7 @@ This is a source-complete **tracked-file index** of **all 26 top-level AOS busin
 ## UI/API interaction ledger added in parallel with PR #8
 
 - [UI/API Surface Contracts](UI_API_SURFACE_CONTRACTS.json): **52 traced surfaces**. Each carries capability IDs, native source models, a concrete or proposed API route, interaction type, verified implementation state, a negative authorization acceptance condition, and dependency. All 52 capabilities links are validated by CI.
+- [Source field → DTO → Record UI evidence](FIELD_TO_DTO_EVIDENCE.md) documents actual Lead/Partner/Opportunity declarations and currently-exposed vs restricted fields.
 - [Source-driven UI implementation queue](NEXT_UI_SLICES.md): explicit next sequence based on current DTO fields and permission/test dependencies.
 - [PR #8](https://github.com/KareemQabil/nerdCRM/pull/8) implements the **full Opportunity record workspace** with the existing global sidebar unchanged, correct route `#/opportunities/{id}`, contextual rename modal, deep link, and visibly disconnected related areas. The separate frontend tests/CI passed for PR #8. The code is **not merged**, so the mapping row retains DRAFT_PR8 rather than verified production.
 
