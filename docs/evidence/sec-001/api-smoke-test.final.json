@@ -1,0 +1,85 @@
+{
+  "base": "http://localhost:8080/axelor-erp",
+  "results": [
+    {
+      "check": "admin login",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "check": "GET /ws/ioeti/business-lines returns the 5 seeded lines",
+      "result": "PASS",
+      "detail": "http=200 codes=['ISO9001', 'ISO22000', 'TRAINING', 'RECRUITMENT', 'FUNDRAISING']"
+    },
+    {
+      "check": "GET /ws/ioeti/business-lines/{code} is case-insensitive and returns Arabic name",
+      "result": "PASS",
+      "detail": "http=200 body={'id': 2, 'code': 'ISO22000', 'nameEn': 'ISO 22000', 'nameAr': 'أيزو 22000', 'status': 2, 'sequence': 20, 'responsibleTeam': None}"
+    },
+    {
+      "check": "generic API rejects invalid business line (repository validation)",
+      "result": "PASS",
+      "detail": "http=200 body={\"status\": -1, \"data\": {\"causeStack\": \"jakarta.persistence.PersistenceException: Code must be 2-20 characters: an upper-case letter followed by letters, digits "
+    },
+    {
+      "check": "generic API creates a suspended test line and normalises its code",
+      "result": "PASS",
+      "detail": "http=200 code=TST_SUSP_C3BDD8"
+    },
+    {
+      "check": "opportunity on a suspended business line is rejected (JPA listener)",
+      "result": "PASS",
+      "detail": "http=200"
+    },
+    {
+      "check": "opportunity on an active business line is accepted",
+      "result": "PASS",
+      "detail": "http=200 body={\"status\": 0, \"data\": [{\"importOrigin\": null, \"eventList\": null, \"lostReason\": null, \"description\": null, \"memo\": null, \"customerDescription\": null, \"source\": n"
+    },
+    {
+      "check": "test viewer user created in group ioeti-bl-viewer",
+      "result": "PASS",
+      "detail": "http=200 body={\"status\": 0, \"data\": [{\"localization\": null, \"transientPassword\": null, \"isIncludeSubProjects\": false, \"favouriteFolderSet\": null, \"language\": \"en\", \"sendEmail"
+    },
+    {
+      "check": "viewer login",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "check": "NEG viewer list via IOETI API hides the suspended line (record-level condition)",
+      "result": "PASS",
+      "detail": "http=200 codes=['ISO9001', 'ISO22000', 'TRAINING', 'RECRUITMENT', 'FUNDRAISING']"
+    },
+    {
+      "check": "NEG viewer cannot fetch the suspended line by code",
+      "result": "PASS",
+      "detail": "http=404 body={\"codeStatus\": 404, \"messageStatus\": \"Business line not found\", \"object\": null}"
+    },
+    {
+      "check": "NEG generic /ws/rest search applies the same record filter",
+      "result": "PASS",
+      "detail": "codes=['FUNDRAISING', 'ISO22000', 'ISO9001', 'RECRUITMENT', 'TRAINING']"
+    },
+    {
+      "check": "NEG viewer cannot update a business line (no write permission)",
+      "result": "PASS",
+      "detail": "http=200 body={\"status\": -1, \"data\": {\"message\": \"You are not authorized to update this resource.\", \"title\": \"Access error\"}}"
+    },
+    {
+      "check": "NEG viewer cannot read opportunities (deny by default)",
+      "result": "PASS",
+      "detail": "http=200 body={\"status\": -1, \"data\": {\"message\": \"You are not authorized to read this resource.\", \"title\": \"Access error\"}}"
+    },
+    {
+      "check": "NEG anonymous call to IOETI API is refused",
+      "result": "PASS",
+      "detail": "http=401"
+    },
+    {
+      "check": "cleanup of test records",
+      "result": "PASS",
+      "detail": "Opportunity:ok, BusinessLine:ok, User:ok"
+    }
+  ]
+}
