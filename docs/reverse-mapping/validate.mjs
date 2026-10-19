@@ -112,6 +112,29 @@ for(const file of matrices){
  }
 }
 if(capCount!==377)errors.push("Capability count changed; update and rebaseline check: "+capCount);
+const contracts=JSON.parse(readFileSync(join(dir,"UI_API_SURFACE_CONTRACTS.json"),"utf8"));
+if(!Array.isArray(contracts.surfaces))errors.push("UI contracts must contain surfaces array");
+else {
+ const surfaceIds=new Set();
+ const allowed=new Set(["BASE_READONLY","BASE_IMPLEMENTED","DRAFT_PR8","PR6_SECURITY_DEPENDENCY","NOT_IMPLEMENTED"]);
+ for(const surface of contracts.surfaces){
+  if(surfaceIds.has(surface.surface_id))errors.push("Duplicate UI surface "+surface.surface_id);
+  surfaceIds.add(surface.surface_id);
+  if(!allowed.has(surface.state))errors.push("Invalid UI surface state "+surface.surface_id);
+  if(!Array.isArray(surface.capability_ids)||!surface.capability_ids.length)
+    errors.push("UI surface has no trace capabilities "+surface.surface_id);
+  else for(const id of surface.capability_ids)if(!seen.has(id))
+    errors.push("UI surface "+surface.surface_id+" references missing capability "+id);
+  if(!surface.api_contract||!surface.interaction||!surface.negative_acceptance)
+    errors.push("Incomplete UI/API/negative acceptance "+surface.surface_id);
+  if(surface.state==="NOT_IMPLEMENTED" && surface.api_contract.startsWith("GET ")===false
+      && surface.api_contract.startsWith("POST ")===false
+      && surface.api_contract.startsWith("PUT ")===false)
+    errors.push("Proposed API method missing "+surface.surface_id);
+ }
+ if(contracts.surfaces.length!==52)errors.push("UI surface trace count changed, review and rebaseline");
+}
+
 const localLedger=csv(join(dir,"IOETI_REPO_FILE_LEDGER.csv")).slice(1);
 const localSeen=new Set(localLedger.map(x=>x[0]));
 if(!localSeen.has("apps/ioeti-web/src/App.tsx"))errors.push("Missing IOETI frontend code baseline");
@@ -121,5 +144,5 @@ if(errors.length){
  for(const item of errors)console.error(" - "+item);
  process.exit(1);
 }
-console.log(JSON.stringify({status:"PASS",modules:modules.length,AOS_tracked_files:sourceRows,AOS_domain_xml:domain,AOS_view_xml:views,capabilities:capCount,verified_pinned_symbol_occurrences:verified,external_or_local_unverified_symbol_occurrences:skipped,platform_manifest_repos:extras.map(x=>x[0])},null,2));
+console.log(JSON.stringify({status:"PASS",modules:modules.length,AOS_tracked_files:sourceRows,AOS_domain_xml:domain,AOS_view_xml:views,capabilities:capCount,ui_api_surfaces:contracts.surfaces?.length,verified_pinned_symbol_occurrences:verified,external_or_local_unverified_symbol_occurrences:skipped,platform_manifest_repos:extras.map(x=>x[0])},null,2));
 console.log("CAVEAT: This checks existence and structural mapping only. It does NOT verify runtime behavior or complete unprovided business requirements.");
