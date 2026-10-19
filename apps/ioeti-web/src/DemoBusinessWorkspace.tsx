@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type FormEvent, type KeyboardEvent } from "react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type FormEvent, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import {
  ArrowLeft, ArrowRight, BadgeCheck, CalendarDays, Check, CheckCircle2,
  ChevronLeft, ChevronRight, CircleHelp, ClipboardList, Clock3, FileText, Filter,
@@ -145,7 +145,7 @@ function DemoBusinessInner({area,language,onNavigateArea}:Props){
   returnRef.current=button;setError("");setNote("");setConfirmed(false);
   setTitle("");setCompany("");setAmount("");setDialog(next);
  }
- function keydown(e:KeyboardEvent<HTMLElement>){
+ function keydown(e:ReactKeyboardEvent<HTMLElement>){
   if(e.key==="Escape"){e.stopPropagation();setDialog(null);return;}
   if(e.key!=="Tab"||!dialogRef.current)return;
   const nodes=Array.from(dialogRef.current.querySelectorAll<HTMLElement>('button:not([disabled]),input:not([disabled]),textarea:not([disabled]),select:not([disabled])'))
