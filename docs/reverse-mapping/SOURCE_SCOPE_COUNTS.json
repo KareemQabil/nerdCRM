@@ -1,0 +1,168 @@
+{
+  "source": "axelor/axelor-open-suite",
+  "tag": "v9.1.10",
+  "sha": "e7cbea53bae88d2540f59a70b09bf0f326f1022e",
+  "scope": "26 pinned top-level AOS modules; all tracked Git blob paths indexed. Module XML domain counts include extensions of entities owned elsewhere; not unique entities.",
+  "trackedFiles": 7865,
+  "domainXmlFiles": 961,
+  "viewXmlFiles": 976,
+  "modules": [
+    {
+      "name": "axelor-account",
+      "fileCount": 1235,
+      "domainXml": 121,
+      "viewXml": 121
+    },
+    {
+      "name": "axelor-bank-payment",
+      "fileCount": 343,
+      "domainXml": 30,
+      "viewXml": 32
+    },
+    {
+      "name": "axelor-base",
+      "fileCount": 1353,
+      "domainXml": 187,
+      "viewXml": 190
+    },
+    {
+      "name": "axelor-budget",
+      "fileCount": 261,
+      "domainXml": 27,
+      "viewXml": 28
+    },
+    {
+      "name": "axelor-cash-management",
+      "fileCount": 64,
+      "domainXml": 8,
+      "viewXml": 10
+    },
+    {
+      "name": "axelor-client-portal",
+      "fileCount": 26,
+      "domainXml": 5,
+      "viewXml": 5
+    },
+    {
+      "name": "axelor-contract",
+      "fileCount": 155,
+      "domainXml": 22,
+      "viewXml": 22
+    },
+    {
+      "name": "axelor-crm",
+      "fileCount": 199,
+      "domainXml": 33,
+      "viewXml": 31
+    },
+    {
+      "name": "axelor-fleet",
+      "fileCount": 73,
+      "domainXml": 16,
+      "viewXml": 18
+    },
+    {
+      "name": "axelor-gdpr",
+      "fileCount": 78,
+      "domainXml": 13,
+      "viewXml": 16
+    },
+    {
+      "name": "axelor-helpdesk",
+      "fileCount": 72,
+      "domainXml": 8,
+      "viewXml": 11
+    },
+    {
+      "name": "axelor-human-resource",
+      "fileCount": 763,
+      "domainXml": 83,
+      "viewXml": 89
+    },
+    {
+      "name": "axelor-intervention",
+      "fileCount": 196,
+      "domainXml": 37,
+      "viewXml": 36
+    },
+    {
+      "name": "axelor-maintenance",
+      "fileCount": 89,
+      "domainXml": 10,
+      "viewXml": 14
+    },
+    {
+      "name": "axelor-marketing",
+      "fileCount": 54,
+      "domainXml": 6,
+      "viewXml": 11
+    },
+    {
+      "name": "axelor-mobile-settings",
+      "fileCount": 92,
+      "domainXml": 12,
+      "viewXml": 12
+    },
+    {
+      "name": "axelor-production",
+      "fileCount": 552,
+      "domainXml": 66,
+      "viewXml": 65
+    },
+    {
+      "name": "axelor-project",
+      "fileCount": 234,
+      "domainXml": 33,
+      "viewXml": 35
+    },
+    {
+      "name": "axelor-purchase",
+      "fileCount": 218,
+      "domainXml": 29,
+      "viewXml": 24
+    },
+    {
+      "name": "axelor-quality",
+      "fileCount": 262,
+      "domainXml": 49,
+      "viewXml": 46
+    },
+    {
+      "name": "axelor-sale",
+      "fileCount": 370,
+      "domainXml": 29,
+      "viewXml": 28
+    },
+    {
+      "name": "axelor-stock",
+      "fileCount": 392,
+      "domainXml": 43,
+      "viewXml": 41
+    },
+    {
+      "name": "axelor-supplier-management",
+      "fileCount": 25,
+      "domainXml": 4,
+      "viewXml": 4
+    },
+    {
+      "name": "axelor-supplier-portal",
+      "fileCount": 33,
+      "domainXml": 4,
+      "viewXml": 6
+    },
+    {
+      "name": "axelor-supplychain",
+      "fileCount": 594,
+      "domainXml": 66,
+      "viewXml": 58
+    },
+    {
+      "name": "axelor-talent",
+      "fileCount": 132,
+      "domainXml": 20,
+      "viewXml": 23
+    }
+  ],
+  "localFileCount": 121
+}
