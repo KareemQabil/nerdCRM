@@ -112,6 +112,21 @@ for(const file of matrices){
  }
 }
 if(capCount!==377)errors.push("Capability count changed; update and rebaseline check: "+capCount);
+const securityRows=csv(join(dir,"API_SECURITY_NEGATIVE_MATRIX.csv"));
+const policyHeader=securityRows[0];
+const policyCol=Object.fromEntries(policyHeader.map((v,i)=>[v,i]));
+if(securityRows.length-1!==52)errors.push("Security matrix row count must match 52 UI routes");
+const secSeen=new Set();
+for(const fields of securityRows.slice(1)){
+ const id=fields[policyCol.surface_id];
+ if(secSeen.has(id))errors.push("Duplicate security matrix surface "+id);
+ secSeen.add(id);
+ if(!fields[policyCol.authorization_layers_required]||!fields[policyCol.security_acceptance])
+   errors.push("Missing ACL/negative test "+id);
+ if(!Array.isArray(contracts.surfaces)||!contracts.surfaces.some(x=>x.surface_id===id))
+   errors.push("Security matrix references missing UI surface "+id);
+}
+
 const contracts=JSON.parse(readFileSync(join(dir,"UI_API_SURFACE_CONTRACTS.json"),"utf8"));
 if(!Array.isArray(contracts.surfaces))errors.push("UI contracts must contain surfaces array");
 else {
@@ -144,5 +159,5 @@ if(errors.length){
  for(const item of errors)console.error(" - "+item);
  process.exit(1);
 }
-console.log(JSON.stringify({status:"PASS",modules:modules.length,AOS_tracked_files:sourceRows,AOS_domain_xml:domain,AOS_view_xml:views,capabilities:capCount,ui_api_surfaces:contracts.surfaces?.length,verified_pinned_symbol_occurrences:verified,external_or_local_unverified_symbol_occurrences:skipped,platform_manifest_repos:extras.map(x=>x[0])},null,2));
+console.log(JSON.stringify({status:"PASS",modules:modules.length,AOS_tracked_files:sourceRows,AOS_domain_xml:domain,AOS_view_xml:views,capabilities:capCount,ui_api_surfaces:contracts.surfaces?.length,negative_authorization_routes:securityRows.length-1,verified_pinned_symbol_occurrences:verified,external_or_local_unverified_symbol_occurrences:skipped,platform_manifest_repos:extras.map(x=>x[0])},null,2));
 console.log("CAVEAT: This checks existence and structural mapping only. It does NOT verify runtime behavior or complete unprovided business requirements.");
