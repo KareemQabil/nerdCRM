@@ -4,10 +4,6 @@ on:
     paths:
       - "apps/ioeti-web/**"
       - ".github/workflows/ioeti-web.yml"
-  push:
-    paths:
-      - "apps/ioeti-web/**"
-      - ".github/workflows/ioeti-web.yml"
 jobs:
   frontend:
     runs-on: ubuntu-latest
@@ -29,3 +25,10 @@ jobs:
         run: npx playwright install --with-deps chromium
       - name: Browser contract tests (mocked IOETI endpoints)
         run: npm test
+      - name: Attach visual regression screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ioeti-ui-mocked-browser-visuals
+          path: apps/ioeti-web/test-results/**/*.png
+          if-no-files-found: ignore

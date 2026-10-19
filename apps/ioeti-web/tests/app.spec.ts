@@ -56,6 +56,7 @@ test("Arabic theme switching preserves a real-API-shaped business line screen", 
   await page.getByRole("button", { name: "نظام التصميم" }).click();
   await page.getByRole("button", { name: "فاخر" }).click();
   await expect(page.locator("html")).toHaveAttribute("data-theme", "luxury");
+  await page.screenshot({ path: "test-results/ioeti-luxury-arabic-desktop.png", fullPage: true });
   await page.getByRole("button", { name: "مضغوط" }).click();
   await expect(page.locator("html")).toHaveAttribute("data-density", "compact");
   await page.getByRole("button", { name: "مختصر" }).click();
@@ -91,4 +92,15 @@ test("lack of BusinessLine permissions is not treated as failed session login", 
   await expect(page.getByText("حسابك لا يملك صلاحية قراءة خطوط الأعمال.")).toBeVisible();
   await page.getByRole("button", { name: "المبيعات" }).click();
   await expect(page.getByText("Hotel certification")).toBeVisible();
+});
+
+test("mobile Arabic navigation reaches live opportunity route", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await intercept(page);
+  await page.goto("/");
+  await expect(page.locator("html")).toHaveAttribute("dir", "rtl");
+  await page.getByRole("button", { name: "التنقل" }).click();
+  await page.getByRole("button", { name: "المبيعات" }).click();
+  await expect(page.getByText("Hotel certification")).toBeVisible();
+  await page.screenshot({ path: "test-results/ioeti-arabic-mobile-opportunities.png", fullPage: true });
 });

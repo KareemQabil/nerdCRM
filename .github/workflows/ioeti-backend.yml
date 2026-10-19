@@ -6,12 +6,6 @@ on:
       - "gradle/**"
       - "scripts/ioeti.sh"
       - ".github/workflows/ioeti-backend.yml"
-  push:
-    paths:
-      - "modules/**"
-      - "gradle/**"
-      - "scripts/ioeti.sh"
-      - ".github/workflows/ioeti-backend.yml"
 jobs:
   backend:
     runs-on: ubuntu-latest
