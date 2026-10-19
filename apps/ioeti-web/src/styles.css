@@ -471,3 +471,19 @@ td code { display: inline-block; font: 11px Inter,monospace; color: var(--on-sur
   .record-flow-stage{padding:11px;}
   .record-context-bar{gap:7px;font-size:11px;}
 }
+
+/* Opportunity list -> contextual full record, while existing global sidebar stays intact. */
+.record-name-link{display:inline-flex;align-items:center;gap:8px;background:transparent;border:0;padding:3px 0;color:var(--on-surface);font-weight:800;text-align:start;max-width:390px;}
+.record-name-link:hover{color:var(--on-primary-container);text-decoration:underline;}
+.record-name-link svg{flex-shrink:0;opacity:.7;color:var(--on-primary-container);}
+.opportunity-row-actions{display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
+.opportunity-record .record-hero-actions>.btn{white-space:nowrap;}
+.opportunity-linked-list{display:flex;flex-direction:column;gap:9px;}
+.opportunity-link-placeholder{display:flex;align-items:flex-start;gap:12px;border:1px solid var(--outline-variant);border-radius:var(--radius);padding:13px;background:var(--surface-variant);}
+.opportunity-link-placeholder>svg{color:var(--on-primary-container);flex-shrink:0;margin-top:3px;}
+.opportunity-link-placeholder>div{flex:1;min-width:0;}
+.opportunity-link-placeholder strong{font-size:12px;}
+.opportunity-link-placeholder p{font-size:11px;line-height:1.7;margin:3px 0 0;color:var(--on-surface-variant);}
+.opportunity-link-pending{font-size:13px;color:var(--on-surface-variant);}
+.opportunity-record .record-flow-stage strong{font-size:12px;}
+@media(max-width:740px){.opportunity-row-actions{gap:7px;}.opportunity-record .record-hero-actions{align-items:flex-start;}.opportunity-record .record-hero-heading{gap:12px;}}

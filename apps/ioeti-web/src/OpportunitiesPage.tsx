@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import { ArrowLeft, ArrowRight, CircleAlert, Plus, RefreshCw, Save, Search, ShieldCheck, X } from "lucide-react";
 import {
-  ApiError, createOpportunity, getOpportunities, renameOpportunity,
+  ApiError, createOpportunity, getOpportunities, getOpportunity, renameOpportunity,
   type BusinessLine, type Opportunity,
 } from "./api";
 import { type Language } from "./preferences";
+import { OpportunityRecordWorkspace } from "./OpportunityRecordWorkspace";
 
 type Labels = Record<string, string>;
 type Props = { language: Language; lines: BusinessLine[]; labels: Labels };
@@ -12,6 +13,11 @@ type Mode = { type: "create" } | { type: "rename"; item: Opportunity };
 
 export function OpportunitiesPage({ language, lines, labels }: Props) {
   const [items, setItems] = useState<Opportunity[]>([]);
+  const [selected,setSelected] = useState<Opportunity|null>(null);
+  const [detailLoading,setDetailLoading] = useState(false);
+  const listScroll = useRef(0);
+  const focusReturn = useRef<HTMLButtonElement|null>(null);
+  const returning = useRef(false);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [more, setMore] = useState(false);
@@ -39,6 +45,72 @@ export function OpportunitiesPage({ language, lines, labels }: Props) {
   }, [labels.unavailable]);
 
   useEffect(() => { void reload(); }, [reload]);
+  // A real record URL and browser history; global module navigation is unchanged.
+  useEffect(() => {
+    let generation = 0;
+    const sync = () => {
+      const current = ++generation;
+      const match = window.location.hash.match(/^#\/opportunities\/(\d+)$/);
+      if (!match) { setSelected(null); return; }
+      const id = Number(match[1]);
+      if (!Number.isSafeInteger(id) || id <= 0) { setSelected(null); return; }
+      setDetailLoading(true); setError("");
+      void getOpportunity(id).then(record => {
+        if (current === generation) setSelected(record);
+      }).catch(reason => {
+        if (current === generation) {
+          setSelected(null);
+          setError(reason instanceof ApiError && reason.statusCode === 403
+            ? labels.forbidden : reason instanceof Error ? reason.message : labels.unavailable);
+        }
+      }).finally(() => {
+        if (current === generation) setDetailLoading(false);
+      });
+    };
+    sync();
+    window.addEventListener("hashchange", sync);
+    window.addEventListener("popstate", sync);
+    return () => {
+      generation++;
+      window.removeEventListener("hashchange", sync);
+      window.removeEventListener("popstate", sync);
+    };
+  }, [labels.forbidden, labels.unavailable]);
+
+  useEffect(() => {
+    if (selected) { returning.current = true; return; }
+    if (returning.current) {
+      returning.current = false;
+      requestAnimationFrame(() => {
+        window.scrollTo({top:listScroll.current,behavior:"instant"});
+        focusReturn.current?.focus();
+      });
+    }
+  }, [selected]);
+
+  async function openRecord(id: number, source?: HTMLButtonElement) {
+    if (source) focusReturn.current = source;
+    if (!selected) listScroll.current = window.scrollY;
+    setDetailLoading(true); setError("");
+    try {
+      const record = await getOpportunity(id);
+      const route = "#/opportunities/" + id;
+      if (window.location.hash !== route)
+        window.history.pushState({ioetiOpportunityDetail:true,id},"",route);
+      setSelected(record);
+    } catch (reason) {
+      setError(reason instanceof ApiError && reason.statusCode === 403
+        ? labels.forbidden : reason instanceof Error ? reason.message : labels.unavailable);
+    } finally { setDetailLoading(false); }
+  }
+  function backToList() {
+    if (window.history.state?.ioetiOpportunityDetail) window.history.back();
+    else {
+      window.history.replaceState(null,"","#/opportunities");
+      setSelected(null);
+    }
+  }
+
   useEffect(() => {
     if (!mode) return;
     closeRef.current?.focus();
@@ -52,8 +124,8 @@ export function OpportunitiesPage({ language, lines, labels }: Props) {
     setName(""); setBusinessLineCode(lines.find(line => line.status === 2)?.code || "");
     setFormError(""); setMode({ type: "create" });
   }
-  function openRename(event: React.MouseEvent<HTMLButtonElement>, item: Opportunity) {
-    previousFocus.current = event.currentTarget;
+  function openRename(source: HTMLButtonElement | null, item: Opportunity) {
+    previousFocus.current = source;
     setName(item.name); setBusinessLineCode(item.businessLineCode || "");
     setFormError(""); setMode({ type: "rename", item });
   }
@@ -69,7 +141,8 @@ export function OpportunitiesPage({ language, lines, labels }: Props) {
         if (!businessLineCode) { setFormError(labels.chooseLine); return; }
         await createOpportunity(name.trim(), businessLineCode);
       } else {
-        await renameOpportunity(mode.item.id, name.trim(), mode.item.version);
+        const updated = await renameOpportunity(mode.item.id, name.trim(), mode.item.version);
+        if (selected?.id === updated.id) setSelected(updated);
       }
       setMode(null);
       await reload(); // Server truth, not optimistic model mutation.
@@ -94,7 +167,18 @@ export function OpportunitiesPage({ language, lines, labels }: Props) {
     return !query || [item.name, item.reference || "", item.stage || "", item.businessLineCode || ""]
       .some(value => value.toLocaleLowerCase().includes(query));
   });
-  return <section className="page-enter">
+  const selectedIndex = selected ? visible.findIndex(row => row.id === selected.id) : -1;
+  const record = selected ? <OpportunityRecordWorkspace
+    record={selected} language={language} onBack={backToList}
+    onRename={() => openRename(null, selected)}
+    onPrevious={selectedIndex > 0 ? () => void openRecord(visible[selectedIndex - 1].id) : undefined}
+    onNext={selectedIndex >= 0 && selectedIndex < visible.length - 1 ? () => void openRecord(visible[selectedIndex + 1].id) : undefined}
+  /> : null;
+  return <section className="page-enter opportunity-explorer">
+    {record || (detailLoading && window.location.hash.startsWith("#/opportunities/")
+      ? <div className="empty-state" role="status">{labels.loading}</div>
+      : <div className="opportunities-list">
+
     <div className="page-heading-actions">
       <div className="page-title"><span className="eyebrow">{labels.sales}</span><h1>{labels.opportunities}</h1><p>{labels.opportunitiesDescription}</p></div>
       <button type="button" className="btn btn-primary" onClick={openCreate}><Plus size={17}/>{labels.newOpportunity}</button>
@@ -106,16 +190,17 @@ export function OpportunitiesPage({ language, lines, labels }: Props) {
       {loading ? <div className="empty-state" role="status">{labels.loading}</div> : visible.length === 0 ? <div className="empty-state">{labels.emptyOpportunities}</div> : <div className="table-scroll">
         <table><thead><tr><th>{labels.opportunityName}</th><th>{labels.businessLines}</th><th>{labels.stage}</th><th>{labels.reference}</th><th>{labels.actions}</th></tr></thead>
           <tbody>{visible.map(item => <tr key={item.id}>
-            <td><strong>{item.name}</strong></td>
+            <td><button type="button" className="record-name-link" onClick={event => void openRecord(item.id,event.currentTarget)}>{item.name}{arrow}</button></td>
             <td>{isRTL ? item.businessLineNameAr || item.businessLineCode || labels.none : item.businessLineNameEn || item.businessLineCode || labels.none}</td>
             <td>{item.stage || labels.none}</td><td><code dir="ltr">{item.reference || "—"}</code></td>
-            <td><button type="button" className="text-action" onClick={e => openRename(e,item)}>{labels.editOpportunity}{arrow}</button></td>
+            <td><div className="opportunity-row-actions"><button type="button" className="text-action" onClick={e => void openRecord(item.id,e.currentTarget)}>{labels.details}{arrow}</button><button type="button" className="text-action" onClick={e => openRename(e.currentTarget,item)}>{labels.editOpportunity}</button></div></td>
           </tr>)}</tbody>
         </table>
       </div>}
     </div>
     {more && <div className="load-more"><button type="button" className="btn btn-secondary" disabled={loadingMore} onClick={() => void loadMore()}>{loadingMore ? labels.loading : labels.moreRecords}</button></div>}
     <p className="scope-note"><ShieldCheck size={16}/>{labels.permissionNotice}</p>
+    </div>)}
     {mode && <div className="drawer-overlay action-modal-overlay" onMouseDown={e => { if (e.target === e.currentTarget) setMode(null); }}>
       <section className="action-modal" role="dialog" aria-modal="true" aria-labelledby="opportunity-form-title">
         <header className="drawer-header"><div className="detail-kicker">{labels.sales}</div><button ref={closeRef} type="button" className="icon-button" aria-label={labels.back} onClick={() => setMode(null)}><X size={18}/></button></header>
