@@ -1,0 +1,21 @@
+plugins {
+	id 'com.axelor.app'
+}
+
+apply from: new File(projectDir.canonicalFile, "../../gradle/ioeti-module.gradle")
+
+// IOETI commercial chain (Wave 3): catalog read, quotations from opportunities, and later approvals,
+// contracts, milestones and handover. Built on the native AOS sale/contract/project modules.
+axelor {
+	title "IOETI Commercial"
+	description "IOETI commercial chain on native Axelor sales objects"
+}
+
+apply from: rootProject.file("modules/axelor-open-suite/libs.gradle")
+
+dependencies {
+	api project(":modules:ioeti-core")
+	api project(":modules:axelor-sale")
+
+	implementation libs.swagger_jaxrs
+}
