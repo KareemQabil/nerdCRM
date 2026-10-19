@@ -198,6 +198,7 @@ export function OpportunitiesPage({ language, labels }: Props) {
   const record = selected ? <OpportunityRecordWorkspace
     record={selected} language={language} onBack={backToList}
     onRename={() => openRename(null, selected)}
+    onRecordChanged={() => void getOpportunity(selected.id).then(setSelected).catch(() => undefined)}
     onPrevious={selectedIndex > 0 ? () => void openRecord(visible[selectedIndex - 1].id) : undefined}
     onNext={selectedIndex >= 0 && selectedIndex < visible.length - 1 ? () => void openRecord(visible[selectedIndex + 1].id) : undefined}
   /> : null;
