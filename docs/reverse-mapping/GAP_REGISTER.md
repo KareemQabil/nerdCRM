@@ -106,7 +106,7 @@ This section is appended; the rows above are unchanged. Status reflects live Axe
 | G-004 | Mechanism done | #17: Own/Team/Line/All, 65/65 | Production role matrix (D-07) |
 | G-005 | Done except HTTPS | #16: 20/20 plus expiry job | `Secure` cookie test needs HTTPS staging |
 | G-006 | Done for `/ws/ioeti` | #15: error contract, oracle removal, generic `/ws/rest` closed | — |
-| G-007 | Open | — | PII classification and masking |
+| G-007 | Engineering controls done | Field registry for all 145 REST record fields, CI gate with negative controls (`scripts/pii_dto_audit.py`), log masking of native messages (`PiiMasker`), write-only lost-lead note; `docs/security/PII_CLASSIFICATION.md` | Production log pipeline masking and retention (D-08); field-level role matrix and retention periods (D-07); recruitment/training data (D-03, D-04) |
 | G-008 | Engineering done | Platform PR: versioned migrations, verified chain, CI gate | Production run per runbook (D-08) |
 | G-009 | Engineering done | Platform PR: encrypted drill 10/10 plus restore boot test | Schedule, off-site copies, custody, RPO/RTO (D-08) |
 | G-010 | Partial | Multi-user live probes for leads, opportunities and quotations | Reviewer UAT sign-off |
