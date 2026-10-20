@@ -538,3 +538,13 @@ Slice: `docs/slices/W5-handover-engagement.md`.
 - G-007 registry +90 fields (595 total). UI `#/operations` (real mode; the demo keeps its projects area).
 - CI: `PROBE_OPS_ROUNDS=5 scripts/operations_probe.py`.
 
+## 2026-10-20 · Wave 5b · commercial workflows and Account 360 (`ioeti-workspace`)
+
+Slice: `docs/slices/W5b-commercial-workflows.md`.
+
+- Quotation versions on the native `SaleOrderVersionService` (save, list, restore); the quotation view has `versionNumber`.
+- New module `ioeti-workspace` (`ioeti_ws_*`, migration V011 with rollback U011) and an extension `Opportunity.ioetiRenewalOf` (unique): review requests with an append-only history (approve/reject D-11 blocked), invoice requests for milestones of confirmed orders (issue D-06 blocked), renewals as native opportunities, and the Account 360 summary across every domain with unreadable areas left out and money stages kept apart.
+- G-007 registry +55 fields (650 total). UI panels on the quotation, milestones, contract and Account 360.
+- Also on the Wave 5 branch: the UI suite showed the sidebar could not reach its last items at 720 px height after the Operations entry; the side panel scrolls.
+- CI: `PROBE_WS_ROUNDS=5 scripts/workspace_probe.py`.
+

@@ -1,0 +1,40 @@
+{
+  "results": [
+    {
+      "check": "quotation versions: empty \u2192 422 NO_LINES; saved (version 2); listed; stale \u2192 409; unknown \u2192 422; restore brings back v1 and saves the current lines first",
+      "result": "PASS",
+      "detail": "422 201 [{'number': 1, 'savedAt': '2026-10-20T11:36:52.278466Z', 'lines': 1, 'totalBeforeTax': '3000.000'}] 409 422 200 [{'number': 2, 'savedAt': '2026-10-20T11:36:52.549325Z', 'lines': 2, 'totalBefor"
+    },
+    {
+      "check": "review: empty quotation \u2192 422; pending with the quotation version; twice \u2192 409; approve/reject \u2192 BLOCKED_BY_POLICY (D-11)",
+      "result": "PASS",
+      "detail": "422 201 {'id': 4, 'version': 0, 'quoteId': 74, 'contractId': None, 'quoteVersionNumber': 3, 'status': 'PENDING', 'requestedBy': 'Wave5b RepA', 'requestedAt': '2026-10-20T11:36:52.881843317Z', 'reviewe"
+    },
+    {
+      "check": "review: another salesperson \u2192 404; manager sends back with a reason; withdraw of a decided review \u2192 422; a new review can be withdrawn; history lists every step with its actor; contract reviews too",
+      "result": "PASS",
+      "detail": "404 200 422 201 200 [{'kind': 'REQUESTED', 'reason': None, 'actorName': 'Wave5b RepA', 'at': '2026-10-20T11:36:52.884970Z'}, {'kind': 'CHANGES_REQUESTED', 'reason': 'PRICING', 'actorName': 'Wave5b Man"
+    },
+    {
+      "check": "invoice request: draft order \u2192 422 ORDER_NOT_CONFIRMED; requested with the milestone amount; twice \u2192 409; issue \u2192 BLOCKED_BY_POLICY (D-06); another salesperson \u2192 404; cancel; request again \u2192 201",
+      "result": "PASS",
+      "detail": "422 201 409 422 404 200 201"
+    },
+    {
+      "check": "concurrent invoice requests for one milestone: one 201 and one 409, one open request (5 rounds)",
+      "result": "PASS",
+      "detail": "[([201, 409], 1), ([201, 409], 1), ([201, 409], 1), ([201, 409], 1), ([201, 409], 1)]"
+    },
+    {
+      "check": "renewal: draft contract \u2192 422 CONTRACT_NOT_ACTIVE; active \u2192 201 renewal opportunity (contract link, account and business line copied); twice \u2192 409 RENEWAL_EXISTS",
+      "result": "PASS",
+      "detail": "422 201 409 [{'$closedWonId': 5, 'partner': {'fullName': 'P0738 - Wave5b Nile Foods FA3803', 'id': 1120, '$version': 1}, '$closedLostId': 6, 'ioetiRenewalOf': {'name': 'Wave5b renew FA3803', 'id': 63,"
+    },
+    {
+      "check": "Account 360: sections only for readable domains (no donor, job order or engagement section for sales); own records counted; money stages apart, invoices unreadable \u2192 null; another salesperson sees 0; non-client \u2192 404",
+      "result": "PASS",
+      "detail": "200 {'OPPORTUNITIES': 10, 'QUOTES': 7, 'CONTRACTS': 2} {'currency': 'EGP', 'quotedDraft': '3000.000', 'bookedActive': '0', 'invoiceRequested': '6600.000', 'invoiced': None, 'collected': None} 200 {'OP"
+    }
+  ],
+  "cleanup_complete": true
+}
