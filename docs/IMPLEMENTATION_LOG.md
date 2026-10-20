@@ -495,3 +495,13 @@ Slice: `docs/slices/W4-iso-certification.md`.
 - D-02 fail closed: the decision, certificates, and surveillance/recertification audits.
 - G-007 registry +56 fields (259). CI: `PROBE_CERT_ROUNDS=10 scripts/certification_probe.py`.
 - Evidence: `docs/evidence/wave4-certification/`.
+
+## 2026-10-20 · Integration baseline and Wave 4C (certification workspace)
+
+### Integration baseline
+- `claude/ioeti-integration-next` (draft PR #31 to `main`, do not merge as-is): the cumulative head of every open PR. The status table, dependency graph and merge-order checklist are in `docs/INTEGRATION_STATUS.md`.
+- Baseline regression on `86264ad` after a sandbox restart: 15/17 steps passed live. The other two (certification probe, PII gate) failed because the working tree held in-progress Wave 4C files. Re-run on a clean `86264ad` worktree: PII gate 0 problems; certification probe still 16/18.
+- Root cause of the 16/18: a `NoSuchMethodError` from a module rebuilt while the server was running, which loaded a mix of old and new classes. CI on `86264ad` is green, the probe passed 18/18 earlier, and after a clean restart it passes. Rule kept from now on: never rebuild while the dev server runs.
+
+### Wave 4C
+See `docs/slices/W4-iso-certification.md` §6. Server: register filters and paging, phase/decisionBlockers, eligible auditors, timeline, auditor directory, V007. UI: register, cycle record workspace, auditor competence. Tests: certification probe 23/23 live; web 34 mocked + 14 demo.
