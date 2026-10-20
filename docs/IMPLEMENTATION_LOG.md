@@ -464,3 +464,18 @@ Production log-pipeline masking and retention (D-08), field-level role matrix (D
 | check | 11/11 |
 | reviewer simulation through the API | assign → convert → quotation 3000.00 → milestone → contract → lines 3000.00 |
 | teardown | leftovers: none; database count of pilot leads, users, partners, opportunities and companies = 0 |
+
+## 2026-10-20 · Wave 4a · external training (`ioeti-training`)
+
+Slice: `docs/slices/W4-external-training.md`.
+
+### Change
+- New module `ioeti-training` (`ioeti_training_*` tables, migration V005 with rollback U005): courses, cohorts, enrolments, cohort sessions, attendance.
+- `TrainingService`: cohort row lock on every enrolment change; capacity and waitlist invariants; a freed seat promotes the first waitlisted trainee.
+- `/ws/ioeti/training` REST; certificates and cohort cancellation fail closed (D-03).
+- Fix during the build: Axelor entity names are global, so `TrainingSession` clashed with AOS talent and became `CohortSession` (same table name).
+- G-007 registry: 58 fields added; the gate passes (203 fields).
+- CI: `PROBE_TRAINING_ROUNDS=10 scripts/training_probe.py`.
+
+### Evidence
+See `docs/evidence/wave4-training/`.
