@@ -328,3 +328,53 @@ export async function fillContractFromQuote(contractId: number, version: number,
     body: JSON.stringify({ version, quoteId }),
   });
 }
+
+/** Wave 4a: external training (ioeti-training). Certificates and cohort cancellation wait for D-03. */
+export type TrainingCourse = { id: number; version: number; code: string; name: string; nameAr: string | null; durationHours: number | null; active: boolean };
+export type TrainingCohort = {
+  id: number; version: number; code: string; courseId: number | null; courseName: string | null;
+  startDate: string | null; endDate: string | null; capacity: number; minSeats: number | null; location: string | null;
+  status: "PLANNED" | "OPEN" | "CLOSED"; confirmed: number; waitlisted: number; seatsLeft: number; coordinatedByMe: boolean;
+};
+export type TrainingEnrollment = {
+  id: number; version: number; traineeId: number; traineeName: string | null; clientName: string | null;
+  status: "CONFIRMED" | "WAITLISTED" | "CANCELLED"; waitlistPosition: number | null;
+};
+export type TrainingSession = { id: number; version: number; title: string; startsAt: string; durationMinutes: number | null };
+export type AttendanceStatus = "PRESENT" | "ABSENT" | "EXCUSED";
+export type TrainingAttendance = { id: number; enrollmentId: number; status: AttendanceStatus };
+const TRAINING = "/ws/ioeti/training";
+async function trainingList<T>(path: string): Promise<T[]> {
+  if (DEMO_MODE) return [];
+  const values = await wrapped<T[]>(TRAINING + path);
+  if (!Array.isArray(values)) throw new ApiError(502, "Invalid training response");
+  return values;
+}
+async function trainingPost<T>(path: string, body: Record<string, unknown>): Promise<T> {
+  if (DEMO_MODE) throw new ApiError(403, "Preview mode is read-only");
+  return wrapped<T>(TRAINING + path, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+}
+export const getTrainingCourses = () => trainingList<TrainingCourse>("/courses");
+export const createTrainingCourse = (body: { code: string; name: string; nameAr?: string; durationHours?: number }) =>
+  trainingPost<TrainingCourse>("/courses", body);
+export const getTrainingCohorts = () => trainingList<TrainingCohort>("/cohorts");
+export const getTrainingCohort = (id: number) => wrapped<TrainingCohort>(`${TRAINING}/cohorts/${encodeURIComponent(id)}`);
+export const createTrainingCohort = (body: { courseId: number; code: string; capacity: number; minSeats?: number; startDate?: string; endDate?: string; location?: string }) =>
+  trainingPost<TrainingCohort>("/cohorts", body);
+export const setCohortState = (id: number, version: number, action: "open" | "close") =>
+  trainingPost<TrainingCohort>(`/cohorts/${encodeURIComponent(id)}/${action}`, { version });
+export const getCohortEnrollments = (id: number) => trainingList<TrainingEnrollment>(`/cohorts/${encodeURIComponent(id)}/enrollments`);
+export const enrollTrainee = (cohortId: number, version: number, traineeId: number, clientId?: number) =>
+  trainingPost<TrainingEnrollment>(`/cohorts/${encodeURIComponent(cohortId)}/enrollments`, { version, traineeId, ...(clientId ? { clientId } : {}) });
+export const cancelEnrollment = (id: number, version: number) =>
+  trainingPost<TrainingEnrollment>(`/enrollments/${encodeURIComponent(id)}/cancel`, { version });
+export const getCohortSessions = (id: number) => trainingList<TrainingSession>(`/cohorts/${encodeURIComponent(id)}/sessions`);
+export const scheduleSession = (cohortId: number, version: number, title: string, startsAt: string, durationMinutes?: number) =>
+  trainingPost<TrainingSession>(`/cohorts/${encodeURIComponent(cohortId)}/sessions`, { version, title, startsAt, ...(durationMinutes ? { durationMinutes } : {}) });
+export const getSessionAttendance = (id: number) => trainingList<TrainingAttendance>(`/sessions/${encodeURIComponent(id)}/attendance`);
+export const recordAttendance = (sessionId: number, version: number, enrollmentId: number, status: AttendanceStatus) =>
+  trainingPost<TrainingAttendance>(`/sessions/${encodeURIComponent(sessionId)}/attendance`, { version, enrollmentId, status });

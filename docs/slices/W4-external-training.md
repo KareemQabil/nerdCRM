@@ -41,7 +41,19 @@ Cancelling a confirmed enrolment promotes the first waitlisted trainee in the sa
 
 Every record goes through native permissions and record filters. A cohort outside the caller's scope answers the same 404 as a missing id, and read-only callers get 403. Trainee and client names and attendance are `PERSONAL` in the G-007 registry; national IDs are not modelled.
 
-## 5. Not done
+## 5. UI (`apps/ioeti-web/src/TrainingPage.tsx`, real mode)
+
+`#/training` (sidebar "Training") shows the cohorts the caller may see, with confirmed/capacity and waitlist counts. Creating a course and planning a cohort are inline forms.
+
+A cohort shows:
+- its seat counts, and open/close actions for its coordinator;
+- trainees: confirmed first, then the waitlist with positions; each can be cancelled;
+- an enrolment form: choose a sponsoring account, then one of its contacts (Account 360 APIs);
+- sessions, an add-session form, and attendance per confirmed trainee (present, absent, excused).
+
+"Cancel cohort" and "Issue certificate" are visible but disabled, with the D-03 note. Non-coordinators see a read-only view. The fictional demo keeps its own training workspace (`DEMO_MODE`). Mocked test: `training: open a cohort, enrol into seats then the waitlist…`.
+
+## 6. Not done
 
 | Item | Why |
 |---|---|
@@ -50,4 +62,3 @@ Every record goes through native permissions and record filters. A cohort outsid
 | National ID, date of birth or other identity documents | D-03 (and G-007: would be `RESTRICTED`) |
 | Invoicing enrolments, seat prices | D-06 |
 | Trainer pay | D-03, D-06 |
-| UI pages | next slice; the API is ready |
