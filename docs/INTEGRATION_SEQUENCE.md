@@ -74,6 +74,7 @@ Draft PRs, each stacked on the previous one:
 - 4, part 2 (lead qualification and assignment): #25;
 - G-007 (personal-data classification, CI gate, log masking): #26;
 - G-010 (pilot UAT script and dataset): #27;
-- Wave 4a (external training): branch `claude/ioeti-wave4-training`.
+- Wave 4a (external training): #28; training UI: #29;
+- Wave 4b (client certification): branch `claude/ioeti-wave4-certification`.
 
 Policy-dependent steps follow `docs/decisions/OPEN_IOETI_POLICY_DECISIONS.md`.

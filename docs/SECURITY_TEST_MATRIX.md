@@ -13,6 +13,7 @@ Legend: ✅ passed live · ➖ not applicable · ⬜ not tested yet
 | `POST /ws/ioeti/leads/{id}/convert` | ⬜ | ✅ 403 (no write) | ✅ 404 | ✅ 403 | ✅ 409 | ✅ one 201 + one 409, no duplicates | ✅ 403 | ⬜ | ✅ 400/409/422 | lead-conversion |
 | `GET /ws/ioeti/leads/stages`, `/lost-reasons` | ⬜ | ✅ 403 (no lead read) | ➖ | ➖ | ➖ | ➖ | ✅ 403 | ⬜ | ✅ | lead-lifecycle |
 | `POST /ws/ioeti/leads/{id}/stage`, `/lose`, `/reopen`, `/assign` | ⬜ | ✅ 403 (read-only) | ✅ 404 | ✅ 403 | ✅ 409 | ✅ moves: one 200 + one 409; queue pickup: one 200 + 409 or 404, one owner | ✅ 403 | ⬜ | ✅ 400/409/422 | lead-lifecycle |
+| `/ws/ioeti/certification/*` (qualifications, cycles, audits, nonconformities) | ⬜ | ✅ 403 (read-only) | ✅ 404 (another manager = missing) | ✅ 403 | ✅ 409 | ✅ one 201 + one 409, one audit per stage | ✅ 403 | ⬜ | ✅ 400/409/422, D-02 blocked | certification |
 | `/ws/ioeti/training/*` (courses, cohorts, enrolments, sessions, attendance) | ⬜ | ✅ 403 (read-only) | ✅ 404 (another coordinator = missing) | ✅ 403 | ✅ 409 | ✅ one 201 + one 409, never above capacity | ✅ 403 | ⬜ | ✅ 400/409/422, D-03 blocked | training |
 | `GET /ws/ioeti/catalog/products` | ⬜ | ⬜ | ➖ | ➖ | ➖ | ➖ | ✅ 403 | ⬜ | ✅ 422 search | quote |
 | `GET /ws/ioeti/quotes[?opportunityId][/{id}]` | ⬜ | ⬜ | ✅ 404 | ➖ | ➖ | ➖ | ✅ 403 | ⬜ | ✅ | quote |

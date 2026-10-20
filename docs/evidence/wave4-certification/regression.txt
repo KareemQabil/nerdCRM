@@ -1,0 +1,40 @@
+# Wave 4b (client ISO certification), local run 2026-10-20, Axelor 9.1.10 + PostgreSQL 16, Quartz enabled, branch claude/ioeti-wave4-certification
+env_PROBE_CERT_ROUNDS_10_python3_scripts_certification_probe: 18/18 checks passed
+env_PROBE_CONVERT_ROUNDS_10_python3_scripts_lead_conversion_: 28/28 checks passed
+env_PROBE_LIFECYCLE_ROUNDS_10_python3_scripts_lead_lifecycle: 24/24 checks passed
+env_PROBE_QUOTE_ROUNDS_10_python3_scripts_quote_probe.py: 50/50 checks passed
+env_PROBE_REQUIRE_JOBS_1_PROBE_WS_SECONDS_30_python3_scripts: 7/7 checks passed
+env_PROBE_RESTORES_2_PROBE_WORKERS_2_PROBE_MIN_SECONDS_20_py: IDENTITY_PROBE {"checks": 348743, "leaks": 0} boundary {"present": true, "before_load": {"
+env_PROBE_TRAINING_ROUNDS_10_python3_scripts_training_probe.: 22/22 checks passed
+python3_scripts_api_contract_probe.py: 31/31 checks passed
+python3_scripts_api_smoke_test.py: 16/16 checks passed
+python3_scripts_opportunity_concurrency_probe.py_20: 13/13 checks passed
+python3_scripts_opportunity_pilot_smoke.py: PILOT_CLEANUP 200 status 0
+python3_scripts_pii_dto_audit.py: 259 fields in 49 records · 0 problem(s) · {'BUSINESS': 87, 'PERSONAL': 22, 'REFERENCE': 
+python3_scripts_pilot_readiness.py_check: PILOT_CHECK=PASS 11/11
+python3_scripts_pilot_readiness.py_setup: PILOT_SETUP=PASS records=36 users=4 credentials=.local/pilot-users.txt
+python3_scripts_pilot_readiness.py_teardown: PILOT_TEARDOWN=PASS leftovers: none
+python3_scripts_scope_matrix_probe.py: 65/65 checks passed
+python3_scripts_session_security_probe.py: 20/20 checks passed
+migrate-verify: 8/8 checks passed (V006 included)
+backup-drill: 10/10 checks passed · backup 8.9 MB in 1.74 s · restore 24.35 s
+junit: CertificationRulesTest 3/3; full suite BUILD SUCCESSFUL
+## certification_probe.py (PROBE_CERT_ROUNDS=10)
+PASS auditor qualification recorded (201)
+PASS qualification validation → 422 with the right field
+PASS cycle opened (201): manager, not ready for decision, decision blocked by policy
+PASS cycle validation → 422 with the right field, nothing created
+PASS unqualified auditor and a date outside the qualification → 422 NOT_QUALIFIED
+PASS Stage 1 planned with a qualified lead auditor (201)
+PASS second Stage 1 → 409 STAGE_EXISTS; surveillance → 422 BLOCKED_BY_POLICY (D-02); bad type → 422
+PASS Stage 2 planned; completing it before Stage 1 → 422 STAGE1_REQUIRED
+PASS complete Stage 1: stale version → 409, then 200 COMPLETED
+PASS nonconformities raised (MAJOR, MINOR); bad grade and empty statement → 422
+PASS Stage 2 completed but an open major → not ready for decision (openMajors 1)
+PASS close without a response → 422 RESPONSE_REQUIRED; respond → close (200 CLOSED)
+PASS major closed → ready for decision (a minor may stay open)
+PASS certification decision and certificate → 422 BLOCKED_BY_POLICY (D-02)
+PASS another manager: cycle, audits and findings answer like missing ids (404)
+PASS read-only: reads (200), cannot change (403)
+PASS cancel a planned audit (200); findings on it → 422 AUDIT_CANCELLED; completed audit → 422 AUDIT_STATE
+PASS concurrent Stage 1 plans on one version: one 201 and one 409, exactly one audit (10 cycles)
