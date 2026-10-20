@@ -22,7 +22,8 @@ Checks:
                    collected reported apart (all zero for a draft), invoicing → 422 BLOCKED_BY_POLICY (D-06)
   contracts        native draft contract from the opportunity, one per opportunity (also under concurrency),
                    refusals create nothing, reads scoped, activation → 422 BLOCKED_BY_POLICY (D-11),
-                   handover of a draft → 422 CONTRACT_NOT_ACTIVE
+                   handover of a draft → 422 CONTRACT_NOT_ACTIVE; lines from the quotation (native
+                   ContractLineService): same lines and total, lineage, once only (also under concurrency)
   finalize         422 BLOCKED_BY_POLICY (D-06, D-11), quotation stays a draft
 Report: logs/quote-probe.json.
 """
@@ -132,6 +133,7 @@ def main():
                      perm("tt", TIMETABLE, "self.saleOrder.salespersonUser = ?", canRead=True, canWrite=True,
                           canCreate=True, canRemove=True),
                      perm("contract", CONTRACT, "self.opportunity.user = ?", canRead=True, canWrite=True, canCreate=True),
+                     perm("contract.line", "com.axelor.apps.contract.db.ContractLine", canRead=True, canCreate=True),
                      perm("product", PRODUCT, canRead=True), perm("partner", PARTNER, canRead=True)]
         ro_perms = [perm("ro.opp", OPP, canRead=True), perm("ro.so", SALE_ORDER, canRead=True),
                     perm("ro.contract", CONTRACT, canRead=True),
@@ -422,6 +424,70 @@ def main():
               s == 422 and body.get("error", {}).get("code") == "BLOCKED_BY_POLICY"
               and s2 == 422 and body2.get("error", {}).get("code") == "CONTRACT_NOT_ACTIVE"
               and fetch(CONTRACT, contract.get("id"), ["statusSelect"]).get("statusSelect") == 1, (s, s2))
+
+        # --- 7b. contract lines from the quotation (native ContractLineService) -----------------------------
+        CONTRACT_LINE = "com.axelor.apps.contract.db.ContractLine"
+        cid = contract.get("id")
+        race_contract = search(CONTRACT, f"self.opportunity.id = {opp_race['id']}")[0]["id"]
+
+        def contract_lines_of(contract_id):
+            return len(search(CONTRACT_LINE, f"self.contractVersion.contract.id = {contract_id}"))
+
+        def fill(client, contract_id, quote_id, **override):
+            return client.call("POST", f"/ws/ioeti/contracts/{contract_id}/lines-from-quote",
+                               {"version": version(CONTRACT, contract_id), "quoteId": quote_id, **override})
+
+        s_other_opp, b_other_opp = fill(a, race_contract, qid)
+        s_unknown, b_unknown = fill(a, race_contract, MISSING)
+        check("lines-from-quote: another opportunity's quotation and an unknown one refused identically (422 quoteId)",
+              s_other_opp == s_unknown == 422
+              and b_other_opp.get("error", {}).get("fields") == b_unknown.get("error", {}).get("fields")
+              and contract_lines_of(race_contract) == 0, (s_other_opp, s_unknown))
+        s_stale, _ = fill(a, cid, qid, version=version(CONTRACT, cid) - 1)
+        s_rep_b, _ = fill(b, cid, qid)
+        check("lines-from-quote: stale → 409, another rep → 404; nothing added",
+              (s_stale, s_rep_b) == (409, 404) and contract_lines_of(cid) == 0, (s_stale, s_rep_b))
+        s, body = fill(a, cid, qid)
+        filled = body.get("object") or {}
+        quote_lines = search(SALE_ORDER_LINE, f"self.saleOrder.id = {qid}", ("qty", "price", "productName"))
+        stored_lines = search(CONTRACT_LINE, f"self.contractVersion.contract.id = {cid}", ("qty", "price", "productName"))
+        quote_total = float(fetch(SALE_ORDER, qid, ["exTaxTotal"]).get("exTaxTotal") or 0)
+        check("contract filled from the quotation: same lines, quantities, prices and total before tax; lineage kept",
+              s == 201 and len(filled.get("lines") or []) == len(quote_lines) == len(stored_lines) > 0
+              and sorted((float(l["qty"]), float(l["price"])) for l in stored_lines)
+              == sorted((float(l["qty"]), float(l["price"])) for l in quote_lines)
+              and abs(float(filled.get("totalBeforeTax") or 0) - quote_total) < 0.011
+              and filled.get("sourceQuoteId") == qid
+              and ref_id(fetch(CONTRACT, cid, ["ioetiSourceQuote"]).get("ioetiSourceQuote")) == qid, f"{s} {filled}")
+        s, body = fill(a, cid, qid)
+        check("second fill → 409 LINES_EXIST, no duplicate lines",
+              s == 409 and body.get("error", {}).get("code") == "LINES_EXIST" and contract_lines_of(cid) == len(quote_lines),
+              f"{s} {body.get('error')}")
+        s, body = new_quote(a, opp_race)
+        race_quote = (body.get("object") or {}).get("id")
+        if race_quote:
+            created.append((SALE_ORDER, race_quote))
+        s, body = fill(a, race_contract, race_quote)
+        check("quotation without product lines → 422 QUOTE_EMPTY, nothing added",
+              s == 422 and (body.get("error", {}).get("fields") or [{}])[0].get("code") == "QUOTE_EMPTY"
+              and contract_lines_of(race_contract) == 0, f"{s} {body.get('error')}")
+        a.call("POST", f"/ws/ioeti/quotes/{race_quote}/lines",
+               {"version": version(SALE_ORDER, race_quote), "productId": product["id"], "quantity": 3})
+        current, gate, answers = version(CONTRACT, race_contract), threading.Barrier(2), []
+
+        def fill_race(client):
+            gate.wait()
+            answers.append(client.call("POST", f"/ws/ioeti/contracts/{race_contract}/lines-from-quote",
+                                       {"version": current, "quoteId": race_quote})[0])
+
+        threads = [threading.Thread(target=fill_race, args=(c,)) for c in (a, a2)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+        check("concurrent fills: one 201 and one 409, lines copied exactly once",
+              sorted(answers) == [201, 409] and contract_lines_of(race_contract) == 1,
+              f"{sorted(answers)} {contract_lines_of(race_contract)}")
 
         # --- 8. finalize is policy-blocked -----------------------------------------------------------------
         s, body = a.call("POST", f"/ws/ioeti/quotes/{qid}/finalize")

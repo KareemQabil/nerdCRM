@@ -358,3 +358,33 @@ Full report: `docs/slices/W3-draft-contracts.md`.
 | Web mocked | 28/28 |
 | Web demo | 14/14 |
 | Build | pass |
+
+## 2026-10-20 · Wave 3 part 2c · Contract lines from the quotation (Opportunity → Quote → Contract)
+
+Full report: `docs/slices/W3-draft-contracts.md` §5.
+
+### Change
+- `POST /ws/ioeti/contracts/{id}/lines-from-quote` builds native `ContractLine`s (`fillDefault`, `fillAndCompute`, `computeTotal`) from the quoted lines.
+- New field `Contract.ioetiSourceQuote` with migration **V004** and rollback U004. The CI migration gate first failed on the uncovered column (6/8) and passes with V004 (8/8).
+- Lines are copied once, also under concurrency: a `PESSIMISTIC_FORCE_INCREMENT` lock on the contract, 409 `LINES_EXIST`.
+- Oracle-free refusal of quotations from other opportunities; `QUOTE_EMPTY`; `CONTRACT_NOT_DRAFT`.
+- UI: copy button, lines table, total before tax, lineage.
+
+### Evidence (local; CI on the PR)
+| Check | Result |
+|---|---|
+| Quote probe (6 new checks) | 50/50 |
+| Lead conversion | 28/28 |
+| Pilot | PASS |
+| Two-writer | 13/13 |
+| Contract | 31/31 |
+| Smoke | 16/16 |
+| Identity | 0/308,756 |
+| Scopes | 65/65 |
+| Session | 20/20 |
+| Migration verify | 8/8 |
+| Backup drill | 10/10 |
+| JUnit | 59/59 |
+| Web mocked | 29/29 |
+| Web demo | 14/14 |
+| Build | pass |
