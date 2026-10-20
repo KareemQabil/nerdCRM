@@ -11,6 +11,7 @@ Checks, through /ws/ioeti/recruitment:
   before submission blocks it; sharing the CV with the client → BLOCKED_BY_POLICY (D-04)
   interview → offer → acceptance → placement; duplicate placement → 409; headcount filled → 422
   fee milestones recorded once per kind (idempotent); invoice and replacement → BLOCKED_BY_POLICY
+  cross-client: a consent for another client's job order does not cover this one
   cross-recruiter isolation: another recruiter's job order, candidate and pipeline answer 404
   N concurrent submissions of one application → one 200 and one 409
 Env: PROBE_REC_ROUNDS (default 5). Report: logs/recruitment-probe.json.
@@ -201,6 +202,13 @@ def main():
         def submit(client, app_row):
             return call(client, "POST", f"/applications/{app_row['id']}/submit", {"version": version(APP, app_row["id"])})
 
+        # consent is per job order: a consent for another client's order does not cover this client
+        other_client = create(PARTNER, {"name": f"Wave4d Red Sea Resorts {tag}", "isCustomer": True, "partnerTypeSelect": 1})
+        _, _, other_order = new_order(a, f"jo2-{tag}", clientId=other_client["id"])
+        s_oc, _, _ = consent(a, cand["id"], other_order["id"])
+        s_cross, b_cross = submit(a, app1)
+        check("consent for another client's job order does not allow submission here → 422 CONSENT_REQUIRED",
+              (s_oc, s_cross, error(b_cross).get("code")) == (201, 422, "CONSENT_REQUIRED"), f"{s_oc} {s_cross} {b_cross}")
         s_none, b_none = submit(a, app1)
         s_future, b_future, _ = consent(a, cand["id"], order["id"], given="2099-01-01")
         s_c, _, c1 = consent(a, cand["id"], order["id"])

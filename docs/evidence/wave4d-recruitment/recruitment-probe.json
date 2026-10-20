@@ -1,0 +1,100 @@
+{
+  "results": [
+    {
+      "check": "job order opened (201, OPEN, recruited by me)",
+      "result": "PASS",
+      "detail": "201 {'codeStatus': 201, 'messageStatus': 'Job order opened', 'object': {'id': 16, 'version': 0, 'reference': 'JO-83F018', 'clientId': 897, 'clientName': 'Wave4d Delta Hotels 83F018', 'title': 'Front o"
+    },
+    {
+      "check": "job order validation \u2192 422 with the right field",
+      "result": "PASS",
+      "detail": "{'duplicate': (422, 'reference'), 'bad reference': (422, 'reference'), 'no client': (422, 'clientId'), 'headcount': (422, 'headcount'), 'no title': (422, 'title')}"
+    },
+    {
+      "check": "restricted profile recorded write-only: stored, flagged on file, never echoed",
+      "result": "PASS",
+      "detail": "201 200"
+    },
+    {
+      "check": "restricted profile: bad e-mail \u2192 422; owner read \u2192 BLOCKED_BY_POLICY (D-04, D-07); other recruiter \u2192 404",
+      "result": "PASS",
+      "detail": "422 422 404"
+    },
+    {
+      "check": "candidate added to pipeline (SOURCED); twice \u2192 409 ALREADY_IN_PIPELINE",
+      "result": "PASS",
+      "detail": "201 409"
+    },
+    {
+      "check": "invalid transitions \u2192 422 STAGE_TRANSITION (skip to interview, submit unscreened); stale version \u2192 409",
+      "result": "PASS",
+      "detail": "422 422 409"
+    },
+    {
+      "check": "screened then shortlisted",
+      "result": "PASS",
+      "detail": "200 {'codeStatus': 200, 'messageStatus': 'Stage changed', 'object': {'id': 15, 'version': 4, 'jobOrderId': 16, 'candidateId': 15, 'candidateName': 'Candidate One 83F018', 'candidateHeadline': 'Hotel r"
+    },
+    {
+      "check": "consent for another client's job order does not allow submission here \u2192 422 CONSENT_REQUIRED",
+      "result": "PASS",
+      "detail": "201 422 {'codeStatus': 422, 'messageStatus': \"Record the candidate's consent for this job order before submitting.\", 'error': {'code': 'CONSENT_REQUIRED', 'message': \"Record the candidate's consent fo"
+    },
+    {
+      "check": "no consent \u2192 422 CONSENT_REQUIRED; future-dated consent \u2192 422; consent revoked before submission \u2192 still refused",
+      "result": "PASS",
+      "detail": "422 422 201 200 422"
+    },
+    {
+      "check": "consenting shortlisted candidate submitted; sharing the CV \u2192 BLOCKED_BY_POLICY (D-04)",
+      "result": "PASS",
+      "detail": "200 422"
+    },
+    {
+      "check": "interview scheduled, outcome PASSED (second outcome \u2192 422), offer, accepted",
+      "result": "PASS",
+      "detail": "(201, 200, 422, 'OUTCOME_RECORDED', 200, 200, 'ACCEPTED')"
+    },
+    {
+      "check": "placement confirmed (201): guarantee terms pending policy, order FILLED at headcount 1",
+      "result": "PASS",
+      "detail": "201 {'codeStatus': 201, 'messageStatus': 'Placement confirmed', 'object': {'id': 3, 'version': 0, 'applicationId': 15, 'candidateName': 'Candidate One 83F018', 'startDate': '2026-12-01', 'guaranteeSta"
+    },
+    {
+      "check": "duplicate placement \u2192 409 ALREADY_PLACED; another placement beyond the headcount \u2192 422 HEADCOUNT_FILLED",
+      "result": "PASS",
+      "detail": "409 422"
+    },
+    {
+      "check": "fee milestones recorded once per kind (start recorded 3\u00d7): OFFER_ACCEPTED, CANDIDATE_STARTED",
+      "result": "PASS",
+      "detail": "200 {'id': 3, 'version': 0, 'applicationId': 15, 'candidateName': 'Candidate One 83F018', 'startDate': '2026-12-01', 'guaranteeStatus': 'TERMS_PENDING_POLICY', 'feeMilestones': ['OFFER_ACCEPTED', 'CAN"
+    },
+    {
+      "check": "fee invoice (D-04, D-06) and guarantee replacement (D-04) \u2192 422 BLOCKED_BY_POLICY",
+      "result": "PASS",
+      "detail": "422 422"
+    },
+    {
+      "check": "another recruiter: job order, candidate and pipeline answer 404 like missing ids; cannot attach someone else's candidate",
+      "result": "PASS",
+      "detail": "404 404 404 404 422"
+    },
+    {
+      "check": "read-only: reads the pipeline (200), cannot change it or the restricted profile (403)",
+      "result": "PASS",
+      "detail": "200 403 403"
+    },
+    {
+      "check": "concurrent submissions of one application: one 200 and one 409 (5 rounds)",
+      "result": "PASS",
+      "detail": "[[200, 409], [200, 409], [200, 409], [200, 409], [200, 409]]"
+    },
+    {
+      "check": "restricted values never appear in any API response",
+      "result": "PASS",
+      "detail": "leak found"
+    }
+  ],
+  "cleanup_complete": true
+}

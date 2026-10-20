@@ -50,4 +50,5 @@ CI is the latest run on the head SHA: B = backend (live Axelor + PostgreSQL prob
 
 | Slice | Branch | PR | Depends on | Status |
 |---|---|---|---|---|
-| Wave 4C ISO certification UI | `claude/ioeti-wave4c-certification-ui` | — | #30 | in progress |
+| Wave 4C ISO certification UI | `claude/ioeti-wave4c-certification-ui` | #32 | #30 | ready for review (local regression green) |
+| Wave 4D agency recruitment | `claude/ioeti-wave4d-recruitment` | — | #32 (stacked; retarget to integration-next after #32 is merged there) | in progress |

@@ -1,6 +1,6 @@
 # Wave 4D: agency recruitment for clients (`ioeti-recruitment`)
 
-Status: LIVE_INTEGRATION_PASS and NEGATIVE_SECURITY_PASS on Axelor 9.1.10 + PostgreSQL 16 (`scripts/recruitment_probe.py`, also in backend CI), with mocked browser contracts for the UI (`apps/ioeti-web/tests/app.spec.ts`). Every role used in tests is a fixture; production roles and scopes are D-07.
+Status: LIVE_INTEGRATION_PASS and NEGATIVE_SECURITY_PASS on Axelor 9.1.10 + PostgreSQL 16 (`scripts/recruitment_probe.py`, 19 checks, also in backend CI), with mocked browser contracts for the UI (`apps/ioeti-web/tests/app.spec.ts`). Every role used in tests is a fixture; production roles and scopes are D-07.
 
 Everything that commits IOETI or exposes restricted candidate data waits for **D-04**: sharing the CV or contact details with a client, offer terms (salary), fee amounts and invoices (with D-06), guarantee periods and replacement claims, and retention of CVs and pay expectations.
 
