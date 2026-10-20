@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<domain-models xmlns="http://axelor.com/xml/ns/domain-models"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://axelor.com/xml/ns/domain-models https://axelor.com/xml/ns/domain-models/domain-models_8.2.xsd">
+
+  <module name="ioeti" package="com.ioeti.recruitment.db"/>
+
+  <!-- Recruitment for external clients (not AOS talent, which hires the company's own employees).
+       Explicit ioeti_ table names keep every object under the migration gate (G-008).
+       Candidate contact data and pay expectations live in a separate entity with its own permission
+       object, and are never returned by the API (G-007, D-04, D-07). -->
+  <entity name="ClientJobOrder" table="ioeti_rec_job_order">
+    <string name="reference" title="Reference" required="true" unique="true" max="30"/>
+    <many-to-one name="client" ref="com.axelor.apps.base.db.Partner" title="Client" required="true"/>
+    <string name="title" title="Position title" required="true"/>
+    <integer name="headcount" title="Positions" required="true"/>
+    <string name="location" title="Location"/>
+    <string name="requirements" title="Requirements" large="true"/>
+    <integer name="statusSelect" title="Status" required="true"/>
+    <many-to-one name="recruiter" ref="com.axelor.auth.db.User" title="Recruiter"/>
+
+    <extra-code><![CDATA[
+      public static final int STATUS_OPEN = 1;
+      public static final int STATUS_ON_HOLD = 2;
+      public static final int STATUS_FILLED = 3;
+      public static final int STATUS_CLOSED = 4;
+    ]]></extra-code>
+  </entity>
+
+  <entity name="RecruitmentCandidate" table="ioeti_rec_candidate">
+    <string name="displayName" title="Name" required="true" namecolumn="true"/>
+    <string name="headline" title="Current role"/>
+    <integer name="yearsExperience" title="Years of experience"/>
+    <many-to-one name="owner" ref="com.axelor.auth.db.User" title="Recruiter"/>
+  </entity>
+
+  <!-- RESTRICTED: write-only through the API; read access needs D-04 and D-07. -->
+  <entity name="CandidatePrivateProfile" table="ioeti_rec_candidate_private">
+    <many-to-one name="candidate" ref="RecruitmentCandidate" title="Candidate" required="true" unique="true"/>
+    <string name="email" title="E-mail"/>
+    <string name="phone" title="Phone"/>
+    <decimal name="expectedSalary" title="Expected salary" precision="20" scale="2"/>
+    <string name="cvReference" title="CV reference"/>
+  </entity>
+
+  <entity name="CandidateConsent" table="ioeti_rec_consent">
+    <many-to-one name="candidate" ref="RecruitmentCandidate" title="Candidate" required="true"/>
+    <many-to-one name="jobOrder" ref="ClientJobOrder" title="Job order" required="true"/>
+    <integer name="methodSelect" title="Method" required="true"/>
+    <date name="givenOn" title="Given on" required="true"/>
+    <string name="evidenceReference" title="Evidence reference"/>
+    <datetime name="revokedAt" title="Revoked at"/>
+
+    <extra-code><![CDATA[
+      public static final int METHOD_WRITTEN = 1;
+      public static final int METHOD_EMAIL = 2;
+      public static final int METHOD_RECORDED_CALL = 3;
+    ]]></extra-code>
+  </entity>
+
+  <entity name="CandidateApplication" table="ioeti_rec_application">
+    <many-to-one name="jobOrder" ref="ClientJobOrder" title="Job order" required="true"/>
+    <many-to-one name="candidate" ref="RecruitmentCandidate" title="Candidate" required="true"/>
+    <integer name="stageSelect" title="Stage" required="true"/>
+    <datetime name="submittedAt" title="Submitted at"/>
+    <date name="offerDate" title="Offer date"/>
+    <integer name="offerStatusSelect" title="Offer status"/>
+
+    <unique-constraint columns="jobOrder,candidate"/>
+
+    <extra-code><![CDATA[
+      public static final int STAGE_SOURCED = 1;
+      public static final int STAGE_SCREENED = 2;
+      public static final int STAGE_SHORTLISTED = 3;
+      public static final int STAGE_SUBMITTED = 4;
+      public static final int STAGE_INTERVIEWING = 5;
+      public static final int STAGE_OFFERED = 6;
+      public static final int STAGE_PLACED = 7;
+      public static final int STAGE_REJECTED = 8;
+      public static final int STAGE_WITHDRAWN = 9;
+      public static final int OFFER_PENDING = 1;
+      public static final int OFFER_ACCEPTED = 2;
+      public static final int OFFER_DECLINED = 3;
+    ]]></extra-code>
+  </entity>
+
+  <entity name="ClientInterview" table="ioeti_rec_interview">
+    <many-to-one name="application" ref="CandidateApplication" title="Application" required="true"/>
+    <integer name="round" title="Round" required="true"/>
+    <datetime name="scheduledAt" title="Scheduled at" required="true"/>
+    <integer name="outcomeSelect" title="Outcome" required="true"/>
+
+    <extra-code><![CDATA[
+      public static final int OUTCOME_PENDING = 1;
+      public static final int OUTCOME_PASSED = 2;
+      public static final int OUTCOME_FAILED = 3;
+      public static final int OUTCOME_NO_SHOW = 4;
+    ]]></extra-code>
+  </entity>
+
+  <entity name="Placement" table="ioeti_rec_placement">
+    <many-to-one name="application" ref="CandidateApplication" title="Application" required="true" unique="true"/>
+    <date name="startDate" title="Start date" required="true"/>
+    <integer name="guaranteeStatusSelect" title="Guarantee status" required="true"/>
+
+    <extra-code><![CDATA[
+      public static final int GUARANTEE_TERMS_PENDING = 1;
+    ]]></extra-code>
+  </entity>
+
+  <!-- A billable event of a placement. Amounts and invoicing wait for D-04 (fees) and D-06 (invoicing). -->
+  <entity name="RecruitmentFeeMilestone" table="ioeti_rec_fee_milestone">
+    <many-to-one name="placement" ref="Placement" title="Placement" required="true"/>
+    <integer name="kindSelect" title="Event" required="true"/>
+    <date name="occurredOn" title="Occurred on" required="true"/>
+
+    <unique-constraint columns="placement,kindSelect"/>
+
+    <extra-code><![CDATA[
+      public static final int KIND_OFFER_ACCEPTED = 1;
+      public static final int KIND_CANDIDATE_STARTED = 2;
+    ]]></extra-code>
+  </entity>
+
+</domain-models>
