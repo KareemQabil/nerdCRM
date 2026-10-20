@@ -71,6 +71,7 @@ Draft PRs, each stacked on the previous one:
 - 5, part 2b (draft contracts): #22;
 - 5, part 2c (contract lines from the quotation): #23;
 - SEC-001 residual #10 (WebSocket identity, scheduled jobs): #24;
-- 4, part 2 (lead qualification and assignment): branch `claude/ioeti-wave2-lead-lifecycle`.
+- 4, part 2 (lead qualification and assignment): #25;
+- G-007 (personal-data classification, CI gate, log masking): branch `claude/ioeti-g007-pii`.
 
 Policy-dependent steps follow `docs/decisions/OPEN_IOETI_POLICY_DECISIONS.md`.
