@@ -1,9 +1,12 @@
 # SEC-001 — Request authentication-context isolation
 
-Status: **OPEN**.
-- **HTTP request surfaces: VERIFIED**, locally on Axelor 9.1.10 + PostgreSQL 16 and in CI on this branch.
-- **WebSocket message handlers and background jobs: SOURCE_REVIEWED only.**
-- **Session expiry: NOT TESTED.**
+Status: **VERIFIED for every surface in scope** (HTTP, WebSocket, scheduled jobs, logout and expiry), on single-node Axelor 9.1.10 + PostgreSQL 16, locally and in CI.
+- **HTTP request surfaces: VERIFIED.**
+- **WebSocket message handlers: VERIFIED** (issue #10, `scripts/websocket_identity_probe.py`). A live finding was fixed: an already-open socket kept answering after logout (§8).
+- **Scheduled jobs: VERIFIED** (issue #10, with the Quartz scheduler running).
+- **Session expiry: VERIFIED** (HTTP: SEC-004 expiry job; WebSocket: `--expiry`).
+
+A finite clean run is evidence for that sample, not proof that no interleaving can leak. Multi-node deployments remain to be tested.
 
 See §6 for what keeps it open. The reverse map tracks this as gap `G-002`.
 
@@ -113,9 +116,10 @@ Any cross-identity result fails the job. The probe reports are uploaded as an ar
 | Non-JAX-RS servlets (`/js/messages.js`, `/login`, `/index.html`) | VERIFIED (boundary executes) | live counter delta |
 | Exception, cancelled and aborted requests | VERIFIED | unit tests, interleaved failures, client-aborted reload |
 | Logout, then cookie reuse; blocked user | VERIFIED (refused under load) | live probe |
-| Session expiry | NOT TESTED | the 60-minute timeout was not exercised; logout covers invalidation only |
-| WebSocket message handlers | SOURCE_REVIEWED | handlers run on Tomcat threads outside servlet filters and bind a Shiro subject. In 8.2.5 the only handler that sets an identity (`MailChannel.isPermitted`) removes it in `finally`, and its async work uses an executor. Not live-tested |
-| Background jobs, executors | SOURCE_REVIEWED | the boundary never runs on those threads (unit test). Upstream tasks apply their captured identity explicitly. Pollution needs a bound Shiro subject, which exists only on request and WebSocket threads. No live job test |
+| Session expiry | VERIFIED | HTTP: SEC-004 expiry job (session.timeout=1). WebSocket: an idle open socket is closed after expiry (`websocket_identity_probe.py --expiry`, same CI job) |
+| WebSocket message handlers | VERIFIED (§8) | native `tags` channel with per-user fingerprints, A and B socket loops in parallel with the same users' HTTP traffic on the same Tomcat threads and an admin metadata reload: **0 mismatches in 5,516 messages (18,541 concurrent HTTP requests)**. Anonymous handshake refused. Logout now closes open sockets |
+| Scheduled jobs (Quartz) | VERIFIED | diagnostic job `JobIdentityProbe` every 2 s during the same load: **28 runs, none saw a user** (`runsWithUser = 0`) |
+| Other executors | SOURCE_REVIEWED | upstream tasks apply their captured identity explicitly; the boundary never runs on those threads (unit test) |
 | Multi-node | NOT APPLICABLE (per JVM) | every node must run `ioeti-core` |
 
 A finite clean run is evidence for this sample, not proof that no interleaving can leak.
@@ -128,3 +132,25 @@ A finite clean run is evidence for this sample, not proof that no interleaving c
   - run `scripts/identity_isolation_probe.py` against a disposable instance;
   - re-check §3 against the new sources (for example, whether `ContextState` changed, whether `web.xml` still declares only `guiceFilter`, and whether `AppContextListener` still builds the injector during `contextInitialized`).
 - A non-zero `staleAtEntry` means something polluted a thread outside an HTTP request, for example a WebSocket handler. Treat it as a security incident and investigate.
+
+## 8. Issue #10: WebSocket, scheduled jobs and expiry (2026-10-20)
+
+**Probe.** `scripts/websocket_identity_probe.py` uses a dependency-free RFC 6455 client (`scripts/ws_client.py`). The native `tags` channel answers with the asking user's open-task count, computed with `AuthUtils.getUser()`. Fixtures give users A, B and C 3, 5 and 2 tasks, so every answer shows which identity the server used.
+
+**Finding, fixed.** AOP 8.2.5 captures the HTTP session's Shiro subject at the handshake (`WebSocketConfigurator.modifyHandshake`). It then checks `subject.isAuthenticated()` on every message, but that flag belongs to the captured subject and a logout on another request does not change it. Live result: after C logged out over HTTP, C's already-open socket still answered with C's data. A new handshake with the old cookie was refused.
+
+**Control (IOETI only).** `com.ioeti.core.security.WebSocketSessionGuard` is a Guice interceptor that `IoetiCoreModule` binds on `WebSocketEndpoint` `@OnMessage`. Before each message it validates the server-side Shiro session behind the captured subject (`getLastAccessTime()`, which validates without extending the session). If the session is stopped or expired, it closes the socket with `VIOLATED_POLICY` and does not handle the message. The server log records it ("Closing WebSocket …: its HTTP session has ended").
+
+| Item | Result |
+|---|---|
+| JUnit `WebSocketSessionGuardTest` | 2 tests |
+| Live, after the control | logout closes the open socket; expiry closes an idle socket |
+
+**Scheduled jobs.** `com.ioeti.core.security.JobIdentityProbe` is a diagnostic Quartz job. It records the identity seen on its thread, in memory, readable only by an administrator through `GET /ws/ioeti/security/identity-boundary` (`scheduledJobProbe`). It does nothing unless an administrator schedules it. The probe schedules it every 2 s during the load (`AXELOR_CONFIG_QUARTZ_ENABLE=true` in CI) and then removes the schedule.
+
+**CI.**
+- Main backend job: the probe runs with `PROBE_REQUIRE_JOBS=1`, so a disabled scheduler fails the run.
+- Session-expiry job: `--expiry` runs there.
+- Reports: `logs/websocket-identity-probe.json` and `logs/websocket-expiry-probe.json`.
+
+**Not measured.** WebSocket expiry *without* the guard. AOP's interceptor also catches `InvalidSessionException`, so expiry may already have been handled upstream. Only the logout case was seen failing before the control.

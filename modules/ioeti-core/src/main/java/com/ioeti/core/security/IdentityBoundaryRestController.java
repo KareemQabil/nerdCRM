@@ -23,7 +23,8 @@ public class IdentityBoundaryRestController {
     if (user == null || !AuthUtils.isAdmin(user)) {
       throw ApiException.forbidden();
     }
-    return ResponseConstructor.build(
-        Response.Status.OK, "Request identity boundary", RequestIdentityBoundary.stats());
+    java.util.Map<String, Object> stats = new java.util.LinkedHashMap<>(RequestIdentityBoundary.stats());
+    stats.put("scheduledJobProbe", JobIdentityProbe.stats()); // issue #10
+    return ResponseConstructor.build(Response.Status.OK, "Request identity boundary", stats);
   }
 }

@@ -1,0 +1,40 @@
+{
+  "results": [
+    {
+      "check": "anonymous WebSocket handshake refused",
+      "result": "PASS",
+      "detail": "handshake refused: HTTP 302"
+    },
+    {
+      "check": "baseline: each WebSocket answers with its own user's fingerprint",
+      "result": "PASS",
+      "detail": "{'A': 3, 'B': 5, 'C': 2}"
+    },
+    {
+      "check": "under load: every WebSocket answer used the asking user's identity (7207 messages, 24121 concurrent HTTP requests, 1 metadata reload(s))",
+      "result": "PASS",
+      "detail": "[]"
+    },
+    {
+      "check": "HTTP identity boundary: no request started with a stale identity during the run",
+      "result": "PASS",
+      "detail": "{'before': {'staleAtEntry': 0, 'clearedAtExit': 0, 'requests': 378287, 'registered': True, 'scheduledJobProbe': {'runs': 0, 'runsWithUser': 0, 'usersSeen': []}}, 'after': {'staleAtEntry': 0, 'clearedAtExit': 0, 'requests': 402410, 'registered': True, 'scheduledJobProbe': {'runs': 25, 'runsWithUser':"
+    },
+    {
+      "check": "scheduled job ran on Quartz threads during the load and never saw a user (25 runs)",
+      "result": "PASS",
+      "detail": "{'runs': 25, 'runsWithUser': 0, 'usersSeen': []}"
+    },
+    {
+      "check": "after logout, C's already-open WebSocket is closed and returns no data",
+      "result": "PASS",
+      "detail": "None"
+    },
+    {
+      "check": "after logout, a new WebSocket handshake with the old cookie is refused",
+      "result": "PASS",
+      "detail": "handshake refused: HTTP 302"
+    }
+  ],
+  "cleanup_complete": true
+}

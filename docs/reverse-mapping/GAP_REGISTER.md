@@ -101,7 +101,7 @@ This section is appended; the rows above are unchanged. Status reflects live Axe
 | GAP | Status | Evidence / PR | Remaining |
 |---|---|---|---|
 | G-001 | Engineering done | #6: 409 on stale and concurrent writes, data unchanged. Also applied to conversion (#18) and quotations (#19). | — |
-| G-002 | Engineering done for HTTP | #9: 0 leaks under load in CI | WebSocket and background jobs (#10) |
+| G-002 | Engineering done (HTTP, WebSocket, scheduled jobs, expiry) | #9: 0 HTTP leaks under load; #10 branch: 0 WebSocket mismatches, open sockets closed on logout and expiry, Quartz jobs never see a user | Multi-node test at deployment (D-08) |
 | G-003 | Partial | DTO allowlists on every IOETI endpoint; contacts expose no e-mail or phone | Field-level policy (D-07) |
 | G-004 | Mechanism done | #17: Own/Team/Line/All, 65/65 | Production role matrix (D-07) |
 | G-005 | Done except HTTPS | #16: 20/20 plus expiry job | `Secure` cookie test needs HTTPS staging |

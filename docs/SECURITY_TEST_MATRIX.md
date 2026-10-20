@@ -63,7 +63,17 @@ Lead conversion (Wave 2, `scripts/lead_conversion_probe.py`, test-only role fixt
 - the native lost-lead rule answers 422 `CONVERSION_REJECTED` with a fixed message;
 - Account 360 opportunities follow the caller's own scope.
 
+WebSocket and scheduled jobs (issue #10, `scripts/websocket_identity_probe.py`):
+
+| Control | Result |
+|---|---|
+| Anonymous WebSocket handshake refused | ✅ |
+| Each WebSocket answer uses the asking user's identity under concurrent HTTP traffic and a metadata reload | ✅ 0 mismatches / 5,516 |
+| Logout closes an already-open WebSocket (IOETI `WebSocketSessionGuard`; AOP alone kept answering) | ✅ |
+| New handshake with a logged-out cookie refused | ✅ |
+| Session expiry closes an idle open WebSocket | ✅ (expiry job) |
+| Scheduled (Quartz) job never sees a request user | ✅ 28 runs, 0 with a user |
+
 Not yet covered (blocking for the multi-user pilot, see GAP register):
 - Production role matrix (D-07); scopes on leads, accounts and future domains.
-- WebSocket and scheduled-job identity (issue #10).
 - Export, attachment and PDF parity (not built yet).
