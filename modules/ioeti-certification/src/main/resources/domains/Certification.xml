@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<domain-models xmlns="http://axelor.com/xml/ns/domain-models"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://axelor.com/xml/ns/domain-models https://axelor.com/xml/ns/domain-models/domain-models_8.2.xsd">
+
+  <module name="ioeti" package="com.ioeti.certification.db"/>
+
+  <!-- Certification of client organizations (not AOS quality, which is the company's own QMS).
+       Explicit ioeti_ table names keep every object under the migration gate (G-008).
+       Decisions, certificates, surveillance intervals and impartiality rules are policy D-02. -->
+  <entity name="CertificationCycle" table="ioeti_cert_cycle">
+    <string name="reference" title="Reference" required="true" unique="true" max="30"/>
+    <many-to-one name="client" ref="com.axelor.apps.base.db.Partner" title="Client" required="true"/>
+    <many-to-one name="businessLine" ref="com.ioeti.businessline.db.BusinessLine" title="Standard" required="true"/>
+    <string name="scope" title="Scope" large="true"/>
+    <integer name="siteCount" title="Sites"/>
+    <many-to-one name="manager" ref="com.axelor.auth.db.User" title="Programme manager"/>
+  </entity>
+
+  <entity name="CertificationAudit" table="ioeti_cert_audit">
+    <many-to-one name="cycle" ref="CertificationCycle" title="Cycle" required="true"/>
+    <integer name="typeSelect" title="Type" required="true"/>
+    <date name="plannedDate" title="Planned date" required="true"/>
+    <many-to-one name="auditor" ref="com.axelor.auth.db.User" title="Lead auditor" required="true"/>
+    <integer name="statusSelect" title="Status" required="true"/>
+    <date name="completedOn" title="Completed on"/>
+
+    <extra-code><![CDATA[
+      public static final int TYPE_STAGE1 = 1;
+      public static final int TYPE_STAGE2 = 2;
+      public static final int STATUS_PLANNED = 1;
+      public static final int STATUS_COMPLETED = 2;
+      public static final int STATUS_CANCELLED = 3;
+    ]]></extra-code>
+  </entity>
+
+  <entity name="AuditorQualification" table="ioeti_cert_auditor_qual">
+    <many-to-one name="auditor" ref="com.axelor.auth.db.User" title="Auditor" required="true"/>
+    <many-to-one name="businessLine" ref="com.ioeti.businessline.db.BusinessLine" title="Standard" required="true"/>
+    <date name="validFrom" title="Valid from" required="true"/>
+    <date name="validUntil" title="Valid until" required="true"/>
+    <string name="evidenceReference" title="Evidence reference"/>
+  </entity>
+
+  <entity name="Nonconformity" table="ioeti_cert_nonconformity">
+    <many-to-one name="audit" ref="CertificationAudit" title="Audit" required="true"/>
+    <integer name="gradeSelect" title="Grade" required="true"/>
+    <string name="clause" title="Clause" max="20"/>
+    <string name="statement" title="Nonconformity statement" required="true" large="true"/>
+    <string name="clientResponse" title="Client correction and corrective action" large="true"/>
+    <integer name="statusSelect" title="Status" required="true"/>
+
+    <extra-code><![CDATA[
+      public static final int GRADE_MAJOR = 1;
+      public static final int GRADE_MINOR = 2;
+      public static final int GRADE_OBSERVATION = 3;
+      public static final int STATUS_OPEN = 1;
+      public static final int STATUS_RESPONDED = 2;
+      public static final int STATUS_CLOSED = 3;
+    ]]></extra-code>
+  </entity>
+
+</domain-models>
