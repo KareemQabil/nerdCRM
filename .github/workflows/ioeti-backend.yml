@@ -34,6 +34,9 @@ jobs:
       - name: Run real Axelor / PostgreSQL pilot contract and SEC-001 identity isolation
         timeout-minutes: 40
         shell: bash
+        env:
+          # issue #10: scheduled-job identity is tested with the Quartz scheduler running
+          AXELOR_CONFIG_QUARTZ_ENABLE: "true"
         run: |
           set -euo pipefail
           mkdir -p logs
@@ -67,6 +70,9 @@ jobs:
           # SEC-001: mixed sessions + admin metadata reloads; fails on any cross-identity result
           PROBE_RESTORES=2 PROBE_WORKERS=2 PROBE_MIN_SECONDS=20 \
             python3 scripts/identity_isolation_probe.py
+          # SEC-001 residual (#10): WebSocket identity under load, logout closes open sockets,
+          # scheduled jobs never see a request user
+          PROBE_REQUIRE_JOBS=1 PROBE_WS_SECONDS=30 python3 scripts/websocket_identity_probe.py
           # SEC-003: Own / Team / Business Line / All scopes (test-only role fixtures)
           python3 scripts/scope_matrix_probe.py
           # Wave 2: Lead → Account (+ Contact) + Opportunity conversion and Account 360
@@ -94,6 +100,7 @@ jobs:
             logs/scope-matrix-probe.json
             logs/lead-conversion-probe.json
             logs/quote-probe.json
+            logs/websocket-identity-probe.json
             logs/migration-verify.json
             logs/backup-restore-drill.json
           if-no-files-found: ignore
@@ -145,10 +152,14 @@ jobs:
             sleep 5
           done
           python3 scripts/session_security_probe.py --expiry
+          # #10: an idle open WebSocket is closed once its session has expired
+          python3 scripts/websocket_identity_probe.py --expiry
       - name: Attach session expiry report
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: session-expiry-report
-          path: logs/session-security-probe.expiry.json
+          path: |
+            logs/session-security-probe.expiry.json
+            logs/websocket-expiry-probe.json
           if-no-files-found: ignore

@@ -1,0 +1,15 @@
+{
+  "results": [
+    {
+      "check": "before expiry: the WebSocket answers",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "check": "after session expiry, the open WebSocket is closed and returns no data",
+      "result": "PASS",
+      "detail": "None"
+    }
+  ],
+  "cleanup_complete": true
+}
