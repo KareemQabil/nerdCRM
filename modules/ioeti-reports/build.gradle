@@ -1,0 +1,25 @@
+plugins {
+	id 'com.axelor.app'
+}
+
+apply from: new File(projectDir.canonicalFile, "../../gradle/ioeti-module.gradle")
+
+// IOETI reporting (Wave 7b): figures computed on the server from real records, always inside the
+// caller's own read permissions (the native security filter is part of every aggregate query). An
+// area the caller may not read is left out, never shown as zero. No figure is estimated or invented.
+axelor {
+	title "IOETI Reports"
+	description "IOETI reports from authorized queries, and the administrator's system page"
+}
+
+apply from: rootProject.file("modules/axelor-open-suite/libs.gradle")
+
+dependencies {
+	api project(":modules:ioeti-core")
+	// every IOETI domain the reports count
+	api project(":modules:ioeti-workspace")
+	api project(":modules:ioeti-marketing")
+	api project(":modules:ioeti-content")
+
+	implementation libs.swagger_jaxrs
+}

@@ -1,5 +1,8 @@
 package com.ioeti.core.module;
 
+import com.google.inject.multibindings.OptionalBinder;
+import com.ioeti.core.notify.NoNotifier;
+import com.ioeti.core.notify.Notifier;
 import com.axelor.app.AxelorModule;
 import com.google.inject.matcher.Matchers;
 import com.ioeti.core.api.IoetiEndpoint;
@@ -27,5 +30,7 @@ public class IoetiCoreModule extends AxelorModule {
         Matchers.subclassesOf(com.axelor.web.socket.WebSocketEndpoint.class),
         Matchers.annotatedWith(jakarta.websocket.OnMessage.class),
         new WebSocketSessionGuard());
+    // Wave 7b: in-app notices; a no-op unless ioeti-automation provides the stored inbox.
+    OptionalBinder.newOptionalBinder(binder(), Notifier.class).setDefault().to(NoNotifier.class);
   }
 }

@@ -154,6 +154,25 @@ public class MarketingRestController {
     return ResponseConstructor.build(Response.Status.OK, "Sources", rows);
   }
 
+  @POST
+  @Path("/sources")
+  @Consumes(MediaType.APPLICATION_JSON)
+  @Operation(summary = "Add a lead source (needs create on the native Source)", tags = {"IOETI marketing"})
+  @IoetiEndpoint
+  public Response addSource(AddSource command) {
+    if (command == null) throw ApiException.badRequest("Source details are required.");
+    new SecurityCheck().createAccess(Source.class).check();
+    String name = text("name", command.name(), 255, true);
+    if (Query.of(Source.class).filter("LOWER(self.name) = ?1", name.toLowerCase()).count() > 0) {
+      throw ApiException.invalidField("name", "DUPLICATE", "This source already exists.");
+    }
+    Source source = new Source();
+    source.setName(name);
+    Source[] saved = new Source[1];
+    write(() -> saved[0] = Beans.get(MarketingService.class).create(source));
+    return ResponseConstructor.build(Response.Status.CREATED, "Source added", new Option(saved[0].getId(), saved[0].getName()));
+  }
+
   @GET
   @Path("/campaigns")
   @Operation(summary = "Marketing campaigns the caller may read (for intake and attribution)", tags = {"IOETI marketing"})
@@ -460,6 +479,7 @@ public class MarketingRestController {
   public record Attribute(Integer version, Long campaignId) {}
   public record PlanFollowUp(Integer version, String type, String subject, String at) {}
   public record Option(Long id, String name) {}
+  public record AddSource(String name) {}
   public record SavedView(Long id, String name, String searchText, Long stageId, Long sourceId, String businessLineCode, boolean onlyMine) {}
   public record LeadConsentView(Long id, String channel, boolean allowed, String method, String evidenceReference, String recordedBy, LocalDateTime at) {}
   public record ChannelConsent(String channel, boolean allowed) {}

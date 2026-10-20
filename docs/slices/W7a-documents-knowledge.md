@@ -70,6 +70,8 @@ Categories need create on `KnowledgeCategory`. Their code is upper-cased and uni
 
 Approving content before publishing and separating the author from the publisher are D-07; publishing records who published and when.
 
+The generic Axelor REST API (`/ws/rest`, `/ws/action`) is closed to everyone outside the maintenance groups (SEC-002, `GenericApiExposureFilter`). A reader's native read right on `KnowledgeArticle` therefore cannot be used to read drafts or working copies directly; the IOETI endpoints are the only way in.
+
 ## 3. UI
 
 - **Lead, account and opportunity pages (live mode):** a Documents panel. It lists the documents with a download link for the current revision and the earlier revisions, and lets the user file a document, upload a revision or archive. A file over 10 MiB is refused before upload, and the server repeats every check.
