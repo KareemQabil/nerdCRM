@@ -566,3 +566,22 @@ Slice: `docs/slices/W6-leads-marketing.md`.
 - UI: the live lead list moved from filtering the loaded page in the browser to server-side search. One UI test was updated to assert the server request.
 - CI: `PROBE_MKT_ROUNDS=5 scripts/marketing_probe.py`.
 
+## 2026-10-20 · Wave 7a · documents and knowledge base (`ioeti-content`)
+
+Slice: `docs/slices/W7a-documents-knowledge.md`.
+
+- New module `ioeti-content` (`ioeti_doc_*` in V013/U013 and `ioeti_kb_*` in V014/U014). The knowledge rollback drops articles and their published revisions in one statement, because they reference each other.
+- Documents on leads, opportunities, accounts (customers and prospects), quotations, contracts and engagements:
+  - access is taken from the record;
+  - files are stored as native `MetaFile`s after checks on size, extension and **detected content type**;
+  - revisions are immutable, numbered without gaps, and the document row is locked while one is added;
+  - downloads are attachments with `nosniff` and `no-store`.
+- Knowledge base: working copy versus immutable published revisions, line-scoped visibility, Arabic-normalized search, categories.
+- G-007 registry: 78 new fields (792 in total, 0 problems). File content is RESTRICTED (request only).
+- UI:
+  - a Documents panel on lead, account and opportunity pages;
+  - a Knowledge base page (live mode only).
+
+  Fixed in review of the UI tests: after a refused publish, refreshing the article replaced the specific error with a generic one.
+- CI: `PROBE_CONTENT_ROUNDS=5 scripts/content_probe.py`.
+
