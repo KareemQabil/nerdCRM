@@ -107,6 +107,9 @@ jobs:
           # Wave 6: lead intake with duplicate review (Arabic-normalized, scope-limited), consent and opt-out
           # history on the native flags, campaign attribution, saved views, follow-ups; routing D-12 blocked
           PROBE_MKT_ROUNDS=5 python3 scripts/marketing_probe.py
+          # Wave 7a: documents filed on records (access follows the record; content-type checked; immutable
+          # revisions, concurrent uploads) and the knowledge base (readers see only published revisions)
+          PROBE_CONTENT_ROUNDS=5 python3 scripts/content_probe.py
           # SEC-004: cookies, fixation, CSRF, logout, per-user login throttle (runs last: it
           # throttles one throw-away user)
           python3 scripts/session_security_probe.py

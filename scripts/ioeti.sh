@@ -21,7 +21,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 APP="$ROOT/axelor-app"
 COMPOSE=(docker compose --env-file "$ROOT/.env" -f "$ROOT/infra/docker-compose.yml")
-IOETI_MODULES=(ioeti-core ioeti-business-lines ioeti-commercial ioeti-training ioeti-certification ioeti-recruitment ioeti-fundraising ioeti-operations ioeti-workspace ioeti-marketing)
+IOETI_MODULES=(ioeti-core ioeti-business-lines ioeti-commercial ioeti-training ioeti-certification ioeti-recruitment ioeti-fundraising ioeti-operations ioeti-workspace ioeti-marketing ioeti-content)
 
 load_env() {
   [[ -f "$ROOT/.env" ]] || { echo "Missing .env - run: scripts/ioeti.sh init" >&2; exit 1; }

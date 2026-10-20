@@ -1753,3 +1753,129 @@ test("lead page: consent needs evidence, opt-out does not; attribution, follow-u
     [...document.querySelectorAll("main *")].filter(e => e.getBoundingClientRect().right > window.innerWidth + 1)
       .map(e => `${e.tagName}.${String(e.className)}`).slice(0, 5))).toEqual([]);
 });
+
+async function contentMocks(page: Page, options: { editor?: boolean } = {}) {
+  await intercept(page);
+  const ok = (object: unknown, code = 200) => ({ status: code, contentType: "application/json", body: JSON.stringify({ codeStatus: code, messageStatus: "ok", object }) });
+  const fail = (status: number, code: string, fieldCode?: string) => ({ status, contentType: "application/json", body: JSON.stringify({
+    codeStatus: status, messageStatus: "x", error: { code, message: "raw server text", correlationId: "c0ffee07", fields: fieldCode ? [{ field: "content", code: fieldCode, message: "x" }] : [] } }) });
+  const rev = (n: number, fileName: string) => ({ number: n, fileName, contentType: "application/pdf", sizeBytes: 2048, sha256: "a".repeat(64),
+    changeSummary: n > 1 ? "Scope updated" : null, uploadedBy: "Sara Sales", uploadedAt: `2026-10-2${n}T09:00:00` });
+  const s = {
+    docs: [{ id: 5, version: 1, title: "Technical proposal", kind: "PROPOSAL", subject: "LEAD", subjectId: 207, language: "BILINGUAL", ownerName: "Sara Sales",
+      currentRevision: 2, archived: false, revisions: [rev(2, "Proposal v2.pdf"), rev(1, "Proposal v1.pdf")] }] as Record<string, unknown>[],
+    article: { id: 9, version: 3, status: "PUBLISHED", categoryId: 1, businessLineCode: "ISO9001", canEdit: !!options.editor,
+      published: { revision: 1, titleEn: "Audit day preparation", titleAr: "التحضير ليوم المراجعة", bodyEn: "Bring the quality manual.\n<b>not bold</b>",
+        bodyAr: "إحضار دليل الجودة.", publishedBy: "Mona Editor", publishedAt: "2026-10-19T08:00:00" },
+      working: options.editor ? { titleEn: "Audit day preparation", titleAr: "التحضير ليوم المراجعة", bodyEn: "Bring the quality manual.", bodyAr: "إحضار دليل الجودة.", unpublishedChanges: false } : null,
+      revisions: options.editor ? [{ number: 1, publishedBy: "Mona Editor", publishedAt: "2026-10-19T08:00:00" }] : [] } as Record<string, unknown>,
+  };
+  const requests: { method: string; path: string; body: unknown }[] = [];
+  const answers: ReturnType<typeof fail>[] = [];
+  await page.route(url => /\/ws\/ioeti\/(content\/|leads\/207$)/.test(url.pathname), route => {
+    const url = new URL(route.request().url());
+    const path = url.pathname.replace(/.*\/ws\/ioeti/, "") + url.search;
+    const method = route.request().method();
+    const body = method === "POST" ? route.request().postDataJSON() as Record<string, unknown> : null;
+    requests.push({ method, path, body });
+    const refusal = method === "POST" ? answers.shift() : undefined;
+    if (refusal) return route.fulfill(refusal);
+    if (path === "/leads/207") return route.fulfill(ok({ id: 207, version: 4, name: "Nour Hassan", organization: "Nile View Hotel", stage: "New", converted: false, stageId: 1, stageKind: "OPEN" }));
+    if (path.startsWith("/content/documents?")) return route.fulfill(ok(s.docs));
+    if (path === "/content/documents") {
+      const d = { id: 6, version: 0, title: body!.title, kind: body!.kind, subject: body!.subject, subjectId: body!.subjectId, language: body!.language, ownerName: "Sara Sales",
+        currentRevision: 1, archived: false, revisions: [rev(1, body!.fileName as string)] };
+      s.docs = [d, ...s.docs]; return route.fulfill(ok(d, 201));
+    }
+    if (path === "/content/documents/5/revisions") { Object.assign(s.docs.find(d => d.id === 5)!, { version: 2, currentRevision: 3 }); return route.fulfill(ok(s.docs.find(d => d.id === 5), 201)); }
+    if (path === "/content/documents/5/archive") { s.docs = s.docs.filter(d => d.id !== 5); return route.fulfill(ok({ id: 5, archived: true })); }
+    if (path === "/content/kb/categories") return route.fulfill(ok([{ id: 1, code: "PROC", nameEn: "Procedures", nameAr: "إجراءات" }]));
+    if (path === "/content/kb/drafts") return options.editor ? route.fulfill(ok([{ id: 9, status: "PUBLISHED", titleEn: "Audit day preparation", titleAr: "التحضير ليوم المراجعة",
+      categoryId: 1, businessLineCode: "ISO9001", revision: 1, publishedAt: "2026-10-19T08:00:00" }])) : route.fulfill(fail(403, "FORBIDDEN"));
+    if (path.startsWith("/content/kb/articles?") || (path === "/content/kb/articles" && method === "GET")) return route.fulfill(ok([{ id: 9, status: "PUBLISHED", titleEn: "Audit day preparation", titleAr: "التحضير ليوم المراجعة",
+      categoryId: 1, businessLineCode: "ISO9001", revision: 1, publishedAt: "2026-10-19T08:00:00" }]));
+    if (path === "/content/kb/articles/9" && method === "GET") return route.fulfill(ok(s.article));
+    if (path === "/content/kb/articles") return route.fulfill(ok({ ...s.article, id: 10, version: 0, status: "DRAFT", published: null,
+      working: { titleEn: body!.titleEn, titleAr: body!.titleAr, bodyEn: body!.bodyEn, bodyAr: body!.bodyAr, unpublishedChanges: true }, revisions: [], canEdit: true }, 201));
+    if (path === "/content/kb/articles/10" && method === "GET") return route.fulfill(ok({ ...s.article, id: 10, version: 0, status: "DRAFT", published: null, canEdit: true,
+      working: { titleEn: "Visit checklist", titleAr: "قائمة الزيارة", bodyEn: "Check the scope.", bodyAr: "راجع النطاق.", unpublishedChanges: true }, revisions: [] }));
+    if (path === "/content/kb/articles/10/publish") return route.fulfill(ok({ ...s.article, id: 10, version: 1, canEdit: true,
+      published: { revision: 1, titleEn: "Visit checklist", titleAr: "قائمة الزيارة", bodyEn: "Check the scope.", bodyAr: "راجع النطاق.", publishedBy: "Mona Editor", publishedAt: "2026-10-20T12:00:00" } }));
+    return route.fulfill({ status: 404, contentType: "application/json", body: "{}" });
+  });
+  return { requests, answers, fail };
+}
+
+test("documents on a lead: revisions listed with download links; upload checked and sent as base64 with the record; revision and archive use the document version", async ({page}) => {
+  const { requests, answers, fail } = await contentMocks(page);
+  await page.goto("/#/leads/207");
+  const panel = page.locator(".ct-documents");
+  await expect(panel).toContainText("Technical proposal");
+  await expect(panel.locator(".ct-current a")).toHaveAttribute("href", "/axelor-erp/ws/ioeti/content/documents/5/revisions/2/content");
+  await panel.getByText(/الإصدارات السابقة/).click();
+  await expect(panel.locator(".wf-trail")).toContainText("Proposal v1.pdf");
+  await panel.getByRole("button", { name: "إضافة مستند" }).click();
+  await panel.getByLabel("العنوان").fill("Signed scope");
+  await panel.getByLabel("النوع").selectOption("CONTRACT");
+  await panel.getByLabel("الملف").setInputFiles({ name: "scope.pdf", mimeType: "application/pdf", buffer: Buffer.from("%PDF-1.4 scope") });
+  answers.push(fail(422, "VALIDATION_FAILED", "TYPE_MISMATCH"));
+  await panel.getByRole("button", { name: "حفظ" }).click();
+  await expect(page.getByRole("alert")).toHaveText(/محتوى الملف لا يطابق امتداده/);
+  await panel.getByLabel("الملف").setInputFiles({ name: "scope.pdf", mimeType: "application/pdf", buffer: Buffer.from("%PDF-1.4 scope") });
+  await panel.getByRole("button", { name: "حفظ" }).click();
+  await expect(panel.locator(".ct-list > li").first()).toContainText("Signed scope");
+  const filed = requests.filter(r => r.method === "POST" && r.path === "/content/documents").map(r => r.body as Record<string, unknown>);
+  expect(filed[1]).toMatchObject({ subject: "LEAD", subjectId: 207, title: "Signed scope", kind: "CONTRACT", language: "BILINGUAL", fileName: "scope.pdf",
+    contentBase64: Buffer.from("%PDF-1.4 scope").toString("base64") });
+  const item = panel.locator(".ct-list > li").filter({ hasText: "Technical proposal" });
+  await item.getByRole("button", { name: "رفع إصدار جديد" }).click();
+  await item.getByLabel("الملف").setInputFiles({ name: "v3.pdf", mimeType: "application/pdf", buffer: Buffer.from("%PDF-1.4 v3") });
+  await item.getByRole("button", { name: "حفظ" }).click();
+  await expect.poll(() => requests.find(r => r.path === "/content/documents/5/revisions")?.body).toMatchObject({ version: 1, fileName: "v3.pdf" });
+  await panel.locator(".ct-list > li").filter({ hasText: "Technical proposal" }).getByRole("button", { name: "أرشفة" }).click();
+  await expect(panel).not.toContainText("Technical proposal");
+  await expect.poll(() => requests.find(r => r.path === "/content/documents/5/archive")?.body).toEqual({ version: 2 });
+  await expect(page.locator("body")).not.toContainText("raw server text");
+});
+
+test("knowledge base: readers search and read the published revision as plain text in both languages; no editing for readers", async ({page}) => {
+  const { requests } = await contentMocks(page);
+  await page.goto("/#/knowledge");
+  await expect(page.getByRole("heading", { name: "قاعدة المعرفة" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "التحرير" })).toHaveCount(0);
+  await page.getByPlaceholder("ابحث في المقالات المنشورة...").fill("المراجعه");
+  await expect.poll(() => requests.some(r => r.path.startsWith("/content/kb/articles?") && new URLSearchParams(r.path.split("?")[1]).get("q") === "المراجعه")).toBe(true);
+  expect(requests.some(r => r.path.endsWith("?"))).toBe(false);
+  await page.getByRole("button", { name: "فتح" }).click();
+  await expect(page.getByRole("heading", { name: "التحضير ليوم المراجعة" })).toBeVisible();
+  await expect(page.locator(".ct-body[lang=ar]")).toHaveAttribute("dir", "rtl");
+  await expect(page.locator(".ct-body[lang=en]")).toContainText("<b>not bold</b>");
+  await expect(page.locator(".ct-body b")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "نشر" })).toHaveCount(0);
+});
+
+test("knowledge base: editors start, save and publish an article; unchanged publish is explained; mobile without horizontal scroll", async ({page}) => {
+  const { requests, answers, fail } = await contentMocks(page, { editor: true });
+  await page.goto("/#/knowledge");
+  await page.getByRole("button", { name: "التحرير" }).click();
+  await expect(page.locator(".ct-articles")).toContainText("التحضير ليوم المراجعة");
+  await page.getByRole("button", { name: "مقال جديد" }).click();
+  await page.getByLabel("العنوان بالعربية").fill("قائمة الزيارة");
+  await page.getByLabel("العنوان بالإنجليزية").fill("Visit checklist");
+  await page.getByLabel("النص بالعربية").fill("راجع النطاق.");
+  await page.getByLabel("النص بالإنجليزية").fill("Check the scope.");
+  await page.getByRole("button", { name: "حفظ المسودة" }).click();
+  await expect(page.locator(".ct-article .wf-status").first()).toHaveText("مسودة");
+  expect(requests.find(r => r.method === "POST" && r.path === "/content/kb/articles")?.body)
+    .toEqual({ titleAr: "قائمة الزيارة", titleEn: "Visit checklist", bodyAr: "راجع النطاق.", bodyEn: "Check the scope." });
+  answers.push(fail(422, "UNCHANGED"));
+  await page.getByRole("button", { name: "نشر" }).click();
+  await expect(page.getByRole("alert")).toHaveText(/لا يوجد تغيير منذ آخر نسخة منشورة/);
+  await page.getByRole("button", { name: "نشر" }).click();
+  await expect(page.locator(".ct-body[lang=ar]")).toContainText("راجع النطاق.");
+  expect(requests.filter(r => r.path === "/content/kb/articles/10/publish").map(r => r.body)).toEqual([{ version: 0 }, { version: 0 }]);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(page.locator(".ct-article")).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1 ? [] :
+    [...document.querySelectorAll("main *")].filter(e => e.getBoundingClientRect().right > window.innerWidth + 1).map(e => `${e.tagName}.${String(e.className)}`).slice(0, 5))).toEqual([]);
+});

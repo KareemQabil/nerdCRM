@@ -1,0 +1,23 @@
+/* Wave 7a: documents on records and the knowledge base */
+.ct-documents{display:flex;flex-direction:column;gap:10px;margin-top:16px;border-top:1px solid var(--outline-variant);padding-top:14px;}
+.ct-head{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;}
+.ct-head h3{display:flex;align-items:center;gap:6px;margin:0;font-size:15px;}
+.ct-form{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr));gap:10px;align-items:end;}
+.ct-form label{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--on-surface-variant);min-width:0;}
+.ct-form input,.ct-form select,.ct-form textarea{min-height:38px;border:1px solid var(--outline-variant);border-radius:var(--radius);background:var(--surface);color:var(--on-surface);padding:6px 10px;font:inherit;font-size:14px;max-width:100%;}
+.ct-form input[type=file]{padding:6px;}
+.ct-form .mk-actions,.ct-form .wf-muted{grid-column:1/-1;}
+.ct-editor{grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr));}
+.ct-editor textarea{min-height:160px;resize:vertical;}
+.ct-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px;}
+.ct-list>li{border:1px solid var(--outline-variant);border-radius:var(--radius);padding:10px 12px;display:flex;flex-direction:column;gap:6px;min-width:0;}
+.ct-doc-head{display:flex;flex-wrap:wrap;align-items:center;gap:8px;}
+.ct-current{margin:0;font-size:13px;display:flex;flex-wrap:wrap;align-items:center;gap:6px;overflow-wrap:anywhere;}
+.ct-tag{font-size:12px;padding:3px 9px;border-radius:999px;background:var(--surface-variant);}
+.ct-list details summary{cursor:pointer;font-size:13px;}
+.ct-knowledge{display:flex;flex-direction:column;gap:14px;}
+.ct-article{display:flex;flex-direction:column;gap:12px;align-items:flex-start;}
+.ct-article h2{margin:0;}
+.ct-bodies{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr));gap:16px;width:100%;}
+.ct-body{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.7;border:1px solid var(--outline-variant);border-radius:var(--radius);padding:14px;background:var(--surface);}
+.ct-articles li{align-items:center;}

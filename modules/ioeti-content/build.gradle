@@ -1,0 +1,27 @@
+plugins {
+	id 'com.axelor.app'
+}
+
+apply from: new File(projectDir.canonicalFile, "../../gradle/ioeti-module.gradle")
+
+// IOETI documents and knowledge base (Wave 7a): a document register with immutable revisions on the
+// records it belongs to (lead, opportunity, account, quotation, contract, engagement), with access
+// taken from that record, and a bilingual knowledge base whose readers only see published revisions.
+// Document templates and their wording (terms, certificates) are D-02/D-03/D-11 and not built here.
+axelor {
+	title "IOETI Content"
+	description "IOETI document register with revisions and the knowledge base"
+}
+
+apply from: rootProject.file("modules/axelor-open-suite/libs.gradle")
+
+dependencies {
+	api project(":modules:ioeti-core")
+	api project(":modules:ioeti-business-lines")
+	// quotations and contracts are native sale/contract records
+	api project(":modules:ioeti-commercial")
+	// engagements are native projects
+	api project(":modules:axelor-project")
+
+	implementation libs.swagger_jaxrs
+}

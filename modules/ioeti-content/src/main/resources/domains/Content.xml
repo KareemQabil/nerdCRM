@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<domain-models xmlns="http://axelor.com/xml/ns/domain-models"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://axelor.com/xml/ns/domain-models https://axelor.com/xml/ns/domain-models/domain-models_8.2.xsd">
+
+  <module name="ioeti" package="com.ioeti.content.db"/>
+
+  <!-- Wave 7a: documents and knowledge base. Explicit ioeti_ table names keep every object under the
+       migration gate (G-008). -->
+
+  <!-- A document filed on one business record. Who may see or change it follows that record. -->
+  <entity name="RecordDocument" table="ioeti_doc_document">
+    <string name="title" title="Title" required="true" max="200"/>
+    <integer name="kindSelect" title="Kind" required="true"/>
+    <integer name="subjectSelect" title="Filed on" required="true"/>
+    <long name="subjectId" title="Record" required="true" index="true"/>
+    <integer name="languageSelect" title="Language"/>
+    <many-to-one name="owner" ref="com.axelor.auth.db.User" title="Filed by"/>
+    <integer name="currentRevision" title="Current revision"/>
+
+    <extra-code><![CDATA[
+      public static final int SUBJECT_LEAD = 1;
+      public static final int SUBJECT_OPPORTUNITY = 2;
+      public static final int SUBJECT_ACCOUNT = 3;
+      public static final int SUBJECT_QUOTE = 4;
+      public static final int SUBJECT_CONTRACT = 5;
+      public static final int SUBJECT_ENGAGEMENT = 6;
+    ]]></extra-code>
+  </entity>
+
+  <!-- One uploaded file of a document. Revisions are never changed or deleted. -->
+  <entity name="DocumentRevision" table="ioeti_doc_revision">
+    <many-to-one name="document" ref="RecordDocument" title="Document" required="true"/>
+    <integer name="number" title="Revision" required="true"/>
+    <many-to-one name="file" ref="com.axelor.meta.db.MetaFile" title="File" required="true"/>
+    <string name="fileName" title="File name" required="true"/>
+    <string name="contentType" title="Content type" required="true"/>
+    <long name="sizeBytes" title="Size"/>
+    <string name="sha256" title="SHA-256" max="64" required="true"/>
+    <string name="changeSummary" title="What changed"/>
+    <many-to-one name="uploadedBy" ref="com.axelor.auth.db.User" title="Uploaded by"/>
+    <datetime name="uploadedAt" title="Uploaded at" required="true"/>
+
+    <unique-constraint columns="document,number"/>
+  </entity>
+
+  <entity name="KnowledgeCategory" table="ioeti_kb_category">
+    <string name="code" title="Code" required="true" unique="true" max="40"/>
+    <string name="nameEn" title="Name (English)" required="true"/>
+    <string name="nameAr" title="Name (Arabic)" required="true"/>
+    <integer name="sequence" title="Order"/>
+  </entity>
+
+  <!-- The working copy an editor changes. Readers only see the latest published revision. -->
+  <entity name="KnowledgeArticle" table="ioeti_kb_article">
+    <string name="titleEn" title="Title (English)" max="200"/>
+    <string name="titleAr" title="Title (Arabic)" max="200"/>
+    <string name="bodyEn" title="Text (English)" large="true"/>
+    <string name="bodyAr" title="Text (Arabic)" large="true"/>
+    <many-to-one name="category" ref="KnowledgeCategory" title="Category"/>
+    <many-to-one name="businessLine" ref="com.ioeti.businessline.db.BusinessLine" title="Business line"/>
+    <integer name="statusSelect" title="Status" required="true"/>
+    <many-to-one name="author" ref="com.axelor.auth.db.User" title="Author"/>
+    <many-to-one name="publishedRevision" ref="KnowledgeRevision" title="Published revision"/>
+    <string name="publishedSearchKey" title="Search key" max="4000"/>
+
+    <extra-code><![CDATA[
+      public static final int STATUS_DRAFT = 1;
+      public static final int STATUS_PUBLISHED = 2;
+      public static final int STATUS_ARCHIVED = 3;
+    ]]></extra-code>
+  </entity>
+
+  <!-- A published snapshot; never changed. -->
+  <entity name="KnowledgeRevision" table="ioeti_kb_revision">
+    <many-to-one name="article" ref="KnowledgeArticle" title="Article" required="true"/>
+    <integer name="number" title="Revision" required="true"/>
+    <string name="titleEn" title="Title (English)" max="200"/>
+    <string name="titleAr" title="Title (Arabic)" max="200"/>
+    <string name="bodyEn" title="Text (English)" large="true"/>
+    <string name="bodyAr" title="Text (Arabic)" large="true"/>
+    <many-to-one name="publishedBy" ref="com.axelor.auth.db.User" title="Published by"/>
+    <datetime name="publishedAt" title="Published at" required="true"/>
+
+    <unique-constraint columns="article,number"/>
+  </entity>
+
+</domain-models>
