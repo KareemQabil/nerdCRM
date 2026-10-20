@@ -33,7 +33,8 @@ def main():
     # Reverse-mapped read-only domain endpoints must preserve the safe DTO allowlist.
     for path, allowed in (
         ("/ws/ioeti/leads", {"id", "version", "name", "organization", "stage", "converted",
-                             "businessLineCode", "accountId", "opportunityId"}),
+                             "businessLineCode", "accountId", "opportunityId", "stageId", "stageKind",
+                             "lostReason", "assignedToMe", "receivedAt"}),
         ("/ws/ioeti/accounts", {"id", "name", "reference", "customer", "prospect"}),
     ):
         status, payload = client.call("GET", path)

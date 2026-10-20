@@ -1,15 +1,13 @@
-package com.ioeti.commercial.rest;
+package com.ioeti.core.api;
 
 import com.axelor.apps.base.AxelorException;
 import com.axelor.apps.base.db.repo.TraceBackRepository;
-import com.ioeti.core.api.ApiException;
-import com.ioeti.core.api.CorrelationId;
 import com.ioeti.core.web.OptimisticLockConflicts;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Runs native AOS writes for the commercial endpoints and maps their failures to the IOETI contract.
+ * Runs native AOS writes for IOETI endpoints and maps their failures to the IOETI contract.
  *
  * <ul>
  *   <li>A concurrent write: 409 (through {@link OptimisticLockConflicts}).
@@ -21,18 +19,18 @@ import org.slf4j.LoggerFactory;
  *   <li>Anything else propagates (500 with a correlation id, from the IOETI error contract).
  * </ul>
  */
-final class NativeCommands {
+public final class NativeCommands {
 
   private static final Logger LOG = LoggerFactory.getLogger(NativeCommands.class);
 
   @FunctionalInterface
-  interface NativeCommand {
+  public interface NativeCommand {
     void run() throws AxelorException;
   }
 
   private NativeCommands() {}
 
-  static void run(NativeCommand command, String rejectedCode, String rejectedMessage) {
+  public static void run(NativeCommand command, String rejectedCode, String rejectedMessage) {
     OptimisticLockConflicts.translate(() -> {
       try {
         command.run();
@@ -48,7 +46,7 @@ final class NativeCommands {
     });
   }
 
-  static ApiException rejected(AxelorException e, String code, String message) {
+  public static ApiException rejected(AxelorException e, String code, String message) {
     LOG.warn("Command refused by AOS [correlationId={}, category={}]: {}",
         CorrelationId.current(), e.getCategory(), e.getMessage());
     if (e.getCategory() == TraceBackRepository.CATEGORY_CONFIGURATION_ERROR) {
@@ -58,7 +56,7 @@ final class NativeCommands {
     return new ApiException(422, code, message, null);
   }
 
-  static AxelorException axelorCause(Throwable error) {
+  public static AxelorException axelorCause(Throwable error) {
     for (Throwable t = error; t != null; t = t.getCause() == t ? null : t.getCause()) {
       if (t instanceof AxelorException found) return found;
     }
