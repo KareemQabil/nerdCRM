@@ -1,0 +1,115 @@
+{
+  "results": [
+    {
+      "check": "course created with a normalized code (201)",
+      "result": "PASS",
+      "detail": "201 {'codeStatus': 201, 'messageStatus': 'Course created', 'object': {'id': 3, 'version': 0, 'code': 'C-7B2B65', 'name': 'Internal auditor ISO 9001', 'nameAr': '\u0645\u0631\u0627\u062c\u0639 \u062f\u0627\u062e\u0644\u064a \u0623\u064a\u0632\u0648 9001', 'durationHours'"
+    },
+    {
+      "check": "course validation: duplicate/bad code, missing name, hours \u2192 422 field errors",
+      "result": "PASS",
+      "detail": "{'duplicate code': (422, 'code'), 'bad code': (422, 'code'), 'no name': (422, 'name'), 'hours': (422, 'durationHours')}"
+    },
+    {
+      "check": "cohort validation \u2192 422 with the right field, nothing created",
+      "result": "PASS",
+      "detail": "{'capacity 0': (422, 'capacity'), 'capacity 501': (422, 'capacity'), 'min seats > capacity': (422, 'minSeats'), 'end before start': (422, 'endDate'), 'bad date': (422, 'startDate'), 'unknown course': "
+    },
+    {
+      "check": "cohort planned by its coordinator (201, PLANNED, 2 seats)",
+      "result": "PASS",
+      "detail": "201 {'codeStatus': 201, 'messageStatus': 'Cohort planned', 'object': {'id': 18, 'version': 0, 'code': 'K1-7B2B65', 'courseId': 3, 'courseName': 'Internal auditor ISO 9001', 'startDate': '2026-11-01', "
+    },
+    {
+      "check": "enrolment in a planned cohort \u2192 422 COHORT_NOT_OPEN",
+      "result": "PASS",
+      "detail": "422 {'codeStatus': 422, 'messageStatus': 'This cohort is not open for enrolment.', 'error': {'code': 'COHORT_NOT_OPEN', 'message': 'This cohort is not open for enrolment.', 'correlationId': '2ed72c0b-"
+    },
+    {
+      "check": "open: stale version \u2192 409, then 200 OPEN",
+      "result": "PASS",
+      "detail": "409 200"
+    },
+    {
+      "check": "capacity 2: two confirmed, then waitlist positions 1 and 2",
+      "result": "PASS",
+      "detail": "[(201, 'CONFIRMED', None), (201, 'CONFIRMED', None), (201, 'WAITLISTED', 1), (201, 'WAITLISTED', 2)]"
+    },
+    {
+      "check": "enrolment view: safe fields only, sponsor name shown",
+      "result": "PASS",
+      "detail": "{'id': 24, 'version': 0, 'traineeId': 619, 'traineeName': 'W4-1 7B2B65 Trainee', 'clientName': 'Wave4 Sponsor Co 7B2B65', 'status': 'CONFIRMED', 'waitlistPosition': None}"
+    },
+    {
+      "check": "duplicate trainee \u2192 409 ALREADY_ENROLLED; unknown trainee \u2192 422 traineeId; stale cohort \u2192 409",
+      "result": "PASS",
+      "detail": "409 422 409"
+    },
+    {
+      "check": "cohort counts: 2 confirmed, 2 waitlisted, 0 seats left",
+      "result": "PASS",
+      "detail": "{'id': 18, 'version': 5, 'code': 'K1-7B2B65', 'courseId': 3, 'courseName': 'Internal auditor ISO 9001', 'startDate': '2026-11-01', 'endDate': '2026-11-05', 'capacity': 2, 'minSeats': 0, 'location': 'C"
+    },
+    {
+      "check": "cancelling a confirmed seat promotes waitlist #1; #2 becomes #1",
+      "result": "PASS",
+      "detail": "200 {25: ('CONFIRMED', None), 26: ('CONFIRMED', None), 27: ('WAITLISTED', 1), 24: ('CANCELLED', None)}"
+    },
+    {
+      "check": "cancel twice \u2192 422 ALREADY_CANCELLED",
+      "result": "PASS",
+      "detail": "422 {'codeStatus': 422, 'messageStatus': 'This enrolment is already cancelled.', 'error': {'code': 'ALREADY_CANCELLED', 'message': 'This enrolment is already cancelled.', 'correlationId': '840a6dba-99"
+    },
+    {
+      "check": "cancelling a waitlisted enrolment promotes nobody",
+      "result": "PASS",
+      "detail": "{25: ('CONFIRMED', None), 26: ('CONFIRMED', None), 24: ('CANCELLED', None), 27: ('CANCELLED', None)}"
+    },
+    {
+      "check": "session: bad time \u2192 422 startsAt; scheduled (201)",
+      "result": "PASS",
+      "detail": "422 201"
+    },
+    {
+      "check": "attendance recorded then corrected: one row, latest status",
+      "result": "PASS",
+      "detail": "[{'id': 3, 'enrollmentId': 25, 'status': 'ABSENT'}]"
+    },
+    {
+      "check": "attendance refused: cancelled or unknown enrolment, bad status (422)",
+      "result": "PASS",
+      "detail": "{'cancelled trainee': (422, 'enrollmentId'), 'unknown enrolment': (422, 'enrollmentId'), 'bad status': (422, 'status')}"
+    },
+    {
+      "check": "another coordinator: cohort, enrolment and attendance answer like missing ids (404)",
+      "result": "PASS",
+      "detail": "404 404 404 404"
+    },
+    {
+      "check": "another coordinator's cohort list does not include it",
+      "result": "PASS",
+      "detail": "{'codeStatus': 200, 'messageStatus': 'Cohorts', 'object': []}"
+    },
+    {
+      "check": "read-only: reads (200), cannot change (403)",
+      "result": "PASS",
+      "detail": "200 403"
+    },
+    {
+      "check": "certificate and cohort cancellation \u2192 422 BLOCKED_BY_POLICY (D-03)",
+      "result": "PASS",
+      "detail": "422 422"
+    },
+    {
+      "check": "closed cohort refuses enrolment (422 COHORT_NOT_OPEN)",
+      "result": "PASS",
+      "detail": "200 422"
+    },
+    {
+      "check": "concurrent enrolments on one version: one 201 and one 409, one seat taken (10 cohorts)",
+      "result": "PASS",
+      "detail": "[([201, 409], 1, 1), ([201, 409], 1, 1), ([201, 409], 1, 1), ([201, 409], 1, 1), ([201, 409], 1, 1), ([201, 409], 1, 1), ([201, 409], 1, 1), ([201, 409], 1, 1), ([201, 409], 1, 1), ([201, 409], 1, 1)]"
+    }
+  ],
+  "cleanup_complete": true
+}

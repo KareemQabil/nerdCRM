@@ -1,0 +1,35 @@
+{
+  "results": [
+    {
+      "check": "idle session valid at start",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "check": "idle session expired after the timeout (401)",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "check": "active session survived",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "check": "failures from one address counted",
+      "result": "PASS",
+      "detail": "[401, 401, 401, 401]"
+    },
+    {
+      "check": "address over its limit is throttled for every user (429)",
+      "result": "PASS",
+      "detail": "429"
+    },
+    {
+      "check": "throttle released after the window",
+      "result": "PASS",
+      "detail": ""
+    }
+  ],
+  "cleanup_complete": true
+}

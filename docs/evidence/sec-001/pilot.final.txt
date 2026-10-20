@@ -1,0 +1,20 @@
+PASS pilot account authenticated
+PASS identity endpoint authenticates independently
+PASS active business line available
+PASS anonymous opportunities rejected
+PASS /ws/ioeti/leads authorized list
+PASS /ws/ioeti/leads response field allowlist
+PASS /ws/ioeti/leads anonymous denied
+PASS /ws/ioeti/accounts authorized list
+PASS /ws/ioeti/accounts response field allowlist
+PASS /ws/ioeti/accounts anonymous denied
+PASS created opportunity through service API
+PASS created opportunity persisted
+PASS JPA record version returned
+PASS renamed opportunity through service API
+PASS rename persisted across fresh query
+PILOT_VERSION_PROBE initial 0 after_update 1 stale_http 409 stale_code 409 stale_state None stale_message Object provided has been updated by another user
+PASS stale version refused with HTTP 409
+PASS stale write not persisted (name and version unchanged)
+PILOT_CONTRACT=PASS
+PILOT_CLEANUP 200 status 0

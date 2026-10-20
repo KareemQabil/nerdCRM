@@ -1,0 +1,30 @@
+package com.ioeti.core.security;
+
+import com.axelor.auth.AuthUtils;
+import com.axelor.auth.db.User;
+import com.axelor.utils.api.ResponseConstructor;
+import com.ioeti.core.api.ApiException;
+import com.ioeti.core.api.IoetiEndpoint;
+import jakarta.ws.rs.GET;
+import jakarta.ws.rs.Path;
+import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.core.MediaType;
+import jakarta.ws.rs.core.Response;
+
+/** Admin-only SEC-001 diagnostics: is the boundary installed, and what has it cleared. */
+@Path("/ioeti/security/identity-boundary")
+@Produces(MediaType.APPLICATION_JSON)
+public class IdentityBoundaryRestController {
+
+  @GET
+  @IoetiEndpoint
+  public Response stats() {
+    User user = AuthUtils.getUser();
+    if (user == null || !AuthUtils.isAdmin(user)) {
+      throw ApiException.forbidden();
+    }
+    java.util.Map<String, Object> stats = new java.util.LinkedHashMap<>(RequestIdentityBoundary.stats());
+    stats.put("scheduledJobProbe", JobIdentityProbe.stats()); // issue #10
+    return ResponseConstructor.build(Response.Status.OK, "Request identity boundary", stats);
+  }
+}

@@ -26,6 +26,7 @@ skipped). Measured with `scripts/record_filter_leak_probe.py`: 0/450 leaks on fr
 `com.ioeti.core.web.StaleThreadUserFilter` (clears the thread-bound user before/after every `/ws/*`
 request). Details and suggested upstream fix: `docs/upstream-issues/AOP-thread-bound-user-leak.md`.
 **Keep `ioeti-core` installed in every environment** and re-run the probe after each AOP upgrade.
+**SEC-001 (current control):** `com.ioeti.core.security.RequestIdentityBoundaryFilter` is registered before `GuiceFilter`, so it also covers Shiro/pac4j and non-JAX-RS servlets. The live probe is `scripts/identity_isolation_probe.py`, which also runs in CI. See `docs/security/SEC-001-identity-isolation.md`.
 
 ### Pitfalls found while testing
 - The generic API returns **HTTP 200 with `"status": -1`** for authorization errors. Clients and
@@ -35,6 +36,7 @@ request). Details and suggested upstream fix: `docs/upstream-issues/AOP-thread-b
   (`scripts/support/HashPassword.java`). Never create users with plaintext passwords via the API.
 - `/ws/rest/*` exposes **every** model the user may read, with any field. With field rules not
   enforced on read, the generic API must not be the integration surface for restricted roles.
+  **SEC-002:** `com.ioeti.core.api.GenericApiExposureFilter` now answers 403 on every generic `/ws` route for users outside `ioeti.security.maintenance-groups` (default: the administrator and `admins`). See `docs/security/SEC-002-api-contract.md`.
 
 ## 2. IOETI record scopes mapped to Axelor
 

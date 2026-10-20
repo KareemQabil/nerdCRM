@@ -1,0 +1,23 @@
+PASS login with fixture user
+PASS session id rotated at login (no fixation)
+PASS session cookie is HttpOnly
+PASS session cookie SameSite is Lax or Strict
+PASS CSRF cookie is readable by the page (needed to send the header)
+PASS browser write with the CSRF token succeeds
+PASS browser write refused: no token
+PASS browser create refused: no token
+PASS browser write refused: forged token
+PASS browser create refused: forged token
+PASS safe read needs no CSRF token
+PASS refused writes left the record unchanged
+PASS refused creates persisted nothing
+PASS logout accepted
+PASS old session cookie refused after logout
+PASS old session cookie cannot read data after logout
+PASS wrong passwords rejected
+PASS 6th attempt throttled even with the right password (429)
+PASS throttle response carries Retry-After and the error contract
+PASS other users from the same address can still sign in
+
+20/20 checks passed
+CLEANUP complete 5

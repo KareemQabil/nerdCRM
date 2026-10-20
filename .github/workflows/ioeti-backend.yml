@@ -1,0 +1,182 @@
+name: IOETI Axelor modules
+on:
+  pull_request:
+    paths:
+      - "modules/**"
+      - "gradle/**"
+      - "scripts/**"
+      - "docs/security/pii-classification.json"
+      - ".github/workflows/ioeti-backend.yml"
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    steps:
+      - name: Allow HTTPS for public Axelor submodule
+        run: git config --global url."https://github.com/".insteadOf "git@github.com:"
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: G-007 personal-data gate (every REST field classified, no restricted data in responses)
+        run: python3 scripts/pii_dto_audit.py
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Bootstrap pinned upstream and link modules
+        run: bash scripts/ioeti.sh init
+      - name: Build and run IOETI tests
+        run: bash scripts/ioeti.sh test --stacktrace
+      - name: Start isolated PostgreSQL 16
+        run: bash scripts/ioeti.sh db-up
+      - name: Install age (backup encryption for the restore drill)
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq age
+      - name: Run real Axelor / PostgreSQL pilot contract and SEC-001 identity isolation
+        timeout-minutes: 40
+        shell: bash
+        env:
+          # issue #10: scheduled-job identity is tested with the Quartz scheduler running
+          AXELOR_CONFIG_QUARTZ_ENABLE: "true"
+        run: |
+          set -euo pipefail
+          mkdir -p logs
+          bash scripts/ioeti.sh run > logs/github-actions-axelor.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+          ready=0
+          for attempt in $(seq 1 150); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8080/axelor-erp/ || true)
+            if [[ "$code" == "200" || "$code" == "302" ]]; then
+              ready=1
+              break
+            fi
+            if ! kill -0 "$server_pid" 2>/dev/null; then
+              echo "Axelor process exited unexpectedly."
+              tail -n 100 logs/github-actions-axelor.log
+              exit 1
+            fi
+            sleep 5
+          done
+          if [[ "$ready" != 1 ]]; then
+            echo "Axelor did not reach the login page."
+            tail -n 120 logs/github-actions-axelor.log
+            exit 1
+          fi
+          python3 scripts/install_apps.py
+          python3 scripts/opportunity_pilot_smoke.py
+          python3 scripts/opportunity_concurrency_probe.py 20
+          # SEC-002: error contract, existence oracle, generic API exposure
+          python3 scripts/api_contract_probe.py
+          # SEC-001: mixed sessions + admin metadata reloads; fails on any cross-identity result
+          PROBE_RESTORES=2 PROBE_WORKERS=2 PROBE_MIN_SECONDS=20 \
+            python3 scripts/identity_isolation_probe.py
+          # SEC-001 residual (#10): WebSocket identity under load, logout closes open sockets,
+          # scheduled jobs never see a request user
+          PROBE_REQUIRE_JOBS=1 PROBE_WS_SECONDS=30 python3 scripts/websocket_identity_probe.py
+          # SEC-003: Own / Team / Business Line / All scopes (test-only role fixtures)
+          python3 scripts/scope_matrix_probe.py
+          # Wave 2: Lead → Account (+ Contact) + Opportunity conversion and Account 360
+          PROBE_CONVERT_ROUNDS=10 python3 scripts/lead_conversion_probe.py
+          # Wave 2: lead qualification (stage, lose, reopen, assign to me) on native LeadService
+          PROBE_LIFECYCLE_ROUNDS=10 python3 scripts/lead_lifecycle_probe.py
+          # Wave 3: catalog and draft quotations on native AOS SaleOrder (fictional fixtures, no taxes)
+          PROBE_QUOTE_ROUNDS=10 python3 scripts/quote_probe.py
+          # G-010: the manual-UAT dataset can be created, checked as each pilot user, and removed
+          python3 scripts/pilot_readiness.py setup
+          python3 scripts/pilot_readiness.py check
+          python3 scripts/pilot_readiness.py teardown
+          # Wave 4a: external training (capacity, waitlist, attendance; certificates fail closed, D-03)
+          PROBE_TRAINING_ROUNDS=10 python3 scripts/training_probe.py
+          # Wave 4b: client certification (auditor competence, Stage 1/2, nonconformities; D-02 blocked)
+          PROBE_CERT_ROUNDS=10 python3 scripts/certification_probe.py
+          # SEC-004: cookies, fixation, CSRF, logout, per-user login throttle (runs last: it
+          # throttles one throw-away user)
+          python3 scripts/session_security_probe.py
+          # G-008: versioned IOETI schema migrations: record them, then prove the chain on a scratch copy
+          python3 scripts/db_migrate.py apply
+          python3 scripts/db_migrate.py verify
+          # G-009: encrypted backup → restore into a new database → identical data → tamper/wrong-key refused
+          python3 scripts/backup_restore_drill.py
+      - name: Attach security probe reports (no credentials or response bodies)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-probe-reports
+          path: |
+            logs/identity-isolation-probe.json
+            logs/opportunity-concurrency-probe.json
+            logs/api-contract-probe.json
+            logs/session-security-probe.json
+            logs/scope-matrix-probe.json
+            logs/lead-conversion-probe.json
+            logs/lead-lifecycle-probe.json
+            logs/pii-dto-audit.json
+            logs/training-probe.json
+            logs/certification-probe.json
+            logs/quote-probe.json
+            logs/websocket-identity-probe.json
+            logs/migration-verify.json
+            logs/backup-restore-drill.json
+          if-no-files-found: ignore
+      - name: Attach Axelor integration logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: axelor-integration-diagnostics
+          path: logs/github-actions-axelor.log
+          if-no-files-found: ignore
+  session-expiry:
+    # SEC-004: needs its own server with a 1-minute session timeout and a short throttle window
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    permissions:
+      contents: read
+    steps:
+      - name: Allow HTTPS for public Axelor submodule
+        run: git config --global url."https://github.com/".insteadOf "git@github.com:"
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Bootstrap pinned upstream and link modules
+        run: bash scripts/ioeti.sh init
+      - name: Start isolated PostgreSQL 16
+        run: bash scripts/ioeti.sh db-up
+      - name: Session expiry and address throttle on real Axelor / PostgreSQL
+        timeout-minutes: 30
+        shell: bash
+        env:
+          AXELOR_CONFIG_SESSION_TIMEOUT: "1"
+          AXELOR_CONFIG_IOETI_SECURITY_LOGIN_WINDOW: "1"
+          AXELOR_CONFIG_IOETI_SECURITY_LOGIN_IP_MAX: "4"
+        run: |
+          set -euo pipefail
+          mkdir -p logs
+          bash scripts/ioeti.sh run > logs/github-actions-axelor-expiry.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+          for attempt in $(seq 1 150); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8080/axelor-erp/ || true)
+            if [[ "$code" == "200" || "$code" == "302" ]]; then break; fi
+            if ! kill -0 "$server_pid" 2>/dev/null; then tail -n 100 logs/github-actions-axelor-expiry.log; exit 1; fi
+            sleep 5
+          done
+          python3 scripts/session_security_probe.py --expiry
+          # #10: an idle open WebSocket is closed once its session has expired
+          python3 scripts/websocket_identity_probe.py --expiry
+      - name: Attach session expiry report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: session-expiry-report
+          path: |
+            logs/session-security-probe.expiry.json
+            logs/websocket-expiry-probe.json
+          if-no-files-found: ignore

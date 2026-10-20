@@ -1,0 +1,28 @@
+PASS pilot account authenticated
+PASS identity endpoint authenticates independently
+PASS active business line available
+PASS anonymous opportunities rejected
+PASS /ws/ioeti/leads authorized list
+PASS /ws/ioeti/leads response field allowlist
+PASS /ws/ioeti/leads anonymous denied
+PASS /ws/ioeti/accounts authorized list
+PASS /ws/ioeti/accounts response field allowlist
+PASS /ws/ioeti/accounts anonymous denied
+PASS created opportunity through service API
+PASS created opportunity persisted
+PASS JPA record version returned
+PASS renamed opportunity through service API
+PASS rename persisted across fresh query
+PILOT_VERSION_PROBE initial 0 after_update 1 stale_http 500 stale_code 500 stale_state None stale_message Record has changed; refresh and retry.
+FAIL stale version refused
+PILOT_CLEANUP 200 status 0
+Traceback (most recent call last):
+  File "/home/user/nerdcrm/scripts/opportunity_pilot_smoke.py", line 88, in <module>
+    raise SystemExit(main())
+                     ~~~~^^
+  File "/home/user/nerdcrm/scripts/opportunity_pilot_smoke.py", line 76, in main
+    require(status == 409 or old.get("codeStatus") == 409, "stale version refused")
+    ~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/user/nerdcrm/scripts/opportunity_pilot_smoke.py", line 18, in require
+    raise AssertionError(what)
+AssertionError: stale version refused

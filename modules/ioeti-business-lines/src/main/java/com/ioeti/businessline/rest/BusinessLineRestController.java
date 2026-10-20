@@ -4,11 +4,15 @@ import com.axelor.db.JpaSecurity;
 import com.axelor.db.Query;
 import com.axelor.inject.Beans;
 import com.axelor.rpc.filter.Filter;
-import com.axelor.utils.api.HttpExceptionHandler;
 import com.axelor.utils.api.ResponseConstructor;
 import com.axelor.utils.api.SecurityCheck;
+import com.axelor.auth.AuthUtils;
+import com.axelor.auth.db.User;
 import com.ioeti.businessline.db.BusinessLine;
 import com.ioeti.businessline.db.repo.BusinessLineRepository;
+import com.ioeti.businessline.security.BusinessLineEligibility;
+import com.ioeti.core.api.ApiException;
+import com.ioeti.core.api.IoetiEndpoint;
 import io.swagger.v3.oas.annotations.Operation;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.Path;
@@ -36,16 +40,20 @@ public class BusinessLineRestController {
       summary = "List business lines visible to the current user",
       tags = {"IOETI business lines"})
   @GET
-  @HttpExceptionHandler
-  public Response list(@QueryParam("activeOnly") boolean activeOnly) {
+  @IoetiEndpoint
+  public Response list(
+      @QueryParam("activeOnly") boolean activeOnly, @QueryParam("creatable") boolean creatable) {
     new SecurityCheck().readAccess(BusinessLine.class).check();
+    User user = AuthUtils.getUser();
     List<BusinessLineResponse> lines =
         readableLines().order("sequence").order("code").fetch().stream()
             .filter(
                 line ->
-                    !activeOnly
+                    !(activeOnly || creatable)
                         || Integer.valueOf(BusinessLineRepository.STATUS_ACTIVE)
                             .equals(line.getStatusSelect()))
+            // SEC-003: only lines the user may start opportunities in
+            .filter(line -> !creatable || BusinessLineEligibility.canCreateIn(user, line))
             .map(BusinessLineResponse::of)
             .toList();
     return ResponseConstructor.build(Response.Status.OK, "Business lines", lines);
@@ -56,7 +64,7 @@ public class BusinessLineRestController {
       tags = {"IOETI business lines"})
   @GET
   @Path("/{code}")
-  @HttpExceptionHandler
+  @IoetiEndpoint
   public Response get(@PathParam("code") String code) {
     new SecurityCheck().readAccess(BusinessLine.class).check();
     String wanted = code == null ? "" : code.trim().toUpperCase(Locale.ROOT);
@@ -67,8 +75,7 @@ public class BusinessLineRestController {
             line ->
                 ResponseConstructor.build(
                     Response.Status.OK, "Business line", BusinessLineResponse.of(line)))
-        .orElseGet(
-            () -> ResponseConstructor.build(Response.Status.NOT_FOUND, "Business line not found"));
+        .orElseThrow(ApiException::notFound);
   }
 
   /** Query restricted by the record-level conditions of the current user's permissions. */

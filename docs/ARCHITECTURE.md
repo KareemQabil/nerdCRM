@@ -83,7 +83,11 @@ Documented boundaries (create only when the first real requirement is implemente
 Dependency rule: `ioeti-*` modules depend on `ioeti-core` and on upstream modules; never on
 each other in cycles; cross-context links go through IDs/events or a lower module.
 
-## 4. UI strategy
+## 4. UI strategy — SUPERSEDED BY ADR-001 (2026-10-19)
+
+The table below is a historical phase-1 evaluation. **It is not the current product decision.** The current decision is FULLY CUSTOM UI for all employees AND business administrators, in apps/ioeti-web, backed by authorized IOETI DTO/command APIs. See docs/decisions/ADR-001-FULLY-CUSTOM-UI.md. Native Axelor UI is developer/maintenance-only.
+
+### Historical comparison
 
 | Option | Pros | Cons |
 |---|---|---|
@@ -91,7 +95,7 @@ each other in cycles; cross-context links go through IDs/events or a lower modul
 | 2. Axelor headless + custom frontend | full IOETI UX control | rebuild every screen; API hardening required (generic `/ws/rest` leaks fields — SECURITY_MODEL.md); doubles cost |
 | 3. Hybrid | native UI for back office; small custom apps (public course registration, client portal, field forms) on IOETI APIs | two UIs to maintain (but small) |
 
-**Decision for this phase: Option 1 (native UI).** Move to Option 3 only for public/external
+**Historical decision, no longer valid: Option 1 (native UI).** Move to Option 3 only for public/external
 surfaces (course registration, certificate verification, client portal), built on IOETI DTO APIs —
 not on the generic `/ws/rest` API.
 

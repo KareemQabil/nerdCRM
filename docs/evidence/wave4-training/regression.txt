@@ -1,0 +1,43 @@
+# Wave 4a (external training), local run 2026-10-20, Axelor 9.1.10 + PostgreSQL 16, Quartz enabled, branch claude/ioeti-wave4-training
+env_PROBE_CONVERT_ROUNDS_10_python3_scripts_lead_conversion_: 28/28 checks passed
+env_PROBE_LIFECYCLE_ROUNDS_10_python3_scripts_lead_lifecycle: 24/24 checks passed
+env_PROBE_QUOTE_ROUNDS_10_python3_scripts_quote_probe.py: 50/50 checks passed
+env_PROBE_REQUIRE_JOBS_1_PROBE_WS_SECONDS_30_python3_scripts: 7/7 checks passed
+env_PROBE_RESTORES_2_PROBE_WORKERS_2_PROBE_MIN_SECONDS_20_py: IDENTITY_PROBE {"checks": 415815, "leaks": 0} boundary {"present": true, "before_load": {"
+env_PROBE_TRAINING_ROUNDS_10_python3_scripts_training_probe.: 22/22 checks passed
+python3_scripts_api_contract_probe.py: 31/31 checks passed
+python3_scripts_api_smoke_test.py: 16/16 checks passed
+python3_scripts_opportunity_concurrency_probe.py_20: 13/13 checks passed
+python3_scripts_opportunity_pilot_smoke.py: PILOT_CLEANUP 200 status 0
+python3_scripts_pii_dto_audit.py: 203 fields in 39 records · 0 problem(s) · {'BUSINESS': 70, 'PERSONAL': 13, 'REFERENCE': 
+python3_scripts_pilot_readiness.py_check: PILOT_CHECK=PASS 11/11
+python3_scripts_pilot_readiness.py_setup: PILOT_SETUP=PASS records=36 users=4 credentials=.local/pilot-users.txt
+python3_scripts_pilot_readiness.py_teardown: PILOT_TEARDOWN=PASS leftovers: none
+python3_scripts_scope_matrix_probe.py: 65/65 checks passed
+python3_scripts_session_security_probe.py: 20/20 checks passed
+migrate-verify: 8/8 checks passed (V005 included)
+backup-drill: 10/10 checks passed · backup 8.8 MB in 1.79 s · restore 24.29 s
+junit: TrainingRulesTest 4/4; full suite BUILD SUCCESSFUL
+## training_probe.py (PROBE_TRAINING_ROUNDS=10)
+PASS course created with a normalized code (201)
+PASS course validation: duplicate/bad code, missing name, hours → 422 field errors
+PASS cohort validation → 422 with the right field, nothing created
+PASS cohort planned by its coordinator (201, PLANNED, 2 seats)
+PASS enrolment in a planned cohort → 422 COHORT_NOT_OPEN
+PASS open: stale version → 409, then 200 OPEN
+PASS capacity 2: two confirmed, then waitlist positions 1 and 2
+PASS enrolment view: safe fields only, sponsor name shown
+PASS duplicate trainee → 409 ALREADY_ENROLLED; unknown trainee → 422 traineeId; stale cohort → 409
+PASS cohort counts: 2 confirmed, 2 waitlisted, 0 seats left
+PASS cancelling a confirmed seat promotes waitlist #1; #2 becomes #1
+PASS cancel twice → 422 ALREADY_CANCELLED
+PASS cancelling a waitlisted enrolment promotes nobody
+PASS session: bad time → 422 startsAt; scheduled (201)
+PASS attendance recorded then corrected: one row, latest status
+PASS attendance refused: cancelled or unknown enrolment, bad status (422)
+PASS another coordinator: cohort, enrolment and attendance answer like missing ids (404)
+PASS another coordinator's cohort list does not include it
+PASS read-only: reads (200), cannot change (403)
+PASS certificate and cohort cancellation → 422 BLOCKED_BY_POLICY (D-03)
+PASS closed cohort refuses enrolment (422 COHORT_NOT_OPEN)
+PASS concurrent enrolments on one version: one 201 and one 409, one seat taken (10 cohorts)

@@ -1,0 +1,65 @@
+{
+  "source": "ioeti_dev",
+  "checks": [
+    {
+      "check": "backup written and encrypted (pg_dump and age both succeeded)",
+      "result": "PASS",
+      "detail": [
+        0,
+        0
+      ]
+    },
+    {
+      "check": "ciphertext contains no known plaintext",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "check": "decrypt and restore succeeded",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "check": "every table restored with identical row counts (1184 tables)",
+      "result": "PASS",
+      "detail": {}
+    },
+    {
+      "check": "IOETI-owned schema identical",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "check": "migration ledger identical",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "check": "IOETI business-line content identical (checksum)",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "check": "one flipped byte makes decryption fail",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "check": "a different key cannot decrypt",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "check": "drill database removed",
+      "result": "PASS",
+      "detail": "0"
+    }
+  ],
+  "started": "2026-10-19T21:17:16Z",
+  "backup_seconds": 2.12,
+  "backup_bytes": 8519048,
+  "backup_sha256": "ff199aa114c10552c3c75cf7665540581f5265b1487fefc4bbd81585c3d670b6",
+  "restore_seconds": 29.79,
+  "tables": 1184,
+  "rows": 57606
+}

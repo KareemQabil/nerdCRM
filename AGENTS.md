@@ -1,5 +1,13 @@
 # AGENTS.md — rules for AI coding agents (Codex, Claude, …) and humans
 
+## UI interaction rules — record details are NEVER the navigation drawer
+
+Keep existing global left/right App navigation and module switching unchanged. The user explicitly corrected the distinction: **"View details" opens a full record page within the current shell, never a narrow drawer.** Follow docs/design/RECORD_INTERACTION_RULES.md. A bounded quick edit may use a centered modal; a complex workflow must be a full page. Per-module record UX is driven by task/decision complexity, not generic CRUD templates.
+
+## Product direction — authoritative UI decision
+
+**Accepted ADR-001:** IOETI is a fully custom React/TypeScript user experience. Axelor is the domain engine, NOT the final UI, including everyday admin. Read docs/decisions/ADR-001-FULLY-CUSTOM-UI.md and docs/design/NERDPOS_PHILOSOPHY_TO_CRM.md. Native Axelor views are developer/maintenance-only. Design tokens, themes, RTL/LTR, layouts and UI components belong under apps/ioeti-web. Never build normal IOETI workflows in native Axelor views as the final product. Never substitute generic /ws/rest for explicit, authorized IOETI API contracts.
+
 IOETI Egypt business operating system on **Axelor Open Suite 9.1.10 / Axelor Open Platform 8.2.5**
 (Community, AGPL). Read `docs/ARCHITECTURE.md`, `docs/SECURITY_MODEL.md` and
 `docs/MODULE_REUSE_MATRIX.md` before changing anything.
@@ -18,6 +26,8 @@ IOETI Egypt business operating system on **Axelor Open Suite 9.1.10 / Axelor Ope
 | New bounded context | new `modules/ioeti-<context>/` (copy `ioeti-business-lines` structure), add it to `IOETI_MODULES` in `scripts/ioeti.sh` and `$Modules` in `scripts/ioeti.ps1` |
 | New entity | `modules/<m>/src/main/resources/domains/<Entity>.xml`, package `com.ioeti.<context>.db`, **explicit `table="ioeti_<snake_name>"`** |
 | Field on an upstream entity | redeclare the entity in the IOETI module's `domains/` with the **upstream** `<module name=… package=…/>`; prefix new fields `ioeti` (e.g. `ioetiBusinessLine`) |
+| Any new IOETI table/column/index | add `db/migrations/V###__name.sql` (idempotent, same names Hibernate generates) and `db/migrations/rollback/U###__name.sql`; `python3 scripts/db_migrate.py verify` must pass (backend CI enforces it). Never edit an applied migration |
+| Any new field in an IOETI REST record (request or response) | classify it in `docs/security/pii-classification.json` (`REFERENCE`, `BUSINESS`, `PERSONAL`, `RESTRICTED`); `RESTRICTED` (contact details, identity numbers, personal money, free text about a person) is input-only. `python3 scripts/pii_dto_audit.py` must pass (backend CI enforces it). See `docs/security/PII_CLASSIFICATION.md` |
 | Rule on an IOETI entity | pure validator class (unit-tested) + `<Entity>ManagementRepository.save()` bound in the module's `AxelorModule` |
 | Rule on an upstream entity | JPA `entity-listener` declared in the IOETI domain extension (see `OpportunityBusinessLineListener`); do **not** subclass upstream `*ManagementRepository` bindings unless unavoidable |
 | UI change to an upstream form/grid | view with `extension="true"` and `<extend target=…>` in the IOETI module |

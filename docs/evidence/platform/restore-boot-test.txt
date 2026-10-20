@@ -1,0 +1,8 @@
+# Restore boot test, 2026-10-19 (local)
+restored database: ioeti_restore_drill_61ea9ff5 (from the encrypted drill backup, --keep-db)
+Axelor started with AXELOR_CONFIG_DB_DEFAULT_URL pointing at it; boot to 'Ready to serve': 205 s
+pg_stat_activity: application connections ioeti_restore_drill_61ea9ff5=7, ioeti_dev=0
+opportunity_pilot_smoke.py: PILOT_CONTRACT=PASS
+api_contract_probe.py: 31/31 checks passed
+db_migrate.py status on the restored copy: V001-V003 applied (ledger restored)
+afterwards: restored database dropped; dev server restarted on ioeti_dev

@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<domain-models xmlns="http://axelor.com/xml/ns/domain-models"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://axelor.com/xml/ns/domain-models https://axelor.com/xml/ns/domain-models/domain-models_8.2.xsd">
+
+  <module name="ioeti" package="com.ioeti.training.db"/>
+
+  <!-- External training for paying participants (not AOS talent training, which is employee-only).
+       Explicit ioeti_ table names keep every object under the migration gate (G-008). -->
+  <entity name="TrainingCourse" table="ioeti_training_course">
+    <string name="code" title="Code" required="true" unique="true" max="30"/>
+    <string name="name" title="Name" required="true" namecolumn="true"/>
+    <string name="nameAr" title="Arabic name"/>
+    <integer name="durationHours" title="Duration (hours)"/>
+    <boolean name="active" title="Active" default="true"/>
+    <many-to-one name="businessLine" ref="com.ioeti.businessline.db.BusinessLine" title="Business line"/>
+  </entity>
+
+  <entity name="TrainingCohort" table="ioeti_training_cohort">
+    <string name="code" title="Code" required="true" unique="true" max="30"/>
+    <many-to-one name="course" ref="TrainingCourse" title="Course" required="true"/>
+    <date name="startDate" title="Start date"/>
+    <date name="endDate" title="End date"/>
+    <integer name="capacity" title="Capacity" required="true"/>
+    <integer name="minSeats" title="Minimum seats"/>
+    <string name="location" title="Location"/>
+    <integer name="statusSelect" title="Status" default="1" required="true"/>
+    <many-to-one name="coordinator" ref="com.axelor.auth.db.User" title="Coordinator"/>
+
+    <extra-code><![CDATA[
+      public static final int STATUS_PLANNED = 1;
+      public static final int STATUS_OPEN = 2;
+      public static final int STATUS_CLOSED = 3;
+    ]]></extra-code>
+  </entity>
+
+  <entity name="TrainingEnrollment" table="ioeti_training_enrollment">
+    <many-to-one name="cohort" ref="TrainingCohort" title="Cohort" required="true"/>
+    <many-to-one name="trainee" ref="com.axelor.apps.base.db.Partner" title="Trainee" required="true"/>
+    <many-to-one name="client" ref="com.axelor.apps.base.db.Partner" title="Sponsoring client"/>
+    <integer name="statusSelect" title="Status" required="true"/>
+    <integer name="waitlistPosition" title="Waitlist position"/>
+
+    <extra-code><![CDATA[
+      public static final int STATUS_CONFIRMED = 1;
+      public static final int STATUS_WAITLISTED = 2;
+      public static final int STATUS_CANCELLED = 3;
+    ]]></extra-code>
+  </entity>
+
+  <entity name="CohortSession" table="ioeti_training_session">
+    <many-to-one name="cohort" ref="TrainingCohort" title="Cohort" required="true"/>
+    <string name="title" title="Title" required="true"/>
+    <datetime name="startsAt" title="Starts at" required="true"/>
+    <integer name="durationMinutes" title="Duration (minutes)"/>
+  </entity>
+
+  <entity name="TrainingAttendance" table="ioeti_training_attendance">
+    <many-to-one name="session" ref="CohortSession" title="Session" required="true"/>
+    <many-to-one name="enrollment" ref="TrainingEnrollment" title="Enrollment" required="true"/>
+    <integer name="statusSelect" title="Status" required="true"/>
+
+    <unique-constraint columns="session,enrollment"/>
+
+    <extra-code><![CDATA[
+      public static final int STATUS_PRESENT = 1;
+      public static final int STATUS_ABSENT = 2;
+      public static final int STATUS_EXCUSED = 3;
+    ]]></extra-code>
+  </entity>
+
+</domain-models>

@@ -25,3 +25,10 @@ Thumbs.db
 # python
 __pycache__/
 *.pyc
+
+# web app build output and local test artifacts
+apps/ioeti-web/node_modules/
+apps/ioeti-web/dist/
+apps/ioeti-web/test-results/
+apps/ioeti-web/playwright-report/
+apps/ioeti-web/*.tsbuildinfo

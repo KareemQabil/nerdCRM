@@ -1,0 +1,23 @@
+plugins {
+	id 'com.axelor.app'
+}
+
+apply from: new File(projectDir.canonicalFile, "../../gradle/ioeti-module.gradle")
+
+// IOETI client certification (Wave 4b): certification cycles, audit programme (Stage 1 and 2),
+// auditor competence and nonconformities. AOS quality is the company's own QMS, so this is
+// a new bounded context. Certification decisions, certificates and surveillance wait for D-02.
+axelor {
+	title "IOETI Certification"
+	description "IOETI client certification: cycles, audits, auditor competence, nonconformities"
+}
+
+apply from: rootProject.file("modules/axelor-open-suite/libs.gradle")
+
+dependencies {
+	api project(":modules:ioeti-core")
+	// cycles and auditor qualifications are per standard (business line, e.g. ISO9001)
+	api project(":modules:ioeti-business-lines")
+
+	implementation libs.swagger_jaxrs
+}

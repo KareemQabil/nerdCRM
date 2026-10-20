@@ -1,0 +1,22 @@
+name: IOETI Reverse Mapping Consistency
+on:
+  pull_request:
+    paths:
+      - "docs/reverse-mapping/**"
+      - ".github/workflows/ioeti-mapping.yml"
+  push:
+    paths:
+      - "docs/reverse-mapping/**"
+      - ".github/workflows/ioeti-mapping.yml"
+jobs:
+  verify-source-ledger:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Verify pinned source coverage and capability mapping
+        run: node docs/reverse-mapping/validate.mjs

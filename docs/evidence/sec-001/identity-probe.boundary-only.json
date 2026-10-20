@@ -1,0 +1,72 @@
+{
+  "base": "http://localhost:8080/axelor-erp",
+  "restores": 2,
+  "workers_per_principal": 2,
+  "baseline_leaks": {},
+  "restores_ok": [
+    true,
+    true,
+    "client-aborted"
+  ],
+  "concurrent_seconds": 265.4,
+  "worker_errors": [],
+  "boundary": {
+    "present": true,
+    "before_load": {
+      "requests": 49,
+      "registered": true,
+      "staleAtEntry": 0,
+      "clearedAtExit": 0
+    },
+    "after_load": {
+      "requests": 335173,
+      "registered": true,
+      "staleAtEntry": 0,
+      "clearedAtExit": 4
+    },
+    "non_jaxrs_requests_seen": 7
+  },
+  "checks": {
+    "A:effective_identity": 5788,
+    "A:ioeti_lines_scope": 5788,
+    "A:native_rest_lines_scope": 5788,
+    "A:ioeti_opportunity_scope": 5788,
+    "A:native_rest_opportunity_scope": 5788,
+    "A:denied_ioeti_write_refused": 5788,
+    "A:denied_native_write_refused": 5788,
+    "B:effective_identity": 5785,
+    "B:ioeti_lines_scope": 5785,
+    "B:native_rest_lines_scope": 5785,
+    "B:ioeti_opportunity_scope": 5785,
+    "B:native_rest_opportunity_scope": 5785,
+    "B:denied_ioeti_write_refused": 5785,
+    "B:denied_native_write_refused": 5785,
+    "RO:effective_identity": 6873,
+    "RO:ioeti_lines_scope": 6873,
+    "RO:native_rest_lines_scope": 6873,
+    "RO:opportunities_denied": 6873,
+    "RO:native_rest_opportunity_scope": 6873,
+    "RO:denied_ioeti_write_refused": 6873,
+    "RO:denied_native_write_refused": 6873,
+    "ANON:public_info_has_no_identity": 24152,
+    "ANON:protected_refused": 72456,
+    "OUT:session_refused": 23733,
+    "BLK:session_refused": 23776,
+    "BLK:data_refused": 23776,
+    "OUT:data_refused": 23733,
+    "ADMIN:denied_writes_left_records_unchanged": 1,
+    "ADMIN:denied_native_write_left_line_unchanged": 1,
+    "BOUNDARY:covers_non_jaxrs_routes": 1,
+    "BOUNDARY:no_request_started_with_stale_identity": 1
+  },
+  "leaks": {},
+  "leak_examples": [],
+  "summary": {
+    "checks": 320752,
+    "leaks": 0
+  },
+  "cleanup": {
+    "complete": true,
+    "records": 13
+  }
+}

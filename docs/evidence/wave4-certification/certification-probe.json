@@ -1,0 +1,95 @@
+{
+  "results": [
+    {
+      "check": "auditor qualification recorded (201)",
+      "result": "PASS",
+      "detail": "201 {'codeStatus': 201, 'messageStatus': 'Qualification recorded', 'object': {'id': 2, 'auditorId': 488, 'auditorName': 'Wave4b AudQ', 'standardCode': 'ISO9001', 'validFrom': '2026-01-01', 'validUntil"
+    },
+    {
+      "check": "qualification validation \u2192 422 with the right field",
+      "result": "PASS",
+      "detail": "{'validity reversed': (422, 'validUntil'), 'unknown standard': (422, 'standardCode'), 'unknown auditor': (422, 'auditorId'), 'bad date': (422, 'validFrom')}"
+    },
+    {
+      "check": "cycle opened (201): manager, not ready for decision, decision blocked by policy",
+      "result": "PASS",
+      "detail": "201 {'codeStatus': 201, 'messageStatus': 'Cycle opened', 'object': {'id': 8, 'version': 0, 'reference': 'CYC-6E4C9D', 'clientId': 692, 'clientName': 'Wave4b Nile Foods 6E4C9D', 'standardCode': 'ISO900"
+    },
+    {
+      "check": "cycle validation \u2192 422 with the right field, nothing created",
+      "result": "PASS",
+      "detail": "{'duplicate reference': (422, 'reference'), 'bad reference': (422, 'reference'), 'unknown client': (422, 'clientId'), 'empty scope': (422, 'scope'), 'sites 0': (422, 'siteCount'), 'unknown standard': "
+    },
+    {
+      "check": "unqualified auditor and a date outside the qualification \u2192 422 NOT_QUALIFIED",
+      "result": "PASS",
+      "detail": "422 422"
+    },
+    {
+      "check": "Stage 1 planned with a qualified lead auditor (201)",
+      "result": "PASS",
+      "detail": "201 {'codeStatus': 201, 'messageStatus': 'Audit planned', 'object': {'id': 9, 'version': 0, 'type': 'STAGE1', 'plannedDate': '2026-11-10', 'auditorId': 488, 'auditorName': 'Wave4b AudQ', 'status': 'PL"
+    },
+    {
+      "check": "second Stage 1 \u2192 409 STAGE_EXISTS; surveillance \u2192 422 BLOCKED_BY_POLICY (D-02); bad type \u2192 422",
+      "result": "PASS",
+      "detail": "409 422 422"
+    },
+    {
+      "check": "Stage 2 planned; completing it before Stage 1 \u2192 422 STAGE1_REQUIRED",
+      "result": "PASS",
+      "detail": "201 422"
+    },
+    {
+      "check": "complete Stage 1: stale version \u2192 409, then 200 COMPLETED",
+      "result": "PASS",
+      "detail": "409 200"
+    },
+    {
+      "check": "nonconformities raised (MAJOR, MINOR); bad grade and empty statement \u2192 422",
+      "result": "PASS",
+      "detail": "201 201 422 422"
+    },
+    {
+      "check": "Stage 2 completed but an open major \u2192 not ready for decision (openMajors 1)",
+      "result": "PASS",
+      "detail": "{'id': 8, 'version': 4, 'reference': 'CYC-6E4C9D', 'clientId': 692, 'clientName': 'Wave4b Nile Foods 6E4C9D', 'standardCode': 'ISO9001', 'scope': 'Design and manufacture of packaged foods', 'siteCount"
+    },
+    {
+      "check": "close without a response \u2192 422 RESPONSE_REQUIRED; respond \u2192 close (200 CLOSED)",
+      "result": "PASS",
+      "detail": "422 200 200"
+    },
+    {
+      "check": "major closed \u2192 ready for decision (a minor may stay open)",
+      "result": "PASS",
+      "detail": "{'id': 8, 'version': 4, 'reference': 'CYC-6E4C9D', 'clientId': 692, 'clientName': 'Wave4b Nile Foods 6E4C9D', 'standardCode': 'ISO9001', 'scope': 'Design and manufacture of packaged foods', 'siteCount"
+    },
+    {
+      "check": "certification decision and certificate \u2192 422 BLOCKED_BY_POLICY (D-02)",
+      "result": "PASS",
+      "detail": "422 422"
+    },
+    {
+      "check": "another manager: cycle, audits and findings answer like missing ids (404)",
+      "result": "PASS",
+      "detail": "404 404 404 404"
+    },
+    {
+      "check": "read-only: reads (200), cannot change (403)",
+      "result": "PASS",
+      "detail": "200 403"
+    },
+    {
+      "check": "cancel a planned audit (200); findings on it \u2192 422 AUDIT_CANCELLED; completed audit \u2192 422 AUDIT_STATE",
+      "result": "PASS",
+      "detail": "200 422 422"
+    },
+    {
+      "check": "concurrent Stage 1 plans on one version: one 201 and one 409, exactly one audit (10 cycles)",
+      "result": "PASS",
+      "detail": "[([201, 409], 1), ([201, 409], 1), ([201, 409], 1), ([201, 409], 1), ([201, 409], 1), ([201, 409], 1), ([201, 409], 1), ([201, 409], 1), ([201, 409], 1), ([201, 409], 1)]"
+    }
+  ],
+  "cleanup_complete": true
+}

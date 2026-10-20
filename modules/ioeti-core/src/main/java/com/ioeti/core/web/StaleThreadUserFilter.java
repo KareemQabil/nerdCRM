@@ -26,6 +26,10 @@ import org.slf4j.LoggerFactory;
  * <p>HTTP requests must take the user from the session only, so the thread-bound user is cleared
  * before every JAX-RS request (all {@code /ws/*} endpoints, including the generic REST API) and
  * after the response. Batch jobs and async tasks are unaffected: they run on their own threads.
+ *
+ * <p>Since SEC-001 the primary control is {@link
+ * com.ioeti.core.security.RequestIdentityBoundaryFilter}, which also covers Shiro/pac4j and
+ * non-JAX-RS servlets. This filter stays as a second layer for {@code /ws/*}.
  */
 @Provider
 @PreMatching

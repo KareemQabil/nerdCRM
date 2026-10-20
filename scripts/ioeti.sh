@@ -12,6 +12,7 @@
 #   restore-meta  reload views/selections/translations of installed modules (after XML/i18n edits)
 #   smoke       run the API end-to-end + negative permission checks (needs running app)
 #   ui          run the browser checks with Playwright (needs running app)
+#   pilot-smoke  create/read/rename a real temporary Axelor Opportunity
 #   probes      security probes: record-filter leak (after restore-meta) + field-rule enforcement
 #   reset-db    DESTROY the IOETI dev database volume (asks for confirmation; touches nothing else)
 #   status      show versions, submodule pins, container status
@@ -20,7 +21,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 APP="$ROOT/axelor-app"
 COMPOSE=(docker compose --env-file "$ROOT/.env" -f "$ROOT/infra/docker-compose.yml")
-IOETI_MODULES=(ioeti-core ioeti-business-lines)
+IOETI_MODULES=(ioeti-core ioeti-business-lines ioeti-commercial ioeti-training ioeti-certification)
 
 load_env() {
   [[ -f "$ROOT/.env" ]] || { echo "Missing .env - run: scripts/ioeti.sh init" >&2; exit 1; }
@@ -165,6 +166,7 @@ case "${1:-}" in
   install-apps) shift; python3 "$ROOT/scripts/install_apps.py" "$@" ;;
   restore-meta) ROOT="$ROOT" cmd_restore_meta ;;
   smoke) python3 "$ROOT/scripts/api_smoke_test.py" ;;
+  pilot-smoke) python3 "$ROOT/scripts/opportunity_pilot_smoke.py" ;;
   ui) NODE_PATH="$(npm root -g)" node "$ROOT/scripts/ui_smoke_test.cjs" ;;
   probes) python3 "$ROOT/scripts/record_filter_leak_probe.py" && python3 "$ROOT/scripts/field_permission_probe.py" ;;
   reset-db) cmd_reset_db ;;

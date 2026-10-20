@@ -1,0 +1,30 @@
+{
+  "setup_meta_permission_id": 4,
+  "setup_group_meta_permissions": [
+    4
+  ],
+  "setup_rules": [
+    [
+      "description",
+      false
+    ]
+  ],
+  "admin_generic_search_description": "Quality management system certification (readiness, Stage 1/2 audits, surveillance, renewal).",
+  "restricted_generic_search_description": "<no data: {'codeStatus': 403, 'messageStatus': 'You do not have access to this action.', 'error': {'code': 'FORBIDDEN', 'message':>",
+  "restricted_generic_fetch_description": "<no data: {'codeStatus': 403, 'messageStatus': 'You do not have access to this action.', 'error': {'code': 'FORBIDDEN', 'message':>",
+  "restricted_ioeti_api_keys": [
+    "code",
+    "id",
+    "nameAr",
+    "nameEn",
+    "responsibleTeam",
+    "sequence",
+    "status"
+  ],
+  "cleanup": [
+    "User:ok",
+    "Group:ok",
+    "MetaPermission:ok",
+    "Permission:ok"
+  ]
+}
