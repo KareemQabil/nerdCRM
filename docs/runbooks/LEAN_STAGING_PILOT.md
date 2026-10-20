@@ -59,6 +59,20 @@ Install infra/systemd/ioeti-axelor-staging.service as a system service and ensur
 5. Features gated by unapproved D-02 through D-12 policies remain blocked on the **API**, not just the UI: no official certificate, signature, actual invoice, payment, donor receipt or client-private data release.
 6. Only the owner can decide real pilot scope and approve subsequent Production V1 go-live after actual UAT and D-08 operational signoff.
 
+### Live browser-to-server smoke (separate from mocked Playwright)
+
+Once the private staging host is actually running and a fictional pilot account has been provisioned with scripts/pilot_readiness.py, run the dedicated real HTTPS browser checks *from a trusted machine*:
+
+    cd /srv/ioeti/current/apps/ioeti-web
+    export IOETI_ENV=staging
+    export IOETI_STAGING_ORIGIN=https://YOUR-ACTUAL-STAGING-DOMAIN
+    export VITE_IOETI_DEMO=false
+    # Provide IOETI_PILOT_USER and IOETI_PILOT_PASSWORD securely in the process
+    # environment; never print them, check them into git, or run against production.
+    npm run test:staging
+
+This separate playwright.staging.config.ts intentionally has **no local mock server or intercepts**, refuses non-HTTPS, production and demo, uses fictional credentials only, and disables screenshots, videos and traces to avoid collecting sensitive browser state. It asserts anonymous denial, authenticated login/session, real Sales and Leads navigation, refusal of native unrestricted REST for a normal rep, and logout invalidation. The accompanying CI performs syntax/test discovery **without contacting a host**; this is not evidence that any live staging browser test passed.
+
 ## 5. Rollback / caveats
 
 Follow docs/runbooks/DATABASE_MIGRATIONS_AND_RECOVERY.md. Verify an encrypted backup and attachment restore on a separate staging copy; then boot the preceding pinned build and run its tests. Destructive U### migration scripts do not restore business data. Record restore times, key custody and the actual operator.
