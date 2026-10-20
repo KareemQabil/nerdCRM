@@ -15,6 +15,7 @@ import com.ioeti.certification.db.repo.NonconformityRepository;
 import com.ioeti.core.api.ApiException;
 import jakarta.persistence.LockModeType;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 
 /**
@@ -115,6 +116,7 @@ public class CertificationService {
     }
     nc.setClientResponse(response);
     nc.setStatusSelect(NonconformityRepository.STATUS_RESPONDED);
+    nc.setRespondedAt(LocalDateTime.now());
     return JPA.save(nc);
   }
 
@@ -125,6 +127,7 @@ public class CertificationService {
           "Record the client's correction and corrective action before closing.", null);
     }
     nc.setStatusSelect(NonconformityRepository.STATUS_CLOSED);
+    nc.setClosedAt(LocalDateTime.now());
     return JPA.save(nc);
   }
 
@@ -142,12 +145,53 @@ public class CertificationService {
         .bind("closed", NonconformityRepository.STATUS_CLOSED).count();
   }
 
-  /** Stage 2 completed and no open major nonconformity; the decision itself is D-02. */
+  /** Stage 1 and Stage 2 completed and no open major nonconformity; the decision itself is D-02. */
   public static boolean readyForDecision(CertificationCycle cycle) {
-    boolean stage2Done = active(cycle).stream().anyMatch(a ->
-        a.getTypeSelect() == CertificationAuditRepository.TYPE_STAGE2
-            && a.getStatusSelect() == CertificationAuditRepository.STATUS_COMPLETED);
-    return stage2Done && openMajors(cycle) == 0;
+    return decisionBlockers(cycle).equals(List.of(BLOCKER_POLICY));
+  }
+
+  /** Where the cycle stands in the Stage 1 → Stage 2 → findings → decision sequence. */
+  public static String phase(CertificationCycle cycle) {
+    List<String> blockers = decisionBlockers(cycle);
+    if (blockers.contains(BLOCKER_STAGE1)) return "STAGE1_PENDING";
+    if (blockers.contains(BLOCKER_STAGE2)) return "STAGE2_PENDING";
+    if (blockers.contains(BLOCKER_MAJORS)) return "FINDINGS_OPEN";
+    return "READY_FOR_DECISION";
+  }
+
+  public static final String BLOCKER_STAGE1 = "STAGE1_NOT_COMPLETED";
+  public static final String BLOCKER_STAGE2 = "STAGE2_NOT_COMPLETED";
+  public static final String BLOCKER_MAJORS = "OPEN_MAJOR_NONCONFORMITIES";
+  public static final String BLOCKER_POLICY = "POLICY_D02";
+
+  /**
+   * Everything that stands between the cycle and a certification decision, in order. The policy
+   * blocker is always last and always present until D-02 is signed.
+   */
+  public static List<String> decisionBlockers(CertificationCycle cycle) {
+    List<CertificationAudit> audits = active(cycle);
+    List<String> blockers = new java.util.ArrayList<>();
+    if (audits.stream().noneMatch(a -> a.getTypeSelect() == CertificationAuditRepository.TYPE_STAGE1
+        && a.getStatusSelect() == CertificationAuditRepository.STATUS_COMPLETED)) {
+      blockers.add(BLOCKER_STAGE1);
+    }
+    if (audits.stream().noneMatch(a -> a.getTypeSelect() == CertificationAuditRepository.TYPE_STAGE2
+        && a.getStatusSelect() == CertificationAuditRepository.STATUS_COMPLETED)) {
+      blockers.add(BLOCKER_STAGE2);
+    }
+    if (openMajors(cycle) > 0) blockers.add(BLOCKER_MAJORS);
+    blockers.add(BLOCKER_POLICY);
+    return blockers;
+  }
+
+  /** Users with a qualification for the standard valid on the date (the same rule as planning). */
+  public static List<User> eligibleAuditors(BusinessLine standard, LocalDate on) {
+    return Query.of(AuditorQualification.class)
+        .filter("self.businessLine = :line AND self.validFrom <= :on AND self.validUntil >= :on"
+            + " AND (self.auditor.blocked IS NULL OR self.auditor.blocked = false)")
+        .bind("line", standard).bind("on", on).fetch().stream()
+        .map(AuditorQualification::getAuditor).distinct()
+        .sorted(java.util.Comparator.comparing(User::getName)).toList();
   }
 
   private static void requirePlanned(CertificationAudit audit) {

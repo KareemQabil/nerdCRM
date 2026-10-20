@@ -33,9 +33,13 @@ import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.time.format.DateTimeParseException;
 import java.util.List;
 import java.util.Map;
@@ -76,6 +80,18 @@ public class CertificationRestController {
     return ResponseConstructor.build(Response.Status.OK, "Qualifications", rows);
   }
 
+  @GET
+  @Path("/qualifications/candidates")
+  @Operation(summary = "Active users who can be recorded as auditors (callers who may record qualifications)", tags = {"IOETI certification"})
+  @IoetiEndpoint
+  public Response auditorCandidates() {
+    // only people allowed to record qualifications see this internal directory (id and name only)
+    new SecurityCheck().createAccess(AuditorQualification.class).check();
+    List<AuditorView> rows = Query.of(User.class).filter("self.blocked IS NULL OR self.blocked = false")
+        .order("name").fetch(500).stream().map(u -> new AuditorView(u.getId(), u.getName())).toList();
+    return ResponseConstructor.build(Response.Status.OK, "Auditor candidates", rows);
+  }
+
   @POST
   @Path("/qualifications")
   @Consumes(MediaType.APPLICATION_JSON)
@@ -107,15 +123,96 @@ public class CertificationRestController {
 
   // --- cycles --------------------------------------------------------------------------------------
 
+  static final List<String> PHASES = List.of("STAGE1_PENDING", "STAGE2_PENDING", "FINDINGS_OPEN", "READY_FOR_DECISION");
+
   @GET
   @Path("/cycles")
-  @Operation(summary = "Certification cycles the caller may read", tags = {"IOETI certification"})
+  @Operation(summary = "Certification cycles the caller may read: search, filters and paging", tags = {"IOETI certification"})
   @IoetiEndpoint
-  public Response cycles() {
+  public Response cycles(
+      @QueryParam("q") String q, @QueryParam("standardCode") String standardCode,
+      @QueryParam("phase") String phase, @QueryParam("mine") Boolean mine,
+      @QueryParam("limit") Integer requestedLimit, @QueryParam("offset") Integer requestedOffset) {
     new SecurityCheck().readAccess(CertificationCycle.class).check();
-    List<CycleView> rows = readable(CertificationCycle.class, null).order("-id").fetch(100).stream()
-        .map(CertificationRestController::view).toList();
+    int limit = requestedLimit == null ? 25 : requestedLimit;
+    int offset = requestedOffset == null ? 0 : requestedOffset;
+    if (limit < 1 || limit > 100 || offset < 0 || offset > 10000) {
+      throw ApiException.badRequest("Invalid pagination parameters.");
+    }
+    if (phase != null && !PHASES.contains(phase)) {
+      throw ApiException.invalidField("phase", "UNAVAILABLE", "Unknown phase.");
+    }
+    String search = checkedText("q", q, 100, false);
+    // positional "?" parameters: Axelor renumbers them together with the permission filter's own
+    List<String> conditions = new ArrayList<>();
+    List<Object> params = new ArrayList<>();
+    if (search != null) {
+      conditions.add("(LOWER(self.reference) LIKE ? OR LOWER(self.client.name) LIKE ?)");
+      String like = "%" + search.toLowerCase().replace("%", "").replace("_", "") + "%";
+      params.add(like);
+      params.add(like);
+    }
+    if (standardCode != null && !standardCode.isBlank()) {
+      conditions.add("self.businessLine.code = ?");
+      params.add(standardCode.strip());
+    }
+    if (Boolean.TRUE.equals(mine)) {
+      conditions.add("self.manager = ?");
+      params.add(AuthUtils.getUser());
+    }
+    Filter where = conditions.isEmpty() ? null : new JPQLFilter(String.join(" AND ", conditions), params.toArray());
+    Query<CertificationCycle> query = readable(CertificationCycle.class, where).order("-id");
+    // the phase is derived from audits and findings, so it filters after the query (bounded page)
+    List<CycleView> rows = (phase == null ? query.fetch(limit, offset) : query.fetch(500)).stream()
+        .map(CertificationRestController::view)
+        .filter(v -> phase == null || phase.equals(v.phase()))
+        .skip(phase == null ? 0 : offset).limit(limit).toList();
     return ResponseConstructor.build(Response.Status.OK, "Cycles", rows);
+  }
+
+  @GET
+  @Path("/cycles/{id}/eligible-auditors")
+  @Operation(summary = "Auditors qualified for the cycle's standard on a date", tags = {"IOETI certification"})
+  @IoetiEndpoint
+  public Response eligibleAuditors(@PathParam("id") Long id, @QueryParam("date") String date) {
+    CertificationCycle cycle = RecordAccess.readable(CertificationCycle.class, id);
+    LocalDate on = requiredDate("date", date);
+    List<AuditorView> rows = CertificationService.eligibleAuditors(cycle.getBusinessLine(), on).stream()
+        .map(u -> new AuditorView(u.getId(), u.getName())).toList();
+    return ResponseConstructor.build(Response.Status.OK, "Eligible auditors", rows);
+  }
+
+  @GET
+  @Path("/cycles/{id}/timeline")
+  @Operation(summary = "Audit history of a cycle: audits, findings and responses in time order", tags = {"IOETI certification"})
+  @IoetiEndpoint
+  public Response timeline(@PathParam("id") Long id) {
+    CertificationCycle cycle = RecordAccess.readable(CertificationCycle.class, id);
+    JpaSecurity security = Beans.get(JpaSecurity.class);
+    List<TimelineEvent> events = new ArrayList<>();
+    events.add(new TimelineEvent(cycle.getCreatedOn(), "CYCLE_OPENED", cycle.getReference(), null));
+    if (security.isPermitted(JpaSecurity.CAN_READ, CertificationAudit.class)) {
+      for (CertificationAudit audit : readable(CertificationAudit.class, new JPQLFilter("self.cycle.id = " + cycle.getId())).fetch(100)) {
+        String stage = name(audit.getTypeSelect(), "STAGE1", "STAGE2");
+        events.add(new TimelineEvent(audit.getCreatedOn(), "AUDIT_PLANNED", stage, audit.getAuditor().getName()));
+        if (audit.getStatusSelect() == CertificationAuditRepository.STATUS_COMPLETED && audit.getCompletedOn() != null) {
+          events.add(new TimelineEvent(audit.getCompletedOn().atStartOfDay(), "AUDIT_COMPLETED", stage, audit.getAuditor().getName()));
+        }
+        if (audit.getStatusSelect() == CertificationAuditRepository.STATUS_CANCELLED) {
+          events.add(new TimelineEvent(audit.getUpdatedOn(), "AUDIT_CANCELLED", stage, null));
+        }
+      }
+    }
+    if (security.isPermitted(JpaSecurity.CAN_READ, Nonconformity.class)) {
+      for (Nonconformity nc : readable(Nonconformity.class, new JPQLFilter("self.audit.cycle.id = " + cycle.getId())).fetch(500)) {
+        String label = name(nc.getGradeSelect(), "MAJOR", "MINOR", "OBSERVATION") + (nc.getClause() == null ? "" : " " + nc.getClause());
+        events.add(new TimelineEvent(nc.getCreatedOn(), "NC_RAISED", label, null));
+        if (nc.getRespondedAt() != null) events.add(new TimelineEvent(nc.getRespondedAt(), "NC_RESPONDED", label, null));
+        if (nc.getClosedAt() != null) events.add(new TimelineEvent(nc.getClosedAt(), "NC_CLOSED", label, null));
+      }
+    }
+    events.sort(Comparator.comparing(TimelineEvent::at, Comparator.nullsLast(Comparator.naturalOrder())).reversed());
+    return ResponseConstructor.build(Response.Status.OK, "Timeline", events);
   }
 
   @GET
@@ -361,7 +458,9 @@ public class CertificationRestController {
         canReadClient ? client.getId() : null, canReadClient ? client.getName() : null,
         cycle.getBusinessLine().getCode(), cycle.getScope(), cycle.getSiteCount(),
         CertificationService.openMajors(cycle), CertificationService.readyForDecision(cycle), "BLOCKED_BY_POLICY",
-        cycle.getManager() != null && cycle.getManager().equals(AuthUtils.getUser()));
+        cycle.getManager() != null && cycle.getManager().equals(AuthUtils.getUser()),
+        CertificationService.phase(cycle), CertificationService.decisionBlockers(cycle),
+        cycle.getManager() == null ? null : cycle.getManager().getName());
   }
 
   static AuditView view(CertificationAudit audit) {
@@ -373,7 +472,7 @@ public class CertificationRestController {
   static NonconformityView view(Nonconformity nc) {
     return new NonconformityView(nc.getId(), nc.getVersion(), name(nc.getGradeSelect(), "MAJOR", "MINOR", "OBSERVATION"),
         nc.getClause(), nc.getStatement(), nc.getClientResponse(),
-        name(nc.getStatusSelect(), "OPEN", "RESPONDED", "CLOSED"));
+        name(nc.getStatusSelect(), "OPEN", "RESPONDED", "CLOSED"), nc.getCreatedOn(), nc.getRespondedAt(), nc.getClosedAt());
   }
 
   public record VersionOnly(Integer version) {}
@@ -389,10 +488,14 @@ public class CertificationRestController {
       String evidenceReference) {}
   public record CycleView(
       Long id, Integer version, String reference, Long clientId, String clientName, String standardCode, String scope,
-      Integer siteCount, long openMajors, boolean readyForDecision, String decisionStatus, boolean managedByMe) {}
+      Integer siteCount, long openMajors, boolean readyForDecision, String decisionStatus, boolean managedByMe,
+      String phase, List<String> decisionBlockers, String managerName) {}
+  public record AuditorView(Long id, String name) {}
+  public record TimelineEvent(LocalDateTime at, String kind, String label, String actorName) {}
   public record AuditView(
       Long id, Integer version, String type, LocalDate plannedDate, Long auditorId, String auditorName, String status,
       LocalDate completedOn) {}
   public record NonconformityView(
-      Long id, Integer version, String grade, String clause, String statement, String clientResponse, String status) {}
+      Long id, Integer version, String grade, String clause, String statement, String clientResponse, String status,
+      LocalDateTime raisedAt, LocalDateTime respondedAt, LocalDateTime closedAt) {}
 }
