@@ -155,6 +155,16 @@ public class MarketingRestController {
   }
 
   @GET
+  @Path("/campaigns")
+  @Operation(summary = "Marketing campaigns the caller may read (for intake and attribution)", tags = {"IOETI marketing"})
+  @IoetiEndpoint
+  public Response campaigns() {
+    new SecurityCheck().readAccess(Campaign.class).check();
+    List<Option> rows = readable(Campaign.class, null).order("name").fetch(200).stream().map(c -> new Option(c.getId(), c.getName())).toList();
+    return ResponseConstructor.build(Response.Status.OK, "Campaigns", rows);
+  }
+
+  @GET
   @Path("/saved-views")
   @Operation(summary = "The caller's own saved lead filters", tags = {"IOETI marketing"})
   @IoetiEndpoint
@@ -198,8 +208,9 @@ public class MarketingRestController {
   public Response deleteView(@PathParam("id") Long id) {
     SavedLeadView view = id == null ? null : JPA.find(SavedLeadView.class, id);
     if (view == null || !AuthUtils.getUser().equals(view.getOwner())) throw new ApiException(404, "NOT_FOUND", "Record not found.", null);
+    SavedView deleted = view(view);
     write(() -> Beans.get(MarketingService.class).remove(view));
-    return ResponseConstructor.build(Response.Status.OK, "View deleted", null);
+    return ResponseConstructor.build(Response.Status.OK, "View deleted", deleted);
   }
 
   // --- consent and attribution ---------------------------------------------------------------------

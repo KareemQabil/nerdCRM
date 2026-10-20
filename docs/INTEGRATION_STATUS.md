@@ -54,7 +54,8 @@ CI is the latest run on the head SHA: B = backend (live Axelor + PostgreSQL prob
 | Wave 4D agency recruitment | `claude/ioeti-wave4d-recruitment` | #33 | #32 (stacked: base is the 4C branch; retarget after #32 lands) | ready for review; local regression green |
 | Wave 4E fundraising | `claude/ioeti-wave4e-fundraising` | #34 | #33 (stacked) | ready for review; local regression green |
 | Wave 5 handover and engagement | `claude/ioeti-wave5-handover` | #36 | #34 (stacked) | ready for review; local regression green |
-| Wave 5b commercial workflows and Account 360 | `claude/ioeti-wave5b-commercial-workflows` | (this PR) | #36 (stacked) | ready for review; local regression green |
+| Wave 5b commercial workflows and Account 360 | `claude/ioeti-wave5b-commercial-workflows` | #37 | #36 (stacked) | ready for review; CI green on `2b67ffc` |
+| Wave 6 lead intake and marketing completeness | `claude/ioeti-wave6-leads` | (this PR) | #37 (stacked) | ready for review; local regression green |
 | Lean staging runner and release gate (owner) | `feat/ioeti-lean-staging-release-gate` | #35 | #34 | opened by the owner; touches `scripts/ioeti.sh` like the later slices (merge carefully) |
 
 Merging the slices is the reviewer's decision. Engineering does not merge them into `claude/ioeti-integration-next`, because GitHub would then mark the PRs as merged. Order: #32 → #33 → later slices. The stack is kept to these waves; later slices branch from the newest reviewed base.

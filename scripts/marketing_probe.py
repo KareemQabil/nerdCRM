@@ -269,6 +269,10 @@ def main():
         s_att2, b_att2 = a.call("POST", f"{MK}/leads/{lid}/campaigns", {"version": version(LEAD, lid), "campaignId": campaign["id"]})
         s_att_b, _ = b.call("POST", f"{MK}/leads/{lead_b['id']}/campaigns", {"version": version(LEAD, lead_b["id"]), "campaignId": campaign["id"]})
         _, att = a.call("GET", f"{MK}/leads/{lid}/attribution")
+        _, camps_a = a.call("GET", f"{MK}/campaigns")
+        s_camps_anon, _ = Client().call("GET", f"{MK}/campaigns")
+        check("campaign choices: readable campaigns listed; anonymous → 401",
+              campaign["id"] in [c["id"] for c in rows(camps_a)] and s_camps_anon == 401, f"{rows(camps_a)[:3]} {s_camps_anon}")
         check("attribution: source and campaign shown; same campaign again → 409; without campaign write right → 403",
               (s_att, s_att2, error(b_att2).get("code"), s_att_b) == (200, 409, "ALREADY_ATTRIBUTED", 403)
               and obj(att).get("sourceId") == source["id"] and [c["id"] for c in obj(att).get("campaigns") or []] == [campaign["id"]],

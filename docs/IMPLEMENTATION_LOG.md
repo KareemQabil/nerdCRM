@@ -548,3 +548,21 @@ Slice: `docs/slices/W5b-commercial-workflows.md`.
 - Also on the Wave 5 branch: the UI suite showed the sidebar could not reach its last items at 720 px height after the Operations entry; the side panel scrolls.
 - CI: `PROBE_WS_ROUNDS=5 scripts/workspace_probe.py`.
 
+## 2026-10-20 · Wave 6 · lead intake and marketing completeness (`ioeti-marketing`)
+
+Slice: `docs/slices/W6-leads-marketing.md`.
+
+- `ArabicNormalizer` in `ioeti-core` (alef/teh marbuta/alef maksura/hamza seats, diacritics, tatweel, Arabic-Indic digits; phone and e-mail keys).
+- New module `ioeti-marketing` (`ioeti_mkt_*`, migration V012 with rollback U012): `Lead.ioetiSearchKey` kept by an entity listener and backfilled in SQL (the probe compares both). It adds:
+  - intake with a scope-limited duplicate review;
+  - server-side lead search and filters, and saved views per owner;
+  - consent and opt-out history on the native flags;
+  - campaign attribution on native campaigns, serialized with a row lock;
+  - follow-ups on native CRM events, an overdue queue and the activity timeline.
+
+  Routing, response targets and escalation stay D-12 blocked; nothing is sent.
+- Found by the probe: concurrent attributions to one campaign were refused with 409, because Hibernate's follow-on lock re-checked a version read before waiting. Fixed by taking the row lock first and then reloading the campaign.
+- G-007 registry: 64 new fields (714 in total, 0 problems).
+- UI: the live lead list moved from filtering the loaded page in the browser to server-side search. One UI test was updated to assert the server request.
+- CI: `PROBE_MKT_ROUNDS=5 scripts/marketing_probe.py`.
+

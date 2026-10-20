@@ -5,6 +5,7 @@ import {
 } from "lucide-react";
 import { Account360 } from "./Account360";
 import { LeadQualificationPanel } from "./LeadQualificationPanel";
+import { LeadEngagementPanel } from "./LeadTools";
 import type { AccountSummary, LeadSummary } from "./api";
 import type { Language } from "./preferences";
 import { DEMO_MODE } from "./demo";
@@ -138,6 +139,9 @@ export function RecordWorkspace({kind,language,record,onBack,onPrevious,onNext,o
         :<div className="record-related-empty"><CircleDashed size={28}/><strong>{l.connection}</strong><p>{l.connectionDesc}</p></div>}
       </section>
     </div>
+    {lead&&!DEMO_MODE&&record.version!=null&&<section className="record-content-card record-engagement">
+      <LeadEngagementPanel lead={record} language={language} onLeadChanged={updated=>onRecordChanged?.(updated)}/>
+    </section>}
     <section className="record-flow-card" aria-labelledby="record-flow-heading">
       <div className="record-flow-title"><div className="record-section-icon"><FileClock size={20}/></div><div><h2 id="record-flow-heading">{lead?l.leadJourney:l.accountJourney}</h2><p>{l.connectionDesc}</p></div></div>
       <div className="record-flow-stages">{flow.map((label,index)=><div className="record-flow-stage" key={label}><span className="record-flow-step">{String(index+1).padStart(2,"0")}</span><span>{label}</span><span className="record-flow-pending">{l.connection}</span></div>)}</div>
