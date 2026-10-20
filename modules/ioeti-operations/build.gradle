@@ -1,0 +1,26 @@
+plugins {
+	id 'com.axelor.app'
+}
+
+apply from: new File(projectDir.canonicalFile, "../../gradle/ioeti-module.gradle")
+
+// IOETI operations (Wave 5): handover of an active contract from sales to operations, reviewed
+// against a per-business-line checklist, and the engagement it creates as a native AOS Project with
+// native tasks. Contract activation stays D-11, so in production no handover starts before that.
+axelor {
+	title "IOETI Operations"
+	description "IOETI operations: handover checklist, review trail, engagements on native projects"
+}
+
+apply from: rootProject.file("modules/axelor-open-suite/libs.gradle")
+
+dependencies {
+	api project(":modules:ioeti-core")
+	// the contract's opportunity carries the business line
+	api project(":modules:ioeti-business-lines")
+	// handovers start from native contracts
+	api project(":modules:ioeti-commercial")
+	api project(":modules:axelor-project")
+
+	implementation libs.swagger_jaxrs
+}

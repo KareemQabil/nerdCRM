@@ -1337,3 +1337,137 @@ test("fundraising: read-only for others; collection status filter; mobile withou
   await expect.poll(() => requests.filter(r => r.path.startsWith("/collections")).at(-1)?.path).toBe("/collections?status=OVERDUE");
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
 });
+
+async function operationsMocks(page: Page, options: { reviewer?: boolean; noReady?: boolean } = {}) {
+  await intercept(page);
+  const reviewer = options.reviewer ?? true;
+  const ok = (object: unknown, code = 200) => ({ status: code, contentType: "application/json", body: JSON.stringify({ codeStatus: code, messageStatus: "ok", object }) });
+  const fail = (status: number, code: string) => ({ status, contentType: "application/json", body: JSON.stringify({
+    codeStatus: status, messageStatus: "x", error: { code, message: "raw server text", correlationId: "c0ffee04", fields: [] } }) });
+  const s = { version: 0, status: "SUBMITTED", engagementId: null as number | null, lead: null as string | null, engVersion: 0, leadName: "Mona Ops",
+    items: [
+      { id: 11, version: 0, title: "Signed scope of work on file", mandatory: true, done: false, doneBy: null as string | null, doneAt: null as string | null, evidenceReference: null as string | null },
+      { id: 12, version: 0, title: "Kick-off meeting planned", mandatory: true, done: false, doneBy: null as string | null, doneAt: null as string | null, evidenceReference: null as string | null },
+      { id: 13, version: 0, title: "Client logo", mandatory: false, done: false, doneBy: null as string | null, doneAt: null as string | null, evidenceReference: null as string | null }],
+    events: [{ id: 1, kind: "SUBMITTED", reason: null as string | null, actorName: "Sara Sales", at: "2026-10-20T09:00:00", fromUser: null as string | null, toUser: null as string | null, itemTitle: null as string | null }],
+    tasks: [] as Record<string, unknown>[] };
+  const handover = () => ({ id: 41, version: s.version, contractId: 7, contractReference: "CT-0007", contractName: "ISO 9001 certification - Nile Foods", clientId: 901,
+    clientName: "Nile Foods", businessLineCode: "ISO9001", status: s.status, requestedBy: "Sara Sales", reviewedBy: s.status === "SUBMITTED" ? null : "Mona Ops",
+    operationsLead: s.lead, submittedAt: "2026-10-20T09:00:00", decidedAt: null, engagementId: s.engagementId, items: s.items,
+    missingRequired: s.items.filter(i => i.mandatory && !i.done).length, requestedByMe: !reviewer });
+  const engagement = () => ({ id: 77, version: s.engVersion, code: "ENG-H41", name: "ISO 9001 certification - Nile Foods", clientId: 901, clientName: "Nile Foods",
+    leadName: s.leadName, teamName: "Delivery", handoverId: 41, contractReference: "CT-0007", businessLineCode: "ISO9001", startedAt: "2026-10-20T00:00:00",
+    tasks: s.tasks.length, tasksDone: s.tasks.filter(t => t.done).length, tasksOverdue: s.tasks.filter(t => t.overdue).length,
+    progress: s.tasks.length ? Math.round(100 * s.tasks.filter(t => t.done).length / s.tasks.length) : 0, ledByMe: true });
+  const event = (kind: string, extra: Record<string, unknown> = {}) => s.events.push({ id: s.events.length + 1, kind, reason: null, actorName: "Mona Ops", at: "2026-10-20T10:00:00", fromUser: null, toUser: null, itemTitle: null, ...extra });
+  const requests: { method: string; path: string; body: Record<string, unknown> }[] = [];
+  const answers: ReturnType<typeof fail>[] = [];
+  await page.route(/\/axelor-erp\/ws\/ioeti\/operations\//, route => {
+    const url = new URL(route.request().url());
+    const path = url.pathname.replace(/.*\/ws\/ioeti\/operations/, "") + url.search;
+    const method = route.request().method();
+    const body = method === "POST" ? route.request().postDataJSON() as Record<string, unknown> : {};
+    requests.push({ method, path, body });
+    const refusal = method !== "GET" ? answers.shift() : undefined;
+    if (refusal) return route.fulfill(refusal);
+    if (path === "/ready-contracts") return route.fulfill(ok(options.noReady ? [] : [{ id: 7, reference: "CT-0007", name: "ISO 9001 certification - Nile Foods", clientName: "Nile Foods" }]));
+    if (path === "/people") return reviewer ? route.fulfill(ok([{ id: 5, name: "Mona Ops" }, { id: 6, name: "Karim Lead" }])) : route.fulfill(fail(403, "FORBIDDEN"));
+    if (path.startsWith("/handovers") && method === "GET" && !/\d/.test(path.split("?")[0])) return route.fulfill(ok([handover()]));
+    if (path === "/handovers" && method === "POST") return route.fulfill(ok(handover(), 201));
+    if (path === "/handovers/41") return route.fulfill(ok(handover()));
+    if (path === "/handovers/41/events") return route.fulfill(ok(s.events));
+    const item = path.match(/^\/items\/(\d+)\/complete$/);
+    if (item) {
+      const it = s.items.find(i => i.id === Number(item[1]))!;
+      Object.assign(it, { done: true, doneBy: "Sara Sales", doneAt: "2026-10-20T10:00:00", evidenceReference: body.evidenceReference ?? null, version: it.version + 1 });
+      s.version++; event("ITEM_DONE", { itemTitle: it.title }); return route.fulfill(ok(handover()));
+    }
+    if (path === "/handovers/41/rework") { s.status = "REWORK_REQUESTED"; s.version++; event("REWORK_REQUESTED", { reason: body.reason }); return route.fulfill(ok(handover())); }
+    if (path === "/handovers/41/accept") {
+      if (s.items.some(i => i.mandatory && !i.done)) return route.fulfill(fail(422, "CHECKLIST_INCOMPLETE"));
+      s.status = "ACCEPTED"; s.engagementId = 77; s.lead = "Mona Ops"; s.version++; event("ACCEPTED", { toUser: "Mona Ops" }); event("ENGAGEMENT_CREATED", { itemTitle: "ENG-H41" });
+      return route.fulfill(ok(engagement(), 201));
+    }
+    if (path.startsWith("/engagements") && method === "GET" && !/\d/.test(path.split("?")[0])) return route.fulfill(ok(s.engagementId ? [engagement()] : []));
+    if (path === "/engagements/77") return route.fulfill(ok(engagement()));
+    if (path === "/engagements/77/tasks" && method === "GET") return route.fulfill(ok(s.tasks));
+    if (path === "/engagements/77/tasks") {
+      const t = { id: 90 + s.tasks.length, version: 0, name: body.name, dueDate: body.dueDate ?? null, assigneeName: body.assigneeId === 6 ? "Karim Lead" : null,
+        status: "New", done: false, overdue: (body.dueDate as string ?? "9999") < "2026-10-20" };
+      s.tasks.push(t); s.engVersion++; return route.fulfill(ok(t, 201));
+    }
+    const task = path.match(/^\/tasks\/(\d+)\/complete$/);
+    if (task) { const t = s.tasks.find(x => x.id === Number(task[1]))!; Object.assign(t, { done: true, overdue: false, status: "Done", version: (t.version as number) + 1 }); return route.fulfill(ok(t)); }
+    if (path === "/engagements/77/owner") { s.leadName = "Karim Lead"; s.engVersion++; event("OWNER_CHANGED", { fromUser: "Mona Ops", toUser: "Karim Lead" }); return route.fulfill(ok(engagement())); }
+    return route.fulfill({ status: 404, body: "{}" });
+  });
+  return { requests, answers, fail };
+}
+
+test("operations: request a handover from a ready contract; when none is ready the D-11 gate is explained", async ({page}) => {
+  const { requests } = await operationsMocks(page, { reviewer: false });
+  await page.goto("/");
+  await page.locator("button.nav-item").filter({ hasText: "التشغيل" }).click();
+  await expect(page.getByRole("heading", { name: "التسليم والتشغيل" })).toBeVisible();
+  await page.getByLabel("العقد").selectOption("7");
+  await page.getByRole("button", { name: "إرسال للتشغيل" }).click();
+  await expect(page).toHaveURL(/#\/operations\/handovers\/41$/);
+  expect(requests.find(r => r.path === "/handovers" && r.method === "POST")!.body).toEqual({ contractId: 7 });
+  // a salesperson sees no review controls (the server also refuses them)
+  await expect(page.getByRole("button", { name: "قبول وإنشاء المشروع" })).toHaveCount(0);
+  await page.unroute(/\/axelor-erp\/ws\/ioeti\/operations\//);
+  await operationsMocks(page, { reviewer: false, noReady: true });
+  await page.goto("/#/operations");
+  await expect(page.getByText(/تفعيل العقد \(التوقيع\) متوقف حتى اعتماد D-11/)).toBeVisible();
+});
+
+test("operations: review against the checklist, rework, acceptance creates one engagement; trail and tasks", async ({page}) => {
+  const { requests, answers, fail } = await operationsMocks(page);
+  await page.goto("/#/operations/handovers/41");
+  await expect(page.getByRole("heading", { name: "ISO 9001 certification - Nile Foods" })).toBeVisible();
+  await expect(page.getByText("2 بنود مطلوبة متبقية")).toBeVisible();
+  await page.getByLabel("مسؤول التشغيل").selectOption("5");
+  await page.getByRole("button", { name: "قبول وإنشاء المشروع" }).click();
+  await expect(page.getByRole("alert")).toHaveText(/أكمل كل البنود المطلوبة قبل القبول/);
+  await page.getByLabel("مرجع الإثبات · Signed scope of work on file").fill("DOC-SOW-17");
+  await page.getByRole("button", { name: "تم: Signed scope of work on file" }).click();
+  await expect(page.locator(".ops-checklist li.is-done")).toContainText("DOC-SOW-17");
+  answers.push(fail(409, "CONFLICT"));
+  await page.getByRole("button", { name: "تم: Kick-off meeting planned" }).click();
+  await expect(page.getByRole("alert")).toHaveText(/تم تعديل البيانات من مكان آخر/);
+  await page.getByRole("button", { name: "تم: Kick-off meeting planned" }).click();
+  await expect(page.locator(".ops-checklist li.is-done")).toHaveCount(2);
+  await page.getByLabel("مسؤول التشغيل").selectOption("5");
+  await page.getByRole("button", { name: "قبول وإنشاء المشروع" }).click();
+  await expect(page.locator(".record-tags .ops-status")).toHaveText("مقبول");
+  await expect(page.locator(".ops-trail")).toContainText("أُنشئ المشروع");
+  expect(requests.filter(r => r.path === "/handovers/41/accept").at(-1)!.body).toMatchObject({ operationsLeadId: 5 });
+  await page.getByRole("link", { name: "فتح المشروع" }).click();
+  await expect(page).toHaveURL(/#\/operations\/engagements\/77$/);
+  await page.getByLabel("المهمة").fill("Stage 1 audit plan");
+  await page.getByRole("combobox", { name: "المسؤول", exact: true }).selectOption("6");
+  await page.getByRole("button", { name: "إضافة مهمة" }).click();
+  await page.getByLabel("المهمة").fill("Collect documents");
+  await page.getByLabel("تاريخ الاستحقاق").fill("2026-10-01");
+  await page.getByRole("button", { name: "إضافة مهمة" }).click();
+  await expect(page.locator(".ops-checklist li.is-overdue")).toContainText("Collect documents");
+  await page.getByRole("button", { name: "إنهاء: Stage 1 audit plan" }).click();
+  await expect(page.locator(".ops-facts")).toContainText("50%");
+  await page.getByLabel("إلى").selectOption("6");
+  await page.getByRole("button", { name: "نقل المسؤولية" }).click();
+  await expect(page.locator(".ops-facts")).toContainText("Karim Lead");
+  await page.screenshot({ path: "test-results/ioeti-operations.png", fullPage: true });
+  await expect(page.locator("body")).not.toContainText("raw server text");
+});
+
+test("operations: rework with a reason is recorded; mobile layout without horizontal scroll", async ({page}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const { requests } = await operationsMocks(page);
+  await page.goto("/#/operations/handovers/41");
+  await page.getByLabel("السبب").selectOption("MISSING_SCOPE");
+  await page.getByRole("button", { name: "إعادة للاستكمال" }).click();
+  await expect(page.locator(".record-tags .ops-status")).toHaveText("مطلوب استكمال");
+  await expect(page.locator(".ops-trail")).toContainText("نطاق العمل غير مكتمل");
+  expect(requests.find(r => r.path === "/handovers/41/rework")!.body).toEqual({ version: 0, reason: "MISSING_SCOPE" });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
+});
