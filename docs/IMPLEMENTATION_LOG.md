@@ -528,3 +528,13 @@ Slice: `docs/slices/W4-fundraising.md`.
 - UI `#/fundraising`: overview, donors and Donor 360, grants board, grant record with schedule and collections, collection status. Real-mode money uses Latin digits and the ISO code. The sidebar's last disabled real-mode item is now Settings.
 - CI: `PROBE_FUND_ROUNDS=5 scripts/fundraising_probe.py`.
 
+## 2026-10-20 · Wave 5 · handover and engagement (`ioeti-operations`)
+
+Slice: `docs/slices/W5-handover-engagement.md`.
+
+- New module `ioeti-operations` (`ioeti_ops_*`, migration V010 with rollback U010) and an extension of the native `Project` (`ioeti_handover`, unique): handover requirements per business line, handovers of active contracts with a copied checklist, rework/reject with reason codes, acceptance that creates exactly one native project in the same transaction, native tasks with progress and overdue, ownership transfer, append-only trail.
+- Authorization is enforced on the server: reviewing needs project-creation rights, configuring checklists needs create rights on requirements; projects not created from a handover are outside the API (404).
+- D-11 note for the owners in `docs/decisions/OPEN_IOETI_POLICY_DECISIONS.md`: activation stays blocked, so handovers cannot start in production before D-11.
+- G-007 registry +90 fields (595 total). UI `#/operations` (real mode; the demo keeps its projects area).
+- CI: `PROBE_OPS_ROUNDS=5 scripts/operations_probe.py`.
+

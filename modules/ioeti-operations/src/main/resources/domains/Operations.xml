@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<domain-models xmlns="http://axelor.com/xml/ns/domain-models"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://axelor.com/xml/ns/domain-models https://axelor.com/xml/ns/domain-models/domain-models_8.2.xsd">
+
+  <module name="ioeti" package="com.ioeti.operations.db"/>
+
+  <!-- Wave 5: handover from sales to operations and the resulting engagement (a native Project).
+       Explicit ioeti_ table names keep every object under the migration gate (G-008). -->
+
+  <!-- Configuration: what each business line requires before operations accepts a deal. The content
+       is maintained by authorized administrators; engineering only provides the mechanism. -->
+  <entity name="HandoverRequirement" table="ioeti_ops_requirement">
+    <many-to-one name="businessLine" ref="com.ioeti.businessline.db.BusinessLine" title="Business line" required="true"/>
+    <string name="title" title="Requirement" required="true"/>
+    <boolean name="mandatory" title="Required before acceptance"/>
+    <integer name="sequence" title="Order"/>
+    <boolean name="active" title="Active"/>
+
+    <unique-constraint columns="businessLine,title"/>
+  </entity>
+
+  <entity name="HandoverRequest" table="ioeti_ops_handover">
+    <many-to-one name="contract" ref="com.axelor.apps.contract.db.Contract" title="Contract" required="true"/>
+    <many-to-one name="businessLine" ref="com.ioeti.businessline.db.BusinessLine" title="Business line" required="true"/>
+    <integer name="statusSelect" title="Status" required="true"/>
+    <many-to-one name="requestedBy" ref="com.axelor.auth.db.User" title="Requested by"/>
+    <many-to-one name="reviewedBy" ref="com.axelor.auth.db.User" title="Reviewed by"/>
+    <many-to-one name="operationsLead" ref="com.axelor.auth.db.User" title="Operations lead"/>
+    <many-to-one name="team" ref="com.axelor.team.db.Team" title="Operations team"/>
+    <many-to-one name="engagement" ref="com.axelor.apps.project.db.Project" title="Engagement"/>
+    <datetime name="submittedAt" title="Submitted at"/>
+    <datetime name="decidedAt" title="Decided at"/>
+
+    <extra-code><![CDATA[
+      public static final int STATUS_SUBMITTED = 1;
+      public static final int STATUS_REWORK_REQUESTED = 2;
+      public static final int STATUS_ACCEPTED = 3;
+      public static final int STATUS_REJECTED = 4;
+    ]]></extra-code>
+  </entity>
+
+  <!-- A snapshot of the requirements at submission: later configuration changes do not rewrite it. -->
+  <entity name="HandoverItem" table="ioeti_ops_handover_item">
+    <many-to-one name="handover" ref="HandoverRequest" title="Handover" required="true"/>
+    <string name="title" title="Requirement" required="true"/>
+    <boolean name="mandatory" title="Required before acceptance"/>
+    <integer name="sequence" title="Order"/>
+    <boolean name="done" title="Done"/>
+    <many-to-one name="doneBy" ref="com.axelor.auth.db.User" title="Done by"/>
+    <datetime name="doneAt" title="Done at"/>
+    <string name="evidenceReference" title="Evidence reference"/>
+  </entity>
+
+  <!-- Append-only trail of the handover and of the engagement's ownership; the API never changes a row. -->
+  <entity name="HandoverEvent" table="ioeti_ops_handover_event">
+    <many-to-one name="handover" ref="HandoverRequest" title="Handover" required="true"/>
+    <integer name="kindSelect" title="Event" required="true"/>
+    <integer name="reasonSelect" title="Reason"/>
+    <many-to-one name="actor" ref="com.axelor.auth.db.User" title="By"/>
+    <datetime name="occurredAt" title="At" required="true"/>
+    <many-to-one name="fromUser" ref="com.axelor.auth.db.User" title="From"/>
+    <many-to-one name="toUser" ref="com.axelor.auth.db.User" title="To"/>
+    <string name="itemTitle" title="Requirement"/>
+
+    <extra-code><![CDATA[
+      public static final int KIND_SUBMITTED = 1;
+      public static final int KIND_ITEM_DONE = 2;
+      public static final int KIND_REWORK_REQUESTED = 3;
+      public static final int KIND_RESUBMITTED = 4;
+      public static final int KIND_ACCEPTED = 5;
+      public static final int KIND_REJECTED = 6;
+      public static final int KIND_ENGAGEMENT_CREATED = 7;
+      public static final int KIND_OWNER_CHANGED = 8;
+      public static final int REASON_MISSING_SCOPE = 1;
+      public static final int REASON_MISSING_DOCUMENTS = 2;
+      public static final int REASON_NO_CAPACITY = 3;
+      public static final int REASON_CLIENT_NOT_READY = 4;
+      public static final int REASON_OTHER = 5;
+    ]]></extra-code>
+  </entity>
+
+</domain-models>
