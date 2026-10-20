@@ -1,0 +1,26 @@
+name: IOETI staging safety gate
+on:
+  pull_request:
+    paths:
+      - "infra/staging.env.example"
+      - "infra/nginx/**"
+      - "infra/systemd/**"
+      - "scripts/staging_config.py"
+      - "scripts/staging_run.sh"
+      - "tests/test_staging_config.py"
+      - ".github/workflows/ioeti-staging.yml"
+      - "infra/axelor/axelor-config.ioeti.template.properties"
+jobs:
+  staging-config:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Validate strict staging gate and negative tests (no real secrets)
+        run: python3 -m unittest discover -s tests -p 'test_staging_config.py' -v
+      - name: Shell syntax
+        run: bash -n scripts/staging_run.sh
