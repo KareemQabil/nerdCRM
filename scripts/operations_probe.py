@@ -221,6 +221,14 @@ def main():
               and (s_ac2, error(b_ac2).get("code"), s_late, error(b_late).get("code")) == (422, "HANDOVER_STATE", 422, "HANDOVER_STATE"),
               f"{s_ac} {eng} {len(projects)} {s_ac2} {s_late}")
 
+        # Wave 7b: the requester is told in the app about rework and acceptance; the actor gets nothing
+        _, inbox_a = a.call("GET", "/ws/ioeti/automation/inbox")
+        _, inbox_op = op.call("GET", "/ws/ioeti/automation/inbox")
+        notes_a = [(n["kind"], n["subject"], n["subjectId"]) for n in (inbox_a.get("object") or [])]
+        check("notices: the requester gets HANDOVER_REWORK and HANDOVER_ACCEPTED in the app; the reviewer, who acted, gets none",
+              ("HANDOVER_REWORK", "HANDOVER", h["id"]) in notes_a and ("HANDOVER_ACCEPTED", "HANDOVER", h["id"]) in notes_a
+              and not any(n["kind"].startswith("HANDOVER") for n in (inbox_op.get("object") or [])), f"{notes_a} {inbox_op}")
+
         # --- 5. tasks, progress, ownership --------------------------------------------------------------------
         v_eng = version(PROJECT, eng["id"])
         s_t1, b_t1 = call(op, "POST", f"/engagements/{eng['id']}/tasks", {"version": v_eng, "name": "Stage 1 audit plan",

@@ -65,3 +65,4 @@ export const planFollowUp = (leadId: number, version: number, type: FollowUpType
   post<FollowUp>(`${BASE}/leads/${id(leadId)}/follow-ups`, { version, type, subject, at });
 export const getFollowUps = (overdue: boolean) => list<FollowUp>(`${BASE}/follow-ups${overdue ? "?overdue=true" : ""}`);
 export const markFollowUpDone = (followUpId: number, version: number) => post<FollowUp>(`${BASE}/follow-ups/${id(followUpId)}/done`, { version });
+export const addSource = (name: string) => post<Option>(`${BASE}/sources`, { name });

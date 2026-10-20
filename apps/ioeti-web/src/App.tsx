@@ -4,7 +4,7 @@ import {
   Check, ChevronDown, CircleAlert, CircleHelp, Crown, GraduationCap,
   HeartHandshake, House, Layers3, LockKeyhole, LogOut, Menu,
   Moon, Palette, RefreshCw, Search, Settings2,
-  ShieldCheck, Sun, Workflow, UsersRound, X, ClipboardList, BookOpen,
+  ShieldCheck, Sun, Workflow, UsersRound, X, ClipboardList, BookOpen, Bell, BarChart3,
 } from "lucide-react";
 import { ApiError, getBusinessLines, getSession, signIn, signOut, type BusinessLine, type SessionIdentity } from "./api";
 import { OpportunitiesPage } from "./OpportunitiesPage";
@@ -16,6 +16,10 @@ import { RecruitmentPage } from "./RecruitmentPage";
 import { FundraisingPage } from "./FundraisingPage";
 import { OperationsPage } from "./OperationsPage";
 import { KnowledgePage } from "./KnowledgePage";
+import { InboxPage } from "./InboxPage";
+import { ReportsPage } from "./ReportsPage";
+import { SettingsPage } from "./SettingsPage";
+import { getUnreadCount } from "./automationApi";
 import { DEMO_MODE } from "./demo";
 import { DEMO_AREAS, type DemoArea } from "./demoAreas";
 const DemoBusinessWorkspace = lazy(() => import("./DemoBusinessWorkspace"));
@@ -23,7 +27,7 @@ const DemoExecutiveOverview = lazy(() => import("./DemoExecutiveOverview"));
 import { t } from "./labels";
 import { usePreferences, type Theme } from "./preferences";
 
-type Page = "home" | "businessLines" | "opportunities" | "leads" | "accounts" | "capabilities" | "design" | "demo" | "certification" | "training" | "recruitment" | "fundraising" | "operations" | "knowledge" | "settings";
+type Page = "home" | "businessLines" | "opportunities" | "leads" | "accounts" | "capabilities" | "design" | "demo" | "certification" | "training" | "recruitment" | "fundraising" | "operations" | "knowledge" | "inbox" | "reports" | "settings";
 type Session = "checking" | "login" | "authenticated";
 type LineFilter = "all" | "active" | "setup" | "suspended";
 type IconType = typeof House;
@@ -32,12 +36,12 @@ function getPageFromDemoArea(area: DemoArea): Page {
     : area === "recruiting" ? "recruitment" : area === "fundraising" ? "fundraising" : "demo";
 }
 
-const allPages: Page[] = ["home","businessLines","opportunities","leads","accounts","capabilities","design","demo","certification","training","recruitment","fundraising","operations","knowledge","settings"];
+const allPages: Page[] = ["home","businessLines","opportunities","leads","accounts","capabilities","design","demo","certification","training","recruitment","fundraising","operations","knowledge","inbox","reports","settings"];
 function getPageFromLocation(): Page {
   const segment = window.location.hash.match(/^#\/([^/]+)/)?.[1];
-  if (!DEMO_MODE && ["demo","settings"].includes(segment||"")) return "home";
+  if (!DEMO_MODE && segment === "demo") return "home";
   if (DEMO_MODE && segment === "operations") return "home";
-  if (DEMO_MODE && segment === "knowledge") return "home";
+  if (DEMO_MODE && ["knowledge","inbox","reports"].includes(segment||"")) return "home";
   return allPages.includes(segment as Page) ? segment as Page : "home";
 }
 
@@ -62,11 +66,24 @@ export function App() {
   const [identity, setIdentity] = useState<SessionIdentity | null>(null);
   const [lines, setLines] = useState<BusinessLine[]>([]);
   const [loadError, setLoadError] = useState("");
+  const [unread, setUnread] = useState(0);
   const [selected, setSelected] = useState<BusinessLine | null>(null);
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<LineFilter>("all");
   const [mobileNav, setMobileNav] = useState(false);
   const [busy, setBusy] = useState(false);
+
+  // Wave 7b: unread in-app notices (live mode only); a failure leaves the badge empty
+  async function refreshUnread() {
+    if (DEMO_MODE) return;
+    try { setUnread(await getUnreadCount()); } catch { setUnread(0); }
+  }
+  useEffect(() => {
+    if (DEMO_MODE || session !== "authenticated") return;
+    void refreshUnread();
+    const timer = window.setInterval(() => void refreshUnread(), 60_000);
+    return () => window.clearInterval(timer);
+  }, [session, page]);
 
   async function refresh() {
     setBusy(true);
@@ -194,8 +211,9 @@ export function App() {
     catch (error) { setLoadError(error instanceof Error ? error.message : labels.unavailable); }
   }} />;
 
-  const mainNav: { id: Page | string; label: string; icon: IconType; disabled?: boolean }[] = [
+  const mainNav: { id: Page | string; label: string; icon: IconType; disabled?: boolean; badge?: number }[] = [
     { id: "home", label: labels.home, icon: House },
+    ...(DEMO_MODE ? [] : [{ id: "inbox", label: labels.inbox, icon: Bell, badge: unread }]),
     { id: "businessLines", label: labels.businessLines, icon: Layers3 },
     { id: "opportunities", label: labels.sales, icon: Activity },
     { id: "leads", label: labels.leads, icon: UsersRound },
@@ -204,14 +222,15 @@ export function App() {
     // real mode only: the demo keeps its own projects area
     ...(DEMO_MODE ? [] : [{ id: "operations", label: labels.operations, icon: ClipboardList }]),
     ...(DEMO_MODE ? [] : [{ id: "knowledge", label: labels.knowledge, icon: BookOpen }]),
+    ...(DEMO_MODE ? [] : [{ id: "reports", label: labels.reports, icon: BarChart3 }]),
     { id: "certification", label: labels.certification, icon: BadgeCheck },
     { id: "training", label: labels.training, icon: GraduationCap },
     { id: "recruitment", label: labels.recruitment, icon: BriefcaseBusiness },
     { id: "fundraising", label: labels.fundraising, icon: HeartHandshake },
   ];
-  const secondaryNav: { id: Page | string; label: string; icon: IconType; disabled?: boolean }[] = [
+  const secondaryNav: { id: Page | string; label: string; icon: IconType; disabled?: boolean; badge?: number }[] = [
     { id: "design", label: labels.design, icon: Palette },
-    { id: "settings", label: labels.settings, icon: Settings2, disabled: !DEMO_MODE },
+    { id: "settings", label: labels.settings, icon: Settings2 },
   ];
 
   function renderNav(items: typeof mainNav) {
@@ -224,7 +243,7 @@ export function App() {
         aria-current={active ? "page" : undefined}
         title={item.disabled ? item.label + " · " + labels.upcoming : item.label}
         onClick={() => navigate(item.id as Page)}
-      ><ItemIcon size={19} strokeWidth={active ? 2.35 : 1.85} /><span className="nav-label">{item.label}</span>{item.disabled && <span className="coming-indicator" aria-label={labels.upcoming} />}</button>;
+      ><ItemIcon size={19} strokeWidth={active ? 2.35 : 1.85} /><span className="nav-label">{item.label}</span>{item.badge ? <span className="in-badge" aria-label={`${item.badge}`}>{item.badge > 99 ? "99+" : item.badge}</span> : null}{item.disabled && <span className="coming-indicator" aria-label={labels.upcoming} />}</button>;
     });
   }
 
@@ -245,7 +264,7 @@ export function App() {
       <header className="top-bar">
         <div className="top-start">
           <IconButton className="mobile-menu" label={labels.navigation} onClick={() => setMobileNav(true)}><Menu size={19}/></IconButton>
-          <div className="breadcrumb"><span>{labels.workspace}</span><span className="crumb-separator">/</span><strong>{page === "home" ? labels.home : page === "businessLines" ? labels.businessLines : page === "opportunities" ? labels.opportunities : page === "leads" ? labels.leads : page === "accounts" ? labels.accountDirectory : page === "capabilities" ? labels.capabilityMap : page === "training" && !DEMO_MODE ? labels.training : page === "certification" && !DEMO_MODE ? labels.certification : page === "recruitment" && !DEMO_MODE ? labels.recruitment : page === "fundraising" && !DEMO_MODE ? labels.fundraising : page === "operations" && !DEMO_MODE ? labels.operations : page === "knowledge" && !DEMO_MODE ? labels.knowledge : activeDemoArea ? (isRTL ? {quotes:"عروض الأسعار",catalog:"كتالوج الخدمات",contracts:"العقود",finance:"المالية",projects:"المشروعات",visits:"الزيارات",quality:"الجودة",marketing:"التسويق",learning:"التدريب",recruiting:"التوظيف",certification:"الشهادات",fundraising:"التمويل",documents:"المستندات",automations:"الأتمتة",reports:"التقارير",admin:"الإعدادات"}[activeDemoArea] : {quotes:"Quotations",catalog:"Service catalog",contracts:"Contracts",finance:"Finance",projects:"Projects",visits:"Visits",quality:"Quality",marketing:"Marketing",learning:"Training",recruiting:"Recruitment",certification:"Certification",fundraising:"Fundraising",documents:"Documents",automations:"Automations",reports:"Reports",admin:"Settings"}[activeDemoArea]) : labels.design}</strong></div>
+          <div className="breadcrumb"><span>{labels.workspace}</span><span className="crumb-separator">/</span><strong>{page === "home" ? labels.home : page === "businessLines" ? labels.businessLines : page === "opportunities" ? labels.opportunities : page === "leads" ? labels.leads : page === "accounts" ? labels.accountDirectory : page === "capabilities" ? labels.capabilityMap : page === "training" && !DEMO_MODE ? labels.training : page === "certification" && !DEMO_MODE ? labels.certification : page === "recruitment" && !DEMO_MODE ? labels.recruitment : page === "fundraising" && !DEMO_MODE ? labels.fundraising : page === "operations" && !DEMO_MODE ? labels.operations : page === "knowledge" && !DEMO_MODE ? labels.knowledge : page === "inbox" && !DEMO_MODE ? labels.inbox : page === "reports" && !DEMO_MODE ? labels.reports : page === "settings" && !DEMO_MODE ? labels.settings : activeDemoArea ? (isRTL ? {quotes:"عروض الأسعار",catalog:"كتالوج الخدمات",contracts:"العقود",finance:"المالية",projects:"المشروعات",visits:"الزيارات",quality:"الجودة",marketing:"التسويق",learning:"التدريب",recruiting:"التوظيف",certification:"الشهادات",fundraising:"التمويل",documents:"المستندات",automations:"الأتمتة",reports:"التقارير",admin:"الإعدادات"}[activeDemoArea] : {quotes:"Quotations",catalog:"Service catalog",contracts:"Contracts",finance:"Finance",projects:"Projects",visits:"Visits",quality:"Quality",marketing:"Marketing",learning:"Training",recruiting:"Recruitment",certification:"Certification",fundraising:"Fundraising",documents:"Documents",automations:"Automations",reports:"Reports",admin:"Settings"}[activeDemoArea]) : labels.design}</strong></div>
         </div>
         <div className="top-actions">
           <span className="server-status"><span className="live-pulse"/>{DEMO_MODE ? (isRTL ? "بيانات افتراضية" : "Sample data") : labels.connected}</span>
@@ -289,6 +308,9 @@ export function App() {
         {page === "fundraising" && !DEMO_MODE && <FundraisingPage language={prefs.language} />}
         {page === "operations" && !DEMO_MODE && <OperationsPage language={prefs.language} />}
         {page === "knowledge" && !DEMO_MODE && <KnowledgePage language={prefs.language} />}
+        {page === "inbox" && !DEMO_MODE && <InboxPage language={prefs.language} onChanged={() => void refreshUnread()} />}
+        {page === "reports" && !DEMO_MODE && <ReportsPage language={prefs.language} />}
+        {page === "settings" && !DEMO_MODE && <SettingsPage language={prefs.language} />}
         {page === "capabilities" && <NativeModules language={prefs.language} onOpen={navigate} onOpenDemo={navigateDemo} />}
         {page === "businessLines" && !selected && <section className="page-enter">
           <PageTitle eyebrow={labels.workspace} title={labels.businessLines} description={labels.description} />

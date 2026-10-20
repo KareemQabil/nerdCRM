@@ -1,0 +1,62 @@
+[
+  {
+    "id": "D-01",
+    "title": "Missing specification",
+    "status": "OPEN"
+  },
+  {
+    "id": "D-02",
+    "title": "External ISO certification",
+    "status": "OPEN"
+  },
+  {
+    "id": "D-03",
+    "title": "External training",
+    "status": "OPEN"
+  },
+  {
+    "id": "D-04",
+    "title": "Client recruitment",
+    "status": "OPEN"
+  },
+  {
+    "id": "D-05",
+    "title": "Fundraising",
+    "status": "OPEN"
+  },
+  {
+    "id": "D-06",
+    "title": "Finance",
+    "status": "OPEN"
+  },
+  {
+    "id": "D-07",
+    "title": "Roles and access",
+    "status": "OPEN"
+  },
+  {
+    "id": "D-08",
+    "title": "Hosting and operations",
+    "status": "OPEN"
+  },
+  {
+    "id": "D-09",
+    "title": "V1 scope and UAT",
+    "status": "OPEN"
+  },
+  {
+    "id": "D-10",
+    "title": "External exposure",
+    "status": "OPEN"
+  },
+  {
+    "id": "D-11",
+    "title": "Commercial approvals, quotation terms and contract signature",
+    "status": "OPEN"
+  },
+  {
+    "id": "D-12",
+    "title": "Lead response and routing",
+    "status": "OPEN"
+  }
+]

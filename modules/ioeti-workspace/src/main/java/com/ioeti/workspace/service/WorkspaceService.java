@@ -1,5 +1,6 @@
 package com.ioeti.workspace.service;
 
+import com.ioeti.core.notify.Notifier;
 import com.axelor.apps.contract.db.Contract;
 import com.axelor.apps.contract.db.repo.ContractRepository;
 import com.axelor.apps.crm.db.Opportunity;
@@ -84,7 +85,13 @@ public class WorkspaceService {
     review.setReviewedBy(AuthUtils.getUser());
     review.setReasonSelect(reason);
     event(review, ReviewEventRepository.KIND_CHANGES_REQUESTED, reason);
-    return JPA.save(review);
+    ReviewRequest saved = JPA.save(review);
+    Opportunity opportunity = review.getQuote() != null ? review.getQuote().getOpportunity()
+        : review.getContract() != null ? review.getContract().getOpportunity() : null;
+    Beans.get(Notifier.class).notify(review.getRequestedBy(), "REVIEW_CHANGES_REQUESTED", opportunity == null ? null : "OPPORTUNITY",
+        opportunity == null ? null : opportunity.getId(), review.getQuote() != null
+            ? "Quotation " + review.getQuote().getSaleOrderSeq() : "Contract " + review.getContract().getContractId());
+    return saved;
   }
 
   @Transactional(rollbackOn = {Exception.class})

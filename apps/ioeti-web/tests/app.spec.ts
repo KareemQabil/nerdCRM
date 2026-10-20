@@ -405,7 +405,11 @@ test("real authenticated mode never mounts fictional operating workspaces",async
   await page.goto("/#/demo/quotes");
   await expect(page.locator(".demo-business")).toHaveCount(0);
   await expect(page.getByRole("heading",{name:"أهلًا بك في IOETI"})).toBeVisible();
-  await expect(page.locator("button.nav-item").filter({hasText:"الإعدادات"})).toBeDisabled();
+  // Settings is the real settings page in live mode (Wave 7b), never the fictional admin workspace
+  await page.locator("button.nav-item").filter({hasText:"الإعدادات"}).click();
+  await expect(page).toHaveURL(/#\/settings$/);
+  await expect(page.getByRole("heading",{name:"الإعدادات",level:1})).toBeVisible();
+  await expect(page.locator(".demo-business")).toHaveCount(0);
 });
 
 test("real mode never downloads multi-domain demo workspace chunks or fixtures",async ({page})=>{
@@ -414,7 +418,8 @@ test("real mode never downloads multi-domain demo workspace chunks or fixtures",
   await intercept(page);
   await page.goto("/");
   await page.getByRole("button",{name:"خريطة النظام"}).click();
-  await expect(page.locator("button.nav-item").filter({hasText:"الإعدادات"})).toBeDisabled();
+  await page.locator("button.nav-item").filter({hasText:"الإعدادات"}).click();
+  await expect(page.getByRole("heading",{name:"الإعدادات",level:1})).toBeVisible();
   expect(fetched.filter(url=>/DemoBusinessWorkspace|DemoExecutiveOverview|DemoDomainWorkbench|demoBusiness\.(ts|js)/.test(url))).toEqual([]);
 });
 
@@ -1878,4 +1883,133 @@ test("knowledge base: editors start, save and publish an article; unchanged publ
   await expect(page.locator(".ct-article")).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1 ? [] :
     [...document.querySelectorAll("main *")].filter(e => e.getBoundingClientRect().right > window.innerWidth + 1).map(e => `${e.tagName}.${String(e.className)}`).slice(0, 5))).toEqual([]);
+});
+
+async function insightsMocks(page: Page, options: { admin?: boolean } = {}) {
+  await intercept(page);
+  const ok = (object: unknown, code = 200) => ({ status: code, contentType: "application/json", body: JSON.stringify({ codeStatus: code, messageStatus: "ok", object }) });
+  const fail = (status: number, code: string, fieldCode?: string) => ({ status, contentType: "application/json", body: JSON.stringify({
+    codeStatus: status, messageStatus: "x", error: { code, message: "raw server text", correlationId: "c0ffee08", fields: fieldCode ? [{ field: "name", code: fieldCode, message: "x" }] : [] } }) });
+  const s = {
+    notices: [
+      { id: 1, kind: "MENTION", subject: "LEAD", subjectId: 207, title: "Can you call them?", actorName: "Sara Sales", read: false, at: "2026-10-20T09:00:00" },
+      { id: 2, kind: "REVIEW_CHANGES_REQUESTED", subject: "OPPORTUNITY", subjectId: 101, title: "Quotation SO-0007", actorName: "Mona Manager", read: false, at: "2026-10-20T08:00:00" },
+    ],
+    drafts: [] as Record<string, unknown>[],
+    sources: [{ id: 11, name: "Exhibition" }],
+  };
+  const requests: { method: string; path: string; body: unknown }[] = [];
+  const answers: ReturnType<typeof fail>[] = [];
+  await page.route(url => /\/ws\/ioeti\/(automation\/|reports\/|marketing\/sources|leads\/207$)/.test(url.pathname), route => {
+    const url = new URL(route.request().url());
+    const path = url.pathname.replace(/.*\/ws\/ioeti/, "") + url.search;
+    const method = route.request().method();
+    const body = method === "POST" ? route.request().postDataJSON() as Record<string, unknown> : null;
+    requests.push({ method, path, body });
+    const refusal = method === "POST" ? answers.shift() : undefined;
+    if (refusal) return route.fulfill(refusal);
+    if (path === "/leads/207") return route.fulfill(ok({ id: 207, version: 4, name: "Nour Hassan", organization: "Nile View Hotel", stage: "New", converted: false, stageId: 1, stageKind: "OPEN" }));
+    if (path === "/automation/inbox/count") return route.fulfill(ok({ unread: s.notices.filter(n => !n.read).length }));
+    if (path.startsWith("/automation/inbox?") || path === "/automation/inbox") return route.fulfill(ok(url.searchParams.get("unread") ? s.notices.filter(n => !n.read) : s.notices));
+    if (/\/automation\/inbox\/\d+\/read$/.test(path)) { const n = s.notices.find(x => x.id === Number(path.split("/")[3]))!; n.read = true; return route.fulfill(ok(n)); }
+    if (path === "/automation/inbox/read-all") { s.notices.forEach(n => n.read = true); return route.fulfill(ok({ marked: 1 })); }
+    if (path.startsWith("/automation/people?")) return route.fulfill(ok([{ id: 31, name: "Omar Ops" }]));
+    if (path === "/automation/mentions") return route.fulfill(ok({ recipientId: 31 }, 201));
+    if (path.startsWith("/automation/outbox?")) return route.fulfill(ok(s.drafts));
+    if (path === "/automation/outbox") { const d = { id: 41, version: 0, leadId: 207, channel: "EMAIL", subjectLine: body!.subjectLine, body: body!.body, status: "DRAFT",
+      authorName: "Sara Sales", createdAt: "2026-10-20T10:00:00", sendStatus: "BLOCKED_BY_POLICY" }; s.drafts = [d]; return route.fulfill(ok(d, 201)); }
+    if (path === "/automation/outbox/41/cancel") { s.drafts = [{ ...s.drafts[0], status: "CANCELLED", version: 1 }]; return route.fulfill(ok(s.drafts[0])); }
+    if (path.startsWith("/reports/sales")) return route.fulfill(ok({ from: null, to: null, businessLineCode: null,
+      pipeline: [{ businessLineCode: "ISO9001", stage: "Proposal", open: true, count: 2, amounts: [{ currency: "EGP", amount: "1000.00" }, { currency: "USD", amount: "500.00" }] }],
+      leads: { total: 4, open: 2, converted: 1, lost: 1, bySource: [{ source: "=HYPERLINK(\"x\")", total: 4, open: 2, converted: 1, lost: 1 }] },
+      campaigns: null, followUps: { planned: 3, overdue: 1, doneLast30Days: 5 } }));
+    if (path.startsWith("/reports/areas")) return route.fulfill(ok({ from: null, to: null, areas: [{ key: "HANDOVERS", count: 2 }] }));
+    if (path === "/reports/system") return options.admin ? route.fulfill(ok({ modules: ["ioeti-core", "ioeti-reports"],
+      migrations: [{ version: 15, name: "ioeti_automation", appliedOn: "2026-10-20T12:00:00" }],
+      policies: [{ id: "D-10", title: "External exposure", status: "OPEN" }] })) : route.fulfill(fail(403, "FORBIDDEN"));
+    if (path === "/marketing/sources" && method === "GET") return route.fulfill(ok(s.sources));
+    if (path === "/marketing/sources") { const n = { id: 12, name: body!.name as string }; s.sources = [...s.sources, n]; return route.fulfill(ok(n, 201)); }
+    return route.fulfill({ status: 404, contentType: "application/json", body: "{}" });
+  });
+  return { requests, answers, fail };
+}
+
+test("inbox: unread badge in the navigation; notices link to their record; read one and read all update the badge", async ({page}) => {
+  const { requests } = await insightsMocks(page);
+  await page.goto("/");
+  const nav = page.locator("button.nav-item").filter({ hasText: "الإشعارات" });
+  await expect(nav.locator(".in-badge")).toHaveText("2");
+  await nav.click();
+  await expect(page.locator(".in-list li").first()).toContainText("Can you call them?");
+  await expect(page.locator(".in-list li").first().getByRole("link", { name: "فتح" })).toHaveAttribute("href", "#/leads/207");
+  await expect(page.locator(".in-list li").nth(1).getByRole("link", { name: "فتح" })).toHaveAttribute("href", "#/opportunities/101");
+  await page.locator(".in-list li").first().getByRole("button", { name: "تعليم كمقروء" }).click();
+  await expect(nav.locator(".in-badge")).toHaveText("1");
+  await page.getByRole("button", { name: "تعليم الكل كمقروء" }).click();
+  await expect(nav.locator(".in-badge")).toHaveCount(0);
+  expect(requests.filter(r => r.method === "POST").map(r => r.path)).toEqual(["/automation/inbox/1/read", "/automation/inbox/read-all"]);
+});
+
+test("lead page: outbox drafts are kept but sending is disabled (D-10); an opt-out refusal is explained; mentions pick a colleague", async ({page}) => {
+  const { requests, answers, fail } = await insightsMocks(page);
+  await page.goto("/#/leads/207");
+  const outbox = page.locator(".in-outbox");
+  await outbox.getByLabel("عنوان الرسالة").fill("Audit dates");
+  await outbox.getByLabel("نص الرسالة").fill("Dear Nour,");
+  answers.push(fail(422, "OPTED_OUT"));
+  await outbox.getByRole("button", { name: "حفظ مسودة" }).click();
+  await expect(outbox.getByRole("alert")).toHaveText(/العميل رفض التواصل بالبريد/);
+  await outbox.getByRole("button", { name: "حفظ مسودة" }).click();
+  await expect(outbox.locator(".wf-list")).toContainText("Audit dates");
+  await expect(outbox.getByRole("button", { name: "إرسال", exact: true })).toBeDisabled();
+  await expect(outbox).toContainText("D-10");
+  await outbox.getByRole("button", { name: "إلغاء المسودة" }).click();
+  await expect(outbox.locator(".wf-list")).toContainText("ملغاة");
+  const mention = page.locator(".in-mention");
+  await mention.getByLabel("الزميل").first().fill("Om");
+  await mention.locator("select").selectOption("31");
+  await mention.getByLabel("الرسالة").fill("Please call them");
+  await mention.getByRole("button", { name: "إرسال داخلي" }).click();
+  await expect(mention.getByRole("status")).toHaveText("تم إرسال الإشارة.");
+  expect(requests.find(r => r.path === "/automation/mentions")?.body).toEqual({ recipientId: 31, subject: "LEAD", subjectId: 207, message: "Please call them" });
+  expect(requests.some(r => r.path.endsWith("/send"))).toBe(false);
+});
+
+test("reports: values stay per currency; hidden sections are absent; CSV export neutralizes formulas", async ({page}) => {
+  await insightsMocks(page);
+  await page.goto("/#/reports");
+  const pipeline = page.locator(".rp-card").filter({ hasText: "خط المبيعات حسب المرحلة" });
+  await expect(pipeline.locator("td[dir=ltr]")).toContainText("1,000.00 EGP");
+  await expect(pipeline.locator("td[dir=ltr]")).toContainText("500.00 USD");
+  await expect(pipeline).not.toContainText("1,500");
+  await expect(page.getByRole("heading", { name: "الحملات" })).toHaveCount(0);
+  await expect(page.locator(".rp-card").filter({ hasText: "العملاء المحتملون حسب المصدر" })).toContainText("25%");
+  await expect(page.locator(".rp-card").filter({ hasText: "السجلات في كل قسم" })).toContainText("طلبات التسليم");
+  const [file] = await Promise.all([page.waitForEvent("download"),
+    page.locator(".rp-card").filter({ hasText: "العملاء المحتملون حسب المصدر" }).getByRole("button", { name: "تصدير CSV" }).click()]);
+  const csv = await (await import("node:fs/promises")).readFile((await file.path())!, "utf-8");
+  expect(csv).toContain(`"'=HYPERLINK(""x"")","4","2","1","1"`);
+});
+
+test("settings: preferences and lead sources for everyone; the system page only for administrators", async ({page}) => {
+  const { requests } = await insightsMocks(page);
+  await page.goto("/#/settings");
+  await expect(page.getByRole("heading", { name: "الإعدادات", level: 1 })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "حالة النظام" })).toHaveCount(0);
+  await page.getByPlaceholder("الاسم").fill("Website");
+  await page.getByRole("button", { name: "إضافة مصدر" }).click();
+  await expect(page.locator(".mk-tags")).toContainText("Website");
+  expect(requests.find(r => r.method === "POST" && r.path === "/marketing/sources")?.body).toEqual({ name: "Website" });
+  await page.locator(".st-page").getByLabel("اللغة").selectOption("en");
+  await expect(page.getByRole("heading", { name: "Settings", level: 1 })).toBeVisible();
+});
+
+test("settings: administrators see installed modules, applied migrations and open policy decisions", async ({page}) => {
+  await insightsMocks(page, { admin: true });
+  await page.goto("/#/settings");
+  const system = page.locator(".rp-card").filter({ hasText: "حالة النظام" });
+  await expect(system).toContainText("ioeti-reports");
+  await expect(system).toContainText("V015");
+  await expect(system).toContainText("D-10");
+  await expect(system).toContainText("مفتوح");
 });

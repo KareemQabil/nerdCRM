@@ -208,6 +208,13 @@ def main():
         s_c, _, rc = review(a, contractId=c_draft)
         _, chist = mgr_c.call("GET", f"{WS}/reviews?contractId={c_draft}")
         first = next((h for h in obj(hist) if h["id"] == r1.get("id")), {})
+        # Wave 7b: the requester is told in the app (linked to the opportunity); the reviewer gets nothing
+        _, inbox_a = a.call("GET", "/ws/ioeti/automation/inbox")
+        _, inbox_m = mgr_c.call("GET", "/ws/ioeti/automation/inbox")
+        notes_a = [(n["kind"], n["subject"], n["subjectId"]) for n in (inbox_a.get("object") or [])]
+        check("notices: changes requested reach the requester in the app, linked to the opportunity; none for the reviewer",
+              notes_a.count(("REVIEW_CHANGES_REQUESTED", "OPPORTUNITY", opp1["id"])) == 1 and not (inbox_m.get("object") or []),
+              f"{notes_a} {inbox_m}")
         check("review: empty quotation → 422; pending with the quotation version; twice → 409; approve/reject → BLOCKED_BY_POLICY (D-11)",
               (s_e, error(b_e).get("code"), s1, r1.get("status"), r1.get("quoteVersionNumber"), s2, error(b2).get("code"), s_ap, s_rj)
               == (422, "NO_LINES", 201, "PENDING", obj(b_r).get("versionNumber"), 409, "REVIEW_PENDING", 422, 422)

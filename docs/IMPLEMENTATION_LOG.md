@@ -585,3 +585,22 @@ Slice: `docs/slices/W7a-documents-knowledge.md`.
   Fixed in review of the UI tests: after a refused publish, refreshing the article replaced the specific error with a generic one.
 - CI: `PROBE_CONTENT_ROUNDS=5 scripts/content_probe.py`.
 
+## 2026-10-20 · Wave 7b · notifications, outbox, reports, settings (`ioeti-automation`, `ioeti-reports`)
+
+Slice: `docs/slices/W7b-notifications-reports-settings.md`.
+
+- `ioeti-core`: the `Notifier` interface, with a do-nothing default bound through a Guice `OptionalBinder`.
+- `ioeti-automation` (migration V015/U015; entity `InboxNotice`, because `Notification` is already taken by axelor-account):
+  - stored in-app notices raised by the workspace review and operations handover decisions;
+  - mentions;
+  - the held outbox, with the opt-out checked at draft and again at send, and sending blocked by D-10.
+- `ioeti-reports`: aggregates in JPQL that always include the native read filter of the caller (`ScopedAggregates`); the administrators' system page; `policy-decisions.json`, kept equal to the decision document by `scripts/policy_registry_check.py` (in CI).
+- `ioeti-marketing`: `POST /sources`.
+- UI:
+  - Notifications, with an unread badge;
+  - outbox and mention panels;
+  - a Reports page with CSV export that neutralizes formulas;
+  - the Settings page is now real in live mode. Two tests that asserted it was disabled now assert that it opens the real page and never the fictional admin workspace.
+- Probes: `scripts/insights_probe.py`; inbox checks added to the operations and workspace probes. The shared fixture clean-up removes a test user's notices and drafts.
+- G-007 registry: 75 new fields (867 in total, 0 problems).
+
