@@ -517,3 +517,14 @@ Slice: `docs/slices/W4-agency-recruitment.md`.
 - UI `#/recruitment`: job order and candidate registers, job order record with a stage board and application panel, candidate record with the restricted section and consents. The real-mode nav item is enabled; fundraising stays disabled.
 - CI: `PROBE_REC_ROUNDS=5 scripts/recruitment_probe.py`.
 
+## 2026-10-20 · Wave 4E · fundraising and partnerships (`ioeti-fundraising`)
+
+Slice: `docs/slices/W4-fundraising.md`.
+
+- New module `ioeti-fundraising` (`ioeti_fund_*`, migration V009 with rollback U009): donor profiles, sensitive profiles, funding opportunities, commitments, installments, collections, deliverables, stewardship. Reuses native `Partner`, marketing `Campaign` and `Currency`.
+- Money stays apart: proposed, committed (a pledge), scheduled and collected are separate figures per currency; only a collection recorded against a bank reference counts as collected. The schedule never exceeds the commitment; a collection never exceeds what is due; the same bank reference twice is refused (409); voids keep the row.
+- Fail closed: receipts (D-05), posting and invoicing (D-06), restricted allocation (D-05, D-06), reading the sensitive profile (D-05, D-07).
+- G-007 registry +143 fields (505 total). Fundraising records got their own names (`CreateFundingOpportunity`, `FundingOpportunityView`, `DonorTimelineEvent`) so they do not share classifications with the sales and certification records.
+- UI `#/fundraising`: overview, donors and Donor 360, grants board, grant record with schedule and collections, collection status. Real-mode money uses Latin digits and the ISO code. The sidebar's last disabled real-mode item is now Settings.
+- CI: `PROBE_FUND_ROUNDS=5 scripts/fundraising_probe.py`.
+
