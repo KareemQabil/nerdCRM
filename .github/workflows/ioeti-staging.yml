@@ -1,0 +1,68 @@
+name: IOETI staging safety gate
+on:
+  pull_request:
+    paths:
+      - "apps/ioeti-web/playwright.staging.config.ts"
+      - "apps/ioeti-web/live-tests/**"
+      - "apps/ioeti-web/package.json"
+      - "infra/staging.env.example"
+      - "infra/nginx/**"
+      - "infra/systemd/**"
+      - "scripts/staging_config.py"
+      - "scripts/staging_run.sh"
+      - "scripts/staging_smoke.py"
+      - "tests/test_staging_*.py"
+      - ".github/workflows/ioeti-staging.yml"
+      - "infra/axelor/axelor-config.ioeti.template.properties"
+jobs:
+  staging-config:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Validate strict staging gate and negative tests (no real secrets)
+        run: python3 -m unittest discover -s tests -p 'test_staging_*.py' -v
+      - name: Shell and Python syntax
+        run: |
+          bash -n scripts/staging_run.sh
+          python3 -m py_compile scripts/staging_config.py scripts/staging_smoke.py
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify real-mode Vite build, never demo
+        working-directory: apps/ioeti-web
+        env:
+          VITE_IOETI_DEMO: 'false'
+        run: |
+          npm install --no-audit --no-fund
+          npm run build
+      - name: Parse opt-in live browser suite (no host contacted or secret used)
+        working-directory: apps/ioeti-web
+        env:
+          IOETI_ENV: staging
+          IOETI_STAGING_ORIGIN: https://test.invalid
+          IOETI_PILOT_USER: fixture-not-a-real-user
+          IOETI_PILOT_PASSWORD: fixture-not-a-real-password
+          VITE_IOETI_DEMO: 'false'
+        run: npx playwright test -c playwright.staging.config.ts --list
+      - name: Validate HTTPS nginx template with disposable self-signed test certificate
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq && sudo apt-get install -y -qq nginx
+          tmp=$(mktemp -d)
+          mkdir -p "$tmp/www"
+          printf '<div id="root"></div>\n' > "$tmp/www/index.html"
+          openssl req -x509 -nodes -newkey rsa:2048 -days 1 \
+            -keyout "$tmp/key.pem" -out "$tmp/cert.pem" -subj '/CN=localhost' >/dev/null 2>&1
+          sed -e "s|__HOST__|localhost|g" \
+              -e "s|__CERT_FILE__|$tmp/cert.pem|g" \
+              -e "s|__KEY_FILE__|$tmp/key.pem|g" \
+              -e "s|__WEB_DIST__|$tmp/www|g" \
+              infra/nginx/ioeti-staging.conf.template > "$tmp/site.conf"
+          printf 'events {}\nhttp {\n include /etc/nginx/mime.types;\n include %s/site.conf;\n}\n' "$tmp" > "$tmp/nginx.conf"
+          sudo nginx -t -c "$tmp/nginx.conf"
