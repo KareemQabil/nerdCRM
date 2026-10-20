@@ -157,6 +157,7 @@ cmd_status() {
 
 case "${1:-}" in
   init) cmd_init ;;
+  link-modules) link_modules ;;
   db-up) cmd_db_up ;;
   db-down) cmd_db_down ;;
   build) shift; cmd_build "$@" ;;
