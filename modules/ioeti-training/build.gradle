@@ -1,0 +1,23 @@
+plugins {
+	id 'com.axelor.app'
+}
+
+apply from: new File(projectDir.canonicalFile, "../../gradle/ioeti-module.gradle")
+
+// IOETI external training (Wave 4): courses, cohorts with capacity and waitlist, enrolment of
+// external trainees, sessions and attendance. AOS talent training is for employees only, so this is
+// a new bounded context. Certificates, refunds and cohort cancellation wait for policy D-03.
+axelor {
+	title "IOETI Training"
+	description "IOETI external training: courses, cohorts, enrolment, attendance"
+}
+
+apply from: rootProject.file("modules/axelor-open-suite/libs.gradle")
+
+dependencies {
+	api project(":modules:ioeti-core")
+	// courses belong to a business line (TRAINING)
+	api project(":modules:ioeti-business-lines")
+
+	implementation libs.swagger_jaxrs
+}
