@@ -1,0 +1,27 @@
+Wave 4E full regression on branch claude/ioeti-wave4e-fundraising (local Axelor 9.1.10 + PostgreSQL 16, 2026-10-20)
+
+env_PROBE_CERT_ROUNDS_10_python3_scripts_certification_probe: 23/23 checks passed
+env_PROBE_CONVERT_ROUNDS_10_python3_scripts_lead_conversion_: 28/28 checks passed
+env_PROBE_FUND_ROUNDS_5_python3_scripts_fundraising_probe.py: 20/20 checks passed
+env_PROBE_LIFECYCLE_ROUNDS_10_python3_scripts_lead_lifecycle: 24/24 checks passed
+env_PROBE_QUOTE_ROUNDS_10_python3_scripts_quote_probe.py: 50/50 checks passed
+env_PROBE_REC_ROUNDS_5_python3_scripts_recruitment_probe.py: 19/19 checks passed
+env_PROBE_REQUIRE_JOBS_1_PROBE_WS_SECONDS_30_python3_scripts: 7/7 checks passed
+env_PROBE_RESTORES_2_PROBE_WORKERS_2_PROBE_MIN_SECONDS_20_py: IDENTITY_PROBE {"checks": 336719, "leaks": 0} boundary {"present": true, "before_load": {"
+env_PROBE_TRAINING_ROUNDS_10_python3_scripts_training_probe.: 22/22 checks passed
+python3_scripts_api_contract_probe.py: 31/31 checks passed
+python3_scripts_api_smoke_test.py: 16/16 checks passed
+python3_scripts_opportunity_concurrency_probe.py_20: 13/13 checks passed
+python3_scripts_opportunity_pilot_smoke.py: PILOT_CLEANUP 200 status 0
+python3_scripts_pii_dto_audit.py: 505 fields in 93 records · 0 problem(s) · {'BUSINESS': 157, 'PERSONAL': 68, 'REFERENCE':
+python3_scripts_pilot_readiness.py_check: PILOT_CHECK=PASS 11/11
+python3_scripts_pilot_readiness.py_setup: PILOT_SETUP=PASS records=36 users=4 credentials=.local/pilot-users.txt
+python3_scripts_pilot_readiness.py_teardown: PILOT_TEARDOWN=PASS leftovers: none
+python3_scripts_scope_matrix_probe.py: 65/65 checks passed
+python3_scripts_session_security_probe.py: 20/20 checks passed
+
+db_migrate verify: 8/8 checks passed
+backup_restore_drill: 10/10 checks passed · backup 9.1 MB in 1.75 s · restore 21.47 s
+suites with exit=0: 19/19
+JUnit (server stopped): 79 tests, 0 failures (ioeti-fundraising 4)
+web: typecheck OK; build OK; Playwright real-mode contracts (mocked API) 43/43; demo 14/14

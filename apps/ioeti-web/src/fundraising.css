@@ -1,0 +1,60 @@
+/* Wave 4E: fundraising workspace */
+.fund-tabs{margin:18px 0;}
+.fund-toolbar{flex-wrap:wrap;gap:10px;}
+.fund-filter select,.fund-form select{min-height:42px;border-radius:var(--radius);border:1px solid var(--outline-variant);background:var(--surface);color:var(--on-surface);padding:0 12px;}
+.fund-row{align-items:center;}
+.fund-count{min-width:28px;height:28px;display:inline-grid;place-items:center;border-radius:999px;background:var(--surface-variant);font-weight:800;font-size:12px;}
+.fund-overview{display:flex;flex-direction:column;gap:16px;}
+.fund-money{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin:0 0 10px;}
+.fund-money div{border:1px solid var(--outline-variant);border-radius:var(--radius);padding:10px 12px;display:flex;flex-direction:column;gap:4px;}
+.fund-money dt{font-size:12px;color:var(--on-surface-variant);}
+.fund-money dd{margin:0;font-size:18px;font-weight:800;font-variant-numeric:tabular-nums;}
+.fund-money-collected{border-color:var(--success)!important;}
+.fund-money-collected dd{color:var(--success);}
+.fund-money-outstanding dd{color:var(--primary);}
+.fund-note,.fund-restricted{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--on-surface-variant);margin:6px 0;}
+.fund-restricted{color:var(--on-surface);font-weight:700;}
+.fund-muted{color:var(--on-surface-variant);font-size:13px;margin:6px 0;}
+.fund-hint{grid-column:1/-1;margin:0;font-size:12px;color:var(--on-surface-variant);}
+.fund-stage-strip{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;}
+.fund-stage-strip li{display:flex;justify-content:space-between;gap:8px;background:var(--surface-variant);border-radius:var(--radius);padding:10px 12px;font-size:13px;}
+.fund-stage,.fund-state{display:inline-flex;align-items:center;font-size:12px;font-weight:700;padding:4px 10px;border-radius:999px;background:var(--surface-variant);color:var(--on-surface-variant);white-space:nowrap;}
+.fund-stage-approved,.fund-state-collected{background:var(--success-container,rgba(22,163,74,.12));color:var(--success);}
+.fund-stage-declined,.fund-stage-withdrawn{opacity:.75;}
+.fund-state-overdue{background:var(--error-container);color:var(--error);}
+.fund-state-partial{background:rgba(217,119,6,.14);color:#b45309;}
+.fund-form{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;align-items:end;margin:14px 0;}
+.fund-form textarea{width:100%;resize:vertical;font:inherit;background:var(--surface);color:var(--on-surface);border:1px solid var(--outline-variant);border-radius:var(--radius);padding:10px 12px;min-height:56px;}
+.fund-form textarea:focus-visible{outline:2px solid var(--primary);outline-offset:1px;}
+.fund-wide{grid-column:1/-1;}
+.fund-check{display:flex!important;flex-direction:row!important;align-items:center;gap:8px;}
+.fund-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px;}
+.fund-list li{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;font-size:13px;border:1px solid var(--outline-variant);border-radius:var(--radius);padding:8px 12px;}
+.fund-list li.is-voided{opacity:.65;text-decoration:line-through;}
+.fund-board{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;}
+.fund-column{background:var(--surface-variant);border-radius:var(--radius-lg,14px);padding:10px;display:flex;flex-direction:column;gap:8px;min-width:0;}
+.fund-column h3{margin:0 0 4px;font-size:13px;display:flex;justify-content:space-between;gap:8px;}
+.fund-card{display:flex;flex-direction:column;gap:4px;border:1px solid var(--outline-variant);border-radius:var(--radius);background:var(--surface);color:var(--on-surface);padding:10px;text-decoration:none;}
+.fund-card small{color:var(--on-surface-variant);font-size:12px;}
+.fund-card-amount{font-weight:800;font-variant-numeric:tabular-nums;}
+.fund-card:focus-visible{outline:2px solid var(--primary);outline-offset:2px;}
+.fund-kpis{display:flex;gap:18px;margin:0 0 12px;}
+.fund-kpis div{display:flex;flex-direction:column;gap:2px;}
+.fund-kpis dt{font-size:11px;color:var(--on-surface-variant);}
+.fund-kpis dd{margin:0;font-size:18px;font-weight:800;}
+.fund-installments{display:flex;flex-direction:column;gap:8px;}
+.fund-installment{border:1px solid var(--outline-variant);border-radius:var(--radius);}
+.fund-installment-overdue{border-inline-start:4px solid var(--error);}
+.fund-installment-head{width:100%;display:grid;grid-template-columns:1fr 1fr 1fr 1fr auto;gap:8px;align-items:center;background:none;border:0;color:inherit;font:inherit;font-size:13px;padding:10px 12px;cursor:pointer;text-align:start;}
+.fund-installment-head:focus-visible{outline:2px solid var(--primary);outline-offset:-2px;}
+.fund-installment-body{border-top:1px solid var(--outline-variant);padding:10px 12px;}
+.fund-installment-body h4{margin:0 0 8px;font-size:13px;}
+.fund-table td,.fund-table th{white-space:nowrap;}
+.fund-sub-title{font-size:14px;margin:16px 0 8px;}
+.fund-timeline{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:12px;}
+.fund-timeline li{display:flex;gap:10px;align-items:flex-start;font-size:13px;}
+.fund-timeline small{display:block;color:var(--on-surface-variant);font-size:11px;margin-top:2px;}
+.fund-timeline-dot{width:10px;height:10px;border-radius:50%;background:var(--primary);margin-top:5px;flex-shrink:0;}
+.fund-record .record-content-grid{margin-top:16px;}
+.fund-record .record-content-card+.record-content-card{margin-top:16px;}
+@media (max-width:640px){.fund-toolbar>*{flex:1 1 100%;}.fund-board{grid-template-columns:1fr 1fr;}.fund-installment-head{grid-template-columns:1fr 1fr;}.fund-kpis{gap:12px;}}
