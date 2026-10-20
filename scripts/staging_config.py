@@ -93,7 +93,8 @@ def render(template: str, env: dict[str, str]) -> str:
         return env[key]
     # Documentation comments may mention @@NAME@@; only active property lines are substituted.
     content = "".join(
-        line if line.lstrip().startswith(("#", "!")) else re.sub(r"@@([A-Z0-9_]+)@@", replace, line)
+        re.sub(r"@@([A-Z0-9_]+)@@", lambda match: match.group(1), line)
+        if line.lstrip().startswith(("#", "!")) else re.sub(r"@@([A-Z0-9_]+)@@", replace, line)
         for line in template.splitlines(keepends=True)
     )
     for line in content.splitlines():
