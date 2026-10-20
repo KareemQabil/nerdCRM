@@ -1,0 +1,105 @@
+{
+  "results": [
+    {
+      "check": "donor profile opened (201, managed by me); same account twice \u2192 409 ALREADY_DONOR; bad type \u2192 422",
+      "result": "PASS",
+      "detail": "201 409 422 {'codeStatus': 201, 'messageStatus': 'Donor profile opened', 'object': {'id': 7, 'version': 0, 'partnerId': 973, 'name': 'Wave4e Nile Delta Foundation 4B5565', 'anonymous': False, 'donorTy"
+    },
+    {
+      "check": "sensitive profile write-only: stored, flagged on file, never echoed; read \u2192 BLOCKED_BY_POLICY (D-05, D-07)",
+      "result": "PASS",
+      "detail": "200 422 [{'contactPreference': 'prefers-whatsapp-after-9pm-private', 'givingCapacity': '7777777.77', 'id': 4, 'version': 0}]"
+    },
+    {
+      "check": "opportunity validation (currency, 2-decimal positive amount) \u2192 422 field; opened IDENTIFIED with campaign",
+      "result": "PASS",
+      "detail": "422 422 422 201 {'codeStatus': 201, 'messageStatus': 'Opportunity opened', 'object': {'id': 26, 'version': 0, 'reference': 'GR-4B5565', 'donorId': 7, 'donorName': 'Wave4e Nile Delta Foundation 4B5565'"
+    },
+    {
+      "check": "invalid moves \u2192 422 STAGE_TRANSITION (skip to submitted; approve before submission); stale \u2192 409; proposal \u2192 submitted",
+      "result": "PASS",
+      "detail": "422 422 409 200 200"
+    },
+    {
+      "check": "approval: restricted without purpose \u2192 422; commitment 201 (committed 400000, collected 0, outstanding 400000); again \u2192 409",
+      "result": "PASS",
+      "detail": "422 201 409 {'codeStatus': 201, 'messageStatus': 'Commitment recorded', 'object': {'id': 19, 'version': 0, 'opportunityId': 26, 'reference': 'GR-4B5565', 'title': 'STEM scholarships for girls', 'donor"
+    },
+    {
+      "check": "overview keeps money apart: the approved amount is committed, not proposed and not collected",
+      "result": "PASS",
+      "detail": "{'currency': 'EGP', 'proposed': '0', 'committed': '400000.00', 'scheduled': '0', 'collected': '0', 'outstanding': '400000.00', 'restrictedCommitted': '400000.00'}"
+    },
+    {
+      "check": "schedule 150000 + 150000 + 100000 = commitment; one more \u2192 422 SCHEDULE_EXCEEDS_COMMITMENT",
+      "result": "PASS",
+      "detail": "201 201 201 422"
+    },
+    {
+      "check": "collection recorded; same bank reference \u2192 409 DUPLICATE_COLLECTION; more than due \u2192 422; future \u2192 422; installment PARTIAL",
+      "result": "PASS",
+      "detail": "201 409 422 422 {'id': 25, 'version': 0, 'sequence': 1, 'dueDate': '2026-11-19', 'amount': '150000.00', 'collected': '100000.00', 'status': 'PARTIAL'}"
+    },
+    {
+      "check": "void keeps the row (listed as VOIDED) and stops counting it; void twice \u2192 422; the corrected collection counts",
+      "result": "PASS",
+      "detail": "200 422 [{'id': 7, 'version': 1, 'amount': '100000.00', 'receivedOn': '2026-10-16', 'status': 'VOIDED', 'voidReason': 'WRONG_AMOUNT', 'recordedBy': 'Wave4e FundA', 'receiptStatus': 'BLOCKED_BY_POLICY'"
+    },
+    {
+      "check": "receipt (D-05), posting and invoice (D-06), restricted allocation (D-05, D-06) \u2192 422 BLOCKED_BY_POLICY, nothing created",
+      "result": "PASS",
+      "detail": "[422, 422, 422, 422]"
+    },
+    {
+      "check": "deliverable: accept before submission \u2192 422; submitted then accepted",
+      "result": "PASS",
+      "detail": "201 422 200 200"
+    },
+    {
+      "check": "stewardship recorded (future \u2192 422); archive keeps the row and hides it; committed opportunity \u2192 422 HAS_COMMITMENT",
+      "result": "PASS",
+      "detail": "201 422 200 422 [{'archived': True, 'id': 27, 'version': 4, '$attachments': 0, '$processInstanceId': None}]"
+    },
+    {
+      "check": "donor timeline: opened, approved, collected, voided, deliverable, thank-you and archived events",
+      "result": "PASS",
+      "detail": "{'COLLECTION_VOIDED', 'THANK_YOU', 'OPPORTUNITY_ARCHIVED', 'COMMITMENT_APPROVED', 'OPPORTUNITY_OPENED', 'COLLECTION_RECORDED', 'DELIVERABLE_SUBMITTED'}"
+    },
+    {
+      "check": "renewal of the approved grant opens IDENTIFIED with renewalOf; renewal of a declined one \u2192 422",
+      "result": "PASS",
+      "detail": "201 422"
+    },
+    {
+      "check": "another fundraiser: donor, grant, commitment and collections answer 404 like missing ids; cannot record a collection",
+      "result": "PASS",
+      "detail": "[404, 404, 404, 404, 404] 404"
+    },
+    {
+      "check": "reporter: overview 200; anonymous donor unnamed for the reporter but named for its manager; writes \u2192 403",
+      "result": "PASS",
+      "detail": "200 {'id': 8, 'version': 0, 'partnerId': None, 'name': None, 'anonymous': True, 'donorType': 'INDIVIDUAL', 'managedByMe': False, 'managerName': 'Wave4e FundA', 'sensitiveOnFile': False, 'openOpportuni"
+    },
+    {
+      "check": "sales: fundraising endpoints \u2192 403/404; Account 360 of the donor shows no grant, amount or restriction",
+      "result": "PASS",
+      "detail": "[403, 403, 403, 403] [200, 200, 200]"
+    },
+    {
+      "check": "fundraiser is denied unrelated financial data (quotations, sales opportunities) \u2192 403",
+      "result": "PASS",
+      "detail": "403 403"
+    },
+    {
+      "check": "concurrent installments on one commitment: one 201 and one 409, schedule never above the commitment (5 rounds)",
+      "result": "PASS",
+      "detail": "[([201, 409], 1000.0), ([201, 409], 1000.0), ([201, 409], 1000.0), ([201, 409], 1000.0), ([201, 409], 1000.0)]"
+    },
+    {
+      "check": "restricted values (sensitive profile, bank references) never appear in any API response",
+      "result": "PASS",
+      "detail": "leak found"
+    }
+  ],
+  "cleanup_complete": true
+}

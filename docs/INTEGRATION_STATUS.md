@@ -52,6 +52,6 @@ CI is the latest run on the head SHA: B = backend (live Axelor + PostgreSQL prob
 |---|---|---|---|---|
 | Wave 4C ISO certification UI | `claude/ioeti-wave4c-certification-ui` | #32 | #30 | ready for review; CI green on `22f4810` |
 | Wave 4D agency recruitment | `claude/ioeti-wave4d-recruitment` | #33 | #32 (stacked: base is the 4C branch; retarget after #32 lands) | ready for review; local regression green |
-| Wave 4E fundraising | `claude/ioeti-wave4e-fundraising` | — | #33 (stacked) | in progress |
+| Wave 4E fundraising | `claude/ioeti-wave4e-fundraising` | (this PR) | #33 (stacked) | ready for review; local regression green |
 
 Merging the slices is the reviewer's decision. Engineering does not merge them into `claude/ioeti-integration-next`, because GitHub would then mark the PRs as merged. Order: #32 → #33 → later slices. The stack is kept to these waves; later slices branch from the newest reviewed base.
