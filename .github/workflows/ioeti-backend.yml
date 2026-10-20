@@ -84,6 +84,10 @@ jobs:
           PROBE_LIFECYCLE_ROUNDS=10 python3 scripts/lead_lifecycle_probe.py
           # Wave 3: catalog and draft quotations on native AOS SaleOrder (fictional fixtures, no taxes)
           PROBE_QUOTE_ROUNDS=10 python3 scripts/quote_probe.py
+          # G-010: the manual-UAT dataset can be created, checked as each pilot user, and removed
+          python3 scripts/pilot_readiness.py setup
+          python3 scripts/pilot_readiness.py check
+          python3 scripts/pilot_readiness.py teardown
           # SEC-004: cookies, fixation, CSRF, logout, per-user login throttle (runs last: it
           # throttles one throw-away user)
           python3 scripts/session_security_probe.py
