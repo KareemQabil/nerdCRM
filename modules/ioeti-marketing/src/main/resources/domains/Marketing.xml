@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<domain-models xmlns="http://axelor.com/xml/ns/domain-models"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://axelor.com/xml/ns/domain-models https://axelor.com/xml/ns/domain-models/domain-models_8.2.xsd">
+
+  <module name="ioeti" package="com.ioeti.marketing.db"/>
+
+  <!-- Wave 6: lead intake, consent and follow-up foundations on the native CRM lead.
+       Explicit ioeti_ table names keep every object under the migration gate (G-008). -->
+
+  <!-- Append-only history of what a lead agreed to (or opted out of), per channel. The native lead's
+       "do not email" and "do not call" flags carry the current state. -->
+  <entity name="LeadConsentEvent" table="ioeti_mkt_consent">
+    <many-to-one name="lead" ref="com.axelor.apps.crm.db.Lead" title="Lead" required="true"/>
+    <integer name="channelSelect" title="Channel" required="true"/>
+    <boolean name="allowed" title="Allowed"/>
+    <integer name="methodSelect" title="How it was given" required="true"/>
+    <string name="evidenceReference" title="Evidence reference"/>
+    <many-to-one name="actor" ref="com.axelor.auth.db.User" title="Recorded by"/>
+    <datetime name="occurredAt" title="At" required="true"/>
+
+    <extra-code><![CDATA[
+      public static final int CHANNEL_EMAIL = 1;
+      public static final int CHANNEL_CALL = 2;
+      public static final int METHOD_WRITTEN = 1;
+      public static final int METHOD_EMAIL = 2;
+      public static final int METHOD_WEB_FORM = 3;
+      public static final int METHOD_PHONE = 4;
+      public static final int METHOD_IN_PERSON = 5;
+    ]]></extra-code>
+  </entity>
+
+  <!-- A user's own saved lead filter. -->
+  <entity name="SavedLeadView" table="ioeti_mkt_saved_view">
+    <many-to-one name="owner" ref="com.axelor.auth.db.User" title="Owner" required="true"/>
+    <string name="name" title="Name" required="true"/>
+    <string name="searchText" title="Search"/>
+    <many-to-one name="stage" ref="com.axelor.apps.crm.db.LeadStatus" title="Stage"/>
+    <many-to-one name="source" ref="com.axelor.apps.base.db.Source" title="Source"/>
+    <many-to-one name="businessLine" ref="com.ioeti.businessline.db.BusinessLine" title="Business line"/>
+    <boolean name="onlyMine" title="Only mine"/>
+
+    <unique-constraint columns="owner,name"/>
+  </entity>
+
+</domain-models>
