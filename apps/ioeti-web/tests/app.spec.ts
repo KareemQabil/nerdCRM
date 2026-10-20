@@ -399,7 +399,7 @@ test("real authenticated mode never mounts fictional operating workspaces",async
   await page.goto("/#/demo/quotes");
   await expect(page.locator(".demo-business")).toHaveCount(0);
   await expect(page.getByRole("heading",{name:"أهلًا بك في IOETI"})).toBeVisible();
-  await expect(page.locator("button.nav-item").filter({hasText:"التوظيف"})).toBeDisabled();
+  await expect(page.locator("button.nav-item").filter({hasText:"التمويل"})).toBeDisabled();
 });
 
 test("real mode never downloads multi-domain demo workspace chunks or fixtures",async ({page})=>{
@@ -408,7 +408,7 @@ test("real mode never downloads multi-domain demo workspace chunks or fixtures",
   await intercept(page);
   await page.goto("/");
   await page.getByRole("button",{name:"خريطة النظام"}).click();
-  await expect(page.locator("button.nav-item").filter({hasText:"التوظيف"})).toBeDisabled();
+  await expect(page.locator("button.nav-item").filter({hasText:"التمويل"})).toBeDisabled();
   expect(fetched.filter(url=>/DemoBusinessWorkspace|DemoExecutiveOverview|DemoDomainWorkbench|demoBusiness\.(ts|js)/.test(url))).toEqual([]);
 });
 
@@ -933,4 +933,206 @@ test("certification: a cycle managed by someone else is read only; mobile layout
   expect(widths.length).toBe(2);
   expect(Math.abs(widths[0] - widths[1])).toBeLessThan(2);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
+});
+
+async function recruitmentMocks(page: Page, options: { mine?: boolean; failList?: number } = {}) {
+  await intercept(page);
+  const mine = options.mine ?? true;
+  const ok = (object: unknown, code = 200) => ({ status: code, contentType: "application/json", body: JSON.stringify({ codeStatus: code, messageStatus: "ok", object }) });
+  const fail = (status: number, code: string, field?: string) => ({ status, contentType: "application/json", body: JSON.stringify({
+    codeStatus: status, messageStatus: "x", error: { code, message: "raw server text", correlationId: "c0ffee02", fields: field ? [{ field, code: "INVALID", message: "x" }] : [] } }) });
+  let failures = options.failList ?? 0;
+  const state = { orderVersion: 1, consent: false, privateOnFile: false, candVersion: 0, status: "OPEN",
+    apps: [] as Record<string, unknown>[], interviews: [] as Record<string, unknown>[], placements: [] as Record<string, unknown>[],
+    consents: [] as Record<string, unknown>[] };
+  const order = () => ({ id: 41, version: state.orderVersion, reference: "JO-NILE", clientId: 901, clientName: "Nile Hotels", title: "Front Office Manager",
+    headcount: 1, location: "Cairo", requirements: "Five years in hotel front office", status: state.status,
+    activeCandidates: state.apps.filter(a => !["PLACED", "REJECTED", "WITHDRAWN"].includes(a.stage as string)).length,
+    placed: state.placements.length, recruitedByMe: mine, recruiterName: "Rana" });
+  const candidate = () => ({ id: 51, version: state.candVersion, displayName: "Salma Hassan", headline: "Front office supervisor", yearsExperience: 6,
+    privateProfileOnFile: state.privateOnFile, ownedByMe: mine });
+  const bump = (a: Record<string, unknown>, changes: Record<string, unknown>) => Object.assign(a, changes, { version: (a.version as number) + 1, consentOnFile: state.consent });
+  const requests: { method: string; path: string; body: unknown }[] = [];
+  const answers: ReturnType<typeof fail>[] = [];
+  await page.route(/\/axelor-erp\/ws\/ioeti\/accounts\?/, route => route.fulfill(ok([{ id: 901, name: "Nile Hotels", reference: "AC-901", customer: true, prospect: false }])));
+  await page.route(/\/axelor-erp\/ws\/ioeti\/recruitment\//, route => {
+    const url = new URL(route.request().url());
+    const path = url.pathname.replace(/.*\/ws\/ioeti\/recruitment/, "") + url.search;
+    const method = route.request().method();
+    const body = (method === "POST" || method === "PUT") ? route.request().postDataJSON() as Record<string, unknown> : {};
+    requests.push({ method, path, body });
+    const refusal = method !== "GET" ? answers.shift() : undefined;
+    if (refusal) return route.fulfill(refusal);
+    if (path.startsWith("/job-orders") && method === "GET" && !/\d/.test(path.split("?")[0])) {
+      if (failures > 0) { failures--; return route.fulfill({ status: 500, body: "{}" }); }
+      return route.fulfill(ok(url.searchParams.get("q") === "none" ? [] : [order()]));
+    }
+    if (path === "/job-orders" && method === "POST") return route.fulfill(ok(order(), 201));
+    if (path === "/job-orders/41") return route.fulfill(ok(order()));
+    if (path === "/job-orders/41/placements") return route.fulfill(ok(state.placements));
+    if (path === "/job-orders/41/applications" && method === "GET") return route.fulfill(ok(state.apps.map(a => ({ ...a, consentOnFile: state.consent }))));
+    if (path === "/job-orders/41/applications") {
+      const app = { id: 71, version: 0, jobOrderId: 41, candidateId: body.candidateId, candidateName: "Salma Hassan", candidateHeadline: "Front office supervisor",
+        stage: "SOURCED", submittedAt: null, offerDate: null, offerStatus: null, consentOnFile: state.consent };
+      state.apps.push(app); state.orderVersion++; return route.fulfill(ok(app, 201));
+    }
+    if (path.startsWith("/candidates?") || path === "/candidates") return route.fulfill(ok([candidate()]));
+    if (path === "/candidates/51" ) return route.fulfill(ok(candidate()));
+    if (path === "/candidates/51/private") { state.privateOnFile = true; state.candVersion++; return route.fulfill(ok(candidate())); }
+    if (path === "/candidates/51/consents" && method === "GET") return route.fulfill(ok(state.consents));
+    if (path === "/candidates/51/consents") {
+      const consent = { id: 91, version: 0, jobOrderId: body.jobOrderId, jobOrderReference: "JO-NILE", method: body.method, givenOn: body.givenOn,
+        evidenceReference: body.evidenceReference ?? null, revokedAt: null, active: true };
+      state.consents.push(consent); state.consent = true; state.candVersion++; return route.fulfill(ok(consent, 201));
+    }
+    if (path === "/consents/91/revoke") {
+      Object.assign(state.consents[0], { revokedAt: "2026-10-20T10:00:00", active: false }); state.consent = false;
+      return route.fulfill(ok(state.consents[0]));
+    }
+    const app = state.apps[0];
+    if (path === "/applications/71/stage") return route.fulfill(ok(bump(app, { stage: body.stage })));
+    if (path === "/applications/71/submit") {
+      if (!state.consent) return route.fulfill(fail(422, "CONSENT_REQUIRED"));
+      return route.fulfill(ok(bump(app, { stage: "SUBMITTED", submittedAt: "2026-10-20T10:00:00" })));
+    }
+    if (path === "/applications/71/interviews" && method === "GET") return route.fulfill(ok(state.interviews));
+    if (path === "/applications/71/interviews") {
+      const interview = { id: 81, version: 0, round: body.round, scheduledAt: body.scheduledAt + ":00", outcome: "PENDING" };
+      state.interviews.push(interview); bump(app, { stage: "INTERVIEWING" }); return route.fulfill(ok(interview, 201));
+    }
+    if (path === "/interviews/81/outcome") { Object.assign(state.interviews[0], { outcome: body.outcome, version: 1 }); bump(app, {}); return route.fulfill(ok(state.interviews[0])); }
+    if (path === "/applications/71/offer") return route.fulfill(ok(bump(app, { stage: "OFFERED", offerDate: body.offerDate, offerStatus: "PENDING" })));
+    if (path === "/applications/71/offer-answer") return route.fulfill(ok(bump(app, { offerStatus: body.accepted ? "ACCEPTED" : "DECLINED" })));
+    if (path === "/applications/71/placement") {
+      bump(app, { stage: "PLACED" }); state.status = "FILLED"; state.orderVersion++;
+      const placement = { id: 95, version: 0, applicationId: 71, candidateName: "Salma Hassan", startDate: body.startDate, guaranteeStatus: "TERMS_PENDING",
+        feeMilestones: ["OFFER_ACCEPTED"], invoicingStatus: "BLOCKED_BY_POLICY" };
+      state.placements.push(placement); return route.fulfill(ok(placement, 201));
+    }
+    if (path === "/placements/95/started") {
+      Object.assign(state.placements[0], { feeMilestones: ["OFFER_ACCEPTED", "CANDIDATE_STARTED"] }); return route.fulfill(ok(state.placements[0]));
+    }
+    return route.fulfill({ status: 404, body: "{}" });
+  });
+  return { requests, answers, fail };
+}
+
+test("recruitment: registers with search, retry and empty states; a job order is opened for a client", async ({page}) => {
+  const { requests } = await recruitmentMocks(page, { failList: 1 });
+  await page.goto("/");
+  await page.locator("button.nav-item").filter({ hasText: "التوظيف" }).click();
+  await expect(page.getByRole("heading", { name: "التوظيف للعملاء" })).toBeVisible();
+  await expect(page.getByRole("alert")).toContainText("تعذّر تنفيذ الطلب");
+  await page.getByRole("button", { name: "إعادة المحاولة" }).click();
+  await expect(page.locator(".rec-row")).toContainText("Front Office Manager");
+  await expect(page.locator(".rec-row .rec-status")).toHaveText("مفتوح");
+  await expect(page.locator(".rec-row .rec-count")).toHaveText("0/1");
+  await page.getByPlaceholder("ابحث بالمرجع أو المسمى الوظيفي").fill("none");
+  await page.getByRole("button", { name: "بحث", exact: true }).click();
+  await expect(page.getByText("لا توجد طلبات توظيف")).toBeVisible();
+  expect(requests.filter(r => r.path.startsWith("/job-orders?")).at(-1)!.path).toBe("/job-orders?q=none");
+  await page.getByRole("button", { name: "طلب توظيف جديد" }).click();
+  await page.getByLabel("المرجع", { exact: true }).fill("JO-NILE");
+  await page.getByLabel("العميل").selectOption("901");
+  await page.getByLabel("المسمى الوظيفي", { exact: true }).fill("Front Office Manager");
+  await page.getByLabel("عدد الوظائف").fill("1");
+  await page.getByRole("button", { name: "حفظ" }).click();
+  await expect(page).toHaveURL(/#\/recruitment\/orders\/41$/);
+  expect(requests.find(r => r.path === "/job-orders" && r.method === "POST")!.body).toEqual({ reference: "JO-NILE", clientId: 901, title: "Front Office Manager", headcount: 1 });
+  await page.goto("/#/recruitment/candidates");
+  await expect(page.locator(".directory-item")).toContainText("Salma Hassan");
+  await expect(page.locator(".rec-private")).toHaveText("غير مسجلة");
+});
+
+test("recruitment: pipeline from sourcing to placement; consent required to submit; D-04 actions blocked; stale 409", async ({page}) => {
+  const { requests, answers, fail } = await recruitmentMocks(page);
+  await page.goto("/#/recruitment/orders/41");
+  await expect(page.getByRole("heading", { name: "Front Office Manager" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "العميل" })).toHaveAttribute("href", "#/accounts/901");
+  await page.getByLabel("إضافة مرشح للمسار").selectOption("51");
+  await page.getByRole("button", { name: "إضافة", exact: true }).click();
+  const sourced = page.getByRole("listitem", { name: "مصدر" });
+  await expect(sourced.locator(".rec-card")).toContainText("لا توجد موافقة سارية لهذا الطلب");
+  expect(requests.find(r => r.path === "/job-orders/41/applications" && r.method === "POST")!.body).toEqual({ version: 1, candidateId: 51 });
+  await sourced.locator(".rec-card").click();
+  answers.push(fail(409, "CONFLICT"));
+  await page.getByRole("button", { name: "تم الفرز", exact: true }).click();
+  await expect(page.getByRole("alert")).toHaveText(/تم تعديل البيانات من مكان آخر/);
+  await page.getByRole("button", { name: "تم الفرز", exact: true }).click();
+  await page.getByRole("button", { name: "إلى القائمة المختصرة" }).click();
+  await expect(page.getByRole("listitem", { name: "القائمة المختصرة" }).locator(".rec-card")).toBeVisible();
+  await expect(page.getByRole("button", { name: "مشاركة السيرة الذاتية" })).toBeDisabled();
+  await expect(page.locator("#rec-submit-note")).toContainText("D-04");
+  await page.getByRole("button", { name: "ترشيح للعميل" }).click();
+  await expect(page.getByRole("alert")).toHaveText(/سجّل موافقة المرشح على هذا الطلب قبل ترشيحه للعميل/);
+  // the recruiter records the consent on the candidate record, then submits
+  await page.goto("/#/recruitment/candidates/51");
+  await page.getByLabel("طلب التوظيف").selectOption("41");
+  await page.getByLabel("مرجع الإثبات").fill("EV-2026-17");
+  await page.getByRole("button", { name: "تسجيل موافقة" }).click();
+  await expect(page.locator(".rec-list")).toContainText("JO-NILE");
+  await page.goto("/#/recruitment/orders/41");
+  await page.getByRole("listitem", { name: "القائمة المختصرة" }).locator(".rec-card").click();
+  await expect(page.locator(".rec-application .rec-consent-ok")).toBeVisible();
+  await page.getByRole("button", { name: "ترشيح للعميل" }).click();
+  await expect(page.getByRole("listitem", { name: "مُرشح للعميل" }).locator(".rec-card")).toBeVisible();
+  await page.getByLabel("الموعد").fill("2026-11-12T10:00");
+  await page.getByRole("button", { name: "جدولة مقابلة" }).click();
+  await page.getByRole("button", { name: "اجتاز", exact: true }).click();
+  await expect(page.locator(".rec-application .rec-list")).toContainText("اجتاز");
+  await page.getByLabel("تاريخ العرض").fill("2026-11-20");
+  await page.getByRole("button", { name: "تسجيل عرض العميل" }).click();
+  await page.getByRole("button", { name: "قَبِل العرض" }).click();
+  await page.getByLabel("تاريخ بدء العمل").fill("2026-12-01");
+  answers.push(fail(422, "HEADCOUNT_FILLED"));
+  await page.getByRole("button", { name: "تأكيد التعيين" }).click();
+  await expect(page.getByRole("alert")).toHaveText(/اكتملت كل وظائف هذا الطلب/);
+  await page.getByLabel("تاريخ بدء العمل").fill("2026-12-01");
+  await page.getByRole("button", { name: "تأكيد التعيين" }).click();
+  const placements = page.locator("table");
+  await expect(placements).toContainText("Salma Hassan");
+  await expect(placements).toContainText("شروط الضمان بانتظار السياسة D-04");
+  await expect(placements).toContainText("قبول العرض");
+  await page.getByRole("button", { name: "تسجيل بدء العمل" }).click();
+  await expect(placements).toContainText("بدء العمل");
+  await expect(page.getByRole("button", { name: "إصدار فاتورة الأتعاب" })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "طلب بديل" })).toBeDisabled();
+  await expect(page.locator(".record-tags .rec-status")).toHaveText("مكتمل");
+  expect(requests.filter(r => r.path === "/applications/71/submit").map(r => r.body)).toEqual([{ version: 2 }, { version: 2 }]);
+  expect(requests.some(r => /share-cv|invoice|replacement/.test(r.path))).toBe(false);
+  await page.screenshot({ path: "test-results/ioeti-recruitment.png", fullPage: true });
+  await expect(page.locator("body")).not.toContainText("raw server text");
+});
+
+test("recruitment: restricted candidate data is write-only; consent revocation; read-only and mobile", async ({page}) => {
+  const { requests } = await recruitmentMocks(page);
+  await page.goto("/#/recruitment/candidates/51");
+  await expect(page.getByRole("heading", { name: "Salma Hassan" })).toBeVisible();
+  await expect(page.locator(".rec-private-card .record-section-header p")).toHaveText("غير مسجلة");
+  await page.getByLabel("البريد الإلكتروني").fill("salma.private@example.invalid");
+  await page.getByLabel("الهاتف").fill("+20 100 555 0101");
+  await page.getByLabel("الراتب المتوقع").fill("18000");
+  await page.getByRole("button", { name: "تسجيل البيانات المقيّدة" }).click();
+  await expect(page.locator(".rec-private-card .record-section-header p")).toHaveText("مسجلة (لا تُعرض)");
+  await expect(page.getByLabel("البريد الإلكتروني")).toHaveValue("");
+  expect(requests.find(r => r.method === "PUT")!.body).toEqual({ version: 0, email: "salma.private@example.invalid", phone: "+20 100 555 0101", expectedSalary: "18000" });
+  expect(requests.some(r => r.method === "GET" && r.path.endsWith("/private"))).toBe(false);
+  await expect(page.locator("body")).not.toContainText("salma.private@example.invalid");
+  await page.getByLabel("طلب التوظيف").selectOption("41");
+  await page.getByRole("button", { name: "تسجيل موافقة" }).click();
+  await page.getByRole("button", { name: "سحب الموافقة" }).click();
+  await expect(page.locator(".rec-list")).toContainText("مسحوبة");
+});
+
+test("recruitment: someone else's job order is read only; the board stacks on mobile without horizontal scroll", async ({page}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await recruitmentMocks(page, { mine: false });
+  await page.goto("/#/recruitment/orders/41");
+  await expect(page.getByText("عرض فقط: المسؤول وحده يعدّل هذا السجل.")).toBeVisible();
+  await expect(page.getByRole("button", { name: "إضافة", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "تعليق" })).toHaveCount(0);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
+  await page.goto("/#/recruitment/candidates/51");
+  await expect(page.getByRole("button", { name: "تسجيل البيانات المقيّدة" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "تسجيل موافقة" })).toHaveCount(0);
 });

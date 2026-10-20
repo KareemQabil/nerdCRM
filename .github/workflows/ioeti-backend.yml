@@ -92,6 +92,9 @@ jobs:
           PROBE_TRAINING_ROUNDS=10 python3 scripts/training_probe.py
           # Wave 4b: client certification (auditor competence, Stage 1/2, nonconformities; D-02 blocked)
           PROBE_CERT_ROUNDS=10 python3 scripts/certification_probe.py
+          # Wave 4D: agency recruitment (consent before submission, write-only restricted profile,
+          # one placement per application, headcount; CV sharing and fee invoicing D-04 blocked)
+          PROBE_REC_ROUNDS=5 python3 scripts/recruitment_probe.py
           # SEC-004: cookies, fixation, CSRF, logout, per-user login throttle (runs last: it
           # throttles one throw-away user)
           python3 scripts/session_security_probe.py
@@ -116,6 +119,7 @@ jobs:
             logs/pii-dto-audit.json
             logs/training-probe.json
             logs/certification-probe.json
+            logs/recruitment-probe.json
             logs/quote-probe.json
             logs/websocket-identity-probe.json
             logs/migration-verify.json

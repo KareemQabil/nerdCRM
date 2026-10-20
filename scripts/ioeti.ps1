@@ -5,7 +5,7 @@ param([Parameter(Mandatory = $true)][string]$Command)
 $ErrorActionPreference = "Stop"
 $Root = Split-Path -Parent $PSScriptRoot
 $App = Join-Path $Root "axelor-app"
-$Modules = @("ioeti-core", "ioeti-business-lines", "ioeti-commercial", "ioeti-training", "ioeti-certification")
+$Modules = @("ioeti-core", "ioeti-business-lines", "ioeti-commercial", "ioeti-training", "ioeti-certification", "ioeti-recruitment")
 $Compose = @("compose", "--env-file", (Join-Path $Root ".env"), "-f", (Join-Path $Root "infra/docker-compose.yml"))
 
 function New-Secret { -join ((48..57) + (65..90) + (97..122) | Get-Random -Count 24 | ForEach-Object { [char]$_ }) }

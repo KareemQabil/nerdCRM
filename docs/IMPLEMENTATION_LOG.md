@@ -505,3 +505,15 @@ Slice: `docs/slices/W4-iso-certification.md`.
 
 ### Wave 4C
 See `docs/slices/W4-iso-certification.md` §6. Server: register filters and paging, phase/decisionBlockers, eligible auditors, timeline, auditor directory, V007. UI: register, cycle record workspace, auditor competence. Tests: certification probe 23/23 live; web 34 mocked + 14 demo.
+
+## 2026-10-20 · Wave 4D · agency recruitment (`ioeti-recruitment`)
+
+Slice: `docs/slices/W4-agency-recruitment.md`.
+
+- New module `ioeti-recruitment` (`ioeti_rec_*`, migration V008 with rollback U008): client job orders, candidates, a separate restricted profile, consents per job order, applications, client interviews, placements and fee events. Native Talent (`JobApplication`) is not reused: it is the company's own hiring.
+- Rules: consent for the job order before submission; stage moves only forward one step (submission, offer and placement have their own commands); one placement per application; placements stop at the headcount; fee events recorded once per kind. Application, order and candidate rows are locked for concurrent writers.
+- Restricted data (e-mail, phone, expected salary, CV reference) is write-only: it never appears in a response, and reading it is `BLOCKED_BY_POLICY` (D-04, D-07). CV sharing, fee invoices and replacement claims fail closed (D-04, D-06). Submission scope note for the owners in `docs/decisions/OPEN_IOETI_POLICY_DECISIONS.md`.
+- G-007 registry +91 fields (the request record was renamed `MoveApplication` so it does not collide with the lead `MoveStage` record in the registry).
+- UI `#/recruitment`: job order and candidate registers, job order record with a stage board and application panel, candidate record with the restricted section and consents. The real-mode nav item is enabled; fundraising stays disabled.
+- CI: `PROBE_REC_ROUNDS=5 scripts/recruitment_probe.py`.
+
