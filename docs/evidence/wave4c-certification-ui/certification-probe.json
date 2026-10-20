@@ -1,0 +1,120 @@
+{
+  "results": [
+    {
+      "check": "auditor qualification recorded (201)",
+      "result": "PASS",
+      "detail": "201 {'codeStatus': 201, 'messageStatus': 'Qualification recorded', 'object': {'id': 7, 'auditorId': 587, 'auditorName': 'Wave4b AudQ', 'standardCode': 'ISO9001', 'validFrom': '2026-01-01', 'validUntil"
+    },
+    {
+      "check": "qualification validation \u2192 422 with the right field",
+      "result": "PASS",
+      "detail": "{'validity reversed': (422, 'validUntil'), 'unknown standard': (422, 'standardCode'), 'unknown auditor': (422, 'auditorId'), 'bad date': (422, 'validFrom')}"
+    },
+    {
+      "check": "cycle opened (201): manager, not ready for decision, decision blocked by policy",
+      "result": "PASS",
+      "detail": "201 {'codeStatus': 201, 'messageStatus': 'Cycle opened', 'object': {'id': 62, 'version': 0, 'reference': 'CYC-86041A', 'clientId': 827, 'clientName': 'Wave4b Nile Foods 86041A', 'standardCode': 'ISO90"
+    },
+    {
+      "check": "cycle validation \u2192 422 with the right field, nothing created",
+      "result": "PASS",
+      "detail": "{'duplicate reference': (422, 'reference'), 'bad reference': (422, 'reference'), 'unknown client': (422, 'clientId'), 'empty scope': (422, 'scope'), 'sites 0': (422, 'siteCount'), 'unknown standard': "
+    },
+    {
+      "check": "eligible auditors come from the server rule: qualified on the date only (unqualified and expired excluded)",
+      "result": "PASS",
+      "detail": "200 [587] 200 [] 422"
+    },
+    {
+      "check": "unqualified auditor and a date outside the qualification \u2192 422 NOT_QUALIFIED",
+      "result": "PASS",
+      "detail": "422 422"
+    },
+    {
+      "check": "Stage 1 planned with a qualified lead auditor (201)",
+      "result": "PASS",
+      "detail": "201 {'codeStatus': 201, 'messageStatus': 'Audit planned', 'object': {'id': 67, 'version': 0, 'type': 'STAGE1', 'plannedDate': '2026-11-10', 'auditorId': 587, 'auditorName': 'Wave4b AudQ', 'status': 'P"
+    },
+    {
+      "check": "second Stage 1 \u2192 409 STAGE_EXISTS; surveillance \u2192 422 BLOCKED_BY_POLICY (D-02); bad type \u2192 422",
+      "result": "PASS",
+      "detail": "409 422 422"
+    },
+    {
+      "check": "Stage 2 planned; completing it before Stage 1 \u2192 422 STAGE1_REQUIRED",
+      "result": "PASS",
+      "detail": "201 422"
+    },
+    {
+      "check": "complete Stage 1: stale version \u2192 409, then 200 COMPLETED",
+      "result": "PASS",
+      "detail": "409 200"
+    },
+    {
+      "check": "nonconformities raised (MAJOR, MINOR); bad grade and empty statement \u2192 422",
+      "result": "PASS",
+      "detail": "201 201 422 422"
+    },
+    {
+      "check": "Stage 2 completed but an open major \u2192 not ready for decision (openMajors 1)",
+      "result": "PASS",
+      "detail": "{'id': 62, 'version': 4, 'reference': 'CYC-86041A', 'clientId': 827, 'clientName': 'Wave4b Nile Foods 86041A', 'standardCode': 'ISO9001', 'scope': 'Design and manufacture of packaged foods', 'siteCoun"
+    },
+    {
+      "check": "close without a response \u2192 422 RESPONSE_REQUIRED; respond \u2192 close (200 CLOSED)",
+      "result": "PASS",
+      "detail": "422 200 200"
+    },
+    {
+      "check": "major closed \u2192 ready for decision (a minor may stay open)",
+      "result": "PASS",
+      "detail": "{'id': 62, 'version': 4, 'reference': 'CYC-86041A', 'clientId': 827, 'clientName': 'Wave4b Nile Foods 86041A', 'standardCode': 'ISO9001', 'scope': 'Design and manufacture of packaged foods', 'siteCoun"
+    },
+    {
+      "check": "ready cycle: phase READY_FOR_DECISION, only the D-02 blocker left",
+      "result": "PASS",
+      "detail": "{'id': 62, 'version': 4, 'reference': 'CYC-86041A', 'clientId': 827, 'clientName': 'Wave4b Nile Foods 86041A', 'standardCode': 'ISO9001', 'scope': 'Design and manufacture of packaged foods', 'siteCoun"
+    },
+    {
+      "check": "timeline: opened, planned, completed, findings raised, responded and closed, newest first",
+      "result": "PASS",
+      "detail": "['AUDIT_COMPLETED', 'AUDIT_COMPLETED', 'NC_CLOSED', 'NC_RESPONDED', 'NC_RAISED', 'NC_RAISED', 'AUDIT_PLANNED', 'AUDIT_PLANNED', 'CYCLE_OPENED']"
+    },
+    {
+      "check": "register: search, phase, mine, standard and paging combine with record permissions; bad filters \u2192 400/422",
+      "result": "PASS",
+      "detail": "['CYC-86041A'] ['CYC-86041A'] [] ['F2-86041A'] [] 422 400"
+    },
+    {
+      "check": "internal auditor directory: id and name only, for those who may record qualifications (read-only \u2192 403)",
+      "result": "PASS",
+      "detail": "403 200"
+    },
+    {
+      "check": "certification decision and certificate \u2192 422 BLOCKED_BY_POLICY (D-02)",
+      "result": "PASS",
+      "detail": "422 422"
+    },
+    {
+      "check": "another manager: cycle, audits and findings answer like missing ids (404)",
+      "result": "PASS",
+      "detail": "404 404 404 404"
+    },
+    {
+      "check": "read-only: reads (200), cannot change (403)",
+      "result": "PASS",
+      "detail": "200 403"
+    },
+    {
+      "check": "cancel a planned audit (200); findings on it \u2192 422 AUDIT_CANCELLED; completed audit \u2192 422 AUDIT_STATE",
+      "result": "PASS",
+      "detail": "200 422 422"
+    },
+    {
+      "check": "concurrent Stage 1 plans on one version: one 201 and one 409, exactly one audit (10 cycles)",
+      "result": "PASS",
+      "detail": "[([201, 409], 1), ([201, 409], 1), ([201, 409], 1), ([201, 409], 1), ([201, 409], 1), ([201, 409], 1), ([201, 409], 1), ([201, 409], 1), ([201, 409], 1), ([201, 409], 1)]"
+    }
+  ],
+  "cleanup_complete": true
+}

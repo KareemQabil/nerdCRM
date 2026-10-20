@@ -49,6 +49,8 @@
     <string name="statement" title="Nonconformity statement" required="true" large="true"/>
     <string name="clientResponse" title="Client correction and corrective action" large="true"/>
     <integer name="statusSelect" title="Status" required="true"/>
+    <datetime name="respondedAt" title="Responded at"/>
+    <datetime name="closedAt" title="Closed at"/>
 
     <extra-code><![CDATA[
       public static final int GRADE_MAJOR = 1;
