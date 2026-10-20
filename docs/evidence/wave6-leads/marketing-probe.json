@@ -1,0 +1,115 @@
+{
+  "results": [
+    {
+      "check": "intake: invalid e-mail and phone \u2192 422 on the field; valid lead recorded with business line",
+      "result": "PASS",
+      "detail": "422 422 201 {'codeStatus': 201, 'messageStatus': 'Lead recorded', 'object': {'id': 790, 'version': 0, 'name': '\u0645\u0624\u0633\u0633\u0629 \u0627\u0644\u0647\u062f\u0649 2D7F80, \u0623\u062d\u0645\u062f \u0639\u0628\u062f \u0627\u0644\u0644\u0647', 'organization': '\u0645\u0624\u0633\u0633\u0629 \u0627\u0644\u0647\u062f\u0649 2D7F80', 'stage': 'To be"
+    },
+    {
+      "check": "search key: Arabic-normalized names, e-mail and phone; identical to the V012 SQL backfill",
+      "result": "PASS",
+      "detail": "'\u0627\u062d\u0645\u062f | \u0639\u0628\u062f \u0627\u0644\u0644\u0647 | \u0645\u0648\u0633\u0633\u0647 \u0627\u0644\u0647\u062f\u064a 2d7f80 | ahmed.2d7f80@example.test | 063407798' vs '\u0627\u062d\u0645\u062f | \u0639\u0628\u062f \u0627\u0644\u0644\u0647 | \u0645\u0648\u0633\u0633\u0647 \u0627\u0644\u0647\u062f\u064a 2d7f80 | ahmed.2d7f80@example.test | 063407798'"
+    },
+    {
+      "check": "duplicates: name spelled differently, phone in Arabic-Indic digits and upper-case e-mail \u2192 409 POSSIBLE_DUPLICATE",
+      "result": "PASS",
+      "detail": "409 409 409"
+    },
+    {
+      "check": "duplicates: listed for the owner; recorded once confirmed",
+      "result": "PASS",
+      "detail": "[{'id': 790, 'version': 0, 'name': '\u0645\u0624\u0633\u0633\u0629 \u0627\u0644\u0647\u062f\u0649 2D7F80, \u0623\u062d\u0645\u062f \u0639\u0628\u062f \u0627\u0644\u0644\u0647', 'organization': '\u0645\u0624\u0633\u0633\u0629 \u0627\u0644\u0647\u062f\u0649 2D7F80', 'stage': 'To be processed', 'converted': False, 'businessLineCode': 'W6L2D7F80', 'accountI"
+    },
+    {
+      "check": "duplicates: another salesperson's leads are never compared or revealed (RepB sees none, may record)",
+      "result": "PASS",
+      "detail": "[] 201"
+    },
+    {
+      "check": "search: Arabic-normalized words on the server, any spelling; filters by line and source; bad page \u2192 400",
+      "result": "PASS",
+      "detail": "[792, 790] [792, 790] [792, 790] [790] 400"
+    },
+    {
+      "check": "search: only readable leads (RepB finds only its own)",
+      "result": "PASS",
+      "detail": "[791]"
+    },
+    {
+      "check": "saved views: saved for the owner; same name \u2192 422; unknown source \u2192 422; others neither list nor delete them (404)",
+      "result": "PASS",
+      "detail": "201 422 {'codeStatus': 422, 'messageStatus': 'You already have a view with this name.', 'error': {'code': 'VALIDATION_FAILED', 'message': 'You already have a view with this name.', 'correlationId': 'd"
+    },
+    {
+      "check": "consent: needs an evidence reference (422); an opt-out does not; unknown channel \u2192 422; stale \u2192 409",
+      "result": "PASS",
+      "detail": "422 201 201 201 422 409"
+    },
+    {
+      "check": "consent: native do-not-email / do-not-call flags follow the latest change",
+      "result": "PASS",
+      "detail": "{'isDoNotCall': False, 'isDoNotSendEmail': True, 'id': 790, 'version': 2, '$attachments': 0, '$processInstanceId': None} {'isDoNotCall': True, 'isDoNotSendEmail': False, 'id': 790, 'version': 6, '$att"
+    },
+    {
+      "check": "consent: history newest first with method, evidence and actor; current state per channel",
+      "result": "PASS",
+      "detail": "[{'id': 61, 'channel': 'CALL', 'allowed': False, 'method': 'PHONE', 'evidenceReference': None, 'recordedBy': 'Wave6 RepA', 'at': '2026-10-20T12:34:51.511850Z'}, {'id': 60, 'channel': 'EMAIL', 'allowed"
+    },
+    {
+      "check": "consent: another salesperson can neither read nor change it (404)",
+      "result": "PASS",
+      "detail": "404 404"
+    },
+    {
+      "check": "consent concurrency (5 rounds of 3 changes on one version): one wins, the rest 409; no lost history",
+      "result": "PASS",
+      "detail": "True 8"
+    },
+    {
+      "check": "campaign choices: readable campaigns listed; anonymous \u2192 401",
+      "result": "PASS",
+      "detail": "[{'id': 14, 'name': 'Wave6 campaign 2D7F80'}] 401"
+    },
+    {
+      "check": "attribution: source and campaign shown; same campaign again \u2192 409; without campaign write right \u2192 403",
+      "result": "PASS",
+      "detail": "200 409 403 {'sourceId': 7, 'sourceName': 'Wave6 exhibition 2D7F80', 'campaigns': [{'id': 14, 'name': 'Wave6 campaign 2D7F80'}]}"
+    },
+    {
+      "check": "attribution concurrency (5 leads at once to one campaign): every attribution kept",
+      "result": "PASS",
+      "detail": "[200, 200, 200, 200, 200] [] 6"
+    },
+    {
+      "check": "attribution: a campaign chosen at intake is recorded",
+      "result": "PASS",
+      "detail": "201 {'sourceId': None, 'sourceName': None, 'campaigns': [{'id': 14, 'name': 'Wave6 campaign 2D7F80'}]}"
+    },
+    {
+      "check": "follow-ups: native events planned; bad date or type \u2192 422; on another's lead \u2192 404",
+      "result": "PASS",
+      "detail": "201 201 422 422 404"
+    },
+    {
+      "check": "follow-up queue: the caller's planned follow-ups, oldest first; overdue filter; none of another's",
+      "result": "PASS",
+      "detail": "[{'id': 13, 'version': 0, 'type': 'CALL', 'subject': 'Call back about ISO 9001', 'at': '2026-10-19T12:34:52Z', 'status': 'PLANNED', 'overdue': True, 'leadId': 790, 'leadName': '\u0623\u062d\u0645\u062f \u0639\u0628\u062f \u0627\u0644\u0644\u0647'}] [{'id'"
+    },
+    {
+      "check": "follow-ups: done once (again \u2192 422 FOLLOW_UP_STATE); another cannot close it (404); leaves the overdue queue",
+      "result": "PASS",
+      "detail": "200 422 404 []"
+    },
+    {
+      "check": "timeline: activities and consent changes together, newest first; hidden from others (404)",
+      "result": "PASS",
+      "detail": "['ACTIVITY_MEETING', 'OPTED_OUT', 'OPTED_OUT', 'CONSENT_GIVEN', 'OPTED_OUT', 'OPTED_OUT', 'OPTED_OUT', 'CONSENT_GIVEN', 'OPTED_OUT', 'ACTIVITY_CALL'] 404"
+    },
+    {
+      "check": "routing and response targets \u2192 422 BLOCKED_BY_POLICY (D-12); another's lead \u2192 404; anonymous \u2192 401",
+      "result": "PASS",
+      "detail": "422 {'codeStatus': 422, 'messageStatus': 'This action is not available until IOETI approves policy D-12.', 'error': {'code': 'BLOCKED_BY_POLICY', 'message': 'This action is not available until IOETI a"
+    }
+  ],
+  "cleanup_complete": true
+}

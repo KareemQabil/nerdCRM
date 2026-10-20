@@ -29,10 +29,14 @@ async function intercept(page: Page, config: { businessLineDenied?: boolean } = 
       if (config.businessLineDenied) return route.fulfill({ status: 403, body: "{}" });
       return result(lines);
     }
-    if (path.endsWith("/leads") && method === "GET") return result([
-      { id: 207, name: "Nour Hassan", organization: "Nile View Hotel", stage: "New" },
-      { id: 206, name: "Mona Saber", organization: "Delta Foods", stage: "Qualified" },
-    ]);
+    if (path.endsWith("/leads") && method === "GET") {
+      // the live lead list is searched on the server (Wave 6); the mock filters like the API does
+      const q = (new URL(route.request().url()).searchParams.get("q") || "").toLowerCase();
+      return result([
+        { id: 207, name: "Nour Hassan", organization: "Nile View Hotel", stage: "New" },
+        { id: 206, name: "Mona Saber", organization: "Delta Foods", stage: "Qualified" },
+      ].filter(lead => !q || `${lead.name} ${lead.organization}`.toLowerCase().includes(q)));
+    }
     if (path.endsWith("/leads/stages") && method === "GET") return result(leadStages);
     if (path.endsWith("/leads/lost-reasons") && method === "GET") return result([{ id: 31, name: "Budget" }]);
     if (path.endsWith("/leads/207") && method === "GET") return result({ id: 207, name: "Nour Hassan", organization: "Nile View Hotel", stage: "New" });
@@ -219,10 +223,12 @@ test("reverse-mapped Leads list and secured detail route use specific DTO APIs",
   await page.goto("/");
   await page.getByRole("button",{name:"العملاء المحتملون"}).click();
   await expect(page.getByText("Nour Hassan")).toBeVisible();
-  await page.getByPlaceholder("ابحث في السجلات المحمّلة...").fill("Delta");
+  const searched=page.waitForRequest(request=>request.url().includes("/ws/ioeti/marketing/leads?")&&new URL(request.url()).searchParams.get("q")==="Delta");
+  await page.getByPlaceholder("ابحث بالاسم أو الجهة أو البريد أو الهاتف...").fill("Delta");
+  await searched;
   await expect(page.getByText("Mona Saber")).toBeVisible();
   await expect(page.getByText("Nour Hassan")).toHaveCount(0);
-  await page.getByPlaceholder("ابحث في السجلات المحمّلة...").fill("");
+  await page.getByPlaceholder("ابحث بالاسم أو الجهة أو البريد أو الهاتف...").fill("");
   const row=page.locator(".directory-item").filter({hasText:"Nour Hassan"});
   await row.getByRole("button",{name:"عرض التفاصيل"}).click();
   await expect(page.locator(".record-workspace")).toContainText("Nile View Hotel");
@@ -1589,4 +1595,161 @@ test("Account 360 summary shows only readable areas and keeps money stages apart
   await expect(row).toContainText("900.00");
   await expect(row.locator("td").nth(4)).toHaveText("—");
   await expect(row.locator("td").nth(5)).toHaveText("—");
+});
+
+async function marketingMocks(page: Page) {
+  await intercept(page);
+  const ok = (object: unknown, code = 200) => ({ status: code, contentType: "application/json", body: JSON.stringify({ codeStatus: code, messageStatus: "ok", object }) });
+  const fail = (status: number, code: string, field?: string) => ({ status, contentType: "application/json", body: JSON.stringify({
+    codeStatus: status, messageStatus: "x", error: { code, message: "raw server text", correlationId: "c0ffee06", fields: field ? [{ field, code: "FORMAT", message: "x" }] : [] } }) });
+  const s = {
+    leadVersion: 4,
+    views: [] as Record<string, unknown>[],
+    consents: [] as Record<string, unknown>[],
+    emailAllowed: true,
+    campaigns: [] as { id: number; name: string }[],
+    followUps: [
+      { id: 71, version: 0, type: "CALL", subject: "Call back about ISO 9001", at: "2026-10-19T10:00:00", status: "PLANNED", overdue: true, leadId: 207, leadName: "Nour Hassan" },
+      { id: 72, version: 0, type: "MEETING", subject: "Site visit", at: "2026-10-25T11:00:00", status: "PLANNED", overdue: false, leadId: 207, leadName: "Nour Hassan" },
+    ],
+  };
+  const lead = () => ({ id: 207, version: s.leadVersion, name: "Nour Hassan", organization: "Nile View Hotel", stage: "New", converted: false,
+    stageId: 1, stageKind: "OPEN", assignedToMe: true, receivedAt: "2026-10-18T09:00:00Z", businessLineCode: "ISO9001" });
+  const requests: { method: string; path: string; body: unknown }[] = [];
+  const answers: ReturnType<typeof fail>[] = [];
+  await page.route(url => /\/ws\/ioeti\/(marketing\/|leads\/207$)/.test(url.pathname), route => {
+    const url = new URL(route.request().url());
+    const path = url.pathname.replace(/.*\/ws\/ioeti/, "") + url.search;
+    const method = route.request().method();
+    const body = method === "POST" ? route.request().postDataJSON() as Record<string, unknown> : null;
+    requests.push({ method, path, body });
+    const refusal = method === "POST" ? answers.shift() : undefined;
+    if (refusal) return route.fulfill(refusal);
+    if (path === "/leads/207") return route.fulfill(ok(lead()));
+    if (path.startsWith("/marketing/leads?")) return route.fulfill(ok([lead(), { id: 206, name: "Mona Saber", organization: "Delta Foods", stage: "Qualified" }]));
+    if (path === "/marketing/sources") return route.fulfill(ok([{ id: 11, name: "Exhibition" }, { id: 12, name: "Website" }]));
+    if (path === "/marketing/campaigns") return route.fulfill(ok([{ id: 31, name: "Hotels autumn" }]));
+    if (path === "/marketing/saved-views" && method === "GET") return route.fulfill(ok(s.views));
+    if (path === "/marketing/saved-views") {
+      const v = { id: 41, name: body!.name, searchText: body!.searchText, stageId: body!.stageId, sourceId: body!.sourceId, businessLineCode: body!.businessLineCode, onlyMine: body!.onlyMine };
+      s.views = [v]; return route.fulfill(ok(v, 201));
+    }
+    if (path === "/marketing/saved-views/41/delete") { const v = s.views[0]; s.views = []; return route.fulfill(ok(v)); }
+    if (path === "/marketing/leads") return route.fulfill(ok({ id: 208, version: 0, name: "احمد عبد الله", organization: "موسسه الهدي", stage: "New" }, 201));
+    if (path === "/marketing/leads/duplicates") return route.fulfill(ok([lead()]));
+    if (path === "/marketing/leads/207/consents" && method === "GET") return route.fulfill(ok({
+      channels: [{ channel: "EMAIL", allowed: s.emailAllowed }, { channel: "CALL", allowed: true }], history: s.consents }));
+    if (path === "/marketing/leads/207/consents") {
+      s.emailAllowed = body!.allowed as boolean; s.leadVersion++;
+      const c = { id: 50 + s.consents.length, channel: body!.channel, allowed: body!.allowed, method: body!.method, evidenceReference: body!.evidenceReference,
+        recordedBy: "Sara Sales", at: "2026-10-20T10:0" + s.consents.length + ":00" };
+      s.consents = [c, ...s.consents]; return route.fulfill(ok(c, 201));
+    }
+    if (path === "/marketing/leads/207/attribution") return route.fulfill(ok({ sourceId: 11, sourceName: "Exhibition", campaigns: s.campaigns }));
+    if (path === "/marketing/leads/207/campaigns") { s.campaigns = [{ id: 31, name: "Hotels autumn" }]; s.leadVersion++;
+      return route.fulfill(ok({ sourceId: 11, sourceName: "Exhibition", campaigns: s.campaigns })); }
+    if (path === "/marketing/leads/207/timeline") return route.fulfill(ok([
+      ...s.consents.map(c => ({ at: c.at, kind: c.allowed ? "CONSENT_GIVEN" : "OPTED_OUT", label: c.channel, status: null, actorName: "Sara Sales", eventId: null })),
+      { at: "2026-10-19T10:00:00", kind: "ACTIVITY_CALL", label: "Call back about ISO 9001", status: "PLANNED", actorName: "Sara Sales", eventId: 71 }]));
+    if (path === "/marketing/leads/207/follow-ups") { s.leadVersion++;
+      return route.fulfill(ok({ id: 73, version: 0, type: body!.type, subject: body!.subject, at: body!.at, status: "PLANNED", overdue: false, leadId: 207, leadName: "Nour Hassan" }, 201)); }
+    if (path === "/marketing/follow-ups/71/done") { s.followUps = s.followUps.filter(f => f.id !== 71); return route.fulfill(ok({ id: 71, version: 1, status: "DONE" })); }
+    if (path.startsWith("/marketing/follow-ups")) return route.fulfill(ok(url.searchParams.get("overdue") ? s.followUps.filter(f => f.overdue) : s.followUps));
+    return route.fulfill({ status: 404, contentType: "application/json", body: "{}" });
+  });
+  return { requests, answers, fail };
+}
+
+test("lead intake: invalid e-mail localized; possible duplicates reviewed before recording; confirmed intake opens the new lead", async ({page}) => {
+  const { requests, answers, fail } = await marketingMocks(page);
+  await page.goto("/#/leads");
+  await page.getByRole("button", { name: "عميل محتمل جديد" }).click();
+  const form = page.locator(".mk-intake");
+  await form.getByLabel("الاسم أو اسم العائلة").fill("عبد الله");
+  await form.getByLabel("الاسم الأول").fill("احمد");
+  await form.getByLabel("الجهة").fill("موسسه الهدي");
+  await form.getByLabel("البريد الإلكتروني").fill("ahmed@example");
+  await form.getByLabel("المصدر").selectOption("11");
+  await form.getByLabel("الحملة").selectOption("31");
+  answers.push(fail(422, "VALIDATION_FAILED", "email"));
+  await page.getByRole("button", { name: "تسجيل", exact: true }).click();
+  await expect(page.getByRole("alert")).toHaveText(/أدخل بريدًا إلكترونيًا صحيحًا/);
+  await form.getByLabel("البريد الإلكتروني").fill("ahmed@example.test");
+  answers.push(fail(409, "POSSIBLE_DUPLICATE"));
+  await page.getByRole("button", { name: "تسجيل", exact: true }).click();
+  const review = page.getByRole("region", { name: "عملاء محتملون مشابهون ضمن نطاقك" });
+  await expect(review).toContainText("Nour Hassan");
+  await expect(review.getByRole("link", { name: "فتح" })).toHaveAttribute("href", "#/leads/207");
+  await expect(page.getByRole("button", { name: "تسجيل", exact: true })).toBeDisabled();
+  await review.getByRole("button", { name: "ليس تكرارًا، سجّل" }).click();
+  await expect(page).toHaveURL(/#\/leads\/208$/);
+  const intakes = requests.filter(r => r.method === "POST" && r.path === "/marketing/leads").map(r => r.body as Record<string, unknown>);
+  expect(intakes.map(b => b.confirmNotDuplicate)).toEqual([false, false, true]);
+  expect(intakes[2]).toMatchObject({ firstName: "احمد", name: "عبد الله", organization: "موسسه الهدي", email: "ahmed@example.test", sourceId: 11, campaignId: 31 });
+  await expect(page.locator("body")).not.toContainText("raw server text");
+});
+
+test("lead list: server-side filters and saved views owned by the user", async ({page}) => {
+  const { requests } = await marketingMocks(page);
+  await page.goto("/#/leads");
+  await expect(page.getByText("Mona Saber")).toBeVisible();
+  await page.locator(".mk-filters").getByLabel("المصدر").selectOption("12");
+  await page.locator(".mk-filters").getByLabel("المكلّفون بي فقط").check();
+  await expect.poll(() => requests.some(r => r.path.includes("sourceId=12") && r.path.includes("mine=true"))).toBe(true);
+  await page.getByRole("button", { name: "حفظ الفلتر" }).click();
+  await page.getByPlaceholder("اسم العرض").fill("Website mine");
+  await page.getByRole("button", { name: "حفظ", exact: true }).click();
+  await expect(page.getByLabel("العروض المحفوظة")).toHaveValue("41");
+  expect(requests.find(r => r.method === "POST" && r.path === "/marketing/saved-views")?.body)
+    .toEqual({ name: "Website mine", searchText: null, stageId: null, sourceId: 12, businessLineCode: null, onlyMine: true });
+  await page.locator(".mk-filters").getByLabel("المصدر").selectOption("");
+  await page.getByLabel("العروض المحفوظة").selectOption("41");
+  await expect(page.locator(".mk-filters").getByLabel("المصدر")).toHaveValue("12");
+  await page.getByRole("button", { name: "حذف العرض" }).click();
+  await expect(page.getByLabel("العروض المحفوظة").locator("option")).toHaveCount(1);
+});
+
+test("lead page: consent needs evidence, opt-out does not; attribution, follow-up and timeline use the lead version; queue marks done", async ({page}) => {
+  const { requests } = await marketingMocks(page);
+  await page.goto("/#/leads/207");
+  const panel = page.locator(".mk-engagement");
+  await expect(panel.locator(".mk-channels")).toContainText("مسموح");
+  await expect(panel.getByRole("button", { name: "تسجيل موافقة" })).toBeDisabled();
+  await panel.getByLabel("الطريقة").selectOption("EMAIL");
+  await panel.getByRole("button", { name: "تسجيل رفض" }).click();
+  await expect(panel.locator(".mk-channels li").first()).toContainText("رفض التواصل");
+  await panel.getByLabel("الطريقة").selectOption("WRITTEN");
+  await panel.getByLabel("مرجع الإثبات").fill("Signed form 12");
+  await panel.getByRole("button", { name: "تسجيل موافقة" }).click();
+  await expect(panel.locator(".wf-trail").first()).toContainText("Signed form 12");
+  expect(requests.filter(r => r.method === "POST" && r.path.endsWith("/consents")).map(r => r.body)).toEqual([
+    { version: 4, channel: "EMAIL", allowed: false, method: "EMAIL", evidenceReference: null },
+    { version: 5, channel: "EMAIL", allowed: true, method: "WRITTEN", evidenceReference: "Signed form 12" }]);
+  await expect(panel).toContainText("Exhibition");
+  await panel.getByLabel("الحملة").selectOption("31");
+  await panel.getByRole("button", { name: "ربط بحملة" }).click();
+  await expect(panel.locator(".mk-tags")).toContainText("Hotels autumn");
+  await panel.getByLabel("الموضوع").fill("Send the audit plan");
+  await panel.getByLabel("الموعد").fill("2026-11-02T10:30");
+  await panel.getByRole("button", { name: "تخطيط متابعة" }).click();
+  expect(requests.find(r => r.method === "POST" && r.path.endsWith("/follow-ups"))?.body)
+    .toEqual({ version: 7, type: "CALL", subject: "Send the audit plan", at: "2026-11-02T10:30" });
+  await expect(panel.locator(".mk-timeline")).toContainText("مكالمة");
+  await expect(panel.locator(".mk-timeline")).toContainText("موافقة");
+  await expect(panel).toContainText("لا يُرسل منها أي بريد");
+  await page.goto("/#/leads");
+  await page.getByRole("button", { name: "المتابعات" }).click();
+  await page.getByLabel("المتأخرة فقط").check();
+  await expect(page.locator(".mk-queue .wf-list li")).toHaveCount(1);
+  await page.getByRole("button", { name: "تم", exact: true }).click();
+  await expect(page.getByText("لا توجد متابعات مخططة")).toBeVisible();
+  await expect(page.locator(".mk-queue")).toContainText("D-12");
+  expect(requests.some(r => r.path.includes("/route"))).toBe(false);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/#/leads/207");
+  await expect(page.locator(".mk-engagement")).toBeVisible();
+  // no horizontal page scroll; on failure, name what sticks out of the main area
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1 ? [] :
+    [...document.querySelectorAll("main *")].filter(e => e.getBoundingClientRect().right > window.innerWidth + 1)
+      .map(e => `${e.tagName}.${String(e.className)}`).slice(0, 5))).toEqual([]);
 });
