@@ -35,7 +35,7 @@ Merge order: #32 → #33 → #34 → #36 → #37 → #38 → #39 → #40. The ow
 | Web: typecheck, production build | OK | `apps/ioeti-web` |
 | Web: real-mode contracts (mocked API) | **61/61**, including the **mobile gate** (16 live routes at 390 px, no horizontal scroll) | `tests/app.spec.ts` |
 | Web: fictional preview | **14/14** | `tests/demo.spec.ts` |
-| CI | Backend, frontend, session-expiry and source-ledger checks green on #32–#39; #40 running at the time of writing | GitHub checks |
+| CI | Backend, frontend, session-expiry and source-ledger checks green on every PR, #32–#40 | GitHub checks |
 
 ### Security review of the new surface (Waves 6–7b)
 - **Access.** Every new endpoint takes its access from native permissions, or from the record a document or notice belongs to. Records the caller may not read answer 404 (no existence oracle). Anonymous calls get 401, or a login redirect for downloads, never data.
