@@ -11,6 +11,8 @@ Legend: ✅ passed live · ➖ not applicable · ⬜ not tested yet
 | `GET /ws/ioeti/leads[/{id}]` | ✅ 401 | ⬜ | ✅ 404 | ➖ | ➖ | ➖ | ✅ 403 | ⬜ | ✅ | contract, pilot |
 | `GET /ws/ioeti/accounts[/{id}]` | ✅ 401 | ⬜ | ✅ 404 | ➖ | ➖ | ➖ | ✅ 403 | ⬜ | ✅ | contract, pilot |
 | `POST /ws/ioeti/leads/{id}/convert` | ⬜ | ✅ 403 (no write) | ✅ 404 | ✅ 403 | ✅ 409 | ✅ one 201 + one 409, no duplicates | ✅ 403 | ⬜ | ✅ 400/409/422 | lead-conversion |
+| `GET /ws/ioeti/leads/stages`, `/lost-reasons` | ⬜ | ✅ 403 (no lead read) | ➖ | ➖ | ➖ | ➖ | ✅ 403 | ⬜ | ✅ | lead-lifecycle |
+| `POST /ws/ioeti/leads/{id}/stage`, `/lose`, `/reopen`, `/assign` | ⬜ | ✅ 403 (read-only) | ✅ 404 | ✅ 403 | ✅ 409 | ✅ moves: one 200 + one 409; queue pickup: one 200 + 409 or 404, one owner | ✅ 403 | ⬜ | ✅ 400/409/422 | lead-lifecycle |
 | `GET /ws/ioeti/catalog/products` | ⬜ | ⬜ | ➖ | ➖ | ➖ | ➖ | ✅ 403 | ⬜ | ✅ 422 search | quote |
 | `GET /ws/ioeti/quotes[?opportunityId][/{id}]` | ⬜ | ⬜ | ✅ 404 | ➖ | ➖ | ➖ | ✅ 403 | ⬜ | ✅ | quote |
 | `POST /ws/ioeti/quotes` | ⬜ | ✅ 403 | ✅ 404 | ✅ 403 | ✅ 409 | ⬜ | ✅ 403 | ⬜ | ✅ 400/409/422 | quote |
@@ -62,6 +64,12 @@ Lead conversion (Wave 2, `scripts/lead_conversion_probe.py`, test-only role fixt
 - a non-member line and a non-client or unknown `accountId` each answer one identical 422;
 - the native lost-lead rule answers 422 `CONVERSION_REJECTED` with a fixed message;
 - Account 360 opportunities follow the caller's own scope.
+
+Lead qualification (Wave 2 part 2, `scripts/lead_lifecycle_probe.py`, test-only role fixtures):
+- converted, lost and unknown target stages answer one identical 422; refused commands leave the lead unchanged;
+- the lost note is stored but never returned; native refusals (lose twice, assign a lost lead) answer fixed messages;
+- assigning to another user answers 422 `BLOCKED_BY_POLICY` (D-07, D-12) and changes nothing;
+- a lead picked up by another rep leaves the caller's scope: 404, never 403 (`RecordAccess.writable` race fixed).
 
 WebSocket and scheduled jobs (issue #10, `scripts/websocket_identity_probe.py`):
 

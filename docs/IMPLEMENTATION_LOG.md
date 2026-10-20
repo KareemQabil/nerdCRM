@@ -408,3 +408,19 @@ Full report: `docs/security/SEC-001-identity-isolation.md` §8.
 | WebSocket / job probe | 7/7: 0 mismatches in 5,516 WebSocket messages with 18,541 concurrent HTTP requests and a metadata reload; 28 job runs, 0 with a user; logout closes the open socket |
 | Expiry mode | 2/2 |
 | JUnit | +2 `WebSocketSessionGuardTest` |
+
+## 2026-10-20 · Wave 2 part 2 · lead qualification and assignment
+
+Slice: `docs/slices/W2-lead-qualification.md`.
+
+### Change
+- `LeadLifecycleService` (`ioeti-business-lines`) on the native `LeadService`: stage moves (`kanbanLeadOnMove`), lose, reopen (`resetLead`), assign to me.
+- `LeadRestController`: `GET stages`, `GET lost-reasons`, `POST {id}/stage|lose|reopen|assign`. Lead views add `stageId`, `stageKind`, `lostReason`, `assignedToMe`, `receivedAt`; the lost note is never returned.
+- `NativeCommands` moved from `ioeti-commercial` to `ioeti-core` so every IOETI module maps native refusals the same way (no behaviour change for quotes and contracts).
+- **Finding, fixed:** `RecordAccess.writable` answered 403 when a concurrent commit moved a record out of the caller's scope between its read and write checks. It now answers 404 (see SEC-002 §3).
+- Policy D-12 (lead response targets, escalation, routing) added as OPEN. Assigning to another user fails closed.
+- UI: `LeadQualificationPanel` on the lead page (real mode); lost leads hide "convert".
+- CI: `PROBE_LIFECYCLE_ROUNDS=10 scripts/lead_lifecycle_probe.py`, report `logs/lead-lifecycle-probe.json`.
+
+### Evidence
+See `docs/evidence/wave2-lead-qualification/`.

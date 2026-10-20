@@ -1,0 +1,125 @@
+{
+  "results": [
+    {
+      "check": "stages: every native status, in pipeline order, with its kind",
+      "result": "PASS",
+      "detail": "200 [{'id': 1, 'name': 'To be processed', 'kind': 'OPEN'}, {'id': 2, 'name': 'Marketing qualification', 'kind': 'OPEN'}, {'id': 3, 'name': 'Sales qualification', 'kind': 'OPEN'}, {'id': 4, 'name': 'Nu"
+    },
+    {
+      "check": "stages follow lead read access (read-only 200, no lead permission 403)",
+      "result": "PASS",
+      "detail": "200 403 403"
+    },
+    {
+      "check": "lost reasons listed",
+      "result": "PASS",
+      "detail": "200 {'codeStatus': 200, 'messageStatus': 'Lost reasons', 'object': [{'id': 5, 'name': 'Wave2 budget ae5701'}]}"
+    },
+    {
+      "check": "move to an open stage (200, new version, stage in view)",
+      "result": "PASS",
+      "detail": "200 {'id': 270, 'version': 2, 'name': 'LC L1 ae5701, Probe Wave2LC L1 ae5701', 'organization': 'LC L1 ae5701', 'stage': 'Marketing qualification', 'converted': False, 'businessLineCode': 'ISO9001', 'a"
+    },
+    {
+      "check": "lead view: safe fields only, received time and assignment shown",
+      "result": "PASS",
+      "detail": "{'id': 270, 'version': 2, 'name': 'LC L1 ae5701, Probe Wave2LC L1 ae5701', 'organization': 'LC L1 ae5701', 'stage': 'Marketing qualification', 'converted': False, 'businessLineCode': 'ISO9001', 'accou"
+    },
+    {
+      "check": "converted, lost and unknown stages refused identically (422 stageId)",
+      "result": "PASS",
+      "detail": "{'converted': (422, [{'field': 'stageId', 'code': 'UNAVAILABLE', 'message': 'Choose an open lead stage.'}]), 'lost': (422, [{'field': 'stageId', 'code': 'UNAVAILABLE', 'message': 'Choose an open lead "
+    },
+    {
+      "check": "stale version \u2192 409, missing version \u2192 400",
+      "result": "PASS",
+      "detail": "409 400"
+    },
+    {
+      "check": "another rep's lead \u2192 the same 404 as a missing id",
+      "result": "PASS",
+      "detail": "404 404"
+    },
+    {
+      "check": "read-only user \u2192 403",
+      "result": "PASS",
+      "detail": "403"
+    },
+    {
+      "check": "refused moves left the leads unchanged",
+      "result": "PASS",
+      "detail": "((2, 2, None, None, 403), (2, 2, None, None, 403))"
+    },
+    {
+      "check": "lose: LOST stage, reason shown, note stored",
+      "result": "PASS",
+      "detail": "200 {'id': 270, 'version': 3, 'name': 'LC L1 ae5701, Probe Wave2LC L1 ae5701', 'organization': 'LC L1 ae5701', 'stage': 'Lost', 'converted': False, 'businessLineCode': 'ISO9001', 'accountId': None, 'o"
+    },
+    {
+      "check": "lose: the free-text note is never returned",
+      "result": "PASS",
+      "detail": "{'codeStatus': 200, 'messageStatus': 'Lead marked lost', 'object': {'id': 270, 'version': 3, 'name': 'LC L1 ae5701, Probe Wave2LC L1 ae5701', 'organization': 'LC L1 ae5701', 'stage': 'Lost', 'converte"
+    },
+    {
+      "check": "lose twice \u2192 422 LEAD_REJECTED (native rule, safe message)",
+      "result": "PASS",
+      "detail": "422 {'codeStatus': 422, 'messageStatus': 'This lead cannot be changed this way in its current state.', 'error': {'code': 'LEAD_REJECTED', 'message': 'This lead cannot be changed this way in its curren"
+    },
+    {
+      "check": "a lost lead cannot move (LEAD_LOST) or be assigned (LEAD_REJECTED)",
+      "result": "PASS",
+      "detail": "422 422"
+    },
+    {
+      "check": "unknown reason and over-long note refused (422 field errors), lead unchanged",
+      "result": "PASS",
+      "detail": "{'unknown reason': (422, 'lostReasonId'), 'long note': (422, 'note')}"
+    },
+    {
+      "check": "reopen: default stage, reason and note cleared",
+      "result": "PASS",
+      "detail": "200 (4, 1, None, None, 403)"
+    },
+    {
+      "check": "reopen an open lead \u2192 422 NOT_LOST",
+      "result": "PASS",
+      "detail": "422 {'codeStatus': 422, 'messageStatus': 'Only a lost lead can be reopened.', 'error': {'code': 'NOT_LOST', 'message': 'Only a lost lead can be reopened.', 'correlationId': '1f8815ab-f85a-4f23-b46a-75"
+    },
+    {
+      "check": "assign to me from the unassigned queue",
+      "result": "PASS",
+      "detail": "200 200 {'codeStatus': 200, 'messageStatus': 'Lead assigned', 'object': {'id': 273, 'version': 2, 'name': 'LC U1 ae5701, Probe Wave2LC U1 ae5701', 'organization': 'LC U1 ae5701', 'stage': 'To be proce"
+    },
+    {
+      "check": "an assigned lead leaves the other rep's view (404)",
+      "result": "PASS",
+      "detail": "404"
+    },
+    {
+      "check": "assign to someone else \u2192 422 BLOCKED_BY_POLICY (D-07, D-12), owner unchanged",
+      "result": "PASS",
+      "detail": "422 {'codeStatus': 422, 'messageStatus': 'This action is not available until IOETI approves policy D-07 and D-12.', 'error': {'code': 'BLOCKED_BY_POLICY', 'message': 'This action is not available unti"
+    },
+    {
+      "check": "assign with my own user id \u2192 200",
+      "result": "PASS",
+      "detail": "200"
+    },
+    {
+      "check": "converted lead: stage/lose/reopen/assign \u2192 409 ALREADY_CONVERTED",
+      "result": "PASS",
+      "detail": "{'stage': 409, 'lose': 409, 'reopen': 409, 'assign': 409}"
+    },
+    {
+      "check": "concurrent stage moves: one 200 and one 409, stored stage is the winner's (10 leads)",
+      "result": "PASS",
+      "detail": "[([200, 409], True), ([200, 409], True), ([200, 409], True), ([200, 409], True), ([200, 409], True), ([200, 409], True), ([200, 409], True), ([200, 409], True), ([200, 409], True), ([200, 409], True)]"
+    },
+    {
+      "check": "concurrent queue pickups: one 200, the other 409 or 404, one owner (10 leads)",
+      "result": "PASS",
+      "detail": "[([200, 409], True), ([200, 409], True), ([200, 409], True), ([200, 409], True), ([200, 409], True), ([200, 409], True), ([200, 409], True), ([200, 409], True), ([200, 409], True), ([200, 409], True)]"
+    }
+  ],
+  "cleanup_complete": true
+}

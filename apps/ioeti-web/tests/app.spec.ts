@@ -5,6 +5,11 @@ const lines = [
   { id: 2, code: "TRAINING", nameAr: "التدريب", nameEn: "Training", status: 2, sequence: 20, responsibleTeam: null },
 ];
 
+const leadStages = [
+  { id: 1, name: "New", kind: "OPEN" }, { id: 2, name: "Qualified", kind: "OPEN" },
+  { id: 5, name: "Converted", kind: "CONVERTED" }, { id: 6, name: "Lost", kind: "LOST" },
+];
+
 type MockRecord = { id: number; version: number; name: string; reference: string; businessLineCode: string; businessLineNameAr: string; businessLineNameEn: string; stage: string | null };
 
 async function intercept(page: Page, config: { businessLineDenied?: boolean } = {}) {
@@ -28,6 +33,8 @@ async function intercept(page: Page, config: { businessLineDenied?: boolean } = 
       { id: 207, name: "Nour Hassan", organization: "Nile View Hotel", stage: "New" },
       { id: 206, name: "Mona Saber", organization: "Delta Foods", stage: "Qualified" },
     ]);
+    if (path.endsWith("/leads/stages") && method === "GET") return result(leadStages);
+    if (path.endsWith("/leads/lost-reasons") && method === "GET") return result([{ id: 31, name: "Budget" }]);
     if (path.endsWith("/leads/207") && method === "GET") return result({ id: 207, name: "Nour Hassan", organization: "Nile View Hotel", stage: "New" });
     if (path.endsWith("/accounts") && method === "GET") return result([
       { id: 901, name: "Nile View Hotel", reference: "AC-901", customer: false, prospect: true },
@@ -632,4 +639,64 @@ test("contract: lines are copied once from the quotation with the contract versi
   await expect(page.locator(".contract-body tfoot")).toContainText("منسوخة من عرض السعر #7");
   expect(posts).toEqual([{ version: 2, quoteId: 7 }]);
   await expect(page.getByRole("button", { name: "نسخ البنود من عرض السعر" })).toHaveCount(0);
+});
+
+test("lead qualification: stage, lose, reopen and assign-to-me send the lead version; refusals localized", async ({page}) => {
+  await intercept(page);
+  let lead = { id: 207, version: 3, name: "Nour Hassan", organization: "Nile View Hotel", stage: "New", stageId: 1, stageKind: "OPEN",
+    converted: false, businessLineCode: "ISO9001", accountId: null, opportunityId: null, lostReason: null as string | null,
+    assignedToMe: false, receivedAt: "2026-10-18T09:30:00" };
+  const requests: { action: string; body: Record<string, unknown> }[] = [];
+  const answers: Record<string, unknown>[] = [];
+  const ok = (object: unknown) => ({ status: 200, contentType: "application/json", body: JSON.stringify({ codeStatus: 200, messageStatus: "ok", object }) });
+  await page.route(/\/axelor-erp\/ws\/ioeti\/leads\/207$/, route => route.fulfill(ok(lead)));
+  await page.route(/\/axelor-erp\/ws\/ioeti\/leads\/207\/(stage|lose|reopen|assign)$/, route => {
+    const action = new URL(route.request().url()).pathname.split("/").at(-1)!;
+    const body = route.request().postDataJSON() as Record<string, unknown>;
+    requests.push({ action, body });
+    const refusal = answers.shift();
+    if (refusal) return route.fulfill({ status: refusal.status as number, contentType: "application/json", body: JSON.stringify(refusal.body) });
+    if (action === "stage") lead = { ...lead, stageId: 2, stage: "Qualified" };
+    if (action === "lose") lead = { ...lead, stageId: 6, stage: "Lost", stageKind: "LOST", lostReason: "Budget" };
+    if (action === "reopen") lead = { ...lead, stageId: 1, stage: "New", stageKind: "OPEN", lostReason: null };
+    if (action === "assign") lead = { ...lead, assignedToMe: true };
+    lead = { ...lead, version: lead.version + 1 };
+    return route.fulfill(ok(lead));
+  });
+  await page.goto("/#/leads/207");
+  await expect(page.getByText("غير مكلّف بك")).toBeVisible();
+  await expect(page.getByText(/D-12/)).toBeVisible();
+  const move = page.getByLabel("نقل للمرحلة");
+  await expect(move.locator("option")).toHaveText(["—", "Qualified"]);
+  await move.selectOption("2");
+  await page.getByRole("button", { name: "نقل للمرحلة" }).click();
+  await expect(page.locator(".record-status-tag").first()).toContainText("Qualified");
+  await page.getByRole("button", { name: "تكليف لي" }).click();
+  await expect(page.getByText("مكلّف بك", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "تكليف لي" })).toHaveCount(0);
+  await page.getByRole("button", { name: "تسجيل كخسارة" }).click();
+  await page.getByLabel("سبب الخسارة").selectOption("31");
+  await page.getByLabel("ملاحظة داخلية (اختياري)").fill("Budget frozen");
+  await page.getByRole("button", { name: "تأكيد الخسارة" }).click();
+  await expect(page.getByText("Budget", { exact: true })).toBeVisible();
+  await expect(page.getByLabel("نقل للمرحلة")).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "تحويل إلى حساب وفرصة" })).toHaveCount(0);
+  await expect(page.getByText("عميل محتمل خاسر · أعد فتحه للتحويل")).toBeVisible();
+  await page.screenshot({ path: "test-results/ioeti-lead-lost.png", fullPage: true });
+  await page.getByRole("button", { name: "إعادة فتح العميل المحتمل" }).click();
+  await expect(page.getByLabel("نقل للمرحلة")).toBeVisible();
+  await expect(page.getByRole("link", { name: "تحويل إلى حساب وفرصة" })).toBeVisible();
+  expect(requests).toEqual([
+    { action: "stage", body: { version: 3, stageId: 2 } },
+    { action: "assign", body: { version: 4 } },
+    { action: "lose", body: { version: 5, lostReasonId: 31, note: "Budget frozen" } },
+    { action: "reopen", body: { version: 6 } },
+  ]);
+  answers.push(contractError(409, "CONFLICT"), contractError(422, "LEAD_REJECTED"));
+  await page.getByLabel("نقل للمرحلة").selectOption("2");
+  await page.getByRole("button", { name: "نقل للمرحلة" }).click();
+  await expect(page.getByRole("alert")).toHaveText(/تم تعديل السجل من مكان آخر/);
+  await page.getByRole("button", { name: "نقل للمرحلة" }).click();
+  await expect(page.getByRole("alert")).toHaveText(/لا يمكن تنفيذ هذا الإجراء على العميل المحتمل/);
+  await expect(page.locator("body")).not.toContainText("c0ffee00");
 });

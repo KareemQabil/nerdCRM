@@ -21,6 +21,7 @@ import com.ioeti.commercial.service.ContractLinesService;
 import com.ioeti.commercial.service.QuoteService;
 import com.ioeti.core.api.ApiException;
 import com.ioeti.core.api.IoetiEndpoint;
+import com.ioeti.core.api.NativeCommands;
 import com.ioeti.core.api.RecordAccess;
 import io.swagger.v3.oas.annotations.Operation;
 import jakarta.ws.rs.Consumes;

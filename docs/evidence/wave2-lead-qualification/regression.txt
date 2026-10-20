@@ -1,0 +1,42 @@
+# Wave 2 part 2 (lead qualification and assignment), local run 2026-10-20, Axelor 9.1.10 + PostgreSQL 16, Quartz enabled, branch claude/ioeti-wave2-lead-lifecycle
+env_PROBE_CONVERT_ROUNDS_10_python3_scripts_lead_conversion_: 28/28 checks passed
+env_PROBE_LIFECYCLE_ROUNDS_10_python3_scripts_lead_lifecycle: 24/24 checks passed
+env_PROBE_QUOTE_ROUNDS_10_python3_scripts_quote_probe.py: 50/50 checks passed
+env_PROBE_REQUIRE_JOBS_1_PROBE_WS_SECONDS_30_python3_scripts: 7/7 checks passed
+env_PROBE_RESTORES_2_PROBE_WORKERS_2_PROBE_MIN_SECONDS_20_py: IDENTITY_PROBE {"checks": 356840, "leaks": 0} boundary {"present": true, "before_load": {"
+python3_scripts_api_contract_probe.py: 31/31 checks passed
+python3_scripts_api_smoke_test.py: 16/16 checks passed
+python3_scripts_opportunity_concurrency_probe.py_20: 13/13 checks passed
+python3_scripts_opportunity_pilot_smoke.py: PILOT_CONTRACT=PASS
+python3_scripts_scope_matrix_probe.py: 65/65 checks passed
+python3_scripts_session_security_probe.py: 20/20 checks passed
+migrate-verify: 8/8 checks passed
+backup-drill: 10/10 checks passed · backup 8.7 MB in 1.71 s · restore 22.63 s
+web: 30 mocked + 14 demo Playwright tests passed; typecheck and build pass
+junit: scripts/ioeti.sh test BUILD SUCCESSFUL
+lead_lifecycle_probe after the D-07/D-12 message change: 24/24
+## lead_lifecycle_probe.py (PROBE_LIFECYCLE_ROUNDS=10)
+PASS stages: every native status, in pipeline order, with its kind
+PASS stages follow lead read access (read-only 200, no lead permission 403)
+PASS lost reasons listed
+PASS move to an open stage (200, new version, stage in view)
+PASS lead view: safe fields only, received time and assignment shown
+PASS converted, lost and unknown stages refused identically (422 stageId)
+PASS stale version → 409, missing version → 400
+PASS another rep's lead → the same 404 as a missing id
+PASS read-only user → 403
+PASS refused moves left the leads unchanged
+PASS lose: LOST stage, reason shown, note stored
+PASS lose: the free-text note is never returned
+PASS lose twice → 422 LEAD_REJECTED (native rule, safe message)
+PASS a lost lead cannot move (LEAD_LOST) or be assigned (LEAD_REJECTED)
+PASS unknown reason and over-long note refused (422 field errors), lead unchanged
+PASS reopen: default stage, reason and note cleared
+PASS reopen an open lead → 422 NOT_LOST
+PASS assign to me from the unassigned queue
+PASS an assigned lead leaves the other rep's view (404)
+PASS assign to someone else → 422 BLOCKED_BY_POLICY (D-07, D-12), owner unchanged
+PASS assign with my own user id → 200
+PASS converted lead: stage/lose/reopen/assign → 409 ALREADY_CONVERTED
+PASS concurrent stage moves: one 200 and one 409, stored stage is the winner's (10 leads)
+PASS concurrent queue pickups: one 200, the other 409 or 404, one owner (10 leads)

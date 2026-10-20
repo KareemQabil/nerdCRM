@@ -1,4 +1,4 @@
-# Open IOETI policy decisions (D-01 to D-11)
+# Open IOETI policy decisions (D-01 to D-12)
 
 These decisions belong to IOETI's owners, accountants, legal advisers and certification authority. **Engineers must not invent them.** Until a decision is signed:
 - the affected command stays behind a feature gate and fails closed with an explicit "blocked by policy" result;
@@ -20,6 +20,7 @@ Status values: `OPEN` (no answer), `PROPOSED` (an engineering proposal awaits ow
 | D-09 | **V1 scope and UAT.** Which business lines go live first, mandatory V1 functions, UAT participants and sign-off. | Go-live, real customer data | Engineering of all policy-independent slices | OPEN |
 | D-10 | **External exposure.** Public certificate/training verification, client portal, public intake forms, external integrations (WhatsApp/Meta/LinkedIn, e-signature, payments, SSO). | Every public or third-party integration | Internal, authenticated features only | OPEN |
 | D-11 | **Commercial approvals, quotation terms and contract signature.** Who approves a quotation and at which value/discount, quotation validity, standard terms and conditions, who may send to the customer; legal review and who may sign/activate a customer contract; what evidence of signature is required; when a deal is handed over to operations. | Finalizing or sending a quotation (`POST /ws/ioeti/quotes/{id}/finalize`), activating/signing a contract (`POST /ws/ioeti/contracts/{id}/activate`) and operations handover (`…/handover`): 422 `BLOCKED_BY_POLICY` | Draft quotations, catalog lines, totals before tax, payment milestones, draft contracts (Wave 3) | OPEN |
+| D-12 | **Lead response and routing.** Response-time targets per business line or source (first contact, qualification), working hours and holidays they count, who is alerted or receives the lead when a target is missed, and how new leads are distributed (round robin, territory, line, manual). | Response-time timers, escalation and reminders; assigning or reassigning a lead to someone else (`POST /ws/ioeti/leads/{id}/assign` with another `userId`: 422 `BLOCKED_BY_POLICY` citing D-07 and D-12, because routing also needs the role matrix) | Lead stages, lose/reopen, assign-to-me, the received time on every lead (`receivedAt`), the unassigned queue as a test fixture | OPEN |
 
 ## Related, owner-only actions (not engineering decisions)
 
