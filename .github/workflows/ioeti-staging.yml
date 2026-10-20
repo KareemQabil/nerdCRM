@@ -2,6 +2,9 @@ name: IOETI staging safety gate
 on:
   pull_request:
     paths:
+      - "apps/ioeti-web/playwright.staging.config.ts"
+      - "apps/ioeti-web/live-tests/**"
+      - "apps/ioeti-web/package.json"
       - "infra/staging.env.example"
       - "infra/nginx/**"
       - "infra/systemd/**"
@@ -37,6 +40,15 @@ jobs:
         run: |
           npm install --no-audit --no-fund
           npm run build
+      - name: Parse opt-in live browser suite (no host contacted or secret used)
+        working-directory: apps/ioeti-web
+        env:
+          IOETI_ENV: staging
+          IOETI_STAGING_ORIGIN: https://test.invalid
+          IOETI_PILOT_USER: fixture-not-a-real-user
+          IOETI_PILOT_PASSWORD: fixture-not-a-real-password
+          VITE_IOETI_DEMO: 'false'
+        run: npx playwright test -c playwright.staging.config.ts --list
       - name: Validate HTTPS nginx template with disposable self-signed test certificate
         shell: bash
         run: |
