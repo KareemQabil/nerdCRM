@@ -11,7 +11,7 @@ on:
       - "scripts/staging_config.py"
       - "scripts/staging_run.sh"
       - "scripts/staging_smoke.py"
-      - "tests/test_staging_config.py"
+      - "tests/test_staging_*.py"
       - ".github/workflows/ioeti-staging.yml"
       - "infra/axelor/axelor-config.ioeti.template.properties"
 jobs:
@@ -25,7 +25,7 @@ jobs:
         with:
           python-version: '3.12'
       - name: Validate strict staging gate and negative tests (no real secrets)
-        run: python3 -m unittest discover -s tests -p 'test_staging_config.py' -v
+        run: python3 -m unittest discover -s tests -p 'test_staging_*.py' -v
       - name: Shell and Python syntax
         run: |
           bash -n scripts/staging_run.sh
