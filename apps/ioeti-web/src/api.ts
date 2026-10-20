@@ -247,7 +247,7 @@ export type QuoteLine = { id: number; productCode: string | null; name: string; 
 export type Quote = {
   id: number; version: number; reference: string | null; status: string | null; opportunityId: number | null;
   accountId: number | null; accountName: string | null; currency: string | null; totalBeforeTax: string | null;
-  taxStatus: string; lines: QuoteLine[];
+  taxStatus: string; versionNumber?: number | null; lines: QuoteLine[];
 };
 export async function getCatalog(search = ""): Promise<CatalogProduct[]> {
   if (DEMO_MODE) return [];

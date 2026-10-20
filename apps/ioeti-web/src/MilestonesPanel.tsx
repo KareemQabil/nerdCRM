@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { CalendarClock, CircleAlert, LockKeyhole, Plus, Trash2 } from "lucide-react";
 import { ApiError, addMilestone, getMilestones, removeMilestone, type MilestonePlan } from "./api";
 import type { Language } from "./preferences";
+import { InvoiceRequests } from "./WorkflowPanels";
 
 const strings = {
   ar: {
@@ -96,6 +97,7 @@ export function MilestonesPanel({quoteId,editable,language,onQuoteChanged}:{quot
         <button type="submit" className="btn btn-secondary" disabled={busy}><Plus size={16}/>{busy?l.adding:l.add}</button>
       </form>}
       <p className="record-security-note"><LockKeyhole size={15}/>{l.invoiceNote}</p>
+      {!editable&&plan.milestones.length>0&&<InvoiceRequests plan={plan} language={language} onChanged={()=>{void load().catch(()=>undefined);onQuoteChanged();}}/>}
     </>}
   </div>;
 }

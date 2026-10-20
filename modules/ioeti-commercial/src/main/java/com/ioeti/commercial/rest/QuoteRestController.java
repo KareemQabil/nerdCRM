@@ -7,6 +7,7 @@ import com.axelor.apps.crm.db.Opportunity;
 import com.axelor.apps.sale.db.SaleOrder;
 import com.axelor.apps.sale.db.SaleOrderLine;
 import com.axelor.apps.sale.db.repo.SaleOrderRepository;
+import com.axelor.apps.sale.service.saleorder.SaleOrderVersionService;
 import com.axelor.auth.AuthUtils;
 import com.axelor.db.JPA;
 import com.axelor.db.JpaSecurity;
@@ -32,7 +33,10 @@ import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
+import java.util.TreeMap;
 
 /**
  * Draft quotations for opportunities (Wave 3), on native AOS {@code SaleOrder} records.
@@ -119,6 +123,68 @@ public class QuoteRestController {
     return ResponseConstructor.build(Response.Status.CREATED, "Quotation line added", view(quote));
   }
 
+  @GET
+  @Path("/{id}/versions")
+  @Operation(summary = "Saved versions of a quotation (native AOS versions), newest first", tags = {"IOETI quotes"})
+  @IoetiEndpoint
+  public Response versions(@PathParam("id") Long id) {
+    SaleOrder quote = RecordAccess.readable(SaleOrder.class, id);
+    Map<Integer, VersionView> versions = new TreeMap<>((a, b) -> b - a);
+    // saved lines are archived copies that point to the quotation through oldVersionSaleOrder
+    for (SaleOrderLine line : JPA.em()
+        .createQuery("SELECT l FROM SaleOrderLine l WHERE l.oldVersionSaleOrder = :q", SaleOrderLine.class)
+        .setParameter("q", quote).getResultList()) {
+      VersionView current = versions.get(line.getVersionNumber());
+      BigDecimal total = (current == null ? BigDecimal.ZERO : current.totalBeforeTax())
+          .add(line.getExTaxTotal() == null ? BigDecimal.ZERO : line.getExTaxTotal());
+      versions.put(line.getVersionNumber(), new VersionView(line.getVersionNumber(), line.getVersionDateT(),
+          (current == null ? 0 : current.lines()) + 1, total));
+    }
+    return ResponseConstructor.build(Response.Status.OK, "Quotation versions", List.copyOf(versions.values()));
+  }
+
+  @POST
+  @Path("/{id}/versions")
+  @Consumes(MediaType.APPLICATION_JSON)
+  @Operation(summary = "Save the current lines as a version and continue on the next one (native AOS)", tags = {"IOETI quotes"})
+  @IoetiEndpoint
+  public Response saveVersion(@PathParam("id") Long id, VersionOnly command) {
+    SaleOrder quote = draftForChange(id, command == null ? null : command.version());
+    if (quote.getSaleOrderLineList() == null || quote.getSaleOrderLineList().isEmpty()) {
+      throw new ApiException(422, "NO_LINES", "Add at least one line before saving a version.", null);
+    }
+    runNative(() -> Beans.get(SaleOrderVersionService.class).createNewVersion(quote));
+    return ResponseConstructor.build(Response.Status.CREATED, "Version saved", view(quote));
+  }
+
+  @POST
+  @Path("/{id}/versions/{number}/restore")
+  @Consumes(MediaType.APPLICATION_JSON)
+  @Operation(summary = "Bring back the lines of a saved version; the current lines are saved first (native AOS)", tags = {"IOETI quotes"})
+  @IoetiEndpoint
+  public Response restoreVersion(@PathParam("id") Long id, @PathParam("number") Integer number, VersionOnly command) {
+    SaleOrder quote = draftForChange(id, command == null ? null : command.version());
+    long saved = JPA.em().createQuery(
+            "SELECT COUNT(l) FROM SaleOrderLine l WHERE l.oldVersionSaleOrder = :q AND l.versionNumber = :n", Long.class)
+        .setParameter("q", quote).setParameter("n", number).getSingleResult();
+    if (number == null || saved == 0) {
+      throw new ApiException(422, "VERSION_UNKNOWN", "This quotation has no saved version with that number.", null);
+    }
+    runNative(() -> Beans.get(SaleOrderVersionService.class).recoverVersion(quote, number, true));
+    return ResponseConstructor.build(Response.Status.OK, "Version restored", view(quote));
+  }
+
+  private static SaleOrder draftForChange(Long id, Integer version) {
+    if (version == null) throw ApiException.badRequest("Record version is required.");
+    new SecurityCheck().createAccess(SaleOrderLine.class).check();
+    SaleOrder quote = RecordAccess.writable(SaleOrder.class, id);
+    ConflictChecker.checkVersion(quote, version);
+    if (!Integer.valueOf(SaleOrderRepository.STATUS_DRAFT_QUOTATION).equals(quote.getStatusSelect())) {
+      throw new ApiException(422, "QUOTE_NOT_DRAFT", "Only a draft quotation can be changed.", null);
+    }
+    return quote;
+  }
+
   @POST
   @Path("/{id}/finalize")
   @Operation(summary = "Finalize a quotation: blocked until finance (D-06) and approval (D-11) policies", tags = {"IOETI quotes"})
@@ -183,6 +249,7 @@ public class QuoteRestController {
         quote.getCurrency() == null ? null : quote.getCurrency().getCode(),
         quote.getExTaxTotal(),
         TAX_STATUS,
+        quote.getVersionNumber(),
         lines);
   }
 
@@ -206,5 +273,7 @@ public class QuoteRestController {
   public record QuoteView(
       Long id, Integer version, String reference, String status, Long opportunityId,
       Long accountId, String accountName, String currency, BigDecimal totalBeforeTax,
-      String taxStatus, List<QuoteLineView> lines) {}
+      String taxStatus, Integer versionNumber, List<QuoteLineView> lines) {}
+  public record VersionOnly(Integer version) {}
+  public record VersionView(Integer number, LocalDateTime savedAt, int lines, BigDecimal totalBeforeTax) {}
 }

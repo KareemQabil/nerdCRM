@@ -1,0 +1,30 @@
+plugins {
+	id 'com.axelor.app'
+}
+
+apply from: new File(projectDir.canonicalFile, "../../gradle/ioeti-module.gradle")
+
+// IOETI workspace (Wave 5b): workflows that span the native commercial chain (review requests for
+// quotations and contracts, invoice requests for milestones, contract renewals) and the authorized
+// Account 360 summary across every IOETI domain. Approval/rejection (D-11) and invoice issue (D-06)
+// fail closed.
+axelor {
+	title "IOETI Workspace"
+	description "IOETI cross-domain workflows and Account 360"
+}
+
+apply from: rootProject.file("modules/axelor-open-suite/libs.gradle")
+
+dependencies {
+	api project(":modules:ioeti-core")
+	api project(":modules:ioeti-business-lines")
+	api project(":modules:ioeti-commercial")
+	api project(":modules:ioeti-operations")
+	api project(":modules:ioeti-certification")
+	api project(":modules:ioeti-training")
+	api project(":modules:ioeti-recruitment")
+	api project(":modules:ioeti-fundraising")
+	api project(":modules:axelor-account")
+
+	implementation libs.swagger_jaxrs
+}

@@ -1,0 +1,23 @@
+/* Wave 5b: quotation versions, reviews, invoice requests, renewals, Account 360 summary */
+.wf-panel{display:flex;flex-direction:column;gap:14px;margin-top:16px;border-top:1px solid var(--outline-variant);padding-top:14px;}
+.wf-block{display:flex;flex-direction:column;gap:8px;}
+.wf-block h4{display:flex;align-items:center;gap:6px;margin:0;font-size:14px;}
+.wf-muted{color:var(--on-surface-variant);font-size:12px;margin:0;}
+.wf-ok{display:flex;align-items:center;gap:6px;color:var(--success);font-size:13px;margin:0;}
+.wf-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px;}
+.wf-list li{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;font-size:13px;border:1px solid var(--outline-variant);border-radius:var(--radius);padding:8px 12px;}
+.wf-review{display:flex;flex-wrap:wrap;align-items:center;gap:8px;}
+.wf-status{display:inline-flex;font-size:12px;font-weight:700;padding:4px 10px;border-radius:999px;background:var(--surface-variant);color:var(--on-surface-variant);}
+.wf-status-pending{background:var(--primary-container,rgba(37,99,235,.12));color:var(--primary);}
+.wf-status-changes_requested{background:rgba(217,119,6,.14);color:#b45309;}
+.wf-trail{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px;width:100%;}
+.wf-trail li{font-size:13px;}
+.wf-trail small{display:block;color:var(--on-surface-variant);font-size:11px;}
+.wf-summary{margin:16px 0;display:flex;flex-direction:column;gap:10px;}
+.wf-summary h3,.wf-summary h4{margin:0;font-size:15px;}
+.wf-cards{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;}
+.wf-cards a,.wf-cards div{display:flex;flex-direction:column;gap:2px;border:1px solid var(--outline-variant);border-radius:var(--radius);padding:10px 12px;color:var(--on-surface);text-decoration:none;}
+.wf-cards a:hover,.wf-cards a:focus-visible{border-color:var(--primary);}
+.wf-cards strong{font-size:20px;font-variant-numeric:tabular-nums;}
+.wf-cards span{font-size:12px;color:var(--on-surface-variant);}
+.wf-money td,.wf-money th{white-space:nowrap;}

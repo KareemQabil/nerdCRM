@@ -101,6 +101,9 @@ jobs:
           # Wave 5: handover and engagement (checklist per line, one engagement per handover, append-only
           # trail, concurrent acceptance; contract activation stays D-11 and is a SQL test fixture here)
           PROBE_OPS_ROUNDS=5 python3 scripts/operations_probe.py
+          # Wave 5b: quotation versions, review requests (D-11 decisions blocked), invoice requests (D-06 issue
+          # blocked), renewals, Account 360 summary; order confirmation/activation are SQL test fixtures here
+          PROBE_WS_ROUNDS=5 python3 scripts/workspace_probe.py
           # SEC-004: cookies, fixation, CSRF, logout, per-user login throttle (runs last: it
           # throttles one throw-away user)
           python3 scripts/session_security_probe.py
@@ -128,6 +131,7 @@ jobs:
             logs/recruitment-probe.json
             logs/fundraising-probe.json
             logs/operations-probe.json
+            logs/workspace-probe.json
             logs/quote-probe.json
             logs/websocket-identity-probe.json
             logs/migration-verify.json

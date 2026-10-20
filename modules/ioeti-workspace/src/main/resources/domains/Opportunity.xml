@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<domain-models xmlns="http://axelor.com/xml/ns/domain-models"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://axelor.com/xml/ns/domain-models https://axelor.com/xml/ns/domain-models/domain-models_8.2.xsd">
+
+  <!-- Extension of the native AOS Opportunity (no upstream file is modified): the contract this
+       opportunity renews. Unique, so a contract has at most one renewal opportunity. -->
+  <module name="crm" package="com.axelor.apps.crm.db"/>
+
+  <entity name="Opportunity">
+    <many-to-one name="ioetiRenewalOf" ref="com.axelor.apps.contract.db.Contract" title="Renewal of" unique="true"/>
+  </entity>
+
+</domain-models>
