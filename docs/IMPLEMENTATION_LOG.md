@@ -485,3 +485,13 @@ See `docs/evidence/wave4-training/`.
 - `TrainingPage.tsx` (real mode, `#/training`): cohorts, course and cohort forms, seat counts, open/close, enrolment through sponsor account → contact, waitlist positions, cancel, sessions and attendance. "Cancel cohort" and "certificate" disabled with the D-03 note.
 - `api.ts` training client; the sidebar "Training" item is enabled in real mode (demo unchanged).
 - Mocked Playwright test (stateful mock: waitlist, promotion on cancel, attendance body); web suites 31 mocked + 14 demo, typecheck and build pass.
+
+## 2026-10-20 · Wave 4b · client ISO certification (`ioeti-certification`)
+
+Slice: `docs/slices/W4-iso-certification.md`.
+
+- New module `ioeti-certification` (`ioeti_cert_*`, migration V006 with rollback U006): cycles, auditor qualifications, Stage 1/2 audits, nonconformities.
+- Rules: the lead auditor must be qualified for the standard on the planned date; one active audit per stage; Stage 2 after Stage 1; close needs a response; "ready for decision" = Stage 2 done and no open major. Cycle and audit rows are locked for concurrent writers.
+- D-02 fail closed: the decision, certificates, and surveillance/recertification audits.
+- G-007 registry +56 fields (259). CI: `PROBE_CERT_ROUNDS=10 scripts/certification_probe.py`.
+- Evidence: `docs/evidence/wave4-certification/`.
