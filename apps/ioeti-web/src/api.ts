@@ -276,6 +276,8 @@ export type Contract = {
   id: number; version: number; reference: string | null; name: string | null; status: string | null;
   contractType: "BILLING" | "FRAMEWORK" | null; opportunityId: number | null; accountId: number | null;
   accountName: string | null; currency: string | null; activationStatus: string;
+  sourceQuoteId?: number | null; totalBeforeTax?: string | null;
+  lines?: { id: number; productCode: string | null; name: string; quantity: string; unitPriceBeforeTax: string | null; totalBeforeTax: string | null }[];
 };
 export async function getContracts(opportunityId: number): Promise<Contract[]> {
   if (DEMO_MODE) return [];
@@ -288,5 +290,12 @@ export async function createContract(opportunityId: number, opportunityVersion: 
   return wrapped<Contract>("/ws/ioeti/contracts", {
     method: "POST", headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ opportunityId, opportunityVersion, contractType }),
+  });
+}
+export async function fillContractFromQuote(contractId: number, version: number, quoteId: number): Promise<Contract> {
+  if (DEMO_MODE) throw new ApiError(403, "Preview mode is read-only");
+  return wrapped<Contract>(`/ws/ioeti/contracts/${encodeURIComponent(contractId)}/lines-from-quote`, {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ version, quoteId }),
   });
 }

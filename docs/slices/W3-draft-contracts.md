@@ -66,3 +66,32 @@ Contracts in production need, per IOETI company:
 | Operations handover (native `axelor-project` project or task) | needs an active contract (D-11) |
 | Contract lines and versions from the quotation | next contract slice; native `ContractLine` / `ContractVersion` |
 | Contract invoicing | D-06 |
+
+## 5. Part 2c: contract lines from the quotation (Opportunity → Quote → Contract)
+
+`POST /ws/ioeti/contracts/{id}/lines-from-quote` `{version, quoteId}` copies the product lines of a quotation of **the same opportunity** into the current version of a **draft** contract:
+- each line is built natively: `ContractLineService.fillDefault` and `fillAndCompute` (product name, unit, accounting and taxes as configured);
+- it then takes the quoted name, quantity and unit price, and `computeTotal` totals it;
+- the contract records its source in the new field `Contract.ioetiSourceQuote`, added by migration **V004** with rollback U004. The migration gate failed (6/8) until V004 existed, then passed 8/8.
+
+| Case | Answer |
+|---|---|
+| Quotation of another opportunity, unknown or unreadable | identical 422 field `quoteId` `UNAVAILABLE` |
+| Quotation without product lines | 422 `QUOTE_EMPTY` |
+| Contract not a draft | 422 `CONTRACT_NOT_DRAFT` |
+| Lines already copied | 409 `LINES_EXIST` |
+| Concurrent fills | one 201 and one 409; lines copied once (contract row locked with `PESSIMISTIC_FORCE_INCREMENT`) |
+
+The contract DTO now has `lines`, `totalBeforeTax` and `sourceQuoteId` (only if readable).
+
+UI: in the contract section, *Copy lines from quotation* fills a draft without lines, then shows the lines table and the total before tax with "copied from quotation #id".
+
+Evidence: `scripts/quote_probe.py` goes from 44 to **50/50**. The 6 new checks:
+1. Another opportunity's quotation and an unknown one get the identical 422.
+2. Stale gives 409 and another rep 404, with nothing added.
+3. A filled contract has the same lines, quantities, prices and total before tax as the quotation, and keeps the lineage.
+4. A second fill gives 409 `LINES_EXIST`, with no duplicates.
+5. An empty quotation gives 422 `QUOTE_EMPTY`.
+6. Two concurrent fills give one 201 and one 409, and lines are copied exactly once.
+
+Mocked UI test: the fill sends the contract version, then shows the lines, the total and the lineage. Test clean-up now also deletes contract lines (SQL, disposable DB only).

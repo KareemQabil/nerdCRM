@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<domain-models xmlns="http://axelor.com/xml/ns/domain-models"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://axelor.com/xml/ns/domain-models https://axelor.com/xml/ns/domain-models/domain-models_8.2.xsd">
+
+  <!-- Extension of the native AOS Contract (no upstream file is modified): the quotation whose lines
+       were copied into the contract, so the commercial chain Opportunity → Quote → Contract is traceable. -->
+  <module name="contract" package="com.axelor.apps.contract.db"/>
+
+  <entity name="Contract">
+    <many-to-one name="ioetiSourceQuote" ref="com.axelor.apps.sale.db.SaleOrder"
+      title="Source quotation"/>
+  </entity>
+
+</domain-models>

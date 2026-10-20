@@ -64,14 +64,17 @@ CONTRACT, CONTRACT_VERSION = "com.axelor.apps.contract.db.Contract", "com.axelor
 def delete_contract(admin, rid):
     """Deletes a test contract and its versions. The generic API cannot: Contract.currentContractVersion
     is mandatory and Hibernate fails on the one-to-one cascade (AssertionFailure). This runs SQL in the
-    disposable PostgreSQL container (local/CI only) and deletes only this contract and the versions it
-    points to. Returns True when the contract is gone."""
+    disposable PostgreSQL container (local/CI only) and deletes only this contract, the versions it
+    points to and their lines. Returns True when the contract is gone."""
     from db_migrate import DATABASE, psql
     rid = int(rid)
     psql(DATABASE, f"""
-        WITH gone AS (DELETE FROM contract_contract WHERE id = {rid}
-                      RETURNING current_contract_version, next_version)
-        DELETE FROM contract_contract_version v USING gone
-         WHERE v.id IN (gone.current_contract_version, gone.next_version);
-        DELETE FROM contract_contract_version WHERE contract_history = {rid};""", single_transaction=True)
+        CREATE TEMP TABLE gone_versions ON COMMIT DROP AS
+          SELECT current_contract_version AS id FROM contract_contract WHERE id = {rid}
+          UNION SELECT next_version FROM contract_contract WHERE id = {rid}
+          UNION SELECT id FROM contract_contract_version WHERE contract_history = {rid};
+        DELETE FROM contract_contract_line WHERE contract_version IN (SELECT id FROM gone_versions);
+        DELETE FROM contract_contract WHERE id = {rid};
+        DELETE FROM contract_contract_version WHERE id IN (SELECT id FROM gone_versions);
+""", single_transaction=True)
     return not exists(admin, CONTRACT, rid)

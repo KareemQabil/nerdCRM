@@ -1,0 +1,255 @@
+{
+  "results": [
+    {
+      "check": "catalog: sellable products only (non-sellable hidden)",
+      "result": "PASS",
+      "detail": "200 {'W3U-0a1348', 'W3-0a1348'}"
+    },
+    {
+      "check": "catalog: safe fields only (no cost, supplier or stock data)",
+      "result": "PASS",
+      "detail": "[{'id': 53, 'code': 'W3-0a1348', 'name': 'Wave3 audit day 0a1348', 'unit': None, 'salePrice': '1500.0000000000', 'currency': 'EGP'}, {'id': 54, 'code': 'W3U-0a1348', 'name': 'Wave3 unconfigured 0a1348"
+    },
+    {
+      "check": "catalog: overlong search \u2192 422",
+      "result": "PASS",
+      "detail": "422"
+    },
+    {
+      "check": "no company for the user (several exist) \u2192 422 SETUP_REQUIRED, nothing created",
+      "result": "PASS",
+      "detail": "422 {'code': 'SETUP_REQUIRED', 'message': 'No company is configured for quotations.', 'correlationId': '24f98953-f7b9-48f3-87cc-543a56a3716a', 'fields': []}"
+    },
+    {
+      "check": "opportunity without account \u2192 422 ACCOUNT_REQUIRED, nothing created",
+      "result": "PASS",
+      "detail": "422 {'code': 'VALIDATION_FAILED', 'message': 'Link the opportunity to an account before quoting.', 'correlationId': 'bebdbae5-ab83-44f3-856a-203ab658bb96', 'fields': [{'field': 'opportunityId', 'code'"
+    },
+    {
+      "check": "stale opportunity version \u2192 409, nothing created",
+      "result": "PASS",
+      "detail": "409"
+    },
+    {
+      "check": "another rep's opportunity \u2192 same 404 as a missing id",
+      "result": "PASS",
+      "detail": "404 404"
+    },
+    {
+      "check": "read-only user \u2192 403, nothing created",
+      "result": "PASS",
+      "detail": "403"
+    },
+    {
+      "check": "draft quotation created from the opportunity (201)",
+      "result": "PASS",
+      "detail": "201 {'id': 42, 'version': 2, 'reference': '#42', 'status': 'DRAFT', 'opportunityId': 580, 'accountId': 379, 'accountName': 'Wave3 Client 0a1348', 'currency': 'EGP', 'totalBeforeTax': '0', 'taxStatus':"
+    },
+    {
+      "check": "no tax amounts exposed (D-06)",
+      "result": "PASS",
+      "detail": "['accountId', 'accountName', 'currency', 'id', 'lines', 'opportunityId', 'reference', 'status', 'taxStatus', 'totalBeforeTax', 'version']"
+    },
+    {
+      "check": "persisted natively: salesperson, account, opportunity, company, draft",
+      "result": "PASS",
+      "detail": "{'statusSelect': 1, 'clientPartner': {'fullName': 'P0239 - Wave3 Client 0a1348', 'id': 379, '$version': 1}, 'opportunity': {'name': 'Wave3 OA 0a1348', 'id': 580, '$version': 2}, 'company': {'code': 'W"
+    },
+    {
+      "check": "owner lists the opportunity's quotations",
+      "result": "PASS",
+      "detail": "200 {'codeStatus': 200, 'messageStatus': 'Quotations', 'object': [{'id': 42, 'version': 2, 'reference': '#42', 'status': 'DRAFT', 'opportunityId': 580, 'accountId': 379, 'accountName': 'Wave3 Client 0"
+    },
+    {
+      "check": "another rep: quotation and its opportunity's list answer like missing ids (404)",
+      "result": "PASS",
+      "detail": "404 404 404"
+    },
+    {
+      "check": "line added with the native computation: 2 \u00d7 1500.00 = 3000.00 before tax",
+      "result": "PASS",
+      "detail": "201 {'id': 42, 'version': 4, 'reference': '#42', 'status': 'DRAFT', 'opportunityId': 580, 'accountId': 379, 'accountName': 'Wave3 Client 0a1348', 'currency': 'EGP', 'totalBeforeTax': '3000.00', 'taxSt"
+    },
+    {
+      "check": "stale quotation version \u2192 409, no line added",
+      "result": "PASS",
+      "detail": "409"
+    },
+    {
+      "check": "unknown and non-sellable products refused identically (422 productId)",
+      "result": "PASS",
+      "detail": "{'unknown': (422, [('productId', 'UNAVAILABLE')]), 'non-sellable': (422, [('productId', 'UNAVAILABLE')])}"
+    },
+    {
+      "check": "quantity 0, 5 decimals, above 100000 \u2192 422",
+      "result": "PASS",
+      "detail": "[422, 422, 422]"
+    },
+    {
+      "check": "product without accounting setup \u2192 422 SETUP_REQUIRED (no 500, no raw message)",
+      "result": "PASS",
+      "detail": "422 {'codeStatus': 422, 'messageStatus': 'Setup for this company or product is incomplete.', 'error': {'code': 'SETUP_REQUIRED', 'message': 'Setup for this company or product is incomplete.', 'correla"
+    },
+    {
+      "check": "another rep \u2192 404",
+      "result": "PASS",
+      "detail": "404"
+    },
+    {
+      "check": "refused line commands added nothing",
+      "result": "PASS",
+      "detail": "1"
+    },
+    {
+      "check": "concurrent line additions: one 201 and one 409, one line per round (10 rounds)",
+      "result": "PASS",
+      "detail": "[([201, 409], 1), ([201, 409], 1), ([201, 409], 1), ([201, 409], 1), ([201, 409], 1), ([201, 409], 1), ([201, 409], 1), ([201, 409], 1), ([201, 409], 1), ([201, 409], 1)]"
+    },
+    {
+      "check": "quotation total matches its lines after concurrency",
+      "result": "PASS",
+      "detail": "18000.0"
+    },
+    {
+      "check": "milestone added: 30 % of the total before tax, state PLANNED",
+      "result": "PASS",
+      "detail": "201 {'quoteId': 42, 'quoteVersion': 25, 'currency': 'EGP', 'totalBeforeTax': '18000.000', 'plannedPercentage': '30', 'plannedAmountBeforeTax': '5400.00', 'bookingStatus': 'NOT_BOOKED', 'bookedBeforeTa"
+    },
+    {
+      "check": "booked / invoiced / collected kept apart and zero for a draft; invoicing policy-blocked",
+      "result": "PASS",
+      "detail": "{'quoteId': 42, 'quoteVersion': 25, 'currency': 'EGP', 'totalBeforeTax': '18000.000', 'plannedPercentage': '30', 'plannedAmountBeforeTax': '5400.00', 'bookingStatus': 'NOT_BOOKED', 'bookedBeforeTax': "
+    },
+    {
+      "check": "milestones above 100 % in total \u2192 422 TOTAL_EXCEEDED, nothing added",
+      "result": "PASS",
+      "detail": "422 {'code': 'VALIDATION_FAILED', 'message': 'Milestones of a quotation cannot exceed 100 % in total.', 'correlationId': 'cf4f73fe-1fd1-44b9-a867-a39c615b8402', 'fields': [{'field': 'percentage', 'cod"
+    },
+    {
+      "check": "bad percentage, date or title \u2192 422, nothing added",
+      "result": "PASS",
+      "detail": "[422, 422, 422, 422, 422]"
+    },
+    {
+      "check": "stale quotation version \u2192 409, nothing added",
+      "result": "PASS",
+      "detail": "409"
+    },
+    {
+      "check": "another rep: milestones answer like a missing quotation (404)",
+      "result": "PASS",
+      "detail": "404 404"
+    },
+    {
+      "check": "concurrent milestone additions: one 201 and one 409, total stays at 70 %",
+      "result": "PASS",
+      "detail": "[201, 409] 2"
+    },
+    {
+      "check": "milestone amounts follow a line change (native updateTimetableAmounts)",
+      "result": "PASS",
+      "detail": "19500.0 [{'amount': '5850.000', 'percentage': '30.00', 'id': 11, 'version': 1}, {'amount': '7800.000', 'percentage': '40.00', 'id': 12, 'version': 1}]"
+    },
+    {
+      "check": "invoicing a milestone \u2192 422 BLOCKED_BY_POLICY (D-06), no invoice created",
+      "result": "PASS",
+      "detail": "422 {'code': 'BLOCKED_BY_POLICY', 'message': 'This action is not available until IOETI approves policy D-06.', 'correlationId': '96d84c2a-e35b-4311-a26d-3723b2f0cdd7', 'fields': []}"
+    },
+    {
+      "check": "remove: stale \u2192 409, another rep \u2192 404, unknown milestone \u2192 404; nothing removed",
+      "result": "PASS",
+      "detail": "(409, 404, 404)"
+    },
+    {
+      "check": "owner removes an uninvoiced milestone",
+      "result": "PASS",
+      "detail": "200 None"
+    },
+    {
+      "check": "contract: no company for the user \u2192 422 SETUP_REQUIRED, nothing created",
+      "result": "PASS",
+      "detail": "422"
+    },
+    {
+      "check": "contract: bad type \u2192 422, no account \u2192 422 ACCOUNT_REQUIRED, stale \u2192 409; nothing created",
+      "result": "PASS",
+      "detail": "(422, 422, 409)"
+    },
+    {
+      "check": "contract: another rep's opportunity \u2192 same 404 as missing; read-only \u2192 403; nothing created",
+      "result": "PASS",
+      "detail": "(404, 404, 403)"
+    },
+    {
+      "check": "draft contract created from the opportunity (native), activation policy-blocked",
+      "result": "PASS",
+      "detail": "201 {'id': 8, 'version': 1, 'reference': 'T0A10001', 'name': 'Wave3 OA 0a1348', 'status': 'DRAFT', 'contractType': 'BILLING', 'opportunityId': 580, 'accountId': 379, 'accountName': 'Wave3 Client 0a134"
+    },
+    {
+      "check": "persisted natively: customer contract, draft, account, opportunity, company",
+      "result": "PASS",
+      "detail": "{'statusSelect': 1, 'partner': {'fullName': 'P0239 - Wave3 Client 0a1348', 'id': 379, '$version': 1}, 'opportunity': {'name': 'Wave3 OA 0a1348', 'id': 580, '$version': 3}, 'company': {'code': 'W30a134"
+    },
+    {
+      "check": "second contract for the same opportunity \u2192 409 CONTRACT_EXISTS, still one",
+      "result": "PASS",
+      "detail": "409 {'code': 'CONTRACT_EXISTS', 'message': 'A contract already exists for this opportunity.', 'correlationId': 'ad56f8d1-d2fc-45da-8393-4fe83be00288', 'fields': []}"
+    },
+    {
+      "check": "concurrent contract creation: one 201 and one 409, exactly one contract",
+      "result": "PASS",
+      "detail": "[201, 409] 1"
+    },
+    {
+      "check": "contract reads: owner lists it; another rep gets the same 404 as a missing id",
+      "result": "PASS",
+      "detail": "(200, 404, 404, 404)"
+    },
+    {
+      "check": "activation \u2192 422 BLOCKED_BY_POLICY (D-11); handover of a draft \u2192 422 CONTRACT_NOT_ACTIVE; still draft",
+      "result": "PASS",
+      "detail": "(422, 422)"
+    },
+    {
+      "check": "lines-from-quote: another opportunity's quotation and an unknown one refused identically (422 quoteId)",
+      "result": "PASS",
+      "detail": "(422, 422)"
+    },
+    {
+      "check": "lines-from-quote: stale \u2192 409, another rep \u2192 404; nothing added",
+      "result": "PASS",
+      "detail": "(409, 404)"
+    },
+    {
+      "check": "contract filled from the quotation: same lines, quantities, prices and total before tax; lineage kept",
+      "result": "PASS",
+      "detail": "201 {'id': 8, 'version': 3, 'reference': 'T0A10001', 'name': 'Wave3 OA 0a1348', 'status': 'DRAFT', 'contractType': 'BILLING', 'opportunityId': 580, 'accountId': 379, 'accountName': 'Wave3 Client 0a134"
+    },
+    {
+      "check": "second fill \u2192 409 LINES_EXIST, no duplicate lines",
+      "result": "PASS",
+      "detail": "409 {'code': 'LINES_EXIST', 'message': 'This contract already has lines.', 'correlationId': '15dad524-ef81-462a-9f6c-81616592ab91', 'fields': []}"
+    },
+    {
+      "check": "quotation without product lines \u2192 422 QUOTE_EMPTY, nothing added",
+      "result": "PASS",
+      "detail": "422 {'code': 'VALIDATION_FAILED', 'message': 'The quotation has no product lines.', 'correlationId': '298e9c92-d7b7-4cf3-b89b-331838b80ed6', 'fields': [{'field': 'quoteId', 'code': 'QUOTE_EMPTY', 'mes"
+    },
+    {
+      "check": "concurrent fills: one 201 and one 409, lines copied exactly once",
+      "result": "PASS",
+      "detail": "[201, 409] 1"
+    },
+    {
+      "check": "finalize \u2192 422 BLOCKED_BY_POLICY (D-06, D-11); still a draft",
+      "result": "PASS",
+      "detail": "422 {'code': 'BLOCKED_BY_POLICY', 'message': 'This action is not available until IOETI approves policy D-06 and D-11.', 'correlationId': '404ff072-728e-4309-8a94-20f7055466a8', 'fields': []}"
+    },
+    {
+      "check": "finalize by another rep \u2192 404",
+      "result": "PASS",
+      "detail": "404"
+    }
+  ],
+  "cleanup_complete": true
+}
