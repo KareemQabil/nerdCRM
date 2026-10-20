@@ -80,8 +80,9 @@ def validate_properties(content: str) -> None:
     for key, expected in OVERRIDES.items():
         if props.get(key) != expected:
             raise StagingError("Unsafe property: " + key)
-    if "@@" in content:
-        raise StagingError("Unresolved placeholders")
+    for line in content.splitlines():
+        if not line.lstrip().startswith(("#", "!")) and "@@" in line:
+            raise StagingError("Unresolved placeholders")
 
 def render(template: str, env: dict[str, str]) -> str:
     check_environment(env)
@@ -90,9 +91,14 @@ def render(template: str, env: dict[str, str]) -> str:
         if key not in FIELDS:
             raise StagingError("Unexpected placeholder: " + key)
         return env[key]
-    content = re.sub(r"@@([A-Z0-9_]+)@@", replace, template)
-    if "@@" in content:
-        raise StagingError("Unresolved placeholders")
+    # Documentation comments may mention @@NAME@@; only active property lines are substituted.
+    content = "".join(
+        line if line.lstrip().startswith(("#", "!")) else re.sub(r"@@([A-Z0-9_]+)@@", replace, line)
+        for line in template.splitlines(keepends=True)
+    )
+    for line in content.splitlines():
+        if not line.lstrip().startswith(("#", "!")) and "@@" in line:
+            raise StagingError("Unresolved placeholders")
     for key, value in OVERRIDES.items():
         content = set_property(content, key, value)
     validate_properties(content)
