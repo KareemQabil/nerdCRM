@@ -789,3 +789,17 @@ td code { display: inline-block; font: 11px Inter,monospace; color: var(--on-sur
 .lead-lose-form textarea{width:100%;resize:vertical;font:inherit;}
 .lead-lost-tag{display:inline-flex;align-items:center;gap:5px;color:var(--error);}
 @media (max-width:640px){.lead-stage-form{grid-template-columns:1fr;}}
+/* Wave 4a: external training */
+.training-toolbar{display:flex;flex-wrap:wrap;gap:10px;margin:18px 0;}
+.training-form{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;align-items:end;margin-bottom:18px;}
+.training-layout{display:grid;grid-template-columns:minmax(260px,340px) 1fr;gap:20px;align-items:start;}
+.training-detail{display:flex;flex-direction:column;gap:20px;min-width:0;}
+.training-cohort-row{width:100%;text-align:start;background:none;border:0;cursor:pointer;font:inherit;color:inherit;}
+.training-cohort-row.is-selected{background:var(--primary-container,rgba(0,0,0,.05));}
+.training-seats{font-weight:700;font-size:13px;white-space:nowrap;}
+.training-counts{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));}
+.training-counts>div{grid-template-columns:1fr;gap:4px;}
+.training-waitlist{color:var(--on-surface-variant);font-weight:700;}
+.training-sessions{flex-wrap:wrap;margin-bottom:12px;}
+@media (max-width:900px){.training-layout{grid-template-columns:1fr;}}
+.training-detail table{min-width:0;}

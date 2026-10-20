@@ -479,3 +479,9 @@ Slice: `docs/slices/W4-external-training.md`.
 
 ### Evidence
 See `docs/evidence/wave4-training/`.
+
+## 2026-10-20 · Wave 4a · training UI
+
+- `TrainingPage.tsx` (real mode, `#/training`): cohorts, course and cohort forms, seat counts, open/close, enrolment through sponsor account → contact, waitlist positions, cancel, sessions and attendance. "Cancel cohort" and "certificate" disabled with the D-03 note.
+- `api.ts` training client; the sidebar "Training" item is enabled in real mode (demo unchanged).
+- Mocked Playwright test (stateful mock: waitlist, promotion on cancel, attendance body); web suites 31 mocked + 14 demo, typecheck and build pass.
