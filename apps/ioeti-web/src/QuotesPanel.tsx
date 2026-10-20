@@ -3,6 +3,7 @@ import { CircleAlert, FileText, LockKeyhole, Plus } from "lucide-react";
 import { ApiError, addQuoteLine, createQuote, getCatalog, getQuotes, type CatalogProduct, type Quote } from "./api";
 import type { Language } from "./preferences";
 import { MilestonesPanel } from "./MilestonesPanel";
+import { QuoteWorkflow } from "./WorkflowPanels";
 
 const strings = {
   ar: {
@@ -126,6 +127,7 @@ export function QuotesPanel({opportunityId,opportunityVersion,language,onOpportu
       </form>}
       <div className="quote-finalize"><button type="button" className="btn btn-primary" disabled aria-describedby="quote-finalize-note">{l.finalize}</button>
         <small id="quote-finalize-note">{l.finalizeNote}</small></div>
+      <QuoteWorkflow quote={quote} language={language} onChanged={()=>void load().catch(()=>undefined)}/>
       <MilestonesPanel quoteId={quote.id} editable={quote.status==="DRAFT"} language={language}
         onQuoteChanged={()=>void load().catch(()=>undefined)}/>
     </div>}

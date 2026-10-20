@@ -1471,3 +1471,122 @@ test("operations: rework with a reason is recorded; mobile layout without horizo
   expect(requests.find(r => r.path === "/handovers/41/rework")!.body).toEqual({ version: 0, reason: "MISSING_SCOPE" });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
 });
+
+async function workflowMocks(page: Page, options: { quoteStatus?: string; contractStatus?: string } = {}) {
+  await intercept(page);
+  const ok = (object: unknown, code = 200) => ({ status: code, contentType: "application/json", body: JSON.stringify({ codeStatus: code, messageStatus: "ok", object }) });
+  const fail = (status: number, code: string) => ({ status, contentType: "application/json", body: JSON.stringify({
+    codeStatus: status, messageStatus: "x", error: { code, message: "raw server text", correlationId: "c0ffee05", fields: [] } }) });
+  const line = (id: number, qty: string) => ({ id, productCode: "ISO-AUD-DAY", name: "Audit day", quantity: qty, unit: "Day", unitPriceBeforeTax: "1500.00",
+    totalBeforeTax: String(1500 * Number(qty)) + ".00" });
+  const s = { version: 3, versionNumber: 1, lines: [line(1, "2")], versions: [] as Record<string, unknown>[], reviews: [] as Record<string, unknown>[],
+    requests: [] as Record<string, unknown>[], contractVersion: 1, renewed: false };
+  const quote = () => ({ id: 7, version: s.version, reference: "SO-0007", status: options.quoteStatus ?? "DRAFT", opportunityId: 101, accountId: 901,
+    accountName: "Nile View Hotel", currency: "EGP", totalBeforeTax: String(s.lines.reduce((t, l) => t + Number(l.totalBeforeTax), 0)), taxStatus: "BLOCKED_BY_POLICY",
+    versionNumber: s.versionNumber, lines: s.lines });
+  const plan = () => ({ quoteId: 7, quoteVersion: s.version, currency: "EGP", totalBeforeTax: "3000.00", plannedPercentage: "100", plannedAmountBeforeTax: "3000.00",
+    bookingStatus: "NOT_BOOKED", bookedBeforeTax: "0", invoiced: "0", collected: "0", invoicingStatus: "BLOCKED_BY_POLICY",
+    milestones: [{ id: 61, title: "Deposit", percentage: "30", amountBeforeTax: "900.00", dueDate: "2026-11-01", state: "PLANNED", invoiceReference: null }] });
+  const requests: { method: string; path: string; body: unknown }[] = [];
+  const answers: ReturnType<typeof fail>[] = [];
+  await page.route(/\/axelor-erp\/ws\/ioeti\/(quotes|workspace|contracts)/, route => {
+    const url = new URL(route.request().url());
+    const path = url.pathname.replace(/.*\/ws\/ioeti/, "") + url.search;
+    const method = route.request().method();
+    const body = method === "POST" ? route.request().postDataJSON() : null;
+    requests.push({ method, path, body });
+    const refusal = method === "POST" ? answers.shift() : undefined;
+    if (refusal) return route.fulfill(refusal);
+    if (path.startsWith("/quotes?")) return route.fulfill(ok([quote()]));
+    if (path === "/quotes/7/milestones") return route.fulfill(ok(plan()));
+    if (path === "/quotes/7/versions" && method === "GET") return route.fulfill(ok(s.versions));
+    if (path === "/quotes/7/versions") {
+      s.versions.unshift({ number: s.versionNumber, savedAt: "2026-10-20T10:00:00", lines: s.lines.length, totalBeforeTax: "3000.00" });
+      s.versionNumber++; s.version++; s.lines = [...s.lines, line(2, "1")]; return route.fulfill(ok(quote(), 201));
+    }
+    if (path === "/quotes/7/versions/1/restore") { s.lines = [line(1, "2")]; s.version++; return route.fulfill(ok(quote())); }
+    if (path.startsWith("/workspace/reviews?")) return route.fulfill(ok(s.reviews));
+    if (path === "/workspace/reviews") {
+      const r = { id: 81, version: 0, quoteId: (body as Record<string, unknown>).quoteId ?? null, contractId: (body as Record<string, unknown>).contractId ?? null,
+        quoteVersionNumber: s.versionNumber, status: "PENDING", requestedBy: "Sara Sales", requestedAt: "2026-10-20T10:05:00", reviewedBy: null, reason: null,
+        decisionStatus: "BLOCKED_BY_POLICY", requestedByMe: true, events: [{ kind: "REQUESTED", reason: null, actorName: "Sara Sales", at: "2026-10-20T10:05:00" }] };
+      s.reviews = [r]; return route.fulfill(ok(r, 201));
+    }
+    if (path === "/workspace/reviews/81/withdraw") {
+      Object.assign(s.reviews[0], { status: "WITHDRAWN", version: 1, events: [...(s.reviews[0].events as unknown[]), { kind: "WITHDRAWN", reason: null, actorName: "Sara Sales", at: "2026-10-20T10:06:00" }] });
+      return route.fulfill(ok(s.reviews[0]));
+    }
+    if (path.startsWith("/workspace/invoice-requests?")) return route.fulfill(ok(s.requests));
+    if (path === "/workspace/invoice-requests") {
+      const r = { id: 91, version: 0, quoteId: 7, milestoneId: 61, milestoneTitle: "Deposit", dueDate: "2026-11-01", amountBeforeTax: "900.000", currency: "EGP",
+        status: "REQUESTED", requestedBy: "Sara Sales", requestedAt: "2026-10-20T10:10:00", invoiceStatus: "BLOCKED_BY_POLICY" };
+      s.requests = [r]; return route.fulfill(ok(r, 201));
+    }
+    if (path === "/workspace/invoice-requests/91/cancel") { Object.assign(s.requests[0], { status: "CANCELLED", version: 1 }); return route.fulfill(ok(s.requests[0])); }
+    if (path.startsWith("/contracts?")) return route.fulfill(ok([{ id: 3, version: s.contractVersion, reference: "CT0003", name: "Hotel certification",
+      status: options.contractStatus ?? "DRAFT", contractType: "BILLING", opportunityId: 101, accountId: 901, accountName: "Nile View Hotel", currency: "EGP",
+      activationStatus: "BLOCKED_BY_POLICY", lines: [] }]));
+    if (path === "/workspace/contracts/3/renewal") { s.renewed = true; return route.fulfill(ok({ opportunityId: 140, name: "Renewal: Hotel certification", contractId: 3 }, 201)); }
+    if (path === "/workspace/account360/901") return route.fulfill(ok({ id: 901, name: "Nile View Hotel",
+      sections: [{ key: "OPPORTUNITIES", count: 2, permitted: true }, { key: "QUOTES", count: 1, permitted: true }, { key: "CONTRACTS", count: 1, permitted: true }],
+      money: [{ currency: "EGP", quotedDraft: "3000.000", bookedActive: "0", invoiceRequested: "900.000", invoiced: null, collected: null }] }));
+    return route.fulfill({ status: 404, contentType: "application/json", body: "{}" });
+  });
+  return { requests, answers, fail };
+}
+
+test("quote workflow: versions saved and restored with the quotation version; review requested and withdrawn; decisions blocked (D-11)", async ({page}) => {
+  const { requests, answers, fail } = await workflowMocks(page);
+  await page.goto("/#/opportunities/101");
+  await expect(page.locator(".quotes-panel .quote-head")).toContainText("SO-0007");
+  await expect(page.getByText("لا توجد إصدارات محفوظة")).toBeVisible();
+  answers.push(fail(409, "CONFLICT"));
+  await page.getByRole("button", { name: "حفظ كإصدار" }).click();
+  await expect(page.getByRole("alert")).toHaveText(/تم تعديل البيانات من مكان آخر/);
+  await page.getByRole("button", { name: "حفظ كإصدار" }).click();
+  await expect(page.locator(".wf-list li").first()).toContainText("1");
+  await expect(page.locator(".wf-block h4").first()).toContainText("الإصدار الحالي: 2");
+  await page.getByRole("button", { name: "استعادة" }).click();
+  expect(requests.filter(r => r.method === "POST" && r.path.startsWith("/quotes/7/versions")).map(r => [r.path, r.body]))
+    .toEqual([["/quotes/7/versions", { version: 3 }], ["/quotes/7/versions", { version: 3 }], ["/quotes/7/versions/1/restore", { version: 4 }]]);
+  await page.getByRole("button", { name: "طلب مراجعة" }).first().click();
+  await expect(page.locator(".wf-review .wf-status")).toHaveText("بانتظار المراجعة");
+  await expect(page.getByRole("button", { name: "اعتماد", exact: true }).first()).toBeDisabled();
+  await expect(page.getByRole("button", { name: "رفض", exact: true }).first()).toBeDisabled();
+  await expect(page.locator("#wf-decision-note").first()).toContainText("D-11");
+  await page.getByRole("button", { name: "سحب الطلب" }).click();
+  await expect(page.locator(".wf-trail")).toContainText("سُحب الطلب");
+  expect(requests.some(r => /approve|reject/.test(r.path))).toBe(false);
+  await expect(page.locator("body")).not.toContainText("raw server text");
+});
+
+test("invoice requests on a confirmed order: requested once, refusals localized, issue blocked (D-06); contract renewal", async ({page}) => {
+  const { requests, answers, fail } = await workflowMocks(page, { quoteStatus: "CONFIRMED", contractStatus: "ACTIVE" });
+  await page.goto("/#/opportunities/101");
+  answers.push(fail(409, "INVOICE_REQUEST_EXISTS"));
+  await page.getByRole("button", { name: "طلب فاتورة: Deposit" }).click();
+  await expect(page.getByRole("alert")).toHaveText(/توجد طلب فوترة مفتوح لهذه الدفعة/);
+  await page.getByRole("button", { name: "طلب فاتورة: Deposit" }).click();
+  await expect(page.locator(".wf-list")).toContainText("900.00 EGP");
+  await expect(page.getByRole("button", { name: "إصدار الفاتورة" })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "طلب فاتورة: Deposit" })).toHaveCount(0);
+  expect(requests.filter(r => r.path === "/workspace/invoice-requests").map(r => r.body)).toEqual([{ milestoneId: 61, quoteVersion: 3 }, { milestoneId: 61, quoteVersion: 3 }]);
+  await page.getByRole("button", { name: "إلغاء الطلب" }).click();
+  await expect(page.locator(".wf-list")).toContainText("ملغى");
+  await page.getByRole("button", { name: "فتح فرصة تجديد" }).click();
+  await expect(page.getByRole("link", { name: "فتح الفرصة" })).toHaveAttribute("href", "#/opportunities/140");
+  expect(requests.some(r => /issue/.test(r.path))).toBe(false);
+});
+
+test("Account 360 summary shows only readable areas and keeps money stages apart; unreadable stages show a dash", async ({page}) => {
+  await workflowMocks(page);
+  await page.goto("/#/accounts/901");
+  await expect(page.locator(".wf-cards")).toContainText("الفرص");
+  await expect(page.locator(".wf-cards li")).toHaveCount(3);
+  await expect(page.locator(".wf-cards")).not.toContainText("ملف المانح");
+  const row = page.locator(".wf-money tbody tr").first();
+  await expect(row).toContainText("3,000.00");
+  await expect(row).toContainText("900.00");
+  await expect(row.locator("td").nth(4)).toHaveText("—");
+  await expect(row.locator("td").nth(5)).toHaveText("—");
+});
