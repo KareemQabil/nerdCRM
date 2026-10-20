@@ -73,6 +73,7 @@ Draft PRs, each stacked on the previous one:
 - SEC-001 residual #10 (WebSocket identity, scheduled jobs): #24;
 - 4, part 2 (lead qualification and assignment): #25;
 - G-007 (personal-data classification, CI gate, log masking): #26;
-- G-010 (pilot UAT script and dataset): branch `claude/ioeti-g010-pilot-readiness`.
+- G-010 (pilot UAT script and dataset): #27;
+- Wave 4a (external training): branch `claude/ioeti-wave4-training`.
 
 Policy-dependent steps follow `docs/decisions/OPEN_IOETI_POLICY_DECISIONS.md`.

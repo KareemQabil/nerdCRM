@@ -424,7 +424,9 @@ public class TrainingRestController {
         security.isPermitted(JpaSecurity.CAN_READ, Partner.class, trainee.getId()) ? trainee.getSimpleFullName() : null,
         client != null && security.isPermitted(JpaSecurity.CAN_READ, Partner.class, client.getId()) ? client.getName() : null,
         status(enrollment.getStatusSelect(), "CONFIRMED", "WAITLISTED", "CANCELLED"),
-        enrollment.getWaitlistPosition());
+        // Axelor stores integers as 0 by default: a position only means something on the waitlist
+        Integer.valueOf(TrainingEnrollmentRepository.STATUS_WAITLISTED).equals(enrollment.getStatusSelect())
+            ? enrollment.getWaitlistPosition() : null);
   }
 
   static SessionView view(CohortSession session) {
