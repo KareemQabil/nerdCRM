@@ -1,0 +1,75 @@
+{
+  "results": [
+    {
+      "check": "mentions: delivered to the colleague's inbox with the sender and the link; the notice grants no access to the lead (404)",
+      "result": "PASS",
+      "detail": "201 [{'id': 23, 'kind': 'MENTION', 'subject': 'LEAD', 'subjectId': 916, 'title': 'Can you call them about the audit dates?', 'actorName': 'Wave7b RepA 4BBBC9', 'read': False, 'at': '2026-10-20T13:33:3"
+    },
+    {
+      "check": "mentions: unreadable record \u2192 404; self, blocked recipient, over 280 characters \u2192 422; anonymous \u2192 401",
+      "result": "PASS",
+      "detail": "{'unreadable record': 404, 'self': 'SELF', 'blocked': 'UNAVAILABLE', 'too long': 'TOO_LONG', 'anonymous': 401}"
+    },
+    {
+      "check": "inbox: private to its recipient (another user \u2192 404, never listed); read once; read-all then marks nothing",
+      "result": "PASS",
+      "detail": "404 200 {'unread': 0} {'marked': 0}"
+    },
+    {
+      "check": "people: at least 2 characters; active colleagues only (not blocked users, not oneself)",
+      "result": "PASS",
+      "detail": "['Wave7b RepB 4BBBC9']"
+    },
+    {
+      "check": "outbox: a draft is kept (sending shown as blocked); sending \u2192 422 BLOCKED_BY_POLICY (D-10); no address \u2192 422; only e-mail exists",
+      "result": "PASS",
+      "detail": "201 {'id': 2, 'version': 0, 'leadId': 916, 'channel': 'EMAIL', 'subjectLine': 'Audit dates', 'body': 'Dear Nour, ...', 'status': 'DRAFT', 'authorName': 'Wave7b RepA 4BBBC9', 'createdAt': '2026-10-20T1"
+    },
+    {
+      "check": "outbox: after an opt-out, sending an existing draft \u2192 422 OPTED_OUT (checked again) and new drafts are refused",
+      "result": "PASS",
+      "detail": "201 422 422"
+    },
+    {
+      "check": "outbox: others \u2192 404; stale \u2192 409; cancelled once (again \u2192 422); nothing reached the native message queue",
+      "result": "PASS",
+      "detail": "404 404 409 200 422 0->0"
+    },
+    {
+      "check": "pipeline: each salesperson's own figures; the administrator sees both; values stay per currency (EGP and USD never added)",
+      "result": "PASS",
+      "detail": "{'New': (1, {'EGP': 1000.0}), 'Qualification': (1, {'USD': 500.0})} {'New': (1, {'EGP': 9999.0})} {'New': (2, {'EGP': 10999.0}), 'Qualification': (1, {'USD': 500.0})}"
+    },
+    {
+      "check": "an area the caller cannot read is left out (pipeline null), not shown as zero",
+      "result": "PASS",
+      "detail": "200 {'from': None, 'to': None, 'businessLineCode': 'W7B4BBBC9', 'pipeline': None, 'leads': {'total': 0, 'open': 0, 'converted': 0, 'lost': 0, 'bySource': []}, 'campaigns': [{'id': 20, 'name': 'Wave7b "
+    },
+    {
+      "check": "lead funnel and campaigns counted only over readable leads; the caller's own follow-ups (one overdue)",
+      "result": "PASS",
+      "detail": "{'total': 2, 'open': 2, 'converted': 0, 'lost': 0, 'bySource': [{'source': 'Wave7b fair 4BBBC9', 'total': 2, 'open': 2, 'converted': 0, 'lost': 0}]} {'total': 1, 'open': 1, 'converted': 0, 'lost': 0, "
+    },
+    {
+      "check": "date range: end before start \u2192 422; bad date \u2192 422; a range with no records gives empty results",
+      "result": "PASS",
+      "detail": "422 422 {'from': '2026-10-22', 'to': None, 'businessLineCode': 'W7B4BBBC9', 'pipeline': [], 'leads': {'total': 0, 'open': 0, 'converted': 0, 'lost': 0, 'bySource': []}, 'campaigns': [{'id': 20, 'name'"
+    },
+    {
+      "check": "areas: a salesperson without training, certification, recruitment, operations or fundraising rights sees none of them; the administrator sees all 8",
+      "result": "PASS",
+      "detail": "[] ['TRAINING_ENROLLMENTS', 'CERTIFICATION_CYCLES', 'JOB_ORDERS', 'APPLICATIONS', 'PLACEMENTS', 'HANDOVERS', 'ENGAGEMENTS', 'FUNDING_OPPORTUNITIES']"
+    },
+    {
+      "check": "system page: administrators only (403 otherwise); lists the IOETI modules and the 12 policy decisions",
+      "result": "PASS",
+      "detail": "403 200 ['ioeti-automation', 'ioeti-business-lines', 'ioeti-certification', 'ioeti-commercial', 'ioeti-content', 'ioeti-core', 'ioeti-fundraising', 'ioeti-marketing', 'ioeti-operations', 'ioeti-recrui"
+    },
+    {
+      "check": "reports: anonymous \u2192 401",
+      "result": "PASS",
+      "detail": "401"
+    }
+  ],
+  "cleanup_complete": true
+}

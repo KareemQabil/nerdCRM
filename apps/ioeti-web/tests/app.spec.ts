@@ -2013,3 +2013,19 @@ test("settings: administrators see installed modules, applied migrations and ope
   await expect(system).toContainText("D-10");
   await expect(system).toContainText("مفتوح");
 });
+
+test("mobile gate: every live-mode page fits a 390 px screen without horizontal scrolling", async ({page}) => {
+  await insightsMocks(page, { admin: true });
+  await page.setViewportSize({ width: 390, height: 844 });
+  const routes = ["#/", "#/leads", "#/leads/207", "#/accounts", "#/opportunities", "#/operations", "#/knowledge", "#/reports", "#/inbox", "#/settings",
+    "#/training", "#/certification", "#/recruitment", "#/fundraising", "#/businessLines", "#/capabilities"];
+  const overflowing: Record<string, string[]> = {};
+  for (const route of routes) {
+    await page.goto("/" + route);
+    await page.waitForLoadState("networkidle");
+    const wide = await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1 ? [] :
+      [...document.querySelectorAll("main *")].filter(e => e.getBoundingClientRect().right > window.innerWidth + 1).map(e => `${e.tagName}.${String(e.className)}`).slice(0, 3));
+    if (wide.length) overflowing[route] = wide;
+  }
+  expect(overflowing).toEqual({});
+});

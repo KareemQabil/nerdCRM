@@ -1,0 +1,33 @@
+Wave 7b cumulative regression on branch claude/ioeti-wave7b-insights (every slice from Wave 4C to 7b; local Axelor 9.1.10 + PostgreSQL 16, 2026-10-20)
+
+env_PROBE_CERT_ROUNDS_10_python3_scripts_certification_probe: 23/23 checks passed
+env_PROBE_CONTENT_ROUNDS_5_python3_scripts_content_probe.py: 15/15 checks passed
+env_PROBE_CONVERT_ROUNDS_10_python3_scripts_lead_conversion_: 28/28 checks passed
+env_PROBE_FUND_ROUNDS_5_python3_scripts_fundraising_probe.py: 20/20 checks passed
+env_PROBE_LIFECYCLE_ROUNDS_10_python3_scripts_lead_lifecycle: 24/24 checks passed
+env_PROBE_MKT_ROUNDS_5_python3_scripts_marketing_probe.py: 22/22 checks passed
+env_PROBE_OPS_ROUNDS_5_python3_scripts_operations_probe.py: 12/12 checks passed
+env_PROBE_QUOTE_ROUNDS_10_python3_scripts_quote_probe.py: 50/50 checks passed
+env_PROBE_REC_ROUNDS_5_python3_scripts_recruitment_probe.py: 19/19 checks passed
+env_PROBE_REQUIRE_JOBS_1_PROBE_WS_SECONDS_30_python3_scripts: 7/7 checks passed
+env_PROBE_RESTORES_2_PROBE_WORKERS_2_PROBE_MIN_SECONDS_20_py: IDENTITY_PROBE {"checks": 399575, "leaks": 0} boundary {"present": true, "before_load": {"staleAtEntry": 0, "clearedAtEx
+env_PROBE_TRAINING_ROUNDS_10_python3_scripts_training_probe.: 22/22 checks passed
+env_PROBE_WS_ROUNDS_5_python3_scripts_workspace_probe.py: 8/8 checks passed
+python3_scripts_api_contract_probe.py: 31/31 checks passed
+python3_scripts_api_smoke_test.py: 16/16 checks passed
+python3_scripts_insights_probe.py: 14/14 checks passed
+python3_scripts_opportunity_concurrency_probe.py_20: 13/13 checks passed
+python3_scripts_opportunity_pilot_smoke.py: PILOT_CLEANUP 200 status 0
+python3_scripts_pii_dto_audit.py: 867 fields in 162 records · 0 problem(s) · {'BUSINESS': 280, 'PERSONAL': 109, 'REFERENCE': 465, 'RESTRICTED': 13}
+python3_scripts_pilot_readiness.py_check: PILOT_CHECK=PASS 11/11
+python3_scripts_pilot_readiness.py_setup: PILOT_SETUP=PASS records=36 users=4 credentials=.local/pilot-users.txt
+python3_scripts_pilot_readiness.py_teardown: PILOT_TEARDOWN=PASS leftovers: none
+python3_scripts_policy_registry_check.py: PASS 12 policy decisions match the document
+python3_scripts_scope_matrix_probe.py: 65/65 checks passed
+python3_scripts_session_security_probe.py: 20/20 checks passed
+
+db_migrate verify: 8/8 checks passed
+backup_restore_drill: 10/10 checks passed · backup 9.5 MB in 1.96 s · restore 20.7 s
+suites with exit=0: 25/25
+JUnit (server stopped): 103 tests, 0 failures (ioeti-automation 4, ioeti-reports 2)
+web: typecheck OK; build OK; Playwright real-mode contracts (mocked API) 61/61 incl. the mobile gate over 16 live routes at 390 px; demo 14/14
