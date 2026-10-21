@@ -626,7 +626,7 @@ td code { display: inline-block; font: 11px Inter,monospace; color: var(--on-sur
 /* Fictional executive operating overview; responsive and theme-token driven. */
 .demo-executive{margin:28px 0 35px;}
 .demo-exec-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:16px;}
-.demo-exec-head h2{font-size:23px;margin:8px 0 7px;}
+.demo-exec-head h1{font-size:clamp(24px,2.6vw,34px);line-height:1.42;margin:8px 0 7px;letter-spacing:-.55px;}
 .demo-exec-head p{font-size:12px;margin:0;max-width:600px;}
 .demo-exec-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:17px 0;}
 .demo-exec-metric{display:grid;grid-template-columns:30px 1fr;gap:3px 10px;border-radius:var(--radius-lg);background:var(--surface);border:1px solid var(--outline-variant);padding:17px;}
