@@ -288,14 +288,13 @@ test("focus mission mobile supports swipe, English and reduced-motion preference
   await expect(dialog).toBeVisible();
   await expect(page.locator(".mission-dialog")).toHaveCSS("animation-name","none");
   await expect(page.getByRole("progressbar",{name:"Journey progress"})).toHaveAttribute("aria-valuenow","1");
-  const area=dialog.locator(".mission-illustration");
-  const box=await area.boundingBox();
-  if(!box) throw new Error("Missing gesture target");
-  await page.dispatchEvent(".mission-work-area","touchstart",{
-    touches:[{identifier:1,clientX:box.x+box.width-30,clientY:box.y+40,target:area}],
-  });
-  await page.dispatchEvent(".mission-work-area","touchend",{
-    changedTouches:[{identifier:1,clientX:box.x+25,clientY:box.y+42,target:area}],
+  await dialog.locator(".mission-illustration").evaluate((element) => {
+    const area=element.closest(".mission-work-area");
+    if(!area) throw new Error("Missing swipe target");
+    const a=new Touch({identifier:1,target:element,clientX:280,clientY:80});
+    const b=new Touch({identifier:1,target:element,clientX:40,clientY:82});
+    area.dispatchEvent(new TouchEvent("touchstart",{touches:[a],changedTouches:[a],bubbles:true}));
+    area.dispatchEvent(new TouchEvent("touchend",{touches:[],changedTouches:[b],bubbles:true}));
   });
   await expect(page.getByRole("dialog",{name:"Contract"})).toBeVisible();
   await page.getByRole("button",{name:"Close focus mode"}).click();
