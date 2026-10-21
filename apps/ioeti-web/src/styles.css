@@ -982,3 +982,26 @@ button, [role="button"]{touch-action:manipulation;}
  .mission-dialog,.mission-copy{animation:none;}
  .mission-progress>span{transition:none;}
 }
+
+
+/* Shared system feedback: status is never conveyed by color alone. */
+.ioeti-feedback-stack{position:fixed;z-index:1350;inset-block-start:16px;inset-inline-end:16px;display:grid;gap:10px;width:min(390px,calc(100vw - 32px));pointer-events:none;}
+.ioeti-feedback{pointer-events:auto;display:flex;align-items:flex-start;gap:11px;background:var(--surface-strong);border:1px solid var(--outline);border-inline-start:5px solid var(--info);border-radius:14px;padding:14px;box-shadow:0 16px 47px rgba(0,0,0,.20);color:var(--on-surface);animation:mission-enter .2s ease-out both;}
+.ioeti-feedback-success{border-inline-start-color:var(--success);}
+.ioeti-feedback-error{border-inline-start-color:var(--error);}
+.ioeti-feedback>svg{flex-shrink:0;color:var(--info);margin-top:2px;}
+.ioeti-feedback-success>svg{color:var(--success);}
+.ioeti-feedback-error>svg{color:var(--error);}
+.ioeti-feedback-body{display:grid;gap:3px;flex:1;min-width:0;}
+.ioeti-feedback-body strong{font-size:12px;line-height:1.5;}
+.ioeti-feedback-body p{font-size:11px;line-height:1.75;margin:0;}
+.ioeti-feedback-body code{display:inline-block;justify-self:start;color:var(--on-surface-variant);font:700 10px Inter,Arial,sans-serif;}
+.ioeti-feedback-close{min-width:34px;min-height:34px;display:grid;place-items:center;flex-shrink:0;border-radius:9px;border:1px solid var(--outline-variant);background:var(--surface-variant);color:var(--on-surface);}
+.ioeti-feedback-close:hover{border-color:var(--primary);}
+.ioeti-crash-screen{min-height:100dvh;display:grid;place-items:center;padding:24px;background:var(--background);}
+.ioeti-crash-card{width:min(500px,100%);display:grid;justify-items:start;gap:12px;border:1px solid var(--outline);background:var(--surface-strong);padding:clamp(20px,6vw,44px);border-radius:22px;box-shadow:var(--elevation);}
+.ioeti-crash-card>svg{color:var(--error);}
+.ioeti-crash-card h1{font-size:clamp(20px,3vw,29px);line-height:1.4;margin:0;}
+.ioeti-crash-card p{font-size:13px;line-height:1.8;color:var(--on-surface-variant);margin:0;}
+@media(max-width:650px){.ioeti-feedback-stack{inset-block-start:8px;inset-inline-end:8px;width:calc(100vw - 16px);}}
+@media(prefers-reduced-motion:reduce){.ioeti-feedback{animation:none;}}
