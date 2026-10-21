@@ -209,7 +209,7 @@ test("guided ISO journey starts at a linked fictional quote and never calls Axel
   await expect(journey.getByRole("heading",{name:"جرّب النظام كرحلة عمل كاملة"})).toBeVisible();
   await expect(journey.getByRole("list",{name:"خطوات الرحلة"}).locator("li")).toHaveCount(6);
   await journey.getByRole("button",{name:"ابدأ الرحلة"}).click();
-  await expect(page).toHaveURL(/#\\/demo\\/quotes\\/4101$/);
+  await expect(page).toHaveURL(/#\/demo\/quotes\/4101$/);
   await expect(page.locator(".demo-record-hero")).toContainText("DEMO-4101");
   expect(axelor).toEqual([]);
 });
@@ -220,16 +220,16 @@ test("guided journeys switch across training, recruitment and grants using exist
   await guided.getByRole("button",{name:"برنامج تدريب مؤسسي"}).click();
   await expect(guided.getByRole("listitem")).toHaveCount(5);
   await guided.getByRole("button",{name:"افتح المجموعة التدريبية"}).click();
-  await expect(page).toHaveURL(/#\\/training\\/9101$/);
+  await expect(page).toHaveURL(/#\/training\/9101$/);
   await page.goto("/#/home");
   await guided.getByRole("button",{name:"التوظيف لصالح عميل"}).click();
   await expect(guided.getByRole("listitem")).toHaveCount(3);
   await guided.getByRole("button",{name:"افتح طلب توظيف العميل"}).click();
-  await expect(page).toHaveURL(/#\\/recruitment\\/10101$/);
+  await expect(page).toHaveURL(/#\/recruitment\/10101$/);
   await page.goto("/#/home");
   await guided.getByRole("button",{name:"الشراكات والمنح"}).click();
   await guided.getByRole("button",{name:"افتح تقرير التحصيل"}).click();
-  await expect(page).toHaveURL(/#\\/demo\\/reports\\/13203$/);
+  await expect(page).toHaveURL(/#\/demo\/reports\/13203$/);
 });
 
 test("guided journeys are readable in English LTR on a narrow mobile viewport",async ({page})=>{
@@ -243,5 +243,5 @@ test("guided journeys are readable in English LTR on a narrow mobile viewport",a
   await expect(journey.getByRole("listitem")).toHaveCount(3);
   await expect(page.locator("body")).toHaveJSProperty("scrollWidth",390);
   await journey.getByRole("button",{name:"Open Grant record"}).click();
-  await expect(page).toHaveURL(/#\\/fundraising\\/1202$/);
+  await expect(page).toHaveURL(/#\/fundraising\/1202$/);
 });
