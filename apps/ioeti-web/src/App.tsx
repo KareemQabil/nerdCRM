@@ -314,13 +314,16 @@ export function App() {
         {loadError && <div className="error-banner" role="alert"><CircleAlert size={18}/><span>{labels.unavailable}: {loadError}</span><button className="btn btn-secondary" type="button" onClick={() => void refresh()}>{labels.retry}</button></div>}
         {page === "businessLines" && selected && <BusinessLineWorkspace line={selected} labels={labels} onBack={backFromBusinessLine} />}
         {page === "home" && <section className="page-enter">
+          {!DEMO_MODE && <>
           <div className="hero-card">
             <div className="hero-text"><span className="eyebrow"><span className="live-pulse"/>{labels.product}</span><h1>{labels.welcome}</h1><p>{labels.overview}</p>
               <button className="btn btn-primary" type="button" onClick={() => navigate("businessLines")}>{labels.showLines}{isRTL ? <ArrowLeft size={18}/> : <ArrowRight size={18}/>}</button>
             </div>
             <div className="hero-graphic" aria-hidden="true"><div className="orb orb-a"/><div className="orb orb-b"/><div className="orb-core"><Layers3 size={45}/></div></div>
           </div>
+          </>}
           {DEMO_MODE && <Suspense fallback={<div role="status" className="empty-state">{labels.loading}</div>}><DemoExecutiveOverview language={prefs.language} onOpen={navigateDemo}/></Suspense>}
+          {!DEMO_MODE && <>
           <div className="stats-grid">
             <Metric icon={Layers3} label={labels.linesCount} value={lines.length.toString()} />
             <Metric icon={Check} label={labels.activeCount} value={activeCount.toString()} />
@@ -329,6 +332,7 @@ export function App() {
           <div className="lines-preview">
             {lines.length === 0 ? <div className="empty-state">{labels.noAccess}</div> : lines.slice(0, 5).map((line) => <button key={line.id} className="preview-row" type="button" onClick={() => openLine(line)}><div className="line-monogram">{line.code.slice(0, 2)}</div><div className="line-name"><strong>{isRTL ? line.nameAr : line.nameEn}</strong><small dir="ltr">{line.code}</small></div><StatusPill status={line.status} labels={labels}/><ChevronDown className="row-chevron" size={17}/></button>)}
           </div>
+          </>}
           <p className="scope-note"><ShieldCheck size={15}/>{DEMO_MODE ? (isRTL ? "كل البيانات الظاهرة افتراضية ولا تمثل عملاء IOETI" : "All displayed business records are fictional") : labels.visualNote}</p>
         </section>}
 
