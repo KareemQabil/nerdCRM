@@ -251,7 +251,7 @@ test("focus mission isolates one step, gives accessible progress and restores pa
   const calls:string[] = [];
   page.on("request",request => {if(request.url().includes("/axelor-erp/")) calls.push(request.url());});
   await page.goto("/#/home");
-  const trigger=page.getByRole("button",{name:"وضع التركيز"});
+  const trigger=page.locator(".demo-tour").getByRole("button",{name:"وضع التركيز",exact:true});
   await trigger.click();
   const dialog=page.getByRole("dialog",{name:"عرض السعر"});
   await expect(dialog).toBeVisible();
@@ -269,7 +269,7 @@ test("focus mission isolates one step, gives accessible progress and restores pa
 
 test("focus mission opens chosen record and does not simulate a backend action", async ({page}) => {
   await page.goto("/#/home");
-  await page.getByRole("button",{name:"وضع التركيز"}).click();
+  await page.locator(".demo-tour").getByRole("button",{name:"وضع التركيز",exact:true}).click();
   const dialog=page.getByRole("dialog");
   await dialog.getByRole("button",{name:/تدقيق ISO/}).click();
   await dialog.getByRole("button",{name:"افتح الملف واشتغل عليه"}).click();
@@ -354,7 +354,10 @@ test("core text, muted text and primary buttons reach minimum 4.5:1 token contra
     const root=document.documentElement;
     const original=root.dataset.theme;
     const lum=(s:string)=>{
-      const match=/^#([0-9a-f]{6})$/i.exec(s.trim());
+      const value=s.trim().toLowerCase();
+      const short=/^#([0-9a-f]{3})$/.exec(value);
+      const normalized=short ? "#"+[...short[1]].map(x=>x+x).join("") : value;
+      const match=/^#([0-9a-f]{6})$/i.exec(normalized);
       if(!match)throw Error("A core surface token is not opaque: "+s);
       const rgb=[0,2,4].map(n=>parseInt(match[1].slice(n,n+2),16)/255)
         .map(c=>c<=.04045?c/12.92:Math.pow((c+.055)/1.055,2.4));
