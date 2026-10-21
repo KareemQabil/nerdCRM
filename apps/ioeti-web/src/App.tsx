@@ -286,7 +286,7 @@ export function App() {
           <button ref={focusToggleRef} className={"focus-toggle" + (taskFocus ? " is-active" : "")}
             type="button" aria-pressed={taskFocus} aria-label={taskFocus
               ? (isRTL ? "إنهاء وضع التركيز" : "Exit focus mode")
-              : (isRTL ? "التركيز على المهمة الحالية" : "Focus current workspace")}
+              : (isRTL ? "تفعيل وضع التركيز" : "Focus current workspace")}
             onClick={() => {setTaskFocus(current => !current);setMobileNav(false);}}>
             {taskFocus ? <PanelLeftOpen size={17}/> : <Focus size={17}/>}
             <span>{taskFocus ? (isRTL ? "الرجوع للوضع العادي" : "Exit focus") : (isRTL ? "تركيز" : "Focus")}</span>
