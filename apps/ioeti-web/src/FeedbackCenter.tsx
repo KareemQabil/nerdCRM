@@ -34,7 +34,7 @@ export function FeedbackCenter() {
     {notices.map(item => {
       const Icon = item.kind === "success" ? CheckCircle2 : item.kind === "error" ? AlertCircle : Info;
       return <div key={item.id} className={"ioeti-feedback ioeti-feedback-" + item.kind}
-        role={item.kind === "error" ? "alert" : "status"}
+        role="status"
         aria-live={item.kind === "error" ? "assertive" : "polite"}
         aria-atomic="true">
         <Icon size={20} aria-hidden="true"/>
