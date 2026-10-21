@@ -337,3 +337,50 @@ test("global feedback shows safe normalized error code without raw server conten
   });
   await expect(page.getByRole("status").filter({hasText:"تم إنشاء السجل"})).toBeVisible();
 });
+
+
+test("the demo home promotes one clear goal instead of duplicate hero and KPI sections",async ({page})=>{
+  await page.goto("/#/home");
+  await expect(page.getByRole("heading",{level:1,name:/مساحة عمل اليوم/})).toBeVisible();
+  await expect(page.locator(".hero-card")).toHaveCount(0);
+  await expect(page.locator(".stats-grid")).toHaveCount(0);
+  await expect(page.locator(".lines-preview")).toHaveCount(0);
+  await expect(page.locator(".demo-tour")).toBeVisible();
+});
+
+test("core text, muted text and primary buttons reach minimum 4.5:1 token contrast in every theme",async ({page})=>{
+  await page.goto("/#/home");
+  const results=await page.evaluate(()=>{
+    const root=document.documentElement;
+    const original=root.dataset.theme;
+    const lum=(s:string)=>{
+      const match=/^#([0-9a-f]{6})$/i.exec(s.trim());
+      if(!match)throw Error("A core surface token is not opaque: "+s);
+      const rgb=[0,2,4].map(n=>parseInt(match[1].slice(n,n+2),16)/255)
+        .map(c=>c<=.04045?c/12.92:Math.pow((c+.055)/1.055,2.4));
+      return rgb[0]*.2126+rgb[1]*.7152+rgb[2]*.0722;
+    };
+    const ratio=(a:string,b:string)=>{
+      const [lo,hi]=[lum(a),lum(b)].sort((x,y)=>x-y);
+      return(hi+.05)/(lo+.05);
+    };
+    const values=[] as {theme:string,body:number,secondary:number,primary:number}[];
+    for(const theme of ["light","dark","luxury"]){
+      root.dataset.theme=theme;
+      const styles=getComputedStyle(root);
+      const token=(name:string)=>styles.getPropertyValue(name).trim();
+      values.push({theme,
+        body:ratio(token("--on-surface"),token("--surface")),
+        secondary:ratio(token("--on-surface-variant"),token("--surface")),
+        primary:ratio(token("--on-primary"),token("--primary"))});
+    }
+    if(original)root.dataset.theme=original;
+    else delete root.dataset.theme;
+    return values;
+  });
+  for(const result of results){
+    expect(result.body,result.theme+" body text").toBeGreaterThanOrEqual(4.5);
+    expect(result.secondary,result.theme+" secondary text").toBeGreaterThanOrEqual(4.5);
+    expect(result.primary,result.theme+" primary action").toBeGreaterThanOrEqual(4.5);
+  }
+});
