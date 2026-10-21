@@ -812,7 +812,7 @@ td code { display: inline-block; font: 11px Inter,monospace; color: var(--on-sur
 .demo-tour-head p{font-size:12px;line-height:1.8;color:var(--on-surface-variant);max-width:650px;margin:0;}
 .demo-tour-private{display:inline-flex;align-items:center;gap:7px;flex-shrink:0;border:1px solid var(--outline-variant);border-radius:100px;padding:8px 11px;color:var(--on-surface-variant);font-size:10px;font-weight:700;}
 .demo-tour-switch{display:flex;flex-wrap:wrap;gap:8px;margin:23px 0 15px;}
-.demo-tour-switch button{display:inline-flex;align-items:center;justify-content:center;gap:7px;background:var(--surface-variant);color:var(--on-surface-variant);border:1px solid var(--outline-variant);border-radius:12px;padding:10px 13px;font:700 11px inherit;line-height:1.5;cursor:pointer;min-height:40px;transition:border-color .18s,background .18s,transform .18s;}
+.demo-tour-switch button{display:inline-flex;align-items:center;justify-content:center;gap:7px;background:var(--surface-variant);color:var(--on-surface-variant);border:1px solid var(--outline-variant);border-radius:12px;padding:10px 13px;font-family:inherit;font-weight:700;font-size:11px;line-height:1.5;cursor:pointer;min-height:40px;transition:border-color .18s,background .18s,transform .18s;}
 .demo-tour-switch button.is-selected{color:var(--on-primary-container);background:var(--primary-container);border-color:var(--primary);}
 .demo-tour-switch button:hover{border-color:var(--primary);transform:translateY(-1px);}
 .demo-tour-switch button:focus-visible,.demo-tour-steps button:focus-visible{outline:3px solid var(--primary);outline-offset:3px;}
