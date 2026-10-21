@@ -1,4 +1,5 @@
 import { DEMO_MODE, demoStore } from "./demo";
+import { notifyApiFailure, notifyApiSuccess } from "./feedback";
 // Custom IOETI endpoints only. The browser never imports unrestricted Axelor models.
 // Auth uses a same-origin Vite development proxy. Do not deploy the proxy publicly.
 const PREFIX = "/axelor-erp";
@@ -87,19 +88,30 @@ async function request(path: string, options?: RequestInit): Promise<Response> {
   return response;
 }
 export async function wrapped<T>(path: string, options?: RequestInit): Promise<T> {
-  const response = await request(path, options);
-  const body = await response.json() as Envelope<T>;
-  if (typeof body.codeStatus === "number" && body.codeStatus >= 400) {
-    throw new ApiError(body.codeStatus, body.messageStatus || "Request failed");
+  try {
+    const response = await request(path, options);
+    const body = await response.json() as Envelope<T>;
+    if (typeof body.codeStatus === "number" && body.codeStatus >= 400) {
+      throw new ApiError(body.codeStatus, body.messageStatus || "Request failed");
+    }
+    // Some Axelor error responses report HTTP 200 + status -1.
+    if (body.status != null && body.status !== 0) {
+      throw new ApiError(403, body.messageStatus || "Axelor operation rejected");
+    }
+    if (body.object === undefined || body.object === null) {
+      throw new ApiError(502, "Unexpected backend response");
+    }
+    const method = (options?.method || "GET").toUpperCase();
+    if (method !== "GET" && method !== "HEAD") {
+      notifyApiSuccess(method, response.status);
+    }
+    return body.object;
+  } catch (failure) {
+    // Preserve the actual typed API error for inline validation and retry UIs.
+    // The global notice renders only status and stable code, never raw server messages.
+    notifyApiFailure(failure);
+    throw failure;
   }
-  // Some Axelor error responses report HTTP 200 + status -1.
-  if (body.status != null && body.status !== 0) {
-    throw new ApiError(403, body.messageStatus || "Axelor operation rejected");
-  }
-  if (body.object === undefined || body.object === null) {
-    throw new ApiError(502, "Unexpected backend response");
-  }
-  return body.object;
 }
 export async function getSession(): Promise<SessionIdentity> {
   if (DEMO_MODE) return demoStore.session();
