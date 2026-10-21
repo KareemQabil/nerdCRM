@@ -325,7 +325,7 @@ test("global feedback shows safe normalized error code without raw server conten
     const notices=await import("/src/feedback.ts");
     notices.notifyApiFailure({statusCode:409,code:"STALE_WRITE",message:"Never show internal email or SQL"});
   });
-  const feedback=page.getByRole("alert");
+  const feedback=page.getByRole("status").filter({hasText:"STALE_WRITE"});
   await expect(feedback).toContainText("السجل اتعدل في مكان تاني");
   await expect(feedback).toContainText("STALE_WRITE");
   await expect(feedback).not.toContainText("Never show internal email");
