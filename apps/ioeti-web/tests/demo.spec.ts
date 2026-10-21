@@ -199,3 +199,49 @@ test("cross-domain navigation resets previous register filters without changing 
  await expect(page.locator(".demo-record-row")).toHaveCount(3);
  await expect(page.getByRole("textbox",{name:"ابحث في السجلات التجريبية"})).toHaveValue("");
 });
+
+
+test("guided ISO journey starts at a linked fictional quote and never calls Axelor",async ({page})=>{
+  const axelor:string[]=[];
+  page.on("request",req=>{if(req.url().includes("/axelor-erp/"))axelor.push(req.url());});
+  await page.goto("/#/home");
+  const journey=page.locator(".demo-tour");
+  await expect(journey.getByRole("heading",{name:"جرّب النظام كرحلة عمل كاملة"})).toBeVisible();
+  await expect(journey.getByRole("list",{name:"خطوات الرحلة"}).locator("li")).toHaveCount(6);
+  await journey.getByRole("button",{name:"ابدأ الرحلة"}).click();
+  await expect(page).toHaveURL(/#\\/demo\\/quotes\\/4101$/);
+  await expect(page.locator(".demo-record-hero")).toContainText("DEMO-4101");
+  expect(axelor).toEqual([]);
+});
+
+test("guided journeys switch across training, recruitment and grants using existing sample records",async ({page})=>{
+  await page.goto("/#/home");
+  const guided=page.locator(".demo-tour");
+  await guided.getByRole("button",{name:"برنامج تدريب مؤسسي"}).click();
+  await expect(guided.getByRole("listitem")).toHaveCount(5);
+  await guided.getByRole("button",{name:"افتح المجموعة التدريبية"}).click();
+  await expect(page).toHaveURL(/#\\/training\\/9101$/);
+  await page.goto("/#/home");
+  await guided.getByRole("button",{name:"التوظيف لصالح عميل"}).click();
+  await expect(guided.getByRole("listitem")).toHaveCount(3);
+  await guided.getByRole("button",{name:"افتح طلب توظيف العميل"}).click();
+  await expect(page).toHaveURL(/#\\/recruitment\\/10101$/);
+  await page.goto("/#/home");
+  await guided.getByRole("button",{name:"الشراكات والمنح"}).click();
+  await guided.getByRole("button",{name:"افتح تقرير التحصيل"}).click();
+  await expect(page).toHaveURL(/#\\/demo\\/reports\\/13203$/);
+});
+
+test("guided journeys are readable in English LTR on a narrow mobile viewport",async ({page})=>{
+  await page.setViewportSize({width:390,height:844});
+  await page.goto("/#/home");
+  await page.getByRole("button",{name:"اللغة"}).click();
+  await expect(page.locator("html")).toHaveAttribute("dir","ltr");
+  const journey=page.locator(".demo-tour");
+  await expect(journey.getByRole("heading",{name:"Explore an end-to-end business journey"})).toBeVisible();
+  await journey.getByRole("button",{name:"Partnerships and grants"}).click();
+  await expect(journey.getByRole("listitem")).toHaveCount(3);
+  await expect(page.locator("body")).toHaveJSProperty("scrollWidth",390);
+  await journey.getByRole("button",{name:"Open Grant record"}).click();
+  await expect(page).toHaveURL(/#\\/fundraising\\/1202$/);
+});
