@@ -245,3 +245,60 @@ test("guided journeys are readable in English LTR on a narrow mobile viewport",a
   await journey.getByRole("button",{name:"Open Grant record"}).click();
   await expect(page).toHaveURL(/#\/fundraising\/1202$/);
 });
+
+
+test("focus mission isolates one step, gives accessible progress and restores page on Escape", async ({page}) => {
+  const calls:string[] = [];
+  page.on("request",request => {if(request.url().includes("/axelor-erp/")) calls.push(request.url());});
+  await page.goto("/#/home");
+  const trigger=page.getByRole("button",{name:"وضع التركيز"});
+  await trigger.click();
+  const dialog=page.getByRole("dialog",{name:"عرض السعر"});
+  await expect(dialog).toBeVisible();
+  await expect(page.locator("#root")).toHaveJSProperty("inert",true);
+  await expect(dialog.getByRole("progressbar",{name:"تقدم الرحلة"})).toHaveAttribute("aria-valuenow","1");
+  await dialog.getByRole("button",{name:"التالي"}).click();
+  await expect(page.getByRole("dialog",{name:"العقد"})).toBeVisible();
+  await expect(page.getByRole("progressbar",{name:"تقدم الرحلة"})).toHaveAttribute("aria-valuenow","2");
+  await page.keyboard.press("Escape");
+  await expect(page.getByTestId("demo-mission-overlay")).toHaveCount(0);
+  await expect(page.locator("#root")).toHaveJSProperty("inert",false);
+  await expect(trigger).toBeFocused();
+  expect(calls).toEqual([]);
+});
+
+test("focus mission opens chosen record and does not simulate a backend action", async ({page}) => {
+  await page.goto("/#/home");
+  await page.getByRole("button",{name:"وضع التركيز"}).click();
+  const dialog=page.getByRole("dialog");
+  await dialog.getByRole("button",{name:/تدقيق ISO/}).click();
+  await dialog.getByRole("button",{name:"افتح الملف واشتغل عليه"}).click();
+  await expect(page).toHaveURL(new RegExp("certification/1101$"));
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(page.locator(".demo-record-hero")).toContainText("DEMO-1101");
+});
+
+test("focus mission mobile supports swipe, English and reduced-motion preferences", async ({page}) => {
+  await page.setViewportSize({width:390,height:844});
+  await page.emulateMedia({reducedMotion:"reduce"});
+  await page.goto("/#/home");
+  await page.getByRole("button",{name:"اللغة"}).click();
+  await page.getByRole("button",{name:"Enter focus mode"}).click();
+  const dialog=page.getByRole("dialog",{name:"Quotation"});
+  await expect(dialog).toBeVisible();
+  await expect(page.locator(".mission-dialog")).toHaveCSS("animation-name","none");
+  await expect(page.getByRole("progressbar",{name:"Journey progress"})).toHaveAttribute("aria-valuenow","1");
+  const area=dialog.locator(".mission-illustration");
+  const box=await area.boundingBox();
+  if(!box) throw new Error("Missing gesture target");
+  await page.dispatchEvent(".mission-work-area","touchstart",{
+    touches:[{identifier:1,clientX:box.x+box.width-30,clientY:box.y+40,target:area}],
+  });
+  await page.dispatchEvent(".mission-work-area","touchend",{
+    changedTouches:[{identifier:1,clientX:box.x+25,clientY:box.y+42,target:area}],
+  });
+  await expect(page.getByRole("dialog",{name:"Contract"})).toBeVisible();
+  await page.getByRole("button",{name:"Close focus mode"}).click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(page.locator("body")).toHaveJSProperty("scrollWidth",390);
+});
