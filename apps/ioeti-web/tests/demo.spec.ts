@@ -253,7 +253,7 @@ test("spatial card focus keeps Trello-like stage board visible, isolates one car
  await page.goto("/#/demo/quotes");
  await page.getByRole("button",{name:"لوحة المراحل"}).click();
  await expect(page.getByTestId("demo-pipeline-board")).toBeVisible();
- const focus=page.getByRole("button",{name:/العمل على الكارت:.*عرض تدقيق فندق/}).first();
+ const focus=page.locator(".demo-board-focus").first();
  await focus.click();
  const inspector=page.getByTestId("spatial-card-inspector");
  await expect(inspector).toBeVisible();
