@@ -301,3 +301,39 @@ test("focus mission mobile supports swipe, English and reduced-motion preference
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await expect(page.locator("body")).toHaveJSProperty("scrollWidth",390);
 });
+
+
+test("app-wide focus isolates the active register but preserves all data and Escape exit",async ({page})=>{
+  await page.goto("/#/demo/quotes");
+  await expect(page.locator(".demo-record-row")).toHaveCount(3);
+  const enter=page.getByRole("button",{name:"التركيز على المهمة الحالية"});
+  await enter.click();
+  await expect(page.locator(".app-frame")).toHaveClass(/is-task-focus/);
+  await expect(page.locator(".side-panel")).toBeHidden();
+  await expect(page.getByText("مساحة عمل مركّزة")).toBeVisible();
+  await expect(page.locator(".demo-record-row")).toHaveCount(3);
+  await page.keyboard.press("Escape");
+  await expect(page.locator(".app-frame")).not.toHaveClass(/is-task-focus/);
+  await expect(page.locator(".side-panel")).toBeVisible();
+  await expect(page.locator(".demo-record-row")).toHaveCount(3);
+  await expect(page.getByRole("button",{name:"التركيز على المهمة الحالية"})).toBeFocused();
+});
+
+test("global feedback shows safe normalized error code without raw server content",async ({page})=>{
+  await page.goto("/#/home");
+  await page.evaluate(async()=>{
+    const notices=await import("/src/feedback.ts");
+    notices.notifyApiFailure({statusCode:409,code:"STALE_WRITE",message:"Never show internal email or SQL"});
+  });
+  const feedback=page.getByRole("alert");
+  await expect(feedback).toContainText("السجل اتعدل في مكان تاني");
+  await expect(feedback).toContainText("STALE_WRITE");
+  await expect(feedback).not.toContainText("Never show internal email");
+  await feedback.getByRole("button",{name:"إغلاق التنبيه"}).click();
+  await expect(feedback).toHaveCount(0);
+  await page.evaluate(async()=>{
+    const notices=await import("/src/feedback.ts");
+    notices.notifyApiSuccess("POST",201);
+  });
+  await expect(page.getByRole("status").filter({hasText:"تم إنشاء السجل"})).toBeVisible();
+});
