@@ -1005,3 +1005,33 @@ button, [role="button"]{touch-action:manipulation;}
 .ioeti-crash-card p{font-size:13px;line-height:1.8;color:var(--on-surface-variant);margin:0;}
 @media(max-width:650px){.ioeti-feedback-stack{inset-block-start:8px;inset-inline-end:8px;width:calc(100vw - 16px);}}
 @media(prefers-reduced-motion:reduce){.ioeti-feedback{animation:none;}}
+
+
+/* App-wide focus: an honest opt-in single-task canvas for authenticated AND demo pages.
+   The active page's real handlers and authorization remain unchanged. */
+.focus-toggle{display:inline-flex;align-items:center;gap:8px;justify-content:center;min-height:41px;padding:8px 12px;background:var(--surface-strong);color:var(--on-surface);border:1px solid var(--outline);border-radius:11px;font-size:11px;font-weight:800;white-space:nowrap;cursor:pointer;}
+.focus-toggle svg{color:var(--primary);}
+.focus-toggle:hover,.focus-toggle.is-active{border-color:var(--primary);background:var(--primary-container);color:var(--on-primary-container);}
+.is-task-focus .side-panel{opacity:0;visibility:hidden;pointer-events:none;transform:translateX(12px);}
+.is-task-focus .app-stage{margin-inline-start:0;}
+.is-task-focus .top-bar{background:var(--surface-strong);border-color:var(--outline);}
+.is-task-focus .main-content{max-width:1090px;padding-top:22px;padding-bottom:70px;}
+.is-task-focus .hero-card{box-shadow:0 9px 28px rgba(0,0,0,.07);}
+.is-task-focus .record-content-grid{grid-template-columns:minmax(0,1fr);}
+.is-task-focus .stats-grid,.is-task-focus .lines-preview{max-width:980px;}
+.is-task-focus .page-enter{animation:none;}
+.focus-workspace-banner{display:flex;align-items:center;gap:15px;min-height:78px;border:1px solid var(--outline-variant);border-inline-start:5px solid var(--primary);border-radius:15px;padding:14px 18px;margin-bottom:28px;background:var(--surface-strong);box-shadow:0 9px 30px rgba(0,0,0,.04);}
+.focus-workspace-mark{display:grid;place-items:center;flex:0 0 43px;height:43px;background:var(--primary-container);border:1px solid var(--outline-variant);border-radius:12px;color:var(--on-primary-container);}
+.focus-workspace-banner>div{flex:1;min-width:0;}
+.focus-workspace-banner strong{display:block;font-size:13px;line-height:1.6;}
+.focus-workspace-banner p{font-size:11px;line-height:1.8;color:var(--on-surface-variant);margin:2px 0 0;}
+.focus-workspace-exit{display:flex;align-items:center;justify-content:center;gap:8px;min-height:42px;padding:8px 13px;border:1px solid var(--outline);background:var(--surface-variant);color:var(--on-surface);border-radius:9px;font-weight:700;font-size:11px;cursor:pointer;}
+.focus-workspace-exit:hover{border-color:var(--primary);}
+@media(max-width:650px){
+ .focus-toggle{min-width:41px;padding:8px 10px;}.focus-toggle span{display:none;}
+ .is-task-focus .main-content{padding:16px 14px 45px;}
+ .focus-workspace-banner{gap:10px;padding:12px;margin-bottom:18px;}
+ .focus-workspace-banner p{font-size:10px;}
+ .focus-workspace-exit{font-size:10px;padding:7px;}
+}
+@media(prefers-reduced-motion:reduce){.is-task-focus .app-stage,.is-task-focus .side-panel{transition:none;}}
