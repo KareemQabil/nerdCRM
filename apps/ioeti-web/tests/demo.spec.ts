@@ -306,7 +306,7 @@ test("focus mission mobile supports swipe, English and reduced-motion preference
 test("app-wide focus isolates the active register but preserves all data and Escape exit",async ({page})=>{
   await page.goto("/#/demo/quotes");
   await expect(page.locator(".demo-record-row")).toHaveCount(3);
-  const enter=page.getByRole("button",{name:"التركيز على المهمة الحالية"});
+  const enter=page.getByRole("button",{name:"تفعيل وضع التركيز"});
   await enter.click();
   await expect(page.locator(".app-frame")).toHaveClass(/is-task-focus/);
   await expect(page.locator(".side-panel")).toBeHidden();
@@ -316,7 +316,7 @@ test("app-wide focus isolates the active register but preserves all data and Esc
   await expect(page.locator(".app-frame")).not.toHaveClass(/is-task-focus/);
   await expect(page.locator(".side-panel")).toBeVisible();
   await expect(page.locator(".demo-record-row")).toHaveCount(3);
-  await expect(page.getByRole("button",{name:"التركيز على المهمة الحالية"})).toBeFocused();
+  await expect(page.getByRole("button",{name:"تفعيل وضع التركيز"})).toBeFocused();
 });
 
 test("global feedback shows safe normalized error code without raw server content",async ({page})=>{
