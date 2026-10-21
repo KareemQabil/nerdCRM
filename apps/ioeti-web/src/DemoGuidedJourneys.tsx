@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { DemoMissionFocus } from "./DemoMissionFocus";
 import { ArrowLeft, ArrowRight, BadgeCheck, BriefcaseBusiness, GraduationCap, Handshake, Layers3, Play, ShieldCheck } from "lucide-react";
 import type { Language } from "./preferences";
 import { demoBusinessStore, demoConfigs, type DemoArea } from "./demoBusiness";
@@ -62,7 +61,6 @@ export function DemoGuidedJourneys({
   language, onOpen,
 }: { language: Language; onOpen: (area: DemoArea, id?: number) => void }) {
   const [selected, setSelected] = useState("iso");
-  const [focused, setFocused] = useState(false);
   const rtl = language === "ar";
   const tour = TOURS.find(item => item.key === selected) ?? TOURS[0];
   const icon = [BadgeCheck, GraduationCap, BriefcaseBusiness, Handshake];
@@ -90,9 +88,6 @@ export function DemoGuidedJourneys({
       <div className="demo-tour-detail-head">
         <p>{rtl ? tour.descriptionAr : tour.descriptionEn}</p>
         <div className="demo-tour-actions">
-        <button type="button" className="btn btn-secondary" onClick={() => setFocused(true)} aria-haspopup="dialog">
-          {rtl ? "وضع التركيز" : "Enter focus mode"}
-        </button>
         <button type="button" className="btn btn-primary" onClick={() => onOpen(first.area,first.id)}>
           <Play size={15} fill="currentColor"/>{rtl ? "ابدأ الرحلة" : "Start journey"}<Forward size={15}/>
         </button>
@@ -120,6 +115,5 @@ export function DemoGuidedJourneys({
     <p className="demo-tour-footnote">{rtl
       ? "الخطوات دي روابط بين سجلات افتراضية موجودة بالفعل؛ حالات المراجعة والمبالغ لا تمثل بيانات IOETI الحقيقية."
       : "These are linked fictional records. Stages, reviews and amounts are not real IOETI business data."}</p>
-    {focused && <DemoMissionFocus language={language} tour={tour} onOpen={onOpen} onClose={() => setFocused(false)}/>} 
   </section>;
 }
