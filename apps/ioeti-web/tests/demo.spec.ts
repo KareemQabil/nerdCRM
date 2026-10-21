@@ -247,76 +247,83 @@ test("guided journeys are readable in English LTR on a narrow mobile viewport",a
 });
 
 
-test("focus mission isolates one step, gives accessible progress and restores page on Escape", async ({page}) => {
-  const calls:string[] = [];
-  page.on("request",request => {if(request.url().includes("/axelor-erp/")) calls.push(request.url());});
-  await page.goto("/#/home");
-  const trigger=page.locator(".demo-tour").getByRole("button",{name:"وضع التركيز",exact:true});
-  await trigger.click();
-  const dialog=page.getByRole("dialog",{name:"عرض السعر"});
-  await expect(dialog).toBeVisible();
-  await expect(page.locator("#root")).toHaveJSProperty("inert",true);
-  await expect(dialog.getByRole("progressbar",{name:"تقدم الرحلة"})).toHaveAttribute("aria-valuenow","1");
-  await dialog.getByRole("button",{name:"التالي"}).click();
-  await expect(page.getByRole("dialog",{name:"العقد"})).toBeVisible();
-  await expect(page.getByRole("progressbar",{name:"تقدم الرحلة"})).toHaveAttribute("aria-valuenow","2");
-  await page.keyboard.press("Escape");
-  await expect(page.getByTestId("demo-mission-overlay")).toHaveCount(0);
-  await expect(page.locator("#root")).toHaveJSProperty("inert",false);
-  await expect(trigger).toBeFocused();
-  expect(calls).toEqual([]);
+test("spatial card focus keeps Trello-like stage board visible, isolates one card and restores selection",async ({page})=>{
+ const network:string[]=[];
+ page.on("request",req=>{if(req.url().includes("/axelor-erp/"))network.push(req.url());});
+ await page.goto("/#/demo/quotes");
+ await page.getByRole("button",{name:"لوحة المراحل"}).click();
+ await expect(page.getByTestId("demo-pipeline-board")).toBeVisible();
+ const focus=page.getByRole("button",{name:/العمل على الكارت:.*عرض تدقيق فندق/}).first();
+ await focus.click();
+ const inspector=page.getByTestId("spatial-card-inspector");
+ await expect(inspector).toBeVisible();
+ await expect(page.locator(".demo-board-column")).toHaveCount(5);
+ await expect(page.locator(".demo-board-card-shell.is-focused")).toHaveCount(1);
+ await expect(inspector.locator("h2")).toBeVisible();
+ await expect(page).toHaveURL(/#\/demo\/quotes$/);
+ await expect(inspector.getByRole("button",{name:"ملفات مرتبطة"})).toHaveAttribute("aria-expanded","false");
+ await inspector.getByRole("button",{name:"ملفات مرتبطة"}).click();
+ await expect(inspector.getByRole("button",{name:/عقود/}).first()).toBeVisible();
+ await page.keyboard.press("Escape");
+ await expect(inspector).toHaveCount(0);
+ await expect(focus).toBeFocused();
+ expect(network).toEqual([]);
 });
 
-test("focus mission opens chosen record and does not simulate a backend action", async ({page}) => {
-  await page.goto("/#/home");
-  await page.locator(".demo-tour").getByRole("button",{name:"وضع التركيز",exact:true}).click();
-  const dialog=page.getByRole("dialog");
-  await dialog.getByRole("button",{name:/تدقيق ISO/}).click();
-  await dialog.getByRole("button",{name:"افتح الملف واشتغل عليه"}).click();
-  await expect(page).toHaveURL(new RegExp("certification/1101$"));
-  await expect(page.getByRole("dialog")).toHaveCount(0);
-  await expect(page.locator(".demo-record-hero")).toContainText("DEMO-1101");
+test("spatial inspector records a note and advances only after explicit fictional confirmation",async ({page})=>{
+ await page.goto("/#/demo/quotes");
+ await page.getByRole("button",{name:"لوحة المراحل"}).click();
+ await page.locator(".demo-board-focus").first().click();
+ const inspector=page.getByTestId("spatial-card-inspector");
+ await inspector.getByRole("button",{name:"ملاحظة",exact:true}).click();
+ await inspector.locator("textarea").fill("Meeting summary for next quotation review");
+ await inspector.getByRole("button",{name:"حفظ التغيير"}).click();
+ await expect(inspector.getByRole("status")).toContainText("اتضافت الملاحظة");
+ await inspector.getByRole("button",{name:"التحديثات والملاحظات"}).click();
+ await expect(inspector).toContainText("Meeting summary for next quotation review");
+ const previousStage=await inspector.locator(".spatial-stage-badge").innerText();
+ await inspector.getByRole("button",{name:"انتقل للمرحلة التالية"}).click();
+ await inspector.locator("textarea").fill("Pricing reviewed for internal demo workflow");
+ await expect(inspector.getByRole("button",{name:"حفظ التغيير"})).toBeDisabled();
+ await inspector.locator("input[type=checkbox]").check();
+ await inspector.getByRole("button",{name:"حفظ التغيير"}).click();
+ await expect(inspector.locator(".spatial-stage-badge")).not.toHaveText(previousStage);
+ await expect(page.locator(".demo-board-card-shell.is-focused")).toHaveCount(1);
 });
 
-test("focus mission mobile supports swipe, English and reduced-motion preferences", async ({page}) => {
-  await page.setViewportSize({width:390,height:844});
-  await page.emulateMedia({reducedMotion:"reduce"});
-  await page.goto("/#/home");
-  await page.getByRole("button",{name:"اللغة"}).click();
-  await page.getByRole("button",{name:"Enter focus mode"}).click();
-  const dialog=page.getByRole("dialog",{name:"Quotation"});
-  await expect(dialog).toBeVisible();
-  await expect(page.locator(".mission-dialog")).toHaveCSS("animation-name","none");
-  await expect(page.getByRole("progressbar",{name:"Journey progress"})).toHaveAttribute("aria-valuenow","1");
-  await dialog.locator(".mission-illustration").evaluate((element) => {
-    const area=element.closest(".mission-work-area");
-    if(!area) throw new Error("Missing swipe target");
-    const a=new Touch({identifier:1,target:element,clientX:280,clientY:80});
-    const b=new Touch({identifier:1,target:element,clientX:40,clientY:82});
-    area.dispatchEvent(new TouchEvent("touchstart",{touches:[a],changedTouches:[a],bubbles:true}));
-    area.dispatchEvent(new TouchEvent("touchend",{touches:[],changedTouches:[b],bubbles:true}));
-  });
-  await expect(page.getByRole("dialog",{name:"Contract"})).toBeVisible();
-  await page.getByRole("button",{name:"Close focus mode"}).click();
-  await expect(page.getByRole("dialog")).toHaveCount(0);
-  await expect(page.locator("body")).toHaveJSProperty("scrollWidth",390);
+test("spatial card quick-open reaches the full record while preserving board navigation semantics",async ({page})=>{
+ await page.goto("/#/demo/quotes");
+ await page.getByRole("button",{name:"لوحة المراحل"}).click();
+ await page.locator(".demo-board-focus").first().click();
+ const id=await page.locator(".spatial-inspector-badges>span[dir=ltr]").innerText();
+ await page.getByRole("button",{name:"افتح الملف الكامل"}).click();
+ await expect(page).toHaveURL(new RegExp("quotes/"+id.replace("DEMO-","")+"$"));
+ await expect(page.locator(".demo-record-hero")).toContainText(id);
 });
 
-
-test("app-wide focus isolates the active register but preserves all data and Escape exit",async ({page})=>{
-  await page.goto("/#/demo/quotes");
-  await expect(page.locator(".demo-record-row")).toHaveCount(3);
-  const enter=page.getByRole("button",{name:"تفعيل وضع التركيز"});
-  await enter.click();
-  await expect(page.locator(".app-frame")).toHaveClass(/is-task-focus/);
-  await expect(page.locator(".side-panel")).toBeHidden();
-  await expect(page.getByText("مساحة عمل مركّزة")).toBeVisible();
-  await expect(page.locator(".demo-record-row")).toHaveCount(3);
-  await page.keyboard.press("Escape");
-  await expect(page.locator(".app-frame")).not.toHaveClass(/is-task-focus/);
-  await expect(page.locator(".side-panel")).toBeVisible();
-  await expect(page.locator(".demo-record-row")).toHaveCount(3);
-  await expect(page.getByRole("button",{name:"تفعيل وضع التركيز"})).toBeFocused();
+test("spatial mobile inspector respects scrolling and touch swipe is optional",async ({page})=>{
+ await page.setViewportSize({width:390,height:844});
+ await page.emulateMedia({reducedMotion:"reduce"});
+ await page.goto("/#/demo/quotes");
+ await page.getByRole("button",{name:"اللغة"}).click();
+ await page.getByRole("button",{name:"Pipeline board"}).click();
+ await page.locator(".demo-board-focus").first().click();
+ const inspector=page.getByTestId("spatial-card-inspector");
+ await expect(inspector).toBeVisible();
+ await expect(inspector).toHaveCSS("animation-name","none");
+ const before=await inspector.locator(".spatial-inspector-badges>span[dir=ltr]").innerText();
+ await inspector.locator(".spatial-inspector-top").evaluate(element=>{
+   const a=new Touch({identifier:1,target:element,clientX:300,clientY:130});
+   const b=new Touch({identifier:1,target:element,clientX:45,clientY:133});
+   element.dispatchEvent(new TouchEvent("touchstart",{touches:[a],changedTouches:[a],bubbles:true}));
+   element.dispatchEvent(new TouchEvent("touchend",{touches:[],changedTouches:[b],bubbles:true}));
+ });
+ const after=await inspector.locator(".spatial-inspector-badges>span[dir=ltr]").innerText();
+ expect(after).not.toBe(before);
+ await expect(inspector.getByRole("button",{name:"Next card"})).toBeVisible();
+ await inspector.getByRole("button",{name:"Close card workspace"}).click();
+ await expect(inspector).toHaveCount(0);
+ await expect(page.locator("body")).toHaveJSProperty("scrollWidth",390);
 });
 
 test("global feedback shows safe normalized error code without raw server content",async ({page})=>{
