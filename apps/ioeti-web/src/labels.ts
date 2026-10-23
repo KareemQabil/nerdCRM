@@ -34,7 +34,7 @@ export const text = {
     showLines: "استعراض خطوط الأعمال", noOperations: "العمليات التجارية لم تُربط بعد",
     actions: "إجراءات", view: "عرض", result: "نتيجة", allLines: "جميع خطوط الأعمال",
     notReady: "هذه الوحدة غير موصّلة بعد. لا توجد بيانات وهمية.",
-    capabilityMap: "خريطة النظام",
+    capabilityMap: "خريطة النظام", delivery: "التنفيذ والخدمات", administration: "الإدارة",
     leads: "العملاء المحتملون", accountDirectory: "حسابات العملاء",
     opportunities: "الفرص التجارية", opportunitiesDescription: "عرض وإدارة الفرص المرتبطة بخطوط أعمال IOETI",
     newOpportunity: "فرصة جديدة", editOpportunity: "تعديل اسم الفرصة", opportunityName: "اسم الفرصة",
@@ -81,7 +81,7 @@ export const text = {
     showLines: "Browse business lines", noOperations: "Business operations are not wired yet",
     actions: "Actions", view: "View", result: "Result", allLines: "All business lines",
     notReady: "This module is not connected yet. No fake business data.",
-    capabilityMap: "System map",
+    capabilityMap: "System map", delivery: "Delivery & services", administration: "Administration",
     leads: "Leads", accountDirectory: "Accounts",
     opportunities: "Opportunities", opportunitiesDescription: "Work with real opportunities across IOETI business lines",
     newOpportunity: "New opportunity", editOpportunity: "Edit opportunity name", opportunityName: "Opportunity name",
@@ -98,3 +98,15 @@ export const text = {
 } as const;
 
 export function t(language: Language) { return text[language]; }
+
+// Native Axelor lead and opportunity stage names are stored in English; show them in the reader's
+// language. Names an administrator added or renamed are shown as stored.
+const STAGE_AR: Record<string, string> = {
+  "To be processed": "بانتظار المعالجة", "Marketing qualification": "تأهيل تسويقي", "Sales qualification": "تأهيل بيعي",
+  "Nurturing": "رعاية واهتمام", "Converted": "تم التحويل", "Lost": "مفقود",
+  "New": "جديد", "Qualification": "تأهيل", "Proposition": "عرض", "Negotiation": "تفاوض", "Closed won": "مكسوبة", "Closed lost": "خاسرة",
+};
+export function stageLabel(name: string | null | undefined, language: "ar" | "en"): string {
+  if (!name) return "—";
+  return language === "ar" ? STAGE_AR[name] ?? name : name;
+}

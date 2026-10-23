@@ -27,7 +27,7 @@ async function signIn(page: Page) {
   await page.getByLabel(/اسم المستخدم|Username/).fill(fixture!.user);
   await page.getByLabel(/كلمة المرور|Password/).fill(fixture!.password);
   await page.locator("form.login-form button[type=submit]").click();
-  await expect(page.getByText("أهلًا بك في IOETI")).toBeVisible();
+  await expect(page.getByRole("heading", { name: /^مرحبًا/ })).toBeVisible();
 }
 
 async function documentFits(page: Page) {

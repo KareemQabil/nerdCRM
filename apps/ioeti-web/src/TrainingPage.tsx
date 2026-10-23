@@ -82,7 +82,7 @@ export function TrainingPage({language}:{language:Language}){
   const status=(c:TrainingCohort)=>c.status==="OPEN"?l.open:c.status==="CLOSED"?l.closed:l.planned;
   return <section className="page-enter training-page">
     <div className="directory-head"><div className="page-title">
-      <span className="eyebrow">IOETI · ioeti-training</span><h1>{l.title}</h1><p>{l.desc}</p>
+      <span className="eyebrow">{language==="ar"?"التنفيذ والخدمات":"Delivery & services"}</span><h1>{l.title}</h1><p>{l.desc}</p>
     </div><div className="directory-head-symbol"><GraduationCap size={29}/></div></div>
     <div className="training-toolbar">
       <button type="button" className="btn btn-primary" onClick={()=>setForm(form==="cohort"?null:"cohort")}><Plus size={16}/>{l.newCohort}</button>

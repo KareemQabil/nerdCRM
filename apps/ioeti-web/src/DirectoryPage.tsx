@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, ArrowRight, BellRing, Building2, CircleAlert, Layers3, LockKeyhole, RefreshCw, Search, UserPlus, UserRound } from "lucide-react";
+import { ArrowLeft, ArrowRight, BellRing, CircleAlert, Layers3, LockKeyhole, RefreshCw, Search, UserPlus, UserRound } from "lucide-react";
 import { ApiError, getAccount, getAccounts, getLead, getLeads, type AccountSummary, type LeadSummary } from "./api";
 import { DEMO_MODE } from "./demo";
+import { stageLabel } from "./labels";
 import type { Language } from "./preferences";
 import { RecordWorkspace } from "./RecordWorkspace";
 import { LeadConvertPage } from "./LeadConvertPage";
@@ -14,27 +15,27 @@ type Props = { kind: Kind; language: Language };
 const strings = {
   ar: {
     leads:"العملاء المحتملون",accounts:"دليل حسابات العملاء",
-    leadsSub:"قائمة العملاء المحتملين المتاحين لك من Axelor CRM، بحد أدنى من الحقول.",
-    accountsSub:"الشركات المصنفة عملاء أو فرصًا محتملة فقط، دون بيانات البنوك والموظفين والموردين.",
+    leadsSub:"سجّل العملاء المحتملين، أهّلهم وتابعهم، ثم حوّلهم إلى حساب وفرصة تجارية.",
+    accountsSub:"الشركات العميلة والمحتملة. افتح أي حساب لترى الفرص وجهات الاتصال والعقود والمبالغ في مكان واحد.",
     search:"ابحث في السجلات المحمّلة...",record:"السجل",organization:"الجهة",status:"الحالة",reference:"المرجع",
     active:"عميل",prospect:"محتمل",empty:"لا توجد نتائج",loading:"جار تحميل البيانات المسموح بها...",
     more:"تحميل المزيد",refresh:"تحديث",details:"عرض التفاصيل",close:"إغلاق",unavailable:"تعذّر جلب السجلات",
     offline:"معلومات النطاق قيد التوصيل بالـBackend",readOnly:"بيانات حية ضمن نطاق صلاحياتك",
     demo:"هذه السجلات خيالية للمعاينة فقط",noPermission:"ليس لديك صلاحية قراءة هذا الموديول.",
-    source:"المصدر", leadSource:"Axelor Lead · LeadStatus", accountSource:"Axelor Partner",
+    source:"المصدر", leadSource:"المبيعات", accountSource:"المبيعات",
     serverSearch:"ابحث بالاسم أو الجهة أو البريد أو الهاتف...",newLead:"عميل محتمل جديد",list:"القائمة",followUps:"المتابعات",
     next:"تأهيل العملاء المحتملين وتحويلهم من صفحة كل عميل محتمل؛ التوزيع على الآخرين وأهداف زمن الاستجابة بانتظار D-07 وD-12", nextAccounts:"Account 360: الفرص وجهات الاتصال داخل صفحة الحساب",
   },
   en: {
     leads:"Lead inbox",accounts:"Account directory",
-    leadsSub:"Authorized Axelor CRM Lead records with a limited, safe field selection.",
-    accountsSub:"Customer/prospect companies only, excluding employee, vendor-only, and banking data.",
+    leadsSub:"Record leads, qualify and follow them up, then convert them into an account and an opportunity.",
+    accountsSub:"Customer and prospect companies. Open an account to see its opportunities, contacts, contracts and money in one place.",
     search:"Search loaded records...",record:"Record",organization:"Organization",status:"Status",reference:"Reference",
     active:"Customer",prospect:"Prospect",empty:"No results",loading:"Loading authorized records...",
     more:"Load more",refresh:"Refresh",details:"Details",close:"Close",unavailable:"Could not load records",
     offline:"Backend domain connection is in progress",readOnly:"Live data within your permissions",
     demo:"All records are fictional and for visual review only",noPermission:"No permission to read this module.",
-    source:"Source",leadSource:"Axelor Lead · LeadStatus",accountSource:"Axelor Partner",
+    source:"Source",leadSource:"Sales",accountSource:"Sales",
     serverSearch:"Search name, organization, e-mail or phone...",newLead:"New lead",list:"List",followUps:"Follow-ups",
     next:"Qualify and convert from each lead page; routing to others and response-time targets wait for D-07 and D-12", nextAccounts:"Account 360: opportunities and contacts on each account page",
   },
@@ -169,18 +170,19 @@ export function DirectoryPage({kind,language}: Props) {
     />;
   }
   return <section className="page-enter directory-explorer">
-    <div className="directory-head">
+    <div className="directory-head page-head">
       <div className="page-title">
-        <span className="eyebrow">{l.source} · {kind==="leads"?l.leadSource:l.accountSource}</span>
+        <span className="eyebrow">{kind==="leads"?l.leadSource:l.accountSource}</span>
         <h1>{kind==="leads"?l.leads:l.accounts}</h1><p>{kind==="leads"?l.leadsSub:l.accountsSub}</p>
       </div>
-      <div className="directory-head-symbol">{kind==="leads"?<UserRound size={29}/>:<Building2 size={29}/>}</div>
+      {liveLeads&&<div className="page-head-actions">
+        <button type="button" className="btn btn-primary" aria-expanded={intake} onClick={()=>setIntake(open=>!open)}><UserPlus size={16}/>{l.newLead}</button>
+      </div>}
     </div>
-    <div className="directory-topline"><div className="directory-illustration"><Layers3 size={17}/><span>{DEMO_MODE?l.demo:l.readOnly}</span></div><span>{visible.length} {ar?"سجل":"records"}</span></div>
-    {liveLeads&&<div className="mk-tabs" role="group">
-      <button type="button" className="btn btn-secondary" aria-pressed={tab==="list"} onClick={()=>setTab("list")}><UserRound size={15}/>{l.list}</button>
-      <button type="button" className="btn btn-secondary" aria-pressed={tab==="followUps"} onClick={()=>setTab("followUps")}><BellRing size={15}/>{l.followUps}</button>
-      <button type="button" className="btn btn-primary" aria-expanded={intake} onClick={()=>setIntake(open=>!open)}><UserPlus size={15}/>{l.newLead}</button>
+    {DEMO_MODE&&<div className="directory-topline"><div className="directory-illustration"><Layers3 size={17}/><span>{l.demo}</span></div></div>}
+    {liveLeads&&<div className="segmented page-tabs" role="group">
+      <button type="button" className={tab==="list"?"chosen":""} aria-pressed={tab==="list"} onClick={()=>setTab("list")}><UserRound size={15}/>{l.list}</button>
+      <button type="button" className={tab==="followUps"?"chosen":""} aria-pressed={tab==="followUps"} onClick={()=>setTab("followUps")}><BellRing size={15}/>{l.followUps}</button>
     </div>}
     {liveLeads&&intake&&<LeadIntakePanel language={language} onClose={()=>setIntake(false)}
       onRecorded={lead=>{setIntake(false);void load();window.location.hash="#/leads/"+lead.id;}}/>}
@@ -192,13 +194,13 @@ export function DirectoryPage({kind,language}: Props) {
     {liveLeads&&<LeadFilterBar query={query} language={language} onChange={next=>{setQuery(next);setFilter(next.q??"");}}/>}
     {error&&<div className="error-banner" role="alert"><CircleAlert size={17}/><span>{error}</span><button className="btn btn-secondary" type="button" onClick={()=>void load()}>{l.refresh}</button></div>}
     <div className="data-panel">
-      <div className="data-panel-heading"><strong>{kind==="leads"?l.leads:l.accounts}</strong><span>{l.readOnly}</span></div>
+      <div className="data-panel-heading"><strong>{kind==="leads"?l.leads:l.accounts}</strong><span>{visible.length} {ar?"سجل":"records"} · {DEMO_MODE?l.demo:l.readOnly}</span></div>
       {loading?<div className="empty-state" role="status">{l.loading}</div>:visible.length===0?<div className="empty-state">{l.empty}</div>:
       <div className="directory-items">
         {visible.map(item=><article className="directory-item" key={item.id}>
           <div className="line-monogram">{item.name.trim().slice(0,1).toLocaleUpperCase()}</div>
           <div className="directory-record"><strong>{item.name}</strong><small>{isLead(item)?item.organization||"—":item.reference||"—"}</small></div>
-          <div className="directory-state">{isLead(item)?item.stage||"—":(item.customer?l.active:l.prospect)}</div>
+          <div className="directory-state">{isLead(item)?stageLabel(item.stage,language):(item.customer?l.active:l.prospect)}</div>
           <button className="text-action" disabled={detailLoading} type="button" onClick={e=>void showRecord(item,e.currentTarget)}>{l.details}{ar?<ArrowLeft size={16}/>:<ArrowRight size={16}/>}</button>
         </article>)}
       </div>}

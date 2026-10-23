@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { BarChart3, CircleAlert, Download, LockKeyhole } from "lucide-react";
+import { CircleAlert, Download, LockKeyhole } from "lucide-react";
 import { ApiError, getBusinessLines, type BusinessLine } from "./api";
 import { download, getAreasReport, getSalesReport, toCsv, type AreasReport, type SalesReport } from "./reportsApi";
 import type { Language } from "./preferences";
@@ -64,7 +64,7 @@ export function ReportsPage({language}:{language:Language}){
   const maxCount=Math.max(1,...(sales?.pipeline??[]).map(r=>r.count));
   const suffix=`${from||"start"}_${to||"today"}`;
   return <section className="page-enter rp-page">
-    <div className="page-title"><span className="eyebrow"><BarChart3 size={14}/> IOETI</span><h1>{l.title}</h1><p>{l.sub}</p></div>
+    <div className="page-title"><span className="eyebrow">{language==="ar"?"مساحة العمل":"Workspace"}</span><h1>{l.title}</h1><p>{l.sub}</p></div>
     <div className="mk-filters">
       <label><span>{l.from}</span><input type="date" value={from} onChange={e=>setFrom(e.target.value)}/></label>
       <label><span>{l.to}</span><input type="date" value={to} onChange={e=>setTo(e.target.value)}/></label>

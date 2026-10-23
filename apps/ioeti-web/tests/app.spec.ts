@@ -80,7 +80,7 @@ async function intercept(page: Page, config: { businessLineDenied?: boolean } = 
 test("Arabic theme switching preserves a real-API-shaped business line screen", async ({ page }) => {
   await intercept(page);
   await page.goto("/");
-  await expect(page.getByText("أهلًا بك في IOETI")).toBeVisible();
+  await expect(page.getByRole("heading", { name: /^مرحبًا/ })).toBeVisible();
   await expect(page.locator("html")).toHaveAttribute("dir", "rtl");
   await page.getByRole("button", { name: "نظام التصميم" }).click();
   await page.getByRole("button", { name: "فاخر" }).click();
@@ -100,7 +100,7 @@ test("Arabic theme switching preserves a real-API-shaped business line screen", 
 test("opportunity create and rename use typed application endpoints", async ({ page }) => {
   await intercept(page);
   await page.goto("/");
-  await page.getByRole("button", { name: "المبيعات" }).click();
+  await page.getByRole("button", { name: "الفرص التجارية", exact: true }).click();
   await expect(page.getByText("Hotel certification")).toBeVisible();
   await page.getByRole("button", { name: "فرصة جديدة" }).click();
   await page.getByRole("textbox", { name: "اسم الفرصة" }).fill("New customer opportunity");
@@ -126,7 +126,7 @@ test("server validation errors are localized from the IOETI error contract, not 
     }) });
   });
   await page.goto("/");
-  await page.getByRole("button", { name: "المبيعات" }).click();
+  await page.getByRole("button", { name: "الفرص التجارية", exact: true }).click();
   await page.getByRole("button", { name: "فرصة جديدة" }).click();
   await page.getByRole("textbox", { name: "اسم الفرصة" }).fill("Opportunity on a closed line");
   await page.getByLabel("خطوط الأعمال").selectOption("TRAINING");
@@ -145,7 +145,7 @@ test("unsafe requests send Axelor's CSRF token from its cookie; safe ones do not
     }
   });
   await page.goto("/");
-  await page.getByRole("button", { name: "المبيعات" }).click();
+  await page.getByRole("button", { name: "الفرص التجارية", exact: true }).click();
   await page.getByRole("button", { name: "فرصة جديدة" }).click();
   await page.getByRole("textbox", { name: "اسم الفرصة" }).fill("CSRF protected create");
   await page.getByLabel("خطوط الأعمال").selectOption("ISO9001");
@@ -160,7 +160,7 @@ test("sign out ends the server session and returns to the sign-in screen", async
   let loggedOut = false;
   await page.route("**/axelor-erp/logout", route => { loggedOut = true; return route.fulfill({ status: 204, body: "" }); });
   await page.goto("/");
-  await expect(page.getByText("أهلًا بك في IOETI")).toBeVisible();
+  await expect(page.getByRole("heading", { name: /^مرحبًا/ })).toBeVisible();
   await page.getByRole("button", { name: "تسجيل الخروج" }).click();
   await expect(page.getByRole("button", { name: /دخول|تسجيل الدخول/ })).toBeVisible();
   expect(loggedOut).toBe(true);
@@ -187,7 +187,7 @@ test("create form offers only lines the server allows; none assigned disables sa
     status: 200, contentType: "application/json", body: JSON.stringify({ codeStatus: 200, messageStatus: "ok", object: creatable }),
   }));
   await page.goto("/");
-  await page.getByRole("button", { name: "المبيعات" }).click();
+  await page.getByRole("button", { name: "الفرص التجارية", exact: true }).click();
   await page.getByRole("button", { name: "فرصة جديدة" }).click();
   const select = page.getByLabel("خطوط الأعمال");
   await expect(select.locator("option")).toHaveText(["اختر خط الأعمال", "التدريب"]);
@@ -201,9 +201,9 @@ test("create form offers only lines the server allows; none assigned disables sa
 test("lack of BusinessLine permissions is not treated as failed session login", async ({ page }) => {
   await intercept(page, { businessLineDenied: true });
   await page.goto("/");
-  await expect(page.getByText("أهلًا بك في IOETI")).toBeVisible();
+  await expect(page.getByRole("heading", { name: /^مرحبًا/ })).toBeVisible();
   await expect(page.getByText("حسابك لا يملك صلاحية قراءة خطوط الأعمال.")).toBeVisible();
-  await page.getByRole("button", { name: "المبيعات" }).click();
+  await page.getByRole("button", { name: "الفرص التجارية", exact: true }).click();
   await expect(page.getByText("Hotel certification")).toBeVisible();
 });
 
@@ -213,7 +213,7 @@ test("mobile Arabic navigation reaches live opportunity route", async ({ page })
   await page.goto("/");
   await expect(page.locator("html")).toHaveAttribute("dir", "rtl");
   await page.getByRole("button", { name: "التنقل" }).click();
-  await page.getByRole("button", { name: "المبيعات" }).click();
+  await page.getByRole("button", { name: "الفرص التجارية", exact: true }).click();
   await expect(page.getByText("Hotel certification")).toBeVisible();
   await page.screenshot({ path: "test-results/ioeti-arabic-mobile-opportunities.png", fullPage: true });
 });
@@ -289,7 +289,7 @@ test("record page on mobile is never rendered as side drawer", async ({page})=>{
 test("Opportunity view details opens a full record page, supports browser history and safe context",async ({page})=>{
   await intercept(page);
   await page.goto("/");
-  await page.getByRole("button",{name:"المبيعات"}).click();
+  await page.getByRole("button",{name:"الفرص التجارية",exact:true}).click();
   const row=page.getByRole("row").filter({hasText:"Hotel certification"});
   await row.getByRole("button",{name:"التفاصيل"}).click();
   await expect(page).toHaveURL(/#\/opportunities\/101$/);
@@ -383,7 +383,7 @@ test("capability flow on mobile remains within current navigation and supports E
 test("Opportunity compact modal traps focus, escapes safely and restores originating button focus",async ({page})=>{
   await intercept(page);
   await page.goto("/");
-  await page.getByRole("button",{name:"المبيعات"}).click();
+  await page.getByRole("button",{name:"الفرص التجارية",exact:true}).click();
   const create=page.getByRole("button",{name:"فرصة جديدة"});
   await create.focus();
   await create.click();
@@ -404,7 +404,7 @@ test("real authenticated mode never mounts fictional operating workspaces",async
   await intercept(page);
   await page.goto("/#/demo/quotes");
   await expect(page.locator(".demo-business")).toHaveCount(0);
-  await expect(page.getByRole("heading",{name:"أهلًا بك في IOETI"})).toBeVisible();
+  await expect(page.getByRole("heading",{name:/^مرحبًا/})).toBeVisible();
   // Settings is the real settings page in live mode (Wave 7b), never the fictional admin workspace
   await page.locator("button.nav-item").filter({hasText:"الإعدادات"}).click();
   await expect(page).toHaveURL(/#\/settings$/);
