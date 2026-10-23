@@ -88,6 +88,8 @@ async function request(path: string, options?: RequestInit): Promise<Response> {
   return response;
 }
 export async function wrapped<T>(path: string, options?: RequestInit): Promise<T> {
+  const method = (options?.method || "GET").toUpperCase();
+  const read = method === "GET" || method === "HEAD";
   try {
     const response = await request(path, options);
     const body = await response.json() as Envelope<T>;
@@ -101,15 +103,14 @@ export async function wrapped<T>(path: string, options?: RequestInit): Promise<T
     if (body.object === undefined || body.object === null) {
       throw new ApiError(502, "Unexpected backend response");
     }
-    const method = (options?.method || "GET").toUpperCase();
-    if (method !== "GET" && method !== "HEAD") {
-      notifyApiSuccess(method, response.status);
-    }
+    if (!read) notifyApiSuccess(method, response.status);
     return body.object;
   } catch (failure) {
     // Preserve the actual typed API error for inline validation and retry UIs.
     // The global notice renders only status and stable code, never raw server messages.
-    notifyApiFailure(failure);
+    // Reads stay silent: their callers show (or deliberately hide) the failure, e.g. an optional
+    // section the user may not read, or the unread-notice count polled every minute.
+    if (!read) notifyApiFailure(failure);
     throw failure;
   }
 }
