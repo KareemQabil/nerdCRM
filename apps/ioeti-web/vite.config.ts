@@ -13,6 +13,9 @@ export default defineConfig({
       "/axelor-erp": {
         target: process.env.IOETI_AXELOR_ORIGIN || "http://127.0.0.1:8080",
         changeOrigin: true,
+        // Axelor scopes its cookies to /axelor-erp, but the app runs at /: the page could not read
+        // CSRF-TOKEN and every unsafe request was refused (403). The session cookie stays HttpOnly.
+        cookiePathRewrite: { "/axelor-erp": "/" },
       },
     },
   },
