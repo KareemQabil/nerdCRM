@@ -1,0 +1,75 @@
+{
+  "results": [
+    {
+      "check": "1 intake: lead recorded (201); the same person spelled differently with Arabic-Indic digits → 409 POSSIBLE_DUPLICATE; another salesperson's own copy is allowed and reveals nothing",
+      "result": "PASS",
+      "detail": "201 {'codeStatus': 201, 'messageStatus': 'Lead recorded', 'object': {'id': 5985, 'version': 0, 'name': 'شركة النيل للأغذية 9EF80B, أحمد عبد الله', 'organization': 'شركة النيل للأغذية 9EF80B', 'stage': 'To be processed', 'converted': False, 'businessLineCode': 'S1L9EF80B', 'accountId': None, 'opportu"
+    },
+    {
+      "check": "2 conversion: another salesperson → 404; owner → 201 with account, contact and opportunity on the business line",
+      "result": "PASS",
+      "detail": "404 201 {'codeStatus': 201, 'messageStatus': 'Lead converted', 'object': {'leadId': 5985, 'accountId': 1472, 'contactId': 1473, 'opportunityId': 2351}} {'ioetiOriginLead': {'fullName': 'شركة النيل للأغذية 9EF80B, أحمد عبد الله', 'id': 5985, '$version': 1}, '$closedWonId': 5, 'partner': {'fullName': "
+    },
+    {
+      "check": "3 quotation: 3 + 2 audit days at 1,500 = 7,500 EGP; version saved; review sent back for pricing; revised to 9,000 and re-sent; approval → BLOCKED_BY_POLICY (D-11)",
+      "result": "PASS",
+      "detail": "201 201 {'codeStatus': 201, 'messageStatus': 'Version saved', 'object': {'id': 126, 'version': 7, 'reference': '#126', 'status': 'DRAFT', 'opportunityId': 2351, 'accountId': 1472, 'accountName': 'شركة النيل للأغذية 9EF80B', 'currency': 'EGP', 'totalBeforeTax': '7500.000', 'taxStatus': 'BLOCKED_BY_PO"
+    },
+    {
+      "check": "4 milestones 30/70 → 2,700 and 6,300 EGP; contract created and filled from the quotation with the same 9,000 total",
+      "result": "PASS",
+      "detail": "{'Deposit': {'amount': '2700.000', 'percentage': '30.00', 'id': 90, 'title': 'Deposit', 'version': 0}, 'Final report': {'amount': '6300.000', 'percentage': '70.00', 'id': 91, 'title': 'Final report', 'version': 0}} 201 201 [{'$nbDecimalDigitForUnitPrice': 2, '$nbDecimalDigitForQty': 2, 'qty': '3.000"
+    },
+    {
+      "check": "5 handover before activation → 422 CONTRACT_NOT_ACTIVE; deposit invoice request 2,700 EGP (201); issuing → BLOCKED_BY_POLICY (D-06), nothing invoiced",
+      "result": "PASS",
+      "detail": "422 {'codeStatus': 422, 'messageStatus': 'Only an active (signed) contract can be handed over.', 'error': {'code': 'CONTRACT_NOT_ACTIVE', 'message': 'Only an active (signed) contract can be handed over.', 'correlationId': '990aebda-a88e-49b8-82d0-d44b541e9554', 'fields': []}} 201 {'id': 52, 'version"
+    },
+    {
+      "check": "6 handover: checklist copied (2 required); accept while incomplete → 422 CHECKLIST_INCOMPLETE; rework; signed contract filed and cited as evidence; resubmitted; accepted → one engagement for the client; stale accept → 409",
+      "result": "PASS",
+      "detail": "201 {'id': 75, 'version': 0, 'contractId': 138, 'contractReference': 'S9EF0001', 'contractName': 'شركة النيل للأغذية 9EF80B', 'clientId': 1472, 'clientName': 'شركة النيل للأغذية 9EF80B', 'businessLineCode': 'S1L9EF80B', 'status': 'SUBMITTED', 'requestedBy': 'S1 RepA 9EF80B', 'reviewedBy': None, 'ope"
+    },
+    {
+      "check": "6 documents follow their record: Ops files on the engagement; sales, with no right on engagements, → 403; another salesperson cannot list the contract's (404); the owner lists exactly the signed contract",
+      "result": "PASS",
+      "detail": "201 {'codeStatus': 201, 'messageStatus': 'Document filed', 'object': {'id': 11, 'version': 1, 'title': 'Kick-off minutes', 'kind': 'REPORT', 'subject': 'ENGAGEMENT', 'subjectId': 57, 'language': 'EN', 'ownerName': 'S1 Ops 9EF80B', 'currentRevision': 1, 'archived': False, 'revisions': [{'number': 1, "
+    },
+    {
+      "check": "7 certification cycle opened for the converted client (201); decision → BLOCKED_BY_POLICY (D-02); sales, with no right on cycles, → 403",
+      "result": "PASS",
+      "detail": "201 {'codeStatus': 201, 'messageStatus': 'Cycle opened', 'object': {'id': 189, 'version': 0, 'reference': 'S1-9EF80B', 'clientId': 1472, 'clientName': 'شركة النيل للأغذية 9EF80B', 'standardCode': 'ISO9001', 'scope': 'Production of packaged foods', 'siteCount': 1, 'openMajors': 0, 'readyForDecision':"
+    },
+    {
+      "check": "8 Account 360 (administrator): one each of opportunity, quotation, contract, handover, engagement and cycle; money per stage: 0 draft, 9,000 booked, 2,700 requested, 0 invoiced, 0 collected (a request is not revenue)",
+      "result": "PASS",
+      "detail": "200 {'OPPORTUNITIES': 1, 'QUOTES': 1, 'CONTRACTS': 1, 'HANDOVERS': 1, 'ENGAGEMENTS': 1, 'CERTIFICATION_CYCLES': 1, 'TRAINING_ENROLLMENTS': 0, 'JOB_ORDERS': 0, 'DONOR_PROFILE': 0} {'EGP': {'currency': 'EGP', 'quotedDraft': '0', 'bookedActive': '9000.000', 'invoiceRequested': '2700.000', 'invoiced': '"
+    },
+    {
+      "check": "8 Account 360 (RepA): only the areas sales may read (no engagement or cycle section), same figures; invoices unreadable → null, never zero; RepB sees the account but none of RepA's records",
+      "result": "PASS",
+      "detail": "200 {'OPPORTUNITIES': 1, 'QUOTES': 1, 'CONTRACTS': 1, 'HANDOVERS': 1} {'EGP': {'currency': 'EGP', 'quotedDraft': '0', 'bookedActive': '9000.000', 'invoiceRequested': '2700.000', 'invoiced': None, 'collected': None}} 200 {'OPPORTUNITIES': 0, 'QUOTES': 0, 'CONTRACTS': 0, 'HANDOVERS': 0} {}"
+    },
+    {
+      "check": "8 sales report on the business line: RepA 1 opportunity, 1 lead converted from the exhibition; RepB only its own open lead; the administrator both (exact counts)",
+      "result": "PASS",
+      "detail": "(200, 1, (1, 0, 1, 0), [('S1 exhibition 9EF80B', 1, 1)]) (200, 0, (1, 1, 0, 0), [('S1 exhibition 9EF80B', 1, 0)]) (200, 1, (2, 1, 1, 0), [('S1 exhibition 9EF80B', 2, 1)])"
+    },
+    {
+      "check": "8 notices reach exactly the requester: review sent back (on the opportunity), handover rework and acceptance; nobody else is notified, and nothing left the CRM",
+      "result": "PASS",
+      "detail": "{'RepA': [('HANDOVER_ACCEPTED', 'HANDOVER', 75), ('HANDOVER_REWORK', 'HANDOVER', 75), ('REVIEW_CHANGES_REQUESTED', 'OPPORTUNITY', 2351)], 'RepB': [], 'Manager': [], 'Ops': [], 'Config': [], 'CertMgr': []} 0->0"
+    },
+    {
+      "check": "9 contract right removed from RepA's group mid-session: the very next requests no longer see contracts (section gone, documents and writes → 403); restored → visible again, nothing changed meanwhile",
+      "result": "PASS",
+      "detail": "200 {'OPPORTUNITIES': 1, 'QUOTES': 1, 'HANDOVERS': 1} 403 403 200 {'OPPORTUNITIES': 1, 'QUOTES': 1, 'CONTRACTS': 1, 'HANDOVERS': 1}"
+    },
+    {
+      "check": "10 backup taken mid-scenario and restored into a new database: every scenario row (lead, quotation and lines, contract and lines, reviews, invoice request, handover, checklist, trail, engagement, documents, cycle, notices) is identical",
+      "result": "PASS",
+      "detail": "True []"
+    }
+  ],
+  "cleanup_complete": true
+}

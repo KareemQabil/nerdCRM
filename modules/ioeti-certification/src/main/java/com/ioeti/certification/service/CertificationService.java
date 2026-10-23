@@ -13,6 +13,7 @@ import com.ioeti.certification.db.Nonconformity;
 import com.ioeti.certification.db.repo.CertificationAuditRepository;
 import com.ioeti.certification.db.repo.NonconformityRepository;
 import com.ioeti.core.api.ApiException;
+import com.ioeti.core.api.Locks;
 import jakarta.persistence.LockModeType;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -73,8 +74,7 @@ public class CertificationService {
 
   @Transactional(rollbackOn = {Exception.class})
   public CertificationAudit complete(CertificationAudit audit, LocalDate completedOn) {
-    CertificationCycle cycle = audit.getCycle();
-    JPA.em().lock(cycle, LockModeType.PESSIMISTIC_FORCE_INCREMENT);
+    CertificationCycle cycle = Locks.parent(audit.getCycle());
     requirePlanned(audit);
     if (audit.getTypeSelect() == CertificationAuditRepository.TYPE_STAGE2 && active(cycle).stream().noneMatch(a ->
         a.getTypeSelect() == CertificationAuditRepository.TYPE_STAGE1
@@ -88,7 +88,7 @@ public class CertificationService {
 
   @Transactional(rollbackOn = {Exception.class})
   public CertificationAudit cancel(CertificationAudit audit) {
-    JPA.em().lock(audit.getCycle(), LockModeType.PESSIMISTIC_FORCE_INCREMENT);
+    Locks.parent(audit.getCycle());
     requirePlanned(audit);
     audit.setStatusSelect(CertificationAuditRepository.STATUS_CANCELLED);
     return JPA.save(audit);

@@ -7,10 +7,13 @@ on:
       - "scripts/**"
       - "docs/security/pii-classification.json"
       - ".github/workflows/ioeti-backend.yml"
+      # S7 runs the real web app against this job's live server
+      - "apps/ioeti-web/tests/live.spec.ts"
+      - "apps/ioeti-web/vite.config.ts"
 jobs:
   backend:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 75
     permissions:
       contents: read
     steps:
@@ -36,8 +39,14 @@ jobs:
         run: bash scripts/ioeti.sh db-up
       - name: Install age (backup encryption for the restore drill)
         run: sudo apt-get update -qq && sudo apt-get install -y -qq age
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Web app and Chromium for the live browser scenario (S7)
+        working-directory: apps/ioeti-web
+        run: npm install --no-audit --no-fund && npx playwright install --with-deps chromium
       - name: Run real Axelor / PostgreSQL pilot contract and SEC-001 identity isolation
-        timeout-minutes: 40
+        timeout-minutes: 50
         shell: bash
         env:
           # issue #10: scheduled-job identity is tested with the Quartz scheduler running
@@ -115,6 +124,19 @@ jobs:
           # Wave 7b: in-app inbox and mentions, the held outbox (consent re-checked, sending D-10 blocked),
           # reports aggregated inside each caller's read scope, the administrators' system page
           python3 scripts/insights_probe.py
+          # Release scenarios: one ISO client from intake to certification across every team (exact figures,
+          # notices, permission removed mid-session, backup restored mid-scenario); training, recruitment
+          # and fundraising under concurrent load; 5000 leads and 1000 opportunities with 20 concurrent users
+          python3 scripts/scenario_iso_lifecycle_probe.py
+          python3 scripts/scenario_services_probe.py
+          python3 scripts/scale_load_probe.py
+          # S7: the real web app (Vite dev proxy) against this server: sign in, intake, Arabic duplicate,
+          # conversion, account; pages at 390 px with real data. The fixture user is removed afterwards.
+          python3 scripts/live_ui_fixture.py setup "$RUNNER_TEMP/live-fixture.json"
+          ui_rc=0
+          (cd apps/ioeti-web && IOETI_LIVE_FIXTURE="$RUNNER_TEMP/live-fixture.json" npx playwright test tests/live.spec.ts) || ui_rc=$?
+          python3 scripts/live_ui_fixture.py teardown "$RUNNER_TEMP/live-fixture.json"
+          test "$ui_rc" -eq 0
           # SEC-004: cookies, fixation, CSRF, logout, per-user login throttle (runs last: it
           # throttles one throw-away user)
           python3 scripts/session_security_probe.py
@@ -147,6 +169,9 @@ jobs:
             logs/websocket-identity-probe.json
             logs/migration-verify.json
             logs/backup-restore-drill.json
+            logs/scenario-iso-lifecycle.json
+            logs/scenario-services.json
+            logs/scale-load.json
           if-no-files-found: ignore
       - name: Attach Axelor integration logs
         if: failure()

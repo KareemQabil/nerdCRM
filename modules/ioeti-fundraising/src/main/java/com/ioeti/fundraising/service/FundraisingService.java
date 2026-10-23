@@ -6,6 +6,7 @@ import com.axelor.db.Model;
 import com.axelor.db.Query;
 import com.google.inject.persist.Transactional;
 import com.ioeti.core.api.ApiException;
+import com.ioeti.core.api.Locks;
 import com.ioeti.fundraising.db.DonationCollection;
 import com.ioeti.fundraising.db.DonorProfile;
 import com.ioeti.fundraising.db.DonorSensitiveProfile;
@@ -139,7 +140,7 @@ public class FundraisingService {
 
   @Transactional(rollbackOn = {Exception.class})
   public PledgeInstallment cancel(PledgeInstallment installment) {
-    JPA.em().lock(installment.getCommitment(), LockModeType.PESSIMISTIC_FORCE_INCREMENT);
+    Locks.parent(installment.getCommitment());
     if (installment.getStatusSelect() != PledgeInstallmentRepository.STATUS_SCHEDULED) {
       throw new ApiException(422, "INSTALLMENT_STATE", "This installment is already cancelled.", null);
     }
@@ -153,7 +154,9 @@ public class FundraisingService {
   /** Records money received against a bank reference. The same reference twice is refused (409). */
   @Transactional(rollbackOn = {Exception.class})
   public DonationCollection collect(PledgeInstallment installment, BigDecimal amount, LocalDate receivedOn, String bankReference) {
-    JPA.em().lock(installment.getCommitment(), LockModeType.PESSIMISTIC_FORCE_INCREMENT);
+    Locks.parent(installment.getCommitment());
+    // one bank reference across every commitment: concurrent writers of the same reference take turns
+    Locks.key("ioeti.collection", bankReference);
     if (Query.of(DonationCollection.class).filter("self.bankReference = ?1", bankReference).count() > 0) {
       throw new ApiException(409, "DUPLICATE_COLLECTION", "A collection with this bank reference is already recorded.", null);
     }
@@ -175,7 +178,7 @@ public class FundraisingService {
   /** Corrections keep the row: a voided collection stays visible and stops counting as collected. */
   @Transactional(rollbackOn = {Exception.class})
   public DonationCollection voidCollection(DonationCollection collection, int reason) {
-    JPA.em().lock(collection.getInstallment().getCommitment(), LockModeType.PESSIMISTIC_FORCE_INCREMENT);
+    Locks.parent(collection.getInstallment().getCommitment());
     if (collection.getStatusSelect() == DonationCollectionRepository.STATUS_VOIDED) {
       throw new ApiException(422, "ALREADY_VOIDED", "This collection is already voided.", null);
     }
@@ -199,7 +202,7 @@ public class FundraisingService {
 
   @Transactional(rollbackOn = {Exception.class})
   public GrantDeliverable advance(GrantDeliverable deliverable, int status, LocalDate on) {
-    JPA.em().lock(deliverable.getCommitment(), LockModeType.PESSIMISTIC_FORCE_INCREMENT);
+    Locks.parent(deliverable.getCommitment());
     if (status != deliverable.getStatusSelect() + 1) {
       throw new ApiException(422, "DELIVERABLE_STATE", "A deliverable is submitted, then accepted.", null);
     }

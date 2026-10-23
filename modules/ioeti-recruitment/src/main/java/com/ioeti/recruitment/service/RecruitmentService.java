@@ -5,6 +5,7 @@ import com.axelor.db.Model;
 import com.axelor.db.Query;
 import com.google.inject.persist.Transactional;
 import com.ioeti.core.api.ApiException;
+import com.ioeti.core.api.Locks;
 import com.ioeti.recruitment.db.CandidateApplication;
 import com.ioeti.recruitment.db.CandidateConsent;
 import com.ioeti.recruitment.db.CandidatePrivateProfile;
@@ -179,8 +180,7 @@ public class RecruitmentService {
 
   @Transactional(rollbackOn = {Exception.class})
   public Placement place(CandidateApplication application, LocalDate startDate) {
-    ClientJobOrder order = application.getJobOrder();
-    JPA.em().lock(order, LockModeType.PESSIMISTIC_FORCE_INCREMENT);
+    ClientJobOrder order = Locks.parent(application.getJobOrder());
     if (Query.of(Placement.class).filter("self.application = ?1", application).count() > 0) {
       throw new ApiException(409, "ALREADY_PLACED", "This candidate is already placed for the job order.", null);
     }
