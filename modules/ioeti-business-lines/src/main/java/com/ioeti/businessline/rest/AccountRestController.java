@@ -1,6 +1,14 @@
 package com.ioeti.businessline.rest;
 
 import com.axelor.apps.base.db.Partner;
+import com.axelor.utils.api.ConflictChecker;
+import com.ioeti.businessline.service.AccountCommands;
+import com.ioeti.businessline.service.AccountCommands.AccountInput;
+import com.ioeti.businessline.service.AccountCommands.ContactInput;
+import com.ioeti.core.text.ArabicNormalizer;
+import com.ioeti.core.web.OptimisticLockConflicts;
+import jakarta.ws.rs.Consumes;
+import jakarta.ws.rs.POST;
 import com.axelor.apps.crm.db.Opportunity;
 import com.axelor.db.JpaSecurity;
 import com.axelor.inject.Beans;
@@ -24,6 +32,10 @@ import java.util.List;
 /**
  * Customer/prospect account directory. Explicitly excludes internal, HR, vendor-only and
  * contact-only Partner records; no financial, banking, national ID or other sensitive fields.
+ *
+ * <p>Accounts and contacts can also be created and changed here directly (journeys plan, phase 2).
+ * Contact details are written but never returned; a new account whose normalised name matches a readable
+ * account must be confirmed first (409), like a lead.
  */
 @Path("/ioeti/accounts")
 @Produces(MediaType.APPLICATION_JSON)
@@ -108,6 +120,88 @@ public class AccountRestController {
     return ResponseConstructor.build(Response.Status.OK, "Account opportunities", records);
   }
 
+  @POST
+  @Consumes(MediaType.APPLICATION_JSON)
+  @Operation(summary = "Add a client account (prospect); a similar readable account must be confirmed first (409)", tags = {"IOETI accounts"})
+  @IoetiEndpoint
+  public Response create(EditAccount command) {
+    if (command == null) throw ApiException.badRequest("Account details are required.");
+    new SecurityCheck().createAccess(Partner.class).check();
+    AccountInput input = new AccountInput(AccountCommands.text("name", command.name(), 255, true),
+        AccountCommands.text("website", command.website(), 255, false), AccountCommands.phone(command.phone()), AccountCommands.email(command.email()));
+    if (!Boolean.TRUE.equals(command.confirmNotDuplicate()) && !similar(input.name(), null).isEmpty()) {
+      throw new ApiException(409, "POSSIBLE_DUPLICATE", "A similar account exists; open it or confirm this is a different one.", null);
+    }
+    Partner[] saved = new Partner[1];
+    OptimisticLockConflicts.translate(() -> saved[0] = Beans.get(AccountCommands.class).createAccount(input));
+    return ResponseConstructor.build(Response.Status.CREATED, "Account added", project(saved[0]));
+  }
+
+  @POST
+  @Path("/similar")
+  @Consumes(MediaType.APPLICATION_JSON)
+  @Operation(summary = "Readable client accounts whose normalised name looks like this one", tags = {"IOETI accounts"})
+  @IoetiEndpoint
+  public Response similarAccounts(EditAccount command) {
+    if (command == null) throw ApiException.badRequest("Account details are required.");
+    new SecurityCheck().readAccess(Partner.class).check();
+    return ResponseConstructor.build(Response.Status.OK, "Similar accounts",
+        similar(AccountCommands.text("name", command.name(), 255, true), null).stream().map(this::project).toList());
+  }
+
+  @POST
+  @Path("/{id}")
+  @Consumes(MediaType.APPLICATION_JSON)
+  @Operation(summary = "Change an account's name, website, phone or e-mail (record write access and version)", tags = {"IOETI accounts"})
+  @IoetiEndpoint
+  public Response update(@PathParam("id") Long id, EditAccount command) {
+    if (command == null || command.version() == null) throw ApiException.badRequest("Record version is required.");
+    Partner account = writableAccount(id);
+    ConflictChecker.checkVersion(account, command.version());
+    AccountInput input = new AccountInput(AccountCommands.text("name", command.name(), 255, false),
+        AccountCommands.text("website", command.website(), 255, false), AccountCommands.phone(command.phone()), AccountCommands.email(command.email()));
+    OptimisticLockConflicts.translate(() -> Beans.get(AccountCommands.class)
+        .updateAccount(account, input, command.website() != null, command.phone() != null, command.email() != null));
+    return ResponseConstructor.build(Response.Status.OK, "Account saved", project(RecordAccess.readable(Partner.class, id)));
+  }
+
+  @POST
+  @Path("/{id}/contacts")
+  @Consumes(MediaType.APPLICATION_JSON)
+  @Operation(summary = "Add a contact person to an account (write access on the account, create on partners)", tags = {"IOETI accounts"})
+  @IoetiEndpoint
+  public Response addContact(@PathParam("id") Long id, AddContact command) {
+    if (command == null || command.version() == null) throw ApiException.badRequest("Record version is required.");
+    Partner account = writableAccount(id);
+    new SecurityCheck().createAccess(Partner.class).check();
+    ConflictChecker.checkVersion(account, command.version());
+    ContactInput input = new ContactInput(AccountCommands.text("firstName", command.firstName(), 255, false),
+        AccountCommands.text("name", command.name(), 255, true), AccountCommands.phone(command.phone()), AccountCommands.email(command.email()));
+    Partner[] saved = new Partner[1];
+    OptimisticLockConflicts.translate(() -> saved[0] = Beans.get(AccountCommands.class).addContact(account, input));
+    Partner c = saved[0];
+    return ResponseConstructor.build(Response.Status.CREATED, "Contact added",
+        new ContactView(c.getId(), c.getFullName() == null ? c.getName() : c.getFullName(), null));
+  }
+
+  private Partner writableAccount(Long id) {
+    Partner account = RecordAccess.writable(Partner.class, id);
+    if (!isClientAccount(account)) throw ApiException.notFound();
+    return account;
+  }
+
+  /** Readable client accounts with the same normalised name (at most 5), optionally excluding one. */
+  private List<Partner> similar(String name, Long except) {
+    String key = ArabicNormalizer.normalize(name);
+    if (key.isEmpty()) return List.of();
+    Filter clients = new JPQLFilter(CLIENT_ACCOUNT_JPQL);
+    Filter security = Beans.get(JpaSecurity.class).getFilter(JpaSecurity.CAN_READ, Partner.class);
+    Filter condition = security == null ? clients : Filter.and(security, clients);
+    return condition.build(Partner.class).order("-id").fetch(2000).stream()
+        .filter(p -> !p.getId().equals(except) && ArabicNormalizer.normalize(p.getName()).equals(key))
+        .limit(5).toList();
+  }
+
   private Partner clientAccount(Long id) {
     Partner partner = RecordAccess.readable(Partner.class, id);
     if (!isClientAccount(partner)) throw ApiException.notFound();
@@ -115,11 +209,13 @@ public class AccountRestController {
   }
 
   private AccountView project(Partner partner) {
-    return new AccountView(partner.getId(), partner.getName(), partner.getPartnerSeq(),
+    return new AccountView(partner.getId(), partner.getVersion(), partner.getName(), partner.getPartnerSeq(),
       Boolean.TRUE.equals(partner.getIsCustomer()),
       Boolean.TRUE.equals(partner.getIsProspect()));
   }
 
   public record ContactView(Long id, String name, String jobTitle) {}
-  public record AccountView(Long id, String name, String reference, boolean customer, boolean prospect) {}
+  public record AccountView(Long id, Integer version, String name, String reference, boolean customer, boolean prospect) {}
+  public record EditAccount(Integer version, String name, String website, String phone, String email, Boolean confirmNotDuplicate) {}
+  public record AddContact(Integer version, String firstName, String name, String phone, String email) {}
 }

@@ -112,6 +112,45 @@ public class MarketingRestController {
     return ResponseConstructor.build(Response.Status.CREATED, "Lead recorded", LeadRestController.project(saved[0]));
   }
 
+  @POST
+  @Path("/leads/{id}")
+  @Consumes(MediaType.APPLICATION_JSON)
+  @Operation(summary = "Change a lead's details (record write access and version); a new e-mail, phone or name that looks like another lead must be confirmed (409)", tags = {"IOETI marketing"})
+  @IoetiEndpoint
+  public Response editLead(@PathParam("id") Long id, EditLead command) {
+    Lead lead = writable(Lead.class, id, command == null ? null : command.version());
+    if (Boolean.TRUE.equals(lead.getIsConverted())) {
+      throw new ApiException(422, "LEAD_CONVERTED", "A converted lead is kept as it was; change the account instead.", null);
+    }
+    if (command.firstName() != null) lead.setFirstName(text("firstName", command.firstName(), 255, false));
+    if (command.name() != null) lead.setName(text("name", command.name(), 255, true));
+    if (command.organization() != null) lead.setEnterpriseName(text("organization", command.organization(), 255, false));
+    String email = command.email() == null ? null : text("email", command.email(), 255, false);
+    if (email != null && !EMAIL.matcher(email).matches()) throw ApiException.invalidField("email", "FORMAT", "Enter a valid e-mail address.");
+    if (command.phone() != null) {
+      String phone = text("phone", command.phone(), 20, false);
+      if (phone != null && !PHONE.matcher(phone).matches()) throw ApiException.invalidField("phone", "FORMAT", "Enter a valid phone number.");
+      lead.setMobilePhone(phone);
+    }
+    if (command.businessLineCode() != null) {
+      lead.setIoetiBusinessLine(command.businessLineCode().isBlank() ? null : businessLine(command.businessLineCode()));
+    }
+    if (command.sourceId() != null) {
+      Source source = command.sourceId() <= 0 ? null : JPA.find(Source.class, command.sourceId());
+      if (command.sourceId() > 0 && source == null) throw ApiException.invalidField("sourceId", "UNAVAILABLE", "Choose a configured source.");
+      lead.setSource(source);
+    }
+    if (!Boolean.TRUE.equals(command.confirmNotDuplicate())) {
+      String currentEmail = email != null ? email : lead.getEmailAddress() == null ? null : lead.getEmailAddress().getAddress();
+      boolean others = MarketingService.duplicates(lead.getFirstName(), lead.getName(), lead.getEnterpriseName(), currentEmail, lead.getMobilePhone())
+          .stream().anyMatch(other -> !other.getId().equals(lead.getId()));
+      if (others) throw new ApiException(409, "POSSIBLE_DUPLICATE", "Another lead looks like this one; review it before saving.", null);
+    }
+    boolean emailGiven = command.email() != null;
+    write(() -> Beans.get(MarketingService.class).edit(lead, emailGiven ? email : null, emailGiven));
+    return ResponseConstructor.build(Response.Status.OK, "Lead saved", LeadRestController.project(JPA.find(Lead.class, id)));
+  }
+
   // --- server-side filters and saved views ---------------------------------------------------------
 
   @GET
@@ -474,6 +513,9 @@ public class MarketingRestController {
   public record Intake(
       String firstName, String name, String organization, String email, String phone, String businessLineCode, Long sourceId,
       Long campaignId, Boolean confirmNotDuplicate) {}
+  public record EditLead(
+      Integer version, String firstName, String name, String organization, String email, String phone, String businessLineCode,
+      Long sourceId, Boolean confirmNotDuplicate) {}
   public record SaveView(String name, String searchText, Long stageId, Long sourceId, String businessLineCode, Boolean onlyMine) {}
   public record RecordLeadConsent(Integer version, String channel, Boolean allowed, String method, String evidenceReference) {}
   public record Attribute(Integer version, Long campaignId) {}
