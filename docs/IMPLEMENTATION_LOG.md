@@ -604,3 +604,24 @@ Slice: `docs/slices/W7b-notifications-reports-settings.md`.
 - Probes: `scripts/insights_probe.py`; inbox checks added to the operations and workspace probes. The shared fixture clean-up removes a test user's notices and drafts.
 - G-007 registry: 75 new fields (867 in total, 0 problems).
 
+
+## 2026-10-23 · A1 · administration from the platform (`ioeti-admin`)
+
+Slice: `docs/slices/A1-admin-console.md`.
+
+- `ioeti-admin` (migration V016/U016, entity `AdminAuditEvent`):
+  - people with temporary passwords and a forced change at the next sign-in;
+  - deactivation and activation;
+  - profiles, listed and assigned (D-07 keeps authoring blocked);
+  - teams;
+  - business lines and their members;
+  - the change log.
+
+  Administrators only, on every call.
+- `ioeti-core`: `SessionIdentity.administrator`.
+- UI:
+  - the Admin console (five tabs, the person page, dialogs);
+  - the sign-in screen handles Axelor's change-password route;
+  - a shared `Dialog`/`ChipPicker`.
+- Probes: `scripts/admin_probe.py` 43/43 (backend CI). JUnit `AdminRulesTest` 6/6. Mocked UI tests `tests/admin.spec.ts` 4/4; full mocked suite 68, demo 24.
+- G-007 registry: 97 new fields (964 in total, 0 problems).
