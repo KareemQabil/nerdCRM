@@ -1,0 +1,24 @@
+plugins {
+	id 'com.axelor.app'
+}
+
+apply from: new File(projectDir.canonicalFile, "../../gradle/ioeti-module.gradle")
+
+// IOETI administration (phase 1 of the journeys plan): people, access profiles, teams and business lines
+// are managed from the platform itself, never from the native Axelor screens. Every endpoint is for
+// administrators only (checked on the server) and every change is written to the admin audit trail.
+// Named roles and their matrix are policy D-07: profiles are assigned here, not defined.
+axelor {
+	title "IOETI Administration"
+	description "IOETI people, access profiles, teams and business lines, with an audit trail"
+}
+
+apply from: rootProject.file("modules/axelor-open-suite/libs.gradle")
+
+dependencies {
+	api project(":modules:ioeti-core")
+	// business lines and the user's line membership (SEC-003)
+	api project(":modules:ioeti-business-lines")
+
+	implementation libs.swagger_jaxrs
+}

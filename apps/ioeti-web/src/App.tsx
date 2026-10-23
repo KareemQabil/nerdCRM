@@ -6,7 +6,7 @@ import {
   Moon, Palette, RefreshCw, Search, Settings2,
   ShieldCheck, Sun, Workflow, UsersRound, X, ClipboardList, BookOpen, Bell, BarChart3,
 } from "lucide-react";
-import { ApiError, getBusinessLines, getSession, signIn, signOut, type BusinessLine, type SessionIdentity } from "./api";
+import { ApiError, PASSWORD_CHANGE_REQUIRED, getBusinessLines, getSession, signIn, signOut, type BusinessLine, type SessionIdentity } from "./api";
 import { OpportunitiesPage } from "./OpportunitiesPage";
 import { NativeModules } from "./NativeModules";
 import { DirectoryPage } from "./DirectoryPage";
@@ -20,6 +20,7 @@ import { InboxPage } from "./InboxPage";
 import { ReportsPage } from "./ReportsPage";
 import { HomeCockpit } from "./HomeCockpit";
 import { SettingsPage } from "./SettingsPage";
+import { AdminConsole } from "./AdminConsole";
 import { getUnreadCount } from "./automationApi";
 import { DEMO_MODE } from "./demo";
 import { DEMO_AREAS, type DemoArea } from "./demoAreas";
@@ -28,7 +29,7 @@ const DemoExecutiveOverview = lazy(() => import("./DemoExecutiveOverview"));
 import { t } from "./labels";
 import { usePreferences, type Theme } from "./preferences";
 
-type Page = "home" | "businessLines" | "opportunities" | "leads" | "accounts" | "capabilities" | "design" | "demo" | "certification" | "training" | "recruitment" | "fundraising" | "operations" | "knowledge" | "inbox" | "reports" | "settings";
+type Page = "home" | "admin" | "businessLines" | "opportunities" | "leads" | "accounts" | "capabilities" | "design" | "demo" | "certification" | "training" | "recruitment" | "fundraising" | "operations" | "knowledge" | "inbox" | "reports" | "settings";
 type Session = "checking" | "login" | "authenticated";
 type LineFilter = "all" | "active" | "setup" | "suspended";
 type IconType = typeof House;
@@ -37,7 +38,7 @@ function getPageFromDemoArea(area: DemoArea): Page {
     : area === "recruiting" ? "recruitment" : area === "fundraising" ? "fundraising" : "demo";
 }
 
-const allPages: Page[] = ["home","businessLines","opportunities","leads","accounts","capabilities","design","demo","certification","training","recruitment","fundraising","operations","knowledge","inbox","reports","settings"];
+const allPages: Page[] = ["home","admin","businessLines","opportunities","leads","accounts","capabilities","design","demo","certification","training","recruitment","fundraising","operations","knowledge","inbox","reports","settings"];
 function getPageFromLocation(): Page {
   const segment = window.location.hash.match(/^#\/([^/]+)/)?.[1];
   if (!DEMO_MODE && segment === "demo") return "home";
@@ -234,6 +235,8 @@ export function App() {
       { id: "fundraising", label: labels.fundraising, icon: HeartHandshake },
     ] },
     { id: "admin", label: labels.administration, items: [
+      // the console is offered to administrators; every admin endpoint checks it again on the server
+      ...(!DEMO_MODE && identity?.administrator ? [{ id: "admin", label: isRTL ? "لوحة الإدارة" : "Admin console", icon: ShieldCheck }] : []),
       { id: "businessLines", label: labels.businessLines, icon: Layers3 },
       { id: "capabilities", label: labels.capabilityMap, icon: Workflow },
       { id: "design", label: labels.design, icon: Palette },
@@ -272,7 +275,7 @@ export function App() {
       <header className="top-bar">
         <div className="top-start">
           <IconButton className="mobile-menu" label={labels.navigation} onClick={() => setMobileNav(true)}><Menu size={19}/></IconButton>
-          <div className="breadcrumb"><span>{labels.workspace}</span><span className="crumb-separator">/</span><strong>{page === "home" ? labels.home : page === "businessLines" ? labels.businessLines : page === "opportunities" ? labels.opportunities : page === "leads" ? labels.leads : page === "accounts" ? labels.accountDirectory : page === "capabilities" ? labels.capabilityMap : page === "training" && !DEMO_MODE ? labels.training : page === "certification" && !DEMO_MODE ? labels.certification : page === "recruitment" && !DEMO_MODE ? labels.recruitment : page === "fundraising" && !DEMO_MODE ? labels.fundraising : page === "operations" && !DEMO_MODE ? labels.operations : page === "knowledge" && !DEMO_MODE ? labels.knowledge : page === "inbox" && !DEMO_MODE ? labels.inbox : page === "reports" && !DEMO_MODE ? labels.reports : page === "settings" && !DEMO_MODE ? labels.settings : activeDemoArea ? (isRTL ? {quotes:"عروض الأسعار",catalog:"كتالوج الخدمات",contracts:"العقود",finance:"المالية",projects:"المشروعات",visits:"الزيارات",quality:"الجودة",marketing:"التسويق",learning:"التدريب",recruiting:"التوظيف",certification:"الشهادات",fundraising:"التمويل",documents:"المستندات",automations:"الأتمتة",reports:"التقارير",admin:"الإعدادات"}[activeDemoArea] : {quotes:"Quotations",catalog:"Service catalog",contracts:"Contracts",finance:"Finance",projects:"Projects",visits:"Visits",quality:"Quality",marketing:"Marketing",learning:"Training",recruiting:"Recruitment",certification:"Certification",fundraising:"Fundraising",documents:"Documents",automations:"Automations",reports:"Reports",admin:"Settings"}[activeDemoArea]) : labels.design}</strong></div>
+          <div className="breadcrumb"><span>{labels.workspace}</span><span className="crumb-separator">/</span><strong>{page === "home" ? labels.home : page === "admin" ? (isRTL ? "لوحة الإدارة" : "Admin console") : page === "businessLines" ? labels.businessLines : page === "opportunities" ? labels.opportunities : page === "leads" ? labels.leads : page === "accounts" ? labels.accountDirectory : page === "capabilities" ? labels.capabilityMap : page === "training" && !DEMO_MODE ? labels.training : page === "certification" && !DEMO_MODE ? labels.certification : page === "recruitment" && !DEMO_MODE ? labels.recruitment : page === "fundraising" && !DEMO_MODE ? labels.fundraising : page === "operations" && !DEMO_MODE ? labels.operations : page === "knowledge" && !DEMO_MODE ? labels.knowledge : page === "inbox" && !DEMO_MODE ? labels.inbox : page === "reports" && !DEMO_MODE ? labels.reports : page === "settings" && !DEMO_MODE ? labels.settings : activeDemoArea ? (isRTL ? {quotes:"عروض الأسعار",catalog:"كتالوج الخدمات",contracts:"العقود",finance:"المالية",projects:"المشروعات",visits:"الزيارات",quality:"الجودة",marketing:"التسويق",learning:"التدريب",recruiting:"التوظيف",certification:"الشهادات",fundraising:"التمويل",documents:"المستندات",automations:"الأتمتة",reports:"التقارير",admin:"الإعدادات"}[activeDemoArea] : {quotes:"Quotations",catalog:"Service catalog",contracts:"Contracts",finance:"Finance",projects:"Projects",visits:"Visits",quality:"Quality",marketing:"Marketing",learning:"Training",recruiting:"Recruitment",certification:"Certification",fundraising:"Fundraising",documents:"Documents",automations:"Automations",reports:"Reports",admin:"Settings"}[activeDemoArea]) : labels.design}</strong></div>
         </div>
         <div className="top-actions">
           <span className="server-status"><span className="live-pulse"/>{DEMO_MODE ? (isRTL ? "بيانات افتراضية" : "Sample data") : labels.connected}</span>
@@ -307,6 +310,7 @@ export function App() {
         {page === "inbox" && !DEMO_MODE && <InboxPage language={prefs.language} onChanged={() => void refreshUnread()} />}
         {page === "reports" && !DEMO_MODE && <ReportsPage language={prefs.language} />}
         {page === "settings" && !DEMO_MODE && <SettingsPage language={prefs.language} />}
+        {page === "admin" && !DEMO_MODE && <AdminConsole language={prefs.language} routeHash={routeHash} myCode={identity?.code || null} />}
         {page === "capabilities" && <NativeModules language={prefs.language} onOpen={navigate} onOpenDemo={navigateDemo} />}
         {page === "businessLines" && !selected && <section className="page-enter">
           <PageTitle eyebrow={labels.workspace} title={labels.businessLines} description={labels.description} />
@@ -367,26 +371,48 @@ function PageTitle({ eyebrow, title, description }: { eyebrow: string; title: st
 function Login({ labels, onSuccess, initialError }: { labels: ReturnType<typeof t>; onSuccess: () => Promise<void>; initialError?: string }) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [nextPassword, setNextPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  // a temporary password set by an administrator must be replaced before the first session
+  const [mustChange, setMustChange] = useState(false);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
+  const ar = document.documentElement.lang !== "en";
   async function submit(e: FormEvent) {
     e.preventDefault();
     if (!username.trim() || !password) return;
+    if (mustChange) {
+      if (nextPassword.length < 12) { setError(ar ? "اختر كلمة مرور من 12 حرفًا على الأقل." : "Choose at least 12 characters."); return; }
+      if (nextPassword !== confirmPassword) { setError(ar ? "كلمتا المرور غير متطابقتين." : "The passwords do not match."); return; }
+      if (nextPassword === password) { setError(ar ? "اختر كلمة مرور مختلفة عن المؤقتة." : "Choose a password different from the temporary one."); return; }
+    }
     setPending(true); setError("");
-    try { await signIn(username.trim(), password); await onSuccess(); }
+    try { await signIn(username.trim(), password, mustChange ? nextPassword : undefined); await onSuccess(); }
     catch (reason) {
-      setError(reason instanceof ApiError && reason.statusCode === 429 ? labels.tooManyAttempts : labels.signInError);
+      if (reason instanceof ApiError && reason.code === PASSWORD_CHANGE_REQUIRED) {
+        if (mustChange) setError(ar ? "كلمة المرور الجديدة لا تطابق قواعد كلمات المرور. استخدم حروفًا كبيرة وصغيرة وأرقامًا." : "The new password does not meet the password rules.");
+        setMustChange(true);
+      } else {
+        setError(reason instanceof ApiError && reason.statusCode === 429 ? labels.tooManyAttempts : labels.signInError);
+      }
     }
     finally { setPending(false); }
   }
   return <div className="login-screen">
     <div className="login-brand"><span className="brand-emblem"><Layers3 size={25}/></span><span><strong>IOETI</strong><small>{labels.subtitle}</small></span></div>
-    <div className="login-card"><span className="login-top-icon"><LockKeyhole size={24}/></span><span className="eyebrow">{labels.session}</span><h1>{labels.signin}</h1><p>{labels.loginHelp}</p>
+    <div className="login-card"><span className="login-top-icon"><LockKeyhole size={24}/></span><span className="eyebrow">{labels.session}</span>
+      <h1>{mustChange ? (ar ? "اختر كلمة مرور جديدة" : "Choose a new password") : labels.signin}</h1>
+      <p>{mustChange ? (ar ? "كلمة المرور الحالية مؤقتة من مسؤول النظام. اختر كلمة مرور خاصة بك للمتابعة." : "Your current password is temporary. Choose your own to continue.") : labels.loginHelp}</p>
       <form onSubmit={(e) => void submit(e)} className="login-form">
-        <label>{labels.username}<input autoComplete="username" value={username} onChange={(e) => setUsername(e.target.value)} required autoFocus /></label>
-        <label>{labels.password}<input type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required /></label>
+        <label>{labels.username}<input autoComplete="username" value={username} onChange={(e) => setUsername(e.target.value)} required autoFocus={!mustChange} readOnly={mustChange} /></label>
+        <label>{mustChange ? (ar ? "كلمة المرور المؤقتة" : "Temporary password") : labels.password}<input type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required readOnly={mustChange} /></label>
+        {mustChange && <>
+          <label>{ar ? "كلمة المرور الجديدة" : "New password"}<input type="password" autoComplete="new-password" value={nextPassword} onChange={(e) => setNextPassword(e.target.value)} required minLength={12} autoFocus /></label>
+          <label>{ar ? "تأكيد كلمة المرور" : "Confirm the password"}<input type="password" autoComplete="new-password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} required minLength={12} /></label>
+          <p className="login-hint">{ar ? "12 حرفًا على الأقل، فيها حروف كبيرة وصغيرة وأرقام." : "At least 12 characters with capital and lower-case letters and digits."}</p>
+        </>}
         {(error || initialError) && <div className="login-error" role="alert"><CircleAlert size={17}/>{error || initialError}</div>}
-        <button type="submit" className="btn btn-primary login-submit" disabled={pending}>{pending ? labels.loading : labels.loginButton}{<ArrowLeft size={18}/>}</button>
+        <button type="submit" className="btn btn-primary login-submit" disabled={pending}>{pending ? labels.loading : mustChange ? (ar ? "حفظ والدخول" : "Save and sign in") : labels.loginButton}{<ArrowLeft size={18}/>}</button>
       </form>
     </div>
     <p className="login-caption">{labels.product} · IOETI Egypt</p>

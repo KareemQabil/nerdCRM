@@ -20,7 +20,7 @@ export type ContactSummary = { id: number; name: string; jobTitle: string | null
 export type LeadConversion = { leadId: number; accountId: number; contactId: number | null; opportunityId: number };
 export type ConvertLeadCommand = { version: number; opportunityName?: string; businessLineCode?: string; accountId?: number };
 export type AccountSummary = { id: number; name: string; reference: string | null; customer: boolean; prospect: boolean };
-export type SessionIdentity = { code: string; name: string; language: string | null };
+export type SessionIdentity = { code: string; name: string; language: string | null; administrator?: boolean };
 export type Opportunity = {
   id: number;
   version: number;
@@ -123,15 +123,23 @@ export async function getSession(): Promise<SessionIdentity> {
   }
   return body as SessionIdentity;
 }
-export async function signIn(username: string, password: string): Promise<SessionIdentity> {
+/** Thrown when Axelor asks for a new password (temporary password set by an administrator). */
+export const PASSWORD_CHANGE_REQUIRED = "PASSWORD_CHANGE_REQUIRED";
+export async function signIn(username: string, password: string, newPassword?: string): Promise<SessionIdentity> {
   if (DEMO_MODE) throw new ApiError(403, "Preview mode does not accept credentials");
   const response = await request("/callback", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ username, password }),
+    body: JSON.stringify(newPassword ? { username, password, newPassword } : { username, password }),
   });
   // Verify Axelor session instead of trusting HTTP 200 or access to one business module.
   if (!response.ok) throw new ApiError(response.status, "Authentication failed");
+  // Axelor answers a required password change with 200 and a route instead of a session.
+  let body: { route?: { path?: string; state?: { error?: string; passwordRequirements?: string } } } = {};
+  try { body = await response.json(); } catch { body = {}; }
+  if (body.route?.path === "/change-password") {
+    throw new ApiError(428, body.route.state?.error || body.route.state?.passwordRequirements || "Password change required", PASSWORD_CHANGE_REQUIRED);
+  }
   return getSession();
 }
 /** Ends the server session (pac4j /logout); the old session cookie is then refused. */

@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<domain-models xmlns="http://axelor.com/xml/ns/domain-models"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://axelor.com/xml/ns/domain-models https://axelor.com/xml/ns/domain-models/domain-models_8.2.xsd">
+
+  <module name="ioeti" package="com.ioeti.admin.db"/>
+
+  <!-- One administrative change: who changed which record, and which fields. Values of personal or
+       secret fields (e-mail, password) are never stored, only the fact that they changed. -->
+  <entity name="AdminAuditEvent" table="ioeti_admin_audit">
+    <many-to-one name="actor" ref="com.axelor.auth.db.User" title="By"/>
+    <string name="action" title="Action" required="true" max="60"/>
+    <string name="subject" title="Record type" required="true" max="40"/>
+    <long name="subjectId" title="Record"/>
+    <string name="subjectLabel" title="Record name" max="200"/>
+    <string name="changes" title="Changes" large="true"/>
+    <datetime name="createdAt" title="At" required="true"/>
+  </entity>
+
+</domain-models>
