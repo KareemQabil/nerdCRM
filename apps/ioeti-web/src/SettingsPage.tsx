@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { CircleAlert, Plus, Settings2 } from "lucide-react";
+import { CircleAlert, Plus } from "lucide-react";
 import { ApiError } from "./api";
 import { addSource, getSources, type Option } from "./marketingApi";
 import { getSystemReport, type SystemReport } from "./reportsApi";
@@ -51,7 +51,7 @@ export function SettingsPage({language}:{language:Language}){
     catch(e){setError(message(e,l));}
   }
   return <section className="page-enter st-page">
-    <div className="page-title"><span className="eyebrow"><Settings2 size={14}/> IOETI</span><h1>{l.title}</h1><p>{l.sub}</p></div>
+    <div className="page-title"><span className="eyebrow">{language==="ar"?"الإدارة":"Administration"}</span><h1>{l.title}</h1><p>{l.sub}</p></div>
     <section className="rp-card" aria-labelledby="st-prefs"><h2 id="st-prefs">{l.prefs}</h2>
       <div className="mk-filters">
         <label><span>{l.language}</span><select value={prefs.language} onChange={e=>prefs.setLanguage(e.target.value as Language)}>

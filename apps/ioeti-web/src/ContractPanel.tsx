@@ -6,7 +6,7 @@ import { ContractWorkflow } from "./WorkflowPanels";
 
 const strings = {
   ar: {
-    title:"العقد",desc:"عقد العميل في Axelor (Contract) المرتبط بهذه الفرصة.",loading:"جار التحميل...",
+    title:"العقد",desc:"عقد العميل لهذه الفرصة: بنوده وقيمته وحالته ومراجعته.",loading:"جار التحميل...",
     empty:"لا يوجد عقد لهذه الفرصة بعد",type:"نوع العقد",billing:"عقد فوترة",framework:"عقد إطاري",
     create:"إنشاء مسودة عقد",creating:"جار الإنشاء...",draft:"مسودة",active:"ساري",closed:"مغلق",
     activate:"توقيع وتفعيل العقد",handover:"التسليم لفريق التنفيذ",
@@ -20,7 +20,7 @@ const strings = {
     quoteEmpty:"عرض السعر لا يحتوي على بنود منتجات.",
   },
   en: {
-    title:"Contract",desc:"The Axelor customer contract (Contract) of this opportunity.",loading:"Loading...",
+    title:"Contract",desc:"The customer contract of this opportunity: its lines, value, status and review.",loading:"Loading...",
     empty:"No contract for this opportunity yet",type:"Contract type",billing:"Billing contract",framework:"Framework contract",
     create:"Create draft contract",creating:"Creating...",draft:"Draft",active:"Active",closed:"Closed",
     activate:"Sign & activate contract",handover:"Hand over to operations",

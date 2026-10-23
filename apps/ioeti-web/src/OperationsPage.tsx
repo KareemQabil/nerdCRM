@@ -103,7 +103,7 @@ export function OperationsPage({language}:{language:Language}){
   if(route[0]==="engagements"&&/^\d+$/.test(route[1]||""))return <EngagementRecord key={route[1]} engagementId={Number(route[1])} l={l} Back={Back}/>;
   const tab=(["engagements","checklists"] as const).find(t=>t===route[0])??"handovers";
   return <section className="page-enter ops-page">
-    <div className="directory-head"><div className="page-title"><span className="eyebrow">IOETI · ioeti-operations</span><h1>{l.title}</h1><p>{l.desc}</p></div>
+    <div className="directory-head"><div className="page-title"><span className="eyebrow">{language==="ar"?"التنفيذ والخدمات":"Delivery & services"}</span><h1>{l.title}</h1><p>{l.desc}</p></div>
       <div className="directory-head-symbol"><Workflow size={29}/></div></div>
     <div className="demo-record-tabs ops-tabs" role="tablist" aria-label={l.title}>
       {(["handovers","engagements","checklists"] as const).map(t=><button key={t} type="button" role="tab" aria-selected={tab===t} className={tab===t?"active":""}

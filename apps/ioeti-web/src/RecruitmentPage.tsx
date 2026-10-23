@@ -120,7 +120,7 @@ export function RecruitmentPage({language}:{language:Language}){
   const tab=route[0]==="candidates"?"candidates":"orders";
   return <section className="page-enter rec-page">
     <div className="directory-head"><div className="page-title">
-      <span className="eyebrow">IOETI · ioeti-recruitment</span><h1>{l.title}</h1><p>{l.desc}</p>
+      <span className="eyebrow">{language==="ar"?"التنفيذ والخدمات":"Delivery & services"}</span><h1>{l.title}</h1><p>{l.desc}</p>
     </div><div className="directory-head-symbol"><BriefcaseBusiness size={29}/></div></div>
     <div className="demo-record-tabs rec-tabs" role="tablist" aria-label={l.title}>
       <button type="button" role="tab" aria-selected={tab==="orders"} className={tab==="orders"?"active":""} onClick={()=>{window.location.hash="#/recruitment";}}>{l.orders}</button>

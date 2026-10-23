@@ -15,7 +15,7 @@ export const text = {
     loading: "جار تحميل بيانات النظام...", retry: "إعادة المحاولة",
     session: "اتصال آمن بالخادم", signin: "تسجيل الدخول", username: "اسم المستخدم",
     password: "كلمة المرور", loginButton: "الدخول إلى مساحة العمل",
-    loginHelp: "استخدم حساب Axelor المصرح له. لا تُحفظ كلمة المرور في المتصفح.",
+    loginHelp: "ادخل بحساب عملك. لا تُحفظ كلمة المرور في المتصفح.",
     signInError: "تعذّر تسجيل الدخول. تحقق من بياناتك والصلاحيات واتصال الخادم.",
     tooManyAttempts: "محاولات دخول كثيرة جدًا. انتظر بضع دقائق ثم حاول مرة أخرى.",
     signOut: "تسجيل الخروج",
@@ -24,7 +24,7 @@ export const text = {
     none: "غير محدد", display: "المظهر", light: "فاتح", dark: "داكن", luxury: "فاخر",
     density: "الكثافة", comfortable: "مريح", compact: "مضغوط",
     navigation: "التنقل", expanded: "موسّع", rail: "مختصر",
-    language: "اللغة", description: "هوية مرئية مرنة فوق محرك Axelor",
+    language: "اللغة", description: "كل خطوط أعمال IOETI وحالتها والفريق المسؤول عنها",
     palette: "الثيمات", preview: "معاينة العناصر",
     styleHint: "تغيير الهوية هنا لا يمس العمليات أو بيانات العملاء.",
     primaryAction: "الإجراء الأساسي", secondaryAction: "إجراء ثانوي",
@@ -34,7 +34,7 @@ export const text = {
     showLines: "استعراض خطوط الأعمال", noOperations: "العمليات التجارية لم تُربط بعد",
     actions: "إجراءات", view: "عرض", result: "نتيجة", allLines: "جميع خطوط الأعمال",
     notReady: "هذه الوحدة غير موصّلة بعد. لا توجد بيانات وهمية.",
-    capabilityMap: "خريطة النظام",
+    capabilityMap: "خريطة النظام", delivery: "التنفيذ والخدمات", administration: "الإدارة",
     leads: "العملاء المحتملون", accountDirectory: "حسابات العملاء",
     opportunities: "الفرص التجارية", opportunitiesDescription: "عرض وإدارة الفرص المرتبطة بخطوط أعمال IOETI",
     newOpportunity: "فرصة جديدة", editOpportunity: "تعديل اسم الفرصة", opportunityName: "اسم الفرصة",
@@ -45,7 +45,7 @@ export const text = {
     noCreatableLines: "لم يتم تعيينك على أي خط أعمال بعد؛ اطلب من المسؤول إضافتك",
     conflict: "تم تعديل السجل من جلسة أخرى؛ حدّث الصفحة ثم حاول مجددًا",
     forbidden: "ليس لديك صلاحية تنفيذ هذه العملية",
-    opportunityFormHint: "ستُحفظ التغييرات في Axelor من خلال API خاصة وآمنة.",
+    opportunityFormHint: "تُحفظ التغييرات فورًا وتخضع لصلاحياتك.",
     permissionNotice: "عرض السجلات والتعديلات يخضعان للصلاحيات الفعلية على الخادم.",
   },
   en: {
@@ -62,7 +62,7 @@ export const text = {
     loading: "Loading live business data...", retry: "Try again",
     session: "Secure server session", signin: "Sign in", username: "Username",
     password: "Password", loginButton: "Enter workspace",
-    loginHelp: "Use your authorized Axelor credentials. Passwords are never stored locally.",
+    loginHelp: "Sign in with your work account. Passwords are never stored in the browser.",
     signInError: "Could not sign in. Check credentials, permissions and server access.",
     tooManyAttempts: "Too many sign-in attempts. Wait a few minutes and try again.",
     signOut: "Sign out",
@@ -71,7 +71,7 @@ export const text = {
     none: "Not assigned", display: "Appearance", light: "Light", dark: "Dark", luxury: "Luxury",
     density: "Density", comfortable: "Comfortable", compact: "Compact",
     navigation: "Navigation", expanded: "Expanded", rail: "Rail",
-    language: "Language", description: "A flexible visual identity over Axelor",
+    language: "Language", description: "Every IOETI business line, its status and the team responsible",
     palette: "Themes", preview: "Component preview",
     styleHint: "Changing this identity never touches workflows or client data.",
     primaryAction: "Primary action", secondaryAction: "Secondary action",
@@ -81,7 +81,7 @@ export const text = {
     showLines: "Browse business lines", noOperations: "Business operations are not wired yet",
     actions: "Actions", view: "View", result: "Result", allLines: "All business lines",
     notReady: "This module is not connected yet. No fake business data.",
-    capabilityMap: "System map",
+    capabilityMap: "System map", delivery: "Delivery & services", administration: "Administration",
     leads: "Leads", accountDirectory: "Accounts",
     opportunities: "Opportunities", opportunitiesDescription: "Work with real opportunities across IOETI business lines",
     newOpportunity: "New opportunity", editOpportunity: "Edit opportunity name", opportunityName: "Opportunity name",
@@ -92,9 +92,21 @@ export const text = {
     noCreatableLines: "You are not assigned to any business line yet; ask an administrator",
     conflict: "This record changed in another session; refresh before retrying",
     forbidden: "You don't have permission to perform this action",
-    opportunityFormHint: "Changes are persisted in Axelor through a secure IOETI API.",
+    opportunityFormHint: "Changes are saved at once and follow your permissions.",
     permissionNotice: "Record visibility and updates are enforced by the backend.",
   },
 } as const;
 
 export function t(language: Language) { return text[language]; }
+
+// Native Axelor lead and opportunity stage names are stored in English; show them in the reader's
+// language. Names an administrator added or renamed are shown as stored.
+const STAGE_AR: Record<string, string> = {
+  "To be processed": "بانتظار المعالجة", "Marketing qualification": "تأهيل تسويقي", "Sales qualification": "تأهيل بيعي",
+  "Nurturing": "رعاية واهتمام", "Converted": "تم التحويل", "Lost": "مفقود",
+  "New": "جديد", "Qualification": "تأهيل", "Proposition": "عرض", "Negotiation": "تفاوض", "Closed won": "مكسوبة", "Closed lost": "خاسرة",
+};
+export function stageLabel(name: string | null | undefined, language: "ar" | "en"): string {
+  if (!name) return "—";
+  return language === "ar" ? STAGE_AR[name] ?? name : name;
+}

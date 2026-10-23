@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { AtSign, Bell, CheckCheck, CircleAlert, LockKeyhole, Send, Undo2 } from "lucide-react";
+import { AtSign, CheckCheck, CircleAlert, LockKeyhole, Send, Undo2 } from "lucide-react";
 import { ApiError } from "./api";
 import {
   cancelMessage, draftMessage, findPeople, getInbox, getOutbox, markAllRead, markRead, mention, noticeRoute,
@@ -64,7 +64,7 @@ export function InboxPage({language,onChanged}:{language:Language; onChanged?:()
     await load();onChanged?.();
   }
   return <section className="page-enter in-page">
-    <div className="page-title"><span className="eyebrow"><Bell size={14}/> IOETI</span><h1>{l.inbox}</h1><p>{l.sub}</p></div>
+    <div className="page-title"><span className="eyebrow">{language==="ar"?"مساحة العمل":"Workspace"}</span><h1>{l.inbox}</h1><p>{l.sub}</p></div>
     <div className="mk-queue-head">
       <label className="mk-check"><input type="checkbox" checked={unreadOnly} onChange={e=>setUnreadOnly(e.target.checked)}/><span>{l.unreadOnly}</span></label>
       <button type="button" className="btn btn-secondary" onClick={()=>void run(markAllRead)}><CheckCheck size={15}/>{l.readAll}</button>

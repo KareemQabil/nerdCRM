@@ -108,7 +108,7 @@ export function CertificationPage({language,lines}:{language:Language;lines:Busi
   if(cycleId!=null)return <CycleRecord key={cycleId} cycleId={cycleId} l={l} language={language}/>;
   return <section className="page-enter certification-page">
     <div className="directory-head"><div className="page-title">
-      <span className="eyebrow">IOETI · ioeti-certification</span><h1>{l.title}</h1><p>{l.desc}</p>
+      <span className="eyebrow">{language==="ar"?"التنفيذ والخدمات":"Delivery & services"}</span><h1>{l.title}</h1><p>{l.desc}</p>
     </div><div className="directory-head-symbol"><BadgeCheck size={29}/></div></div>
     <div className="demo-record-tabs cert-tabs" role="tablist" aria-label={l.title}>
       <button type="button" role="tab" aria-selected={route[0]!=="qualifications"} className={route[0]!=="qualifications"?"active":""} onClick={()=>go("")}>{l.cycles}</button>

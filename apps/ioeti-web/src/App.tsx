@@ -1,7 +1,7 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import {
   Activity, ArrowLeft, ArrowRight, BadgeCheck, BriefcaseBusiness, Building2,
-  Check, ChevronDown, CircleAlert, CircleHelp, Crown, GraduationCap,
+  Check, CircleAlert, CircleHelp, Crown, GraduationCap,
   HeartHandshake, House, Layers3, LockKeyhole, LogOut, Menu,
   Moon, Palette, RefreshCw, Search, Settings2,
   ShieldCheck, Sun, Workflow, UsersRound, X, ClipboardList, BookOpen, Bell, BarChart3,
@@ -18,6 +18,7 @@ import { OperationsPage } from "./OperationsPage";
 import { KnowledgePage } from "./KnowledgePage";
 import { InboxPage } from "./InboxPage";
 import { ReportsPage } from "./ReportsPage";
+import { HomeCockpit } from "./HomeCockpit";
 import { SettingsPage } from "./SettingsPage";
 import { getUnreadCount } from "./automationApi";
 import { DEMO_MODE } from "./demo";
@@ -152,7 +153,6 @@ export function App() {
       (status === "setup" && line.status === 1) || (status === "suspended" && line.status === 3);
     return validStatus && (!query || text.includes(query));
   }), [lines, search, status]);
-  const activeCount = lines.filter((line) => line.status === 2).length;
   const isRTL = prefs.language === "ar";
   const activeDemoArea: DemoArea | null = !DEMO_MODE ? null
     : page === "certification" ? "certification"
@@ -211,29 +211,38 @@ export function App() {
     catch (error) { setLoadError(error instanceof Error ? error.message : labels.unavailable); }
   }} />;
 
-  const mainNav: { id: Page | string; label: string; icon: IconType; disabled?: boolean; badge?: number }[] = [
-    { id: "home", label: labels.home, icon: House },
-    ...(DEMO_MODE ? [] : [{ id: "inbox", label: labels.inbox, icon: Bell, badge: unread }]),
-    { id: "businessLines", label: labels.businessLines, icon: Layers3 },
-    { id: "opportunities", label: labels.sales, icon: Activity },
-    { id: "leads", label: labels.leads, icon: UsersRound },
-    { id: "capabilities", label: labels.capabilityMap, icon: Workflow },
-    { id: "accounts", label: labels.accountDirectory, icon: Building2 },
-    // real mode only: the demo keeps its own projects area
-    ...(DEMO_MODE ? [] : [{ id: "operations", label: labels.operations, icon: ClipboardList }]),
-    ...(DEMO_MODE ? [] : [{ id: "knowledge", label: labels.knowledge, icon: BookOpen }]),
-    ...(DEMO_MODE ? [] : [{ id: "reports", label: labels.reports, icon: BarChart3 }]),
-    { id: "certification", label: labels.certification, icon: BadgeCheck },
-    { id: "training", label: labels.training, icon: GraduationCap },
-    { id: "recruitment", label: labels.recruitment, icon: BriefcaseBusiness },
-    { id: "fundraising", label: labels.fundraising, icon: HeartHandshake },
+  type NavItem = { id: Page | string; label: string; icon: IconType; disabled?: boolean; badge?: number };
+  // Grouped by how people work: their day, selling, delivering, then administration.
+  const navGroups: { id: string; label: string; items: NavItem[] }[] = [
+    { id: "workspace", label: labels.workspace, items: [
+      { id: "home", label: labels.home, icon: House },
+      ...(DEMO_MODE ? [] : [{ id: "inbox", label: labels.inbox, icon: Bell, badge: unread }]),
+      ...(DEMO_MODE ? [] : [{ id: "reports", label: labels.reports, icon: BarChart3 }]),
+      ...(DEMO_MODE ? [] : [{ id: "knowledge", label: labels.knowledge, icon: BookOpen }]),
+    ] },
+    { id: "sales", label: labels.sales, items: [
+      { id: "leads", label: labels.leads, icon: UsersRound },
+      { id: "accounts", label: labels.accountDirectory, icon: Building2 },
+      { id: "opportunities", label: labels.opportunities, icon: Activity },
+    ] },
+    { id: "delivery", label: labels.delivery, items: [
+      // real mode only: the demo keeps its own projects area
+      ...(DEMO_MODE ? [] : [{ id: "operations", label: labels.operations, icon: ClipboardList }]),
+      { id: "certification", label: labels.certification, icon: BadgeCheck },
+      { id: "training", label: labels.training, icon: GraduationCap },
+      { id: "recruitment", label: labels.recruitment, icon: BriefcaseBusiness },
+      { id: "fundraising", label: labels.fundraising, icon: HeartHandshake },
+    ] },
+    { id: "admin", label: labels.administration, items: [
+      { id: "businessLines", label: labels.businessLines, icon: Layers3 },
+      { id: "capabilities", label: labels.capabilityMap, icon: Workflow },
+      { id: "design", label: labels.design, icon: Palette },
+      { id: "settings", label: labels.settings, icon: Settings2 },
+    ] },
   ];
-  const secondaryNav: { id: Page | string; label: string; icon: IconType; disabled?: boolean; badge?: number }[] = [
-    { id: "design", label: labels.design, icon: Palette },
-    { id: "settings", label: labels.settings, icon: Settings2 },
-  ];
+  const areaOf = (id: string) => navGroups.find(group => group.items.some(item => item.id === id))?.id || "workspace";
 
-  function renderNav(items: typeof mainNav) {
+  function renderNav(items: NavItem[]) {
     return items.map((item) => {
       const ItemIcon = item.icon;
       const active = item.id === page;
@@ -253,14 +262,13 @@ export function App() {
     {mobileNav && <button className="nav-backdrop" type="button" aria-label={labels.back} onClick={() => setMobileNav(false)} />}
     <aside className={"side-panel" + (mobileNav ? " mobile-open" : "")}>
       <div className="side-brand"><div className="brand-emblem"><Layers3 size={22}/></div><div className="brand-copy"><strong>IOETI</strong><small>{labels.subtitle}</small></div></div>
-      <div className="side-section-caption">{labels.workspace}</div>
-      <nav aria-label={labels.workspace} className="side-nav">{renderNav(mainNav)}</nav>
+      {navGroups.map(group => <nav key={group.id} aria-label={group.label} className={"side-nav nav-group nav-group-" + group.id} data-area={group.id}>
+        <div className="side-section-caption">{group.label}</div>{renderNav(group.items)}</nav>)}
       <div className="side-spacer"/>
-      <nav aria-label={labels.settings} className="side-nav side-footer-nav">{renderNav(secondaryNav)}</nav>
       <div className="side-footnote"><span className="live-pulse" /><span className="footnote-label">{DEMO_MODE ? (isRTL ? "معاينة تجريبية" : "Preview mode") : labels.connected}</span></div>
     </aside>
 
-    <div className="app-stage">
+    <div className="app-stage" data-area={areaOf(page)}>
       <header className="top-bar">
         <div className="top-start">
           <IconButton className="mobile-menu" label={labels.navigation} onClick={() => setMobileNav(true)}><Menu size={19}/></IconButton>
@@ -270,7 +278,7 @@ export function App() {
           <span className="server-status"><span className="live-pulse"/>{DEMO_MODE ? (isRTL ? "بيانات افتراضية" : "Sample data") : labels.connected}</span>
           <button className="language-button" type="button" onClick={() => prefs.setLanguage(isRTL ? "en" : "ar")} aria-label={labels.language}>{isRTL ? "EN" : "ع"}</button>
           <div className="top-divider"/>
-          <span className="account-avatar" aria-label={identity?.name || labels.workspace} title={identity?.name || identity?.code || ""}>{(identity?.name || identity?.code || "I").slice(0,1).toUpperCase()}</span>
+          <span className="account-chip" title={identity?.code || ""}><span className="account-avatar" aria-hidden="true">{(identity?.name || identity?.code || "I").slice(0,1).toUpperCase()}</span><span className="account-name">{identity?.name || identity?.code || labels.workspace}</span></span>
           {!DEMO_MODE && <IconButton label={labels.signOut} onClick={() => void signOut()
             .then(() => { setIdentity(null); setLines([]); setLoadError(""); setSession("login"); })
             .catch(() => setLoadError(labels.unavailable))}><LogOut size={18}/></IconButton>}
@@ -281,26 +289,10 @@ export function App() {
         {loadError && <div className="error-banner" role="alert"><CircleAlert size={18}/><span>{labels.unavailable}: {loadError}</span><button className="btn btn-secondary" type="button" onClick={() => void refresh()}>{labels.retry}</button></div>}
         {page === "businessLines" && selected && <BusinessLineWorkspace line={selected} labels={labels} onBack={backFromBusinessLine} />}
         {page === "home" && <section className="page-enter">
-          {!DEMO_MODE && <>
-          <div className="hero-card">
-            <div className="hero-text"><span className="eyebrow"><span className="live-pulse"/>{labels.product}</span><h1>{labels.welcome}</h1><p>{labels.overview}</p>
-              <button className="btn btn-primary" type="button" onClick={() => navigate("businessLines")}>{labels.showLines}{isRTL ? <ArrowLeft size={18}/> : <ArrowRight size={18}/>}</button>
-            </div>
-            <div className="hero-graphic" aria-hidden="true"><div className="orb orb-a"/><div className="orb orb-b"/><div className="orb-core"><Layers3 size={45}/></div></div>
-          </div>
-          </>}
+          {!DEMO_MODE && <HomeCockpit language={prefs.language} name={identity?.name || identity?.code || null} unread={unread}
+            onNavigate={next => navigate(next as Page)}/>}
           {DEMO_MODE && <Suspense fallback={<div role="status" className="empty-state">{labels.loading}</div>}><DemoExecutiveOverview language={prefs.language} onOpen={navigateDemo}/></Suspense>}
-          {!DEMO_MODE && <>
-          <div className="stats-grid">
-            <Metric icon={Layers3} label={labels.linesCount} value={lines.length.toString()} />
-            <Metric icon={Check} label={labels.activeCount} value={activeCount.toString()} />
-          </div>
-          <div className="section-top"><div><span className="eyebrow">{labels.workspace}</span><h2>{labels.businessLines}</h2></div><button className="btn btn-secondary" type="button" onClick={() => navigate("businessLines")}>{labels.view}{isRTL ? <ArrowLeft size={16}/> : <ArrowRight size={16}/>}</button></div>
-          <div className="lines-preview">
-            {lines.length === 0 ? <div className="empty-state">{labels.noAccess}</div> : lines.slice(0, 5).map((line) => <button key={line.id} className="preview-row" type="button" onClick={() => openLine(line)}><div className="line-monogram">{line.code.slice(0, 2)}</div><div className="line-name"><strong>{isRTL ? line.nameAr : line.nameEn}</strong><small dir="ltr">{line.code}</small></div><StatusPill status={line.status} labels={labels}/><ChevronDown className="row-chevron" size={17}/></button>)}
-          </div>
-          </>}
-          <p className="scope-note"><ShieldCheck size={15}/>{DEMO_MODE ? (isRTL ? "كل البيانات الظاهرة افتراضية ولا تمثل عملاء IOETI" : "All displayed business records are fictional") : labels.visualNote}</p>
+          {DEMO_MODE && <p className="scope-note"><ShieldCheck size={15}/>{isRTL ? "كل البيانات الظاهرة افتراضية ولا تمثل عملاء IOETI" : "All displayed business records are fictional"}</p>}
         </section>}
 
         {page === "opportunities" && <OpportunitiesPage language={prefs.language} lines={lines} labels={labels} />}
@@ -326,7 +318,6 @@ export function App() {
             {matching.length === 0 ? <div className="empty-state"><CircleHelp size={28}/>{labels.empty}</div> : <div className="table-scroll"><table><thead><tr><th>{labels.businessLines}</th><th>{labels.code}</th><th>{labels.team}</th><th>{labels.status}</th><th><span className="sr-only">{labels.actions}</span></th></tr></thead>
             <tbody>{matching.map((line) => <tr key={line.id}><td><div className="table-primary"><div className="line-monogram">{line.code.slice(0, 2)}</div><div><strong>{isRTL ? line.nameAr : line.nameEn}</strong><small>{isRTL ? line.nameEn : line.nameAr}</small></div></div></td><td><code dir="ltr">{line.code}</code></td><td>{line.responsibleTeam || labels.none}</td><td><StatusPill status={line.status} labels={labels}/></td><td><button className="text-action" type="button" onClick={() => openLine(line)}>{labels.details}{isRTL ? <ArrowLeft size={15}/> : <ArrowRight size={15}/>}</button></td></tr>)}</tbody></table></div>}
           </div>
-          <p className="scope-note"><LockKeyhole size={15}/>{labels.visualNote}</p>
         </section>}
 
         {activeDemoArea && <Suspense fallback={<div className="empty-state" role="status">{labels.loading}</div>}>
@@ -369,9 +360,6 @@ function BusinessLineWorkspace({ line, labels, onBack }: { line: BusinessLine; l
   </article>;
 }
 
-function Metric({ icon: Icon, label, value }: { icon: IconType; label: string; value: string }) {
-  return <div className="metric-card"><span className="metric-icon"><Icon size={21}/></span><div><span>{label}</span><strong dir="ltr">{value}</strong></div></div>;
-}
 function PageTitle({ eyebrow, title, description }: { eyebrow: string; title: string; description: string }) {
   return <div className="page-title"><span className="eyebrow">{eyebrow}</span><h1>{title}</h1><p>{description}</p></div>;
 }

@@ -6,7 +6,7 @@ import { InvoiceRequests } from "./WorkflowPanels";
 
 const strings = {
   ar: {
-    title:"دفعات السداد",desc:"خطة الدفعات على عرض السعر (Axelor Timetable). الحجز والفوترة والتحصيل أرقام منفصلة.",
+    title:"دفعات السداد",desc:"خطة الدفعات على عرض السعر. المحجوز والمطلوب فوترته والمحصّل أرقام منفصلة.",
     booked:"محجوز (أمر مؤكد)",notBooked:"غير محجوز بعد",planned:"المخطط",invoiced:"المُفوتر",collected:"المُحصّل",
     name:"اسم الدفعة",percentage:"النسبة %",dueDate:"تاريخ الاستحقاق",amount:"المبلغ قبل الضريبة",state:"الحالة",
     add:"إضافة دفعة",adding:"جار الإضافة...",remove:"حذف الدفعة",empty:"لا توجد دفعات بعد",loading:"جار التحميل...",
@@ -18,7 +18,7 @@ const strings = {
     denied:"ليست لديك صلاحية لهذا الإجراء.",failed:"تعذّر تنفيذ الطلب.",
   },
   en: {
-    title:"Payment milestones",desc:"Payment plan of this quotation (Axelor Timetable). Booked, invoiced and collected are separate figures.",
+    title:"Payment milestones",desc:"Payment plan of this quotation. Booked, requested for invoicing and collected are separate figures.",
     booked:"Booked (confirmed order)",notBooked:"Not booked yet",planned:"Planned",invoiced:"Invoiced",collected:"Collected",
     name:"Milestone",percentage:"Percent",dueDate:"Due date",amount:"Amount before tax",state:"State",
     add:"Add milestone",adding:"Adding...",remove:"Remove milestone",empty:"No milestones yet",loading:"Loading...",
