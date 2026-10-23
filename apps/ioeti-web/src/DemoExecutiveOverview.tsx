@@ -22,7 +22,7 @@ export default function DemoExecutiveOverview({language,onOpen}:{language:Langua
  return <section className="demo-executive" aria-label={rtl?"لوحة التحكم التجريبية":"Fictional dashboard"}>
    <div className="demo-exec-head">
      <div><span className="eyebrow"><Sparkles size={15}/>{rtl?"PREVIEW · سيناريوهات افتراضية":"PREVIEW · Fictional scenarios"}</span>
-      <h2>{rtl?"مساحة عمل اليوم — ديمو تفاعلي":"Today's workbench — interactive demo"}</h2>
+      <h1>{rtl?"مساحة عمل اليوم — ديمو تفاعلي":"Today's workbench — interactive demo"}</h1>
       <p>{rtl?"نظرة تشغيلية مترابطة بين الموديولات، بأرقام خيالية للتجربة فقط. لا توجد بيانات أو عمليات إنتاج حقيقية.":"Connected operating context with simulated data only. No real operations or production metrics."}</p></div>
       <span className="demo-isolation-chip"><ShieldAlert size={15}/>{rtl?"بيانات عامة خيالية":"Fictional public data"}</span>
    </div>

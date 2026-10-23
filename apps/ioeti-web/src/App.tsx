@@ -4,7 +4,7 @@ import {
   Check, ChevronDown, CircleAlert, CircleHelp, Crown, GraduationCap,
   HeartHandshake, House, Layers3, LockKeyhole, LogOut, Menu,
   Moon, Palette, RefreshCw, Search, Settings2,
-  ShieldCheck, Sun, Workflow, UsersRound, X, ClipboardList, BookOpen, Bell, BarChart3,
+  ShieldCheck, Sun, Workflow, UsersRound, X, ClipboardList, BookOpen, Bell, BarChart3, Focus, PanelLeftOpen,
 } from "lucide-react";
 import { ApiError, getBusinessLines, getSession, signIn, signOut, type BusinessLine, type SessionIdentity } from "./api";
 import { OpportunitiesPage } from "./OpportunitiesPage";
@@ -71,7 +71,23 @@ export function App() {
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<LineFilter>("all");
   const [mobileNav, setMobileNav] = useState(false);
+  const [taskFocus, setTaskFocus] = useState(false);
+  const focusToggleRef = useRef<HTMLButtonElement>(null);
   const [busy, setBusy] = useState(false);
+
+  // A calm workspace-level focus mode: the active page remains fully functional, while
+  // secondary navigation steps out of sight. Never hide native dialog controls.
+  useEffect(() => {
+    if (!taskFocus) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape" || document.querySelector('[role="dialog"], [aria-modal="true"]')) return;
+      event.preventDefault();
+      setTaskFocus(false);
+      focusToggleRef.current?.focus();
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [taskFocus]);
 
   // Wave 7b: unread in-app notices (live mode only); a failure leaves the badge empty
   async function refreshUnread() {
@@ -247,7 +263,7 @@ export function App() {
     });
   }
 
-  return <div className="app-frame">
+  return <div className={"app-frame" + (taskFocus ? " is-task-focus" : "")}>
     {DEMO_MODE && <div className="demo-banner" role="status"><ShieldCheck size={15}/><span>{isRTL ? "نسخة معاينة عامة · بيانات افتراضية للتصميم فقط · أي تعديل مؤقت وغير محفوظ" : "Public UI preview · Sample data only · Edits are temporary and never saved"}</span></div>}
     <a className="skip-link" href="#main-content">{labels.workspace}</a>
     {mobileNav && <button className="nav-backdrop" type="button" aria-label={labels.back} onClick={() => setMobileNav(false)} />}
@@ -267,6 +283,14 @@ export function App() {
           <div className="breadcrumb"><span>{labels.workspace}</span><span className="crumb-separator">/</span><strong>{page === "home" ? labels.home : page === "businessLines" ? labels.businessLines : page === "opportunities" ? labels.opportunities : page === "leads" ? labels.leads : page === "accounts" ? labels.accountDirectory : page === "capabilities" ? labels.capabilityMap : page === "training" && !DEMO_MODE ? labels.training : page === "certification" && !DEMO_MODE ? labels.certification : page === "recruitment" && !DEMO_MODE ? labels.recruitment : page === "fundraising" && !DEMO_MODE ? labels.fundraising : page === "operations" && !DEMO_MODE ? labels.operations : page === "knowledge" && !DEMO_MODE ? labels.knowledge : page === "inbox" && !DEMO_MODE ? labels.inbox : page === "reports" && !DEMO_MODE ? labels.reports : page === "settings" && !DEMO_MODE ? labels.settings : activeDemoArea ? (isRTL ? {quotes:"عروض الأسعار",catalog:"كتالوج الخدمات",contracts:"العقود",finance:"المالية",projects:"المشروعات",visits:"الزيارات",quality:"الجودة",marketing:"التسويق",learning:"التدريب",recruiting:"التوظيف",certification:"الشهادات",fundraising:"التمويل",documents:"المستندات",automations:"الأتمتة",reports:"التقارير",admin:"الإعدادات"}[activeDemoArea] : {quotes:"Quotations",catalog:"Service catalog",contracts:"Contracts",finance:"Finance",projects:"Projects",visits:"Visits",quality:"Quality",marketing:"Marketing",learning:"Training",recruiting:"Recruitment",certification:"Certification",fundraising:"Fundraising",documents:"Documents",automations:"Automations",reports:"Reports",admin:"Settings"}[activeDemoArea]) : labels.design}</strong></div>
         </div>
         <div className="top-actions">
+          <button ref={focusToggleRef} className={"focus-toggle" + (taskFocus ? " is-active" : "")}
+            type="button" aria-pressed={taskFocus} aria-label={taskFocus
+              ? (isRTL ? "إنهاء وضع التركيز" : "Exit focus mode")
+              : (isRTL ? "تفعيل وضع التركيز" : "Focus current workspace")}
+            onClick={() => {setTaskFocus(current => !current);setMobileNav(false);}}>
+            {taskFocus ? <PanelLeftOpen size={17}/> : <Focus size={17}/>}
+            <span>{taskFocus ? (isRTL ? "الرجوع للوضع العادي" : "Exit focus") : (isRTL ? "تركيز" : "Focus")}</span>
+          </button>
           <span className="server-status"><span className="live-pulse"/>{DEMO_MODE ? (isRTL ? "بيانات افتراضية" : "Sample data") : labels.connected}</span>
           <button className="language-button" type="button" onClick={() => prefs.setLanguage(isRTL ? "en" : "ar")} aria-label={labels.language}>{isRTL ? "EN" : "ع"}</button>
           <div className="top-divider"/>
@@ -278,16 +302,28 @@ export function App() {
       </header>
 
       <main id="main-content" className="main-content">
+        {taskFocus && <div className="focus-workspace-banner" role="status">
+          <span className="focus-workspace-mark"><Focus size={19}/></span>
+          <div><strong>{isRTL ? "مساحة عمل مركّزة" : "Focused workspace"}</strong>
+            <p>{isRTL ? "مهمة واحدة في كل مرة. التنقل والتفاصيل الجانبية متاحة بعد الخروج." : "One job at a time. Leave focus mode to see the rest of your navigation."}</p>
+          </div>
+          <button className="focus-workspace-exit" type="button" onClick={() => {setTaskFocus(false);focusToggleRef.current?.focus();}}>
+            {isRTL ? "عرض كل الأدوات" : "Show all tools"}<PanelLeftOpen size={16}/>
+          </button>
+        </div>}
         {loadError && <div className="error-banner" role="alert"><CircleAlert size={18}/><span>{labels.unavailable}: {loadError}</span><button className="btn btn-secondary" type="button" onClick={() => void refresh()}>{labels.retry}</button></div>}
         {page === "businessLines" && selected && <BusinessLineWorkspace line={selected} labels={labels} onBack={backFromBusinessLine} />}
         {page === "home" && <section className="page-enter">
+          {!DEMO_MODE && <>
           <div className="hero-card">
             <div className="hero-text"><span className="eyebrow"><span className="live-pulse"/>{labels.product}</span><h1>{labels.welcome}</h1><p>{labels.overview}</p>
               <button className="btn btn-primary" type="button" onClick={() => navigate("businessLines")}>{labels.showLines}{isRTL ? <ArrowLeft size={18}/> : <ArrowRight size={18}/>}</button>
             </div>
             <div className="hero-graphic" aria-hidden="true"><div className="orb orb-a"/><div className="orb orb-b"/><div className="orb-core"><Layers3 size={45}/></div></div>
           </div>
+          </>}
           {DEMO_MODE && <Suspense fallback={<div role="status" className="empty-state">{labels.loading}</div>}><DemoExecutiveOverview language={prefs.language} onOpen={navigateDemo}/></Suspense>}
+          {!DEMO_MODE && <>
           <div className="stats-grid">
             <Metric icon={Layers3} label={labels.linesCount} value={lines.length.toString()} />
             <Metric icon={Check} label={labels.activeCount} value={activeCount.toString()} />
@@ -296,6 +332,7 @@ export function App() {
           <div className="lines-preview">
             {lines.length === 0 ? <div className="empty-state">{labels.noAccess}</div> : lines.slice(0, 5).map((line) => <button key={line.id} className="preview-row" type="button" onClick={() => openLine(line)}><div className="line-monogram">{line.code.slice(0, 2)}</div><div className="line-name"><strong>{isRTL ? line.nameAr : line.nameEn}</strong><small dir="ltr">{line.code}</small></div><StatusPill status={line.status} labels={labels}/><ChevronDown className="row-chevron" size={17}/></button>)}
           </div>
+          </>}
           <p className="scope-note"><ShieldCheck size={15}/>{DEMO_MODE ? (isRTL ? "كل البيانات الظاهرة افتراضية ولا تمثل عملاء IOETI" : "All displayed business records are fictional") : labels.visualNote}</p>
         </section>}
 
