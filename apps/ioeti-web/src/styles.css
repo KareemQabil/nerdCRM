@@ -225,7 +225,7 @@ p { color: var(--on-surface-variant); }
 .segmented button.chosen { background: var(--primary-container); color: var(--on-primary-container); font-weight: 700; }
 .data-panel-heading { padding: 18px 21px; border-bottom: 1px solid var(--outline-variant); display: flex; align-items: center; justify-content: space-between; gap: 16px; }
 .data-panel-heading span { font-size: 11px; color: var(--on-surface-variant); }
-.table-scroll { overflow: auto; }
+.table-scroll { overflow: auto; max-width: 100%; min-width: 0; position: relative; }
 table { width: 100%; border-collapse: collapse; text-align: start; min-width: 675px; }
 th { font-size: 11px; font-weight: 700; text-align: start; color: var(--on-surface-variant); background: var(--surface-variant); }
 td,th { padding: 15px 19px; }
@@ -425,6 +425,7 @@ td code { display: inline-block; font: 11px Inter,monospace; color: var(--on-sur
 .record-label-active{display:inline-block;color:var(--on-primary-container);font-weight:800;font-size:12px;position:relative;}
 .record-label-active::after{content:"";position:absolute;inset-inline:0;bottom:-12px;height:2px;background:var(--primary);border-radius:2px;}
 .record-content-grid{display:grid;grid-template-columns:minmax(0,1.13fr) minmax(0,.87fr);gap:17px;}
+.record-content-grid.is-single{grid-template-columns:minmax(0,1fr);}
 .record-content-card,.record-flow-card{border:1px solid var(--outline-variant);border-radius:var(--radius-lg);background:var(--surface);padding:var(--card-pad);}
 .record-section-header,.record-flow-title{display:flex;align-items:center;gap:13px;margin-bottom:22px;}
 .record-section-header h2,.record-flow-title h2{font-size:17px;margin:0 0 2px;}
@@ -452,7 +453,7 @@ td code { display: inline-block; font: 11px Inter,monospace; color: var(--on-sur
 .action-modal .drawer-body{padding:22px 27px;overflow-y:auto;min-height:0;}
 .action-modal .drawer-header,.action-modal .drawer-footer{flex-shrink:0;}
 @media(max-width:1000px){
-  .record-content-grid{grid-template-columns:1fr;}
+  .record-content-grid{grid-template-columns:minmax(0,1fr);}
   .record-hero{flex-direction:column;}
   .record-hero-actions{align-items:flex-start;flex-direction:row;justify-content:space-between;width:100%;flex-wrap:wrap;}
 }

@@ -297,10 +297,10 @@ test("Opportunity view details opens a full record page, supports browser histor
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await expect(page.locator(".opportunity-record")).toContainText("OP-101");
   await expect(page.locator(".opportunity-record")).toContainText("Axelor CRM");
-  // quotations and the contract are connected sections; activities are still honestly marked as not connected
+  // quotations and the contract are connected sections; live mode shows no placeholder for anything unconnected
   await expect(page.getByRole("heading", { name: "عروض الأسعار" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "العقد", exact: true })).toBeVisible();
-  await expect(page.locator(".opportunity-record")).toContainText("سيظهر سجل الأنشطة بعد ربط Event API");
+  await expect(page.locator(".opportunity-record")).not.toContainText("Event API");
   await page.goBack();
   await expect(page).toHaveURL(/#\/opportunities$/);
   await expect(page.getByRole("row").filter({hasText:"Hotel certification"})).toBeVisible();
@@ -2024,7 +2024,8 @@ test("mobile gate: every live-mode page fits a 390 px screen without horizontal 
     await page.goto("/" + route);
     await page.waitForLoadState("networkidle");
     const wide = await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1 ? [] :
-      [...document.querySelectorAll("main *")].filter(e => e.getBoundingClientRect().right > window.innerWidth + 1).map(e => `${e.tagName}.${String(e.className)}`).slice(0, 3));
+      [`document ${document.documentElement.scrollWidth}px`, ...[...document.querySelectorAll("main *")].filter(e => e.getBoundingClientRect().right > window.innerWidth + 1)
+        .map(e => `${e.tagName}.${String(e.className)}`).slice(0, 3)]);
     if (wide.length) overflowing[route] = wide;
   }
   expect(overflowing).toEqual({});
@@ -2042,4 +2043,53 @@ test("global notices: failed background reads stay silent; a refused change is a
   await page.getByRole("button", { name: "إضافة مصدر" }).click();
   await expect(page.getByRole("alert")).toHaveText(/هذا المصدر موجود/);
   await expect(page.getByRole("button", { name: "إغلاق التنبيه" })).toHaveCount(1);
+});
+
+test("mobile gate: record pages with their data loaded fit a 390 px screen", async ({page}) => {
+  test.setTimeout(120_000);
+  const pages: [string, (p: Page) => Promise<unknown>, string][] = [
+    ["account 360", p => workflowMocks(p), "#/accounts/901"],
+    ["opportunity with quotation, milestones and contract", p => workflowMocks(p), "#/opportunities/101"],
+    ["lead with consent, outbox and timeline", p => marketingMocks(p), "#/leads/207"],
+    ["handover review", p => operationsMocks(p, { reviewer: true }), "#/operations"],
+    ["recruitment", p => recruitmentMocks(p, { mine: true }), "#/recruitment"],
+    ["fundraising", p => fundraisingMocks(p, { mine: true }), "#/fundraising"],
+    ["certification", p => certificationMocks(p, { managedByMe: true }), "#/certification"],
+  ];
+  const overflowing: Record<string, string[]> = {};
+  for (const [name, mock, route] of pages) {
+    const context = await page.context().browser()!.newContext({ viewport: { width: 390, height: 844 } });
+    const p = await context.newPage();
+    await mock(p);
+    await p.goto("/" + route);
+    await p.waitForLoadState("networkidle");
+    // any document overflow fails; the named elements are the likely cause (outside scroll containers and the drawer)
+    const wide = await p.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1 ? [] :
+      [`document ${document.documentElement.scrollWidth}px`, ...[...document.querySelectorAll("main *")]
+        .filter(e => !e.parentElement?.closest(".rp-scroll,.table-scroll") && (e.getBoundingClientRect().right > window.innerWidth + 1 || e.getBoundingClientRect().left < -1))
+        .map(e => `${e.tagName}.${String(e.className).split(" ")[0]}`).filter((v, i, all) => all.indexOf(v) === i).slice(0, 6)]);
+    if (wide.length) overflowing[name] = wide;
+    await context.close();
+  }
+  expect(overflowing).toEqual({});
+});
+
+
+test("live record pages carry no placeholder sections; a converted lead links to its account and opportunity", async ({page}) => {
+  const placeholders = /لم تُربط|ستظهر|سترتبط|Event API|not connected|will (appear|link|connect)|لم نوصل|بمصدر حقيقي بعد/;
+  await workflowMocks(page);
+  for (const route of ["#/accounts/901", "#/opportunities/101"]) {
+    await page.goto("/" + route);
+    await page.waitForLoadState("networkidle");
+    await expect(page.locator("main")).not.toContainText(placeholders);
+    await expect(page.locator(".record-flow-card")).toHaveCount(0);
+  }
+  await page.route(url => url.pathname.endsWith("/ws/ioeti/leads/208"), route => route.fulfill({ status: 200, contentType: "application/json",
+    body: JSON.stringify({ codeStatus: 200, messageStatus: "ok", object: { id: 208, version: 6, name: "Omar Fathy", organization: "Delta Foods", stage: "Converted",
+      converted: true, accountId: 902, opportunityId: 140, stageKind: "CONVERTED" } }) }));
+  await page.goto("/#/leads/208");
+  await expect(page.locator(".record-related")).toContainText("تم التحويل");
+  await expect(page.getByRole("link", { name: "فتح الحساب" })).toHaveAttribute("href", "#/accounts/902");
+  await expect(page.getByRole("link", { name: "فتح الفرصة" })).toHaveAttribute("href", "#/opportunities/140");
+  await expect(page.locator("main")).not.toContainText(placeholders);
 });

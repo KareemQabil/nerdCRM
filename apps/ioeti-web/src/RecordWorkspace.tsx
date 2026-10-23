@@ -30,6 +30,9 @@ const strings = {
     accountJourney:"رحلة العميل",leadJourney:"رحلة التأهيل",
     accountJourneyDesc:"هنا سترتبط الفرص التجارية، العقود، الخدمات، المستحقات والتنفيذ بهذا الحساب.",
     leadJourneyDesc:"هنا ستظهر الأنشطة، المسؤول، أهلية العميل ونتيجة التحويل لفرصة تجارية.",
+    leadLiveDesc:"التأهيل والموافقات والمتابعات والمستندات لهذا العميل المحتمل، ضمن صلاحياتك.",
+    accountLiveDesc:"الفرص والعروض والعقود والمستندات المرتبطة بهذا الحساب، ضمن صلاحياتك.",
+    convertedDesc:"تم تحويل هذا العميل المحتمل؛ المتابعة تتم على الحساب والفرصة.",
     connection:"لم تُربط البيانات المرتبطة بعد",
     connectionDesc:"لن نعرض فرصًا أو عقودًا أو تفاعلات غير موجودة في الـAPI. ربطها يتم بعد فحص الصلاحيات ومراجعة المصدر.",
     accountFlow:["الفرص التجارية","عروض الأسعار والعقود","التنفيذ والشهادات","الفواتير والمتابعة"],
@@ -53,6 +56,9 @@ const strings = {
     accountJourney:"Account journey",leadJourney:"Qualification journey",
     accountJourneyDesc:"Opportunities, contracts, service delivery, billing and engagement activity will link to this account.",
     leadJourneyDesc:"Activities, ownership, qualification and conversion will connect to this lead.",
+    leadLiveDesc:"Qualification, consent, follow-ups and documents for this lead, within your permissions.",
+    accountLiveDesc:"Opportunities, quotations, contracts and documents of this account, within your permissions.",
+    convertedDesc:"This lead was converted; follow-up continues on the account and the opportunity.",
     connection:"Related data not connected yet",
     connectionDesc:"No invented opportunities, contracts or interactions. This will be connected after source and permission verification.",
     accountFlow:["Opportunities","Quotes & contracts","Delivery & certificates","Billing & follow-up"],
@@ -110,7 +116,7 @@ export function RecordWorkspace({kind,language,record,onBack,onPrevious,onNext,o
               <span className="record-ref" dir="ltr">{lead?"#"+record.id:record.reference||"#"+record.id}</span></div>
           </div>
         </div>
-        <p className="record-hero-description">{lead?l.leadJourneyDesc:l.accountJourneyDesc}</p>
+        <p className="record-hero-description">{DEMO_MODE?(lead?l.leadJourneyDesc:l.accountJourneyDesc):(lead?l.leadLiveDesc:l.accountLiveDesc)}</p>
       </div>
       <div className="record-hero-actions">
         {lead&&!DEMO_MODE&&record.converted?<div className="record-paging">
@@ -138,6 +144,7 @@ export function RecordWorkspace({kind,language,record,onBack,onPrevious,onNext,o
         <div className="record-section-header"><div className="record-section-icon"><Network size={20}/></div><div><h2 id="record-related-heading">{l.related}</h2><p>{!lead&&!DEMO_MODE?l.accountRelated:lead&&!DEMO_MODE&&record.version!=null&&!record.converted?l.qualification:lead?l.leadJourney:l.accountJourney}</p></div></div>
         {!lead&&!DEMO_MODE?<Account360 accountId={record.id} language={language}/>
         :lead&&!DEMO_MODE&&record.version!=null&&!record.converted?<LeadQualificationPanel lead={record} language={language} onChanged={updated=>onRecordChanged?.(updated)}/>
+        :lead&&!DEMO_MODE&&record.converted?<div className="record-related-empty"><CircleDashed size={28}/><strong>{l.converted}</strong><p>{l.convertedDesc}</p></div>
         :<div className="record-related-empty"><CircleDashed size={28}/><strong>{l.connection}</strong><p>{l.connectionDesc}</p></div>}
       </section>
     </div>
@@ -149,9 +156,9 @@ export function RecordWorkspace({kind,language,record,onBack,onPrevious,onNext,o
       {lead&&<OutboxPanel leadId={record.id} language={language}/>}
       <MentionForm subject={lead?"LEAD":"ACCOUNT"} subjectId={record.id} language={language}/>
     </section>}
-    <section className="record-flow-card" aria-labelledby="record-flow-heading">
+    {DEMO_MODE&&<section className="record-flow-card" aria-labelledby="record-flow-heading">
       <div className="record-flow-title"><div className="record-section-icon"><FileClock size={20}/></div><div><h2 id="record-flow-heading">{lead?l.leadJourney:l.accountJourney}</h2><p>{l.connectionDesc}</p></div></div>
       <div className="record-flow-stages">{flow.map((label,index)=><div className="record-flow-stage" key={label}><span className="record-flow-step">{String(index+1).padStart(2,"0")}</span><span>{label}</span><span className="record-flow-pending">{l.connection}</span></div>)}</div>
-    </section>
+    </section>}
   </article>;
 }
