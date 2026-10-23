@@ -23,6 +23,8 @@ RUN git clone --filter=blob:none https://github.com/axelor/open-suite-webapp.git
  && git clone --filter=blob:none https://github.com/axelor/axelor-open-suite.git axelor-app/modules/axelor-open-suite \
  && git -C axelor-app/modules/axelor-open-suite checkout --quiet "$AOS_SHA"
 COPY modules/ /src/modules/
+# the modules apply ../../gradle/ioeti-module.gradle from their canonical directory
+COPY gradle/ /src/gradle/
 RUN for m in /src/modules/ioeti-*; do ln -s "$m" "axelor-app/modules/$(basename "$m")"; done \
  && cd axelor-app && ./gradlew --no-daemon --max-workers=2 assemble -x archiveReports \
  && cp build/libs/*.war /src/axelor-erp.war
