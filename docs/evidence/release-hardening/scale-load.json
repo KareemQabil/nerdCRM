@@ -1,0 +1,126 @@
+{
+  "results": [
+    {
+      "check": "seed: 5000 leads recorded through the intake API from 8 sessions (all 201, none lost); the duplicate check stays fast as the owner's list grows (p95 first tenth vs last tenth recorded)",
+      "result": "PASS",
+      "detail": "{201: 5000} stored=5000 {'seconds': 21.4, 'first10pctP95': 41.7, 'last10pctP95': 56.5, 'p50': 32.2, 'p95': 51.3, 'max': 335.8}"
+    },
+    {
+      "check": "seed: 1000 opportunities on one account",
+      "result": "PASS",
+      "detail": "1000"
+    },
+    {
+      "check": "load: 20 sessions × 50 requests at once → no server error, every request answered 200",
+      "result": "PASS",
+      "detail": "{'search': [200], 'search-digits': [200], 'page-deep': [200], 'duplicates': [200], 'sales-report': [200], 'account360': [200], 'opportunities': [200]}"
+    },
+    {
+      "check": "load: scope holds under load (RepB sees only its own lead and none of RepA's 1000 opportunities)",
+      "result": "PASS",
+      "detail": "[]"
+    },
+    {
+      "check": "load: p95 of every endpoint within 2000 ms",
+      "result": "PASS",
+      "detail": "{}"
+    }
+  ],
+  "report": {
+    "leads": 5000,
+    "opportunities": 1000,
+    "users": 20,
+    "requestsPerUser": 50,
+    "intake": {
+      "seconds": 21.4,
+      "first10pctP95": 41.7,
+      "last10pctP95": 56.5,
+      "p50": 32.2,
+      "p95": 51.3,
+      "max": 335.8
+    },
+    "load": {
+      "seconds": 3.2,
+      "requests": 1000,
+      "endpoints": {
+        "search": {
+          "p50": 38.3,
+          "p95": 95.4,
+          "max": 129.3,
+          "n": 143,
+          "statuses": [
+            200
+          ]
+        },
+        "search-digits": {
+          "p50": 36.4,
+          "p95": 89.7,
+          "max": 171.3,
+          "n": 143,
+          "statuses": [
+            200
+          ]
+        },
+        "page-deep": {
+          "p50": 97.4,
+          "p95": 196.6,
+          "max": 353.7,
+          "n": 143,
+          "statuses": [
+            200
+          ]
+        },
+        "duplicates": {
+          "p50": 33.7,
+          "p95": 74.9,
+          "max": 164.2,
+          "n": 143,
+          "statuses": [
+            200
+          ]
+        },
+        "sales-report": {
+          "p50": 71.8,
+          "p95": 167.0,
+          "max": 204.4,
+          "n": 143,
+          "statuses": [
+            200
+          ]
+        },
+        "account360": {
+          "p50": 37.2,
+          "p95": 87.0,
+          "max": 155.5,
+          "n": 143,
+          "statuses": [
+            200
+          ]
+        },
+        "opportunities": {
+          "p50": 48.8,
+          "p95": 101.2,
+          "max": 161.7,
+          "n": 142,
+          "statuses": [
+            200
+          ]
+        }
+      }
+    },
+    "searchPlan": [
+      "Limit  (cost=0.28..18.72 rows=25 width=8) (actual time=0.048..0.183 rows=25 loops=1)",
+      "  Buffers: shared hit=255",
+      "  ->  Index Scan Backward using crm_lead_pkey on crm_lead  (cost=0.28..400.79 rows=543 width=8) (actual time=0.048..0.180 rows=25 loops=1)",
+      "        Filter: (((ioeti_search_key)::text ~~ '%محمد%'::text) AND ((ioeti_search_key)::text ~~ '%29e060%'::text))",
+      "        Rows Removed by Filter: 226",
+      "        Buffers: shared hit=255",
+      "Planning:",
+      "  Buffers: shared hit=354",
+      "Planning Time: 1.883 ms",
+      "Execution Time: 0.203 ms"
+    ],
+    "leadRows": 5001
+  },
+  "cleanup_complete": true
+}

@@ -1,0 +1,35 @@
+{
+  "results": [
+    {
+      "check": "S2 rush: 10 sessions enrol 10 trainees into 3 seats at once (retrying on 409) → each enrolled once, 3 confirmed, waitlist exactly 1..7; only 201 or 409 answered",
+      "result": "PASS",
+      "detail": "[[409, 409, 201], [409, 201], [409, 409, 409, 409, 201], [409, 409, 409, 409, 409, 201], [409, 409, 201], [409, 201], [409, 201], [409, 409, 201], [201], [409, 201]] [(1484, 'CONFIRMED', None), (1482, 'CONFIRMED', None), (1485, 'CONFIRMED', None), (1481, 'WAITLISTED', 1), (1477, 'WAITLISTED', 2), (1"
+    },
+    {
+      "check": "S2 the 3 confirmed cancelled at the same moment → the first 3 waitlisted promoted in order, waitlist closes up to 1..4; cohort never above capacity",
+      "result": "PASS",
+      "detail": "[200, 200, 200] [(1481, 'CONFIRMED', None), (1477, 'CONFIRMED', None), (1476, 'CONFIRMED', None), (1480, 'WAITLISTED', 1), (1483, 'WAITLISTED', 2), (1479, 'WAITLISTED', 3), (1478, 'WAITLISTED', 4), (1484, 'CANCELLED', None), (1482, 'CANCELLED', None), (1485, 'CANCELLED', None)] {'id': 158, 'version'"
+    },
+    {
+      "check": "S3 two accepted candidates placed at the same moment on a one-position order → one placement (201), the other 422 HEADCOUNT_FILLED; the order is FILLED with exactly one placement",
+      "result": "PASS",
+      "detail": "[(201, None), (422, 'HEADCOUNT_FILLED')] {'id': 90, 'version': 4, 'reference': 'JO-053CC3', 'clientId': 1474, 'clientName': 'S2-4 Delta Group 053CC3', 'title': 'Quality manager', 'headcount': 1, 'location': 'Cairo', 'requirements': None, 'status': 'FILLED', 'activeCandidates': 1, 'placed': 1, 'recru"
+    },
+    {
+      "check": "S4 the same bank reference recorded on two commitments by two fundraisers at the same moment (5 rounds) → one 201 and one 409 DUPLICATE_COLLECTION, never a server error; one collection per reference",
+      "result": "PASS",
+      "detail": "[([(201, None), (409, 'DUPLICATE_COLLECTION')], 1), ([(201, None), (409, 'DUPLICATE_COLLECTION')], 1), ([(201, None), (409, 'DUPLICATE_COLLECTION')], 1), ([(201, None), (409, 'DUPLICATE_COLLECTION')], 1), ([(201, None), (409, 'DUPLICATE_COLLECTION')], 1)]"
+    },
+    {
+      "check": "S4 collected totals equal exactly the accepted collections; committed stays 100,000 (a pledge is not collected)",
+      "result": "PASS",
+      "detail": "{'A': 4000, 'B': 1000} {'id': 71, 'version': 5, 'opportunityId': 94, 'reference': 'GA-053CC3', 'title': 'Quality scholarships', 'donorName': 'S2-4 Delta Group 053CC3', 'currency': 'EGP', 'committed': '100000.00', 'scheduled': '100000.00', 'collected': '4000.00', 'outstanding': '96000.00', 'unschedul"
+    },
+    {
+      "check": "cross-area: Account 360 (administrator) counts the client's 10 enrolments, 1 job order and 1 donor profile once each; donations never appear as invoiced or collected revenue; a salesperson sees none of these areas",
+      "result": "PASS",
+      "detail": "{'OPPORTUNITIES': 0, 'QUOTES': 0, 'CONTRACTS': 0, 'HANDOVERS': 0, 'ENGAGEMENTS': 0, 'CERTIFICATION_CYCLES': 0, 'TRAINING_ENROLLMENTS': 10, 'JOB_ORDERS': 1, 'DONOR_PROFILE': 1} [] 200 {'id': 1474, 'name': 'S2-4 Delta Group 053CC3', 'sections': [], 'money': []}"
+    }
+  ],
+  "cleanup_complete": true
+}
