@@ -42,6 +42,8 @@ export function DemoPipelineBoard({area, language, rows, onOpen, onNavigateArea}
  const rtl = language === "ar";
  const config = demoConfigs[area];
  const Forward = rtl ? ChevronLeft : ChevronRight;
+ // Previous/next and swipe follow the board as the user sees it: lane by lane, top to bottom.
+ const boardOrder = config.stages.flatMap((_, index) => rows.filter(row => row.stage === index));
  return <div className={"demo-pipeline-board"+(active?" spatial-active":"")} data-testid="demo-pipeline-board"
   role="region" aria-label={rtl ? "لوحة مراحل السيناريوهات الخيالية" : "Fictional scenario stage board"}>
   <div className="spatial-board-stage">
@@ -80,7 +82,7 @@ export function DemoPipelineBoard({area, language, rows, onOpen, onNavigateArea}
     </section>;
    })}
    </div>
-   {active&&<DemoCardInspector key={active.id} record={active} language={language} siblings={rows}
+   {active&&<DemoCardInspector key={active.id} record={active} language={language} siblings={boardOrder}
      onSelect={id=>setFocusedId(id)} onOpen={onOpen} onClose={closeFocus} onNavigateArea={onNavigateArea}/>}
   </div>
   <p className="demo-board-disclaimer">

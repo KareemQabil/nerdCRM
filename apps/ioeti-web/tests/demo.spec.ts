@@ -263,7 +263,8 @@ test("spatial card focus keeps Trello-like stage board visible, isolates one car
  await expect(page).toHaveURL(/#\/demo\/quotes$/);
  await expect(inspector.getByRole("button",{name:"ملفات مرتبطة"})).toHaveAttribute("aria-expanded","false");
  await inspector.getByRole("button",{name:"ملفات مرتبطة"}).click();
- await expect(inspector.getByRole("button",{name:/عقود/}).first()).toBeVisible();
+ // the first card on the board (DEMO-4103) is linked to its client job order
+ await expect(inspector.getByRole("button",{name:/التوظيف لصالح العملاء.*DEMO-10101/})).toBeVisible();
  await page.keyboard.press("Escape");
  await expect(inspector).toHaveCount(0);
  await expect(focus).toBeFocused();
@@ -318,8 +319,8 @@ test("spatial mobile inspector respects scrolling and touch swipe is optional",a
    element.dispatchEvent(new TouchEvent("touchstart",{touches:[a],changedTouches:[a],bubbles:true}));
    element.dispatchEvent(new TouchEvent("touchend",{touches:[],changedTouches:[b],bubbles:true}));
  });
- const after=await inspector.locator(".spatial-inspector-badges>span[dir=ltr]").innerText();
- expect(after).not.toBe(before);
+ // swiping from the first card on the board moves to the next card in board order (DEMO-4102)
+ await expect(inspector.locator(".spatial-inspector-badges>span[dir=ltr]")).not.toHaveText(before);
  await expect(inspector.getByRole("button",{name:"Next card"})).toBeVisible();
  await inspector.getByRole("button",{name:"Close card workspace"}).click();
  await expect(inspector).toHaveCount(0);
