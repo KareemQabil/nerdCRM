@@ -15,7 +15,7 @@ One Railway service, built from `deploy/railway/Dockerfile` (selected by `railwa
 | Caddy on `$PORT` | Serves the web app at `/`, proxies `/axelor-erp` to Tomcat **on the same origin**, rewrites Axelor's cookie path to `/` (the app must read `CSRF-TOKEN`, otherwise every write answers 403), adds security headers, answers `/healthz` once Tomcat responds |
 | Tomcat 10.1 + `axelor-erp.war` | Axelor 9.1.10 with every IOETI module. Built from upstream at the pinned commits (`check_pins.sh` keeps them equal to the submodules) |
 | `start.sh` | Maps Railway's PostgreSQL variables, refuses to start without the required secrets, renders the configuration (`application.mode = prod`, Secure cookies, Caddy as the only trusted proxy) |
-| `bootstrap.py` (first boot) | Replaces the default `admin/admin` password with `IOETI_ADMIN_PASSWORD`, installs the Axelor apps, and (optionally) seeds the fictional showcase |
+| `bootstrap.py` (every start, idempotent) | Replaces the default `admin/admin` password with `IOETI_ADMIN_PASSWORD`, installs the Axelor apps, and (optionally) seeds the fictional showcase. A showcase seed that stopped half-way is removed and redone |
 
 The web app is the **live** build. Demo mode is refused by `start.sh`.
 
@@ -37,6 +37,12 @@ The web app is the **live** build. Demo mode is refused by `start.sh`.
 5. **Networking**: *Generate domain*. Open `https://<domain>/`.
    - The first start creates the schema and installs the apps; allow 5–10 minutes.
    - The log line `[ioeti-bootstrap] done` marks the end of the bootstrap.
+
+## Known pitfalls (seen on the first Railway deploy)
+
+- **Memory.** Axelor needs about 2.5 GB. A service capped at 1 GB is killed while it starts (`start.sh: line 56: ... Killed`, healthcheck 502). Set the memory under the service's *Settings → Resource limits* in the dashboard and check that the deployment's memory limit metric shows it; a limit set only through the API did not reach the container.
+- **Branch.** Reconnecting the GitHub source in the dashboard selects `main` by default; `main` has no `deploy/railway/Dockerfile` until this work is merged. Choose the reviewed branch.
+- **App data language.** Axelor ships app init data (lead and opportunity statuses, sequences...) only in English and French. With `application.locale = ar` it imported nothing and still reported the apps as installed, so the showcase failed with "Please fill default lead status in App CRM configuration". `scripts/install_apps.py` now installs the apps with English init data and repairs apps installed in another language. The web app stays Arabic; native status names are shown in Arabic by the UI.
 
 ## Showcase accounts (when `IOETI_SHOWCASE_PASSWORD` is set)
 

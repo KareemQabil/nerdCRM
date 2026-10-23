@@ -4,7 +4,7 @@
 1. waits for Axelor; while the default admin/admin still works, replaces it with IOETI_ADMIN_PASSWORD
    (a public URL must never keep the default password)
 2. installs the Axelor apps IOETI reuses (idempotent: installed apps are skipped)
-3. when IOETI_SHOWCASE_PASSWORD is set and no showcase exists yet, seeds the fictional showcase
+3. when IOETI_SHOWCASE_PASSWORD is set and no complete showcase exists yet, seeds the fictional showcase
    (scripts/showcase_seed.py, without policy-blocked demonstration states); every fictional person
    signs in with that password
 Nothing here prints a secret.
@@ -40,6 +40,32 @@ def wait_for_axelor(limit=1800):
     return False
 
 
+def run_seed(env, action):
+    done = subprocess.run([sys.executable, os.path.join(ROOT, "scripts", "showcase_seed.py"), action], env=env,
+                          capture_output=True, text=True)
+    log(f"showcase {action}: " + ((done.stdout.strip().splitlines() or [""])[-1] or done.stderr.strip()[-300:]))
+    return done.returncode == 0
+
+
+def seed_showcase(admin, env):
+    """Seed once; a seed that stopped half-way (its state file is not marked complete) is removed and redone."""
+    state_file = os.path.join(ROOT, ".local", "showcase-state.json")
+    state = {}
+    if os.path.exists(state_file):
+        with open(state_file, encoding="utf-8") as f:
+            state = json.load(f)
+    _, found = admin.call("POST", f"/ws/rest/{USER}/search", {"fields": ["id"], "data": {"_domain": "self.code = 'showcase.sara'"}})
+    if found.get("data") and state.get("complete"):
+        log("showcase already present")
+        return
+    if found.get("data") and not state:
+        log("showcase users exist without a state file; left as they are")
+        return
+    if state and not state.get("complete") and not run_seed(env, "teardown"):
+        return
+    run_seed(env, "setup")
+
+
 def main():
     if not wait_for_axelor():
         log("Axelor did not start in time; bootstrap skipped")
@@ -60,15 +86,11 @@ def main():
         return 1
     env = {**os.environ, "IOETI_ADMIN_USER": "admin", "IOETI_ADMIN_PASSWORD": password}
     result = subprocess.run([sys.executable, os.path.join(ROOT, "scripts", "install_apps.py")], env=env, capture_output=True, text=True)
-    log("apps: " + (result.stdout.strip().splitlines() or ["(no output)"])[-1])
+    for line in result.stdout.strip().splitlines() or ["(no output)"]:
+        if not line.startswith("OK   "):
+            log("apps: " + line)
     if os.environ.get("IOETI_SHOWCASE_PASSWORD"):
-        _, found = admin.call("POST", f"/ws/rest/{USER}/search", {"fields": ["id"], "data": {"_domain": "self.code = 'showcase.sara'"}})
-        if found.get("data"):
-            log("showcase already present")
-        else:
-            seeded = subprocess.run([sys.executable, os.path.join(ROOT, "scripts", "showcase_seed.py"), "setup"], env=env,
-                                    capture_output=True, text=True)
-            log("showcase: " + ((seeded.stdout.strip().splitlines() or [""])[-1] or seeded.stderr.strip()[-300:]))
+        seed_showcase(admin, env)
     log("done")
     return 0
 

@@ -75,11 +75,12 @@ def setup(demo_states):
         raise SystemExit("showcase already seeded (run teardown first)")
     admin = admin_client()
     created = []
+    complete = []
 
     def save_state():
         os.makedirs(os.path.dirname(STATE), exist_ok=True)
         with open(STATE, "w", encoding="utf-8") as f:
-            json.dump({"created": created}, f)
+            json.dump({"created": created, "complete": bool(complete)}, f)
 
     def create(model, values):
         _, body = rest_create(admin, model, values)
@@ -389,6 +390,7 @@ def setup(demo_states):
             if art.get("id"):
                 created.append([KB_ART, art["id"]])
                 hany.call("POST", f"/ws/ioeti/content/kb/articles/{art['id']}/publish", {"version": art.get("version")})
+        complete.append(True)
         save_state()
         print(f"SHOWCASE_SETUP=PASS records={len(created)} users={len(PEOPLE)} credentials={os.path.relpath(CREDS, ROOT)}"
               + (" demo-states=on" if demo_states else ""))

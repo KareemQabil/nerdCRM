@@ -4,6 +4,8 @@ on:
     paths:
       - "deploy/railway/**"
       - "railway.json"
+      - "scripts/install_apps.py"
+      - "scripts/showcase_seed.py"
       - "apps/ioeti-web/vite.config.ts"
       - ".github/workflows/ioeti-railway-image.yml"
   workflow_dispatch:
@@ -44,6 +46,9 @@ jobs:
           for i in $(seq 1 120); do docker logs ioeti 2>&1 | grep -q '\[ioeti-bootstrap\] done' && break; sleep 10; done
           docker logs ioeti 2>&1 | grep '\[ioeti-bootstrap\]'
           docker logs ioeti 2>&1 | grep -q '\[ioeti-bootstrap\] done'
+          # application.locale is ar here: app init data must still be imported (in English) and the showcase completed
+          ! docker logs ioeti 2>&1 | grep -q '\[ioeti-bootstrap\] apps: FAIL'
+          docker logs ioeti 2>&1 | grep -q '\[ioeti-bootstrap\] showcase setup: SHOWCASE_SETUP=PASS'
           login() { curl -s -o /dev/null -w '%{http_code}' -X POST http://127.0.0.1:8000/axelor-erp/callback \
                       -H 'Content-Type: application/json' -d "{\"username\":\"$1\",\"password\":\"$2\"}"; }
           test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8000/healthz)" = 200
@@ -53,7 +58,7 @@ jobs:
           test "$(login showcase.sara ci-only-showcase-password)" = 200       # fictional showcase seeded
           curl -s -i -X POST http://127.0.0.1:8000/axelor-erp/callback -H 'Content-Type: application/json' \
             -d '{"username":"admin","password":"ci-only-admin-password"}' | grep -i '^set-cookie: CSRF-TOKEN=' | grep -q 'Path=/;'
-          echo "PASS Railway image: health, app, admin password replaced, showcase seeded, CSRF cookie visible to the app"
+          echo "PASS Railway image: health, app, admin password replaced, app init data and showcase seeded, CSRF cookie visible to the app"
       - name: Server log on failure
         if: failure()
         run: docker logs ioeti 2>&1 | tail -n 200
