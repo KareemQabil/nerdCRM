@@ -177,7 +177,8 @@ def setup(demo_states):
                       for k, v in groups.items()}
         users, sessions, creds = {}, {}, []
         for login, (name, group) in PEOPLE.items():
-            password = "Sc!" + secrets.token_urlsafe(12)
+            # a shared password set by the operator (IOETI_SHOWCASE_PASSWORD), or a random one per person
+            password = os.environ.get("IOETI_SHOWCASE_PASSWORD") or "Sc!" + secrets.token_urlsafe(12)
             users[login] = create(USER, {"code": f"showcase.{login}", "name": name, "blocked": False, "language": "ar",
                                          "group": {"id": group_rows[group]["id"]}, "activeCompany": {"id": co["id"]},
                                          "ioetiBusinessLines": [{"id": l["id"]} for l in lines.values()],

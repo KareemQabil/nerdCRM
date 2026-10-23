@@ -1,0 +1,59 @@
+name: IOETI Railway image
+on:
+  pull_request:
+    paths:
+      - "deploy/railway/**"
+      - "railway.json"
+      - "apps/ioeti-web/vite.config.ts"
+      - ".github/workflows/ioeti-railway-image.yml"
+  workflow_dispatch:
+jobs:
+  image:
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    permissions:
+      contents: read
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: ioeti
+          POSTGRES_USER: ioeti
+          POSTGRES_PASSWORD: ci-only-db-password
+        ports: ["5432:5432"]
+        options: --health-cmd "pg_isready -U ioeti" --health-interval 5s --health-retries 30
+    steps:
+      - name: Allow HTTPS for public Axelor submodule
+        run: git config --global url."https://github.com/".insteadOf "git@github.com:"
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - name: The image's Axelor commits equal the repository pins
+        run: bash deploy/railway/check_pins.sh
+      - name: Build the image exactly as Railway does (no submodules in the build context)
+        run: docker build -f deploy/railway/Dockerfile -t ioeti-railway:ci .
+      - name: Start it like Railway (managed PostgreSQL variables, $PORT) and check the deployment
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run -d --name ioeti --network host -e PORT=8000 \
+            -e PGHOST=127.0.0.1 -e PGPORT=5432 -e PGDATABASE=ioeti -e PGUSER=ioeti -e PGPASSWORD=ci-only-db-password \
+            -e IOETI_ENCRYPTION_PASSWORD=ci-only-encryption-1 -e IOETI_BANKORDER_ENCRYPTION_PASSWORD=ci-only-encryption-2 \
+            -e IOETI_ADMIN_PASSWORD=ci-only-admin-password -e IOETI_SHOWCASE_PASSWORD=ci-only-showcase-password \
+            ioeti-railway:ci
+          for i in $(seq 1 120); do docker logs ioeti 2>&1 | grep -q '\[ioeti-bootstrap\] done' && break; sleep 10; done
+          docker logs ioeti 2>&1 | grep '\[ioeti-bootstrap\]'
+          docker logs ioeti 2>&1 | grep -q '\[ioeti-bootstrap\] done'
+          login() { curl -s -o /dev/null -w '%{http_code}' -X POST http://127.0.0.1:8000/axelor-erp/callback \
+                      -H 'Content-Type: application/json' -d "{\"username\":\"$1\",\"password\":\"$2\"}"; }
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8000/healthz)" = 200
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8000/)" = 200
+          test "$(login admin admin)" != 200                                   # the default password is gone
+          test "$(login admin ci-only-admin-password)" = 200
+          test "$(login showcase.sara ci-only-showcase-password)" = 200       # fictional showcase seeded
+          curl -s -i -X POST http://127.0.0.1:8000/axelor-erp/callback -H 'Content-Type: application/json' \
+            -d '{"username":"admin","password":"ci-only-admin-password"}' | grep -i '^set-cookie: CSRF-TOKEN=' | grep -q 'Path=/;'
+          echo "PASS Railway image: health, app, admin password replaced, showcase seeded, CSRF cookie visible to the app"
+      - name: Server log on failure
+        if: failure()
+        run: docker logs ioeti 2>&1 | tail -n 200

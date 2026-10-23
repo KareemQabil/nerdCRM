@@ -1,0 +1,46 @@
+{
+	admin off
+	auto_https off
+	servers {
+		# Railway's edge terminates TLS and forwards; trust its private range for the client address
+		trusted_proxies static private_ranges
+	}
+}
+
+:{$PORT:8000} {
+	encode zstd gzip
+
+	# Railway health check: 200 once Tomcat answers at all (Axelor's first start takes minutes)
+	handle /healthz {
+		rewrite * /axelor-erp/
+		reverse_proxy 127.0.0.1:8080 {
+			@up status 2xx 3xx 4xx
+			handle_response @up {
+				respond "ok" 200
+			}
+		}
+	}
+
+	# Axelor on the same origin. Its cookies are scoped to /axelor-erp; the web app runs at /, so the path is
+	# rewritten to / (the session cookie stays HttpOnly and Secure); without this every write answers 403.
+	handle /axelor-erp* {
+		reverse_proxy 127.0.0.1:8080 {
+			header_down Set-Cookie "Path=/axelor-erp" "Path=/"
+		}
+	}
+
+	handle {
+		root * /srv/app
+		header /assets/* Cache-Control "public, max-age=31536000, immutable"
+		header / Cache-Control "no-store"
+		try_files {path} /index.html
+		file_server
+	}
+
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "same-origin"
+		X-Frame-Options "DENY"
+	}
+}

@@ -1,0 +1,15 @@
+# The Railway image fetches Axelor itself at the pinned commits; never send local state or secrets.
+.git
+axelor-app
+.env
+.env.*
+!.env.example
+.local
+logs
+**/node_modules
+apps/ioeti-web/dist
+apps/ioeti-web/test-results
+apps/ioeti-web/playwright-report
+modules/*/build
+modules/*/bin
+**/*.local.properties
