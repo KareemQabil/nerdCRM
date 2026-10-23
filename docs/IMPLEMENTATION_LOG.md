@@ -625,3 +625,23 @@ Slice: `docs/slices/A1-admin-console.md`.
   - a shared `Dialog`/`ChipPicker`.
 - Probes: `scripts/admin_probe.py` 43/43 (backend CI). JUnit `AdminRulesTest` 6/6. Mocked UI tests `tests/admin.spec.ts` 4/4; full mocked suite 68, demo 24.
 - G-007 registry: 97 new fields (964 in total, 0 problems).
+
+## 2026-10-23 · A2 · daily work from the platform
+
+Slice: `docs/slices/A2-daily-work.md`.
+
+- `ioeti-marketing`: edit a lead (the search key follows; duplicates confirmed; a converted lead is kept as it was).
+- `ioeti-business-lines`:
+  - add and edit client accounts, with a similar-name check, and add contacts (`AccountCommands`);
+  - opportunity stages with won blocked by D-11, lost only with a reason, reopen, and the estimate (`OpportunityStages`);
+  - the opportunity's lost reasons.
+- `ioeti-workspace`: activities on leads, accounts and opportunities (`ActivityService`, native `Event`), the personal agenda across domains, and one search box (`DayRestController`).
+- UI:
+  - the activity timeline and composer;
+  - lead, account and contact dialogs;
+  - the opportunity stage path and estimate card;
+  - My agenda;
+  - the Ctrl/⌘ + K search palette.
+- Probes: `scripts/daily_work_probe.py` 44/44 (backend CI), including the time-zone rule. The DTO allowlists in `api_contract_probe.py` and `opportunity_pilot_smoke.py` now include the account version and the opportunity's stage and estimate fields. Mocked UI tests: `tests/daily.spec.ts` 6/6. Real-browser walk-through: the whole journey, three themes, desktop and phone.
+- Found on the real backend: a fresh install has no lost reasons, so the dialog says so (reference lists are phase 5); date-times are wall-clock times and "already happened" is judged in the caller's time zone.
+- G-007 registry: 1033 fields, 0 problems.

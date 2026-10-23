@@ -194,9 +194,12 @@ def main():
         names = [r["name"] for r in parse(t).get("object") or []]
         check("account list returns a full page", s == 200 and len(names) == 5, f"returned={len(names)}")
         check("account list contains client accounts only", not any("supplier" in n for n in names))
-        for path, allowed in (("/ws/ioeti/accounts?limit=5", {"id", "name", "reference", "customer", "prospect"}),
+        # journeys plan, phase 2: the account's version (for edits) and the opportunity's stage path and the
+        # salesperson's estimate; every field is classified in docs/security/pii-classification.json
+        for path, allowed in (("/ws/ioeti/accounts?limit=5", {"id", "version", "name", "reference", "customer", "prospect"}),
                               ("/ws/ioeti/opportunities?limit=5", {"id", "version", "name", "reference", "businessLineCode",
-                                                                    "businessLineNameAr", "businessLineNameEn", "stage"})):
+                                                                    "businessLineNameAr", "businessLineNameEn", "stage", "stageId", "stageKind",
+                                                                    "amount", "currencyCode", "expectedCloseDate", "probability", "lostReason"})):
             _, _, t = raw(admin, "GET", path)
             check(f"DTO allowlist: {path.split('?')[0]}",
                   all(set(r) <= allowed for r in parse(t).get("object") or []))

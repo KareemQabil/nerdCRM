@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, ArrowRight, BellRing, CircleAlert, Layers3, LockKeyhole, RefreshCw, Search, UserPlus, UserRound } from "lucide-react";
+import { ArrowLeft, ArrowRight, BellRing, Building2, CircleAlert, Layers3, LockKeyhole, RefreshCw, Search, UserPlus, UserRound } from "lucide-react";
 import { ApiError, getAccount, getAccounts, getLead, getLeads, type AccountSummary, type LeadSummary } from "./api";
 import { DEMO_MODE } from "./demo";
 import { stageLabel } from "./labels";
@@ -8,6 +8,7 @@ import { RecordWorkspace } from "./RecordWorkspace";
 import { LeadConvertPage } from "./LeadConvertPage";
 import { FollowUpQueue, LeadFilterBar, LeadIntakePanel } from "./LeadTools";
 import { searchLeads, type LeadQuery } from "./marketingApi";
+import { AccountDialog } from "./RecordDialogs";
 
 type Kind = "leads" | "accounts";
 type Row = LeadSummary | AccountSummary;
@@ -23,7 +24,7 @@ const strings = {
     offline:"معلومات النطاق قيد التوصيل بالـBackend",readOnly:"بيانات حية ضمن نطاق صلاحياتك",
     demo:"هذه السجلات خيالية للمعاينة فقط",noPermission:"ليس لديك صلاحية قراءة هذا الموديول.",
     source:"المصدر", leadSource:"المبيعات", accountSource:"المبيعات",
-    serverSearch:"ابحث بالاسم أو الجهة أو البريد أو الهاتف...",newLead:"عميل محتمل جديد",list:"القائمة",followUps:"المتابعات",
+    serverSearch:"ابحث بالاسم أو الجهة أو البريد أو الهاتف...",newLead:"عميل محتمل جديد",newAccount:"حساب جديد",list:"القائمة",followUps:"المتابعات",
     next:"تأهيل العملاء المحتملين وتحويلهم من صفحة كل عميل محتمل؛ التوزيع على الآخرين وأهداف زمن الاستجابة بانتظار D-07 وD-12", nextAccounts:"Account 360: الفرص وجهات الاتصال داخل صفحة الحساب",
   },
   en: {
@@ -36,7 +37,7 @@ const strings = {
     offline:"Backend domain connection is in progress",readOnly:"Live data within your permissions",
     demo:"All records are fictional and for visual review only",noPermission:"No permission to read this module.",
     source:"Source",leadSource:"Sales",accountSource:"Sales",
-    serverSearch:"Search name, organization, e-mail or phone...",newLead:"New lead",list:"List",followUps:"Follow-ups",
+    serverSearch:"Search name, organization, e-mail or phone...",newLead:"New lead",newAccount:"New account",list:"List",followUps:"Follow-ups",
     next:"Qualify and convert from each lead page; routing to others and response-time targets wait for D-07 and D-12", nextAccounts:"Account 360: opportunities and contacts on each account page",
   },
 } as const;
@@ -60,6 +61,7 @@ export function DirectoryPage({kind,language}: Props) {
   const [query,setQuery]=useState<LeadQuery>({});
   const [tab,setTab]=useState<"list"|"followUps">("list");
   const [intake,setIntake]=useState(false);
+  const [addingAccount,setAddingAccount]=useState(false);
   useEffect(()=>{
     if(!liveLeads)return;
     const timer=window.setTimeout(()=>setQuery(current=>(current.q??"")===filter?current:{...current,q:filter}),300);
@@ -175,6 +177,9 @@ export function DirectoryPage({kind,language}: Props) {
         <span className="eyebrow">{kind==="leads"?l.leadSource:l.accountSource}</span>
         <h1>{kind==="leads"?l.leads:l.accounts}</h1><p>{kind==="leads"?l.leadsSub:l.accountsSub}</p>
       </div>
+      {kind==="accounts"&&!DEMO_MODE&&<div className="page-head-actions">
+        <button type="button" className="btn btn-primary" onClick={()=>setAddingAccount(true)}><Building2 size={16}/>{l.newAccount}</button>
+      </div>}
       {liveLeads&&<div className="page-head-actions">
         <button type="button" className="btn btn-primary" aria-expanded={intake} onClick={()=>setIntake(open=>!open)}><UserPlus size={16}/>{l.newLead}</button>
       </div>}
@@ -207,6 +212,8 @@ export function DirectoryPage({kind,language}: Props) {
     </div>
     </>}
     {hasMore&&!(liveLeads&&tab==="followUps")&&<div className="load-more"><button className="btn btn-secondary" type="button" disabled={busyMore} onClick={()=>void more()}>{busyMore?l.loading:l.more}</button></div>}
+    {addingAccount&&<AccountDialog language={language} onClose={()=>setAddingAccount(false)}
+      onSaved={account=>{setAddingAccount(false);void load();window.location.hash="#/accounts/"+account.id;}}/>}
     <div className="directory-next"><LockKeyhole size={18}/><span>{kind==="leads"?l.next:l.nextAccounts}</span></div>
   </section>;
 }

@@ -1,14 +1,16 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ArrowLeft, ArrowRight, BadgeCheck, Building2, ChevronLeft, ChevronRight,
-  CircleDashed, FileClock, GitMerge, Layers3, LockKeyhole, Network, ShieldCheck, UserRound
+  CircleDashed, FileClock, GitMerge, Layers3, LockKeyhole, Network, Pencil, ShieldCheck, UserPlus, UserRound
 } from "lucide-react";
 import { Account360 } from "./Account360";
 import { LeadQualificationPanel } from "./LeadQualificationPanel";
 import { LeadEngagementPanel } from "./LeadTools";
 import { DocumentsPanel } from "./DocumentsPanel";
 import { MentionForm, OutboxPanel } from "./InboxPage";
-import type { AccountSummary, LeadSummary } from "./api";
+import { getAccount, getLead, type AccountSummary, type LeadSummary } from "./api";
+import { ActivityPanel } from "./ActivityPanel";
+import { AccountDialog, ContactDialog, EditLeadDialog } from "./RecordDialogs";
 import type { Language } from "./preferences";
 import { DEMO_MODE } from "./demo";
 
@@ -44,6 +46,7 @@ const strings = {
     accountRelated:"الفرص وجهات الاتصال المرتبطة بهذا الحساب ضمن صلاحياتك",
     lostLead:"عميل محتمل خاسر · أعد فتحه للتحويل",
     qualification:"مرحلة العميل المحتمل والمسؤول عنه ونتيجته",
+    editLead:"تعديل البيانات",editAccount:"تعديل الحساب",addContact:"إضافة جهة اتصال",
   },
   en: {
     backAccounts:"Back to accounts",backLeads:"Back to leads",
@@ -70,6 +73,7 @@ const strings = {
     accountRelated:"Opportunities and contacts of this account within your permissions",
     lostLead:"Lost lead · reopen it to convert",
     qualification:"Stage, ownership and outcome of this lead",
+    editLead:"Edit details",editAccount:"Edit account",addContact:"Add contact",
   },
 } as const;
 function isLead(record:RecordItem):record is LeadSummary{return "organization" in record;}
@@ -87,7 +91,12 @@ export function RecordWorkspace({kind,language,record,onBack,onPrevious,onNext,o
   const NextArrow=ar?ChevronLeft:ChevronRight;
   const PreviousArrow=ar?ChevronRight:ChevronLeft;
   const heading=useRef<HTMLHeadingElement>(null);
+  const [dialog,setDialog]=useState<"lead"|"account"|"contact"|null>(null);
   useEffect(()=>{heading.current?.focus();window.scrollTo({top:0,behavior:"instant"});},[record.id]);
+  // logging an activity or adding a contact moves the record's version: read it again
+  const reload=async()=>{try{onRecordChanged?.(lead?await getLead(record.id):await getAccount(record.id));}catch{/* the panel shows its own error */}};
+  const editableLead=lead&&!DEMO_MODE&&record.version!=null&&!record.converted;
+  const liveAccount=!lead&&!DEMO_MODE&&record.version!=null;
   const typeLabel=kind==="leads"?l.lead:l.account;
   const status=lead?(record.stage||l.empty):classification(record,l);
   const summary=lead?[
@@ -119,6 +128,11 @@ export function RecordWorkspace({kind,language,record,onBack,onPrevious,onNext,o
         <p className="record-hero-description">{DEMO_MODE?(lead?l.leadJourneyDesc:l.accountJourneyDesc):(lead?l.leadLiveDesc:l.accountLiveDesc)}</p>
       </div>
       <div className="record-hero-actions">
+        {(editableLead||liveAccount)&&<div className="record-quick-actions">
+          {editableLead&&<button type="button" className="btn btn-secondary" onClick={()=>setDialog("lead")}><Pencil size={16}/>{l.editLead}</button>}
+          {liveAccount&&<button type="button" className="btn btn-secondary" onClick={()=>setDialog("account")}><Pencil size={16}/>{l.editAccount}</button>}
+          {liveAccount&&<button type="button" className="btn btn-secondary" onClick={()=>setDialog("contact")}><UserPlus size={16}/>{l.addContact}</button>}
+        </div>}
         {lead&&!DEMO_MODE&&record.converted?<div className="record-paging">
           <span className="record-readonly-pill"><BadgeCheck size={14}/>{l.converted}</span>
           {record.accountId!=null&&<a className="btn btn-secondary" href={"#/accounts/"+record.accountId}><Building2 size={16}/>{l.openAccount}</a>}
@@ -126,7 +140,7 @@ export function RecordWorkspace({kind,language,record,onBack,onPrevious,onNext,o
         </div>
         :lead&&!DEMO_MODE&&record.version!=null&&record.stageKind==="LOST"?<span className="record-readonly-pill"><LockKeyhole size={14}/>{l.lostLead}</span>
         :lead&&!DEMO_MODE&&record.version!=null?<a className="btn btn-primary" href={"#/leads/"+record.id+"/convert"}><GitMerge size={17}/>{l.convert}</a>
-        :<span className="record-readonly-pill"><LockKeyhole size={14}/>{l.readonly}</span>}
+        :!liveAccount&&<span className="record-readonly-pill"><LockKeyhole size={14}/>{l.readonly}</span>}
         <div className="record-paging">
           <button type="button" className="btn btn-secondary" onClick={onPrevious} disabled={!onPrevious}><PreviousArrow size={17}/>{l.previous}</button>
           <button type="button" className="btn btn-secondary" onClick={onNext} disabled={!onNext}>{l.next}<NextArrow size={17}/></button>
@@ -142,7 +156,7 @@ export function RecordWorkspace({kind,language,record,onBack,onPrevious,onNext,o
       </section>
       <section className="record-content-card record-related" aria-labelledby="record-related-heading">
         <div className="record-section-header"><div className="record-section-icon"><Network size={20}/></div><div><h2 id="record-related-heading">{l.related}</h2><p>{!lead&&!DEMO_MODE?l.accountRelated:lead&&!DEMO_MODE&&record.version!=null&&!record.converted?l.qualification:lead?l.leadJourney:l.accountJourney}</p></div></div>
-        {!lead&&!DEMO_MODE?<Account360 accountId={record.id} language={language}/>
+        {!lead&&!DEMO_MODE?<Account360 key={record.id+":"+(record.version??0)} accountId={record.id} language={language}/>
         :lead&&!DEMO_MODE&&record.version!=null&&!record.converted?<LeadQualificationPanel lead={record} language={language} onChanged={updated=>onRecordChanged?.(updated)}/>
         :lead&&!DEMO_MODE&&record.converted?<div className="record-related-empty"><CircleDashed size={28}/><strong>{l.converted}</strong><p>{l.convertedDesc}</p></div>
         :<div className="record-related-empty"><CircleDashed size={28}/><strong>{l.connection}</strong><p>{l.connectionDesc}</p></div>}
@@ -150,6 +164,9 @@ export function RecordWorkspace({kind,language,record,onBack,onPrevious,onNext,o
     </div>
     {lead&&!DEMO_MODE&&record.version!=null&&<section className="record-content-card record-engagement">
       <LeadEngagementPanel lead={record} language={language} onLeadChanged={updated=>onRecordChanged?.(updated)}/>
+    </section>}
+    {!DEMO_MODE&&record.version!=null&&<section className="record-content-card record-activities">
+      <ActivityPanel record={lead?"LEAD":"ACCOUNT"} recordId={record.id} version={lead&&record.converted?null:record.version} language={language} onChanged={reload}/>
     </section>}
     {!DEMO_MODE&&<section className="record-content-card record-documents">
       <DocumentsPanel subject={lead?"LEAD":"ACCOUNT"} subjectId={record.id} language={language}/>
@@ -160,5 +177,8 @@ export function RecordWorkspace({kind,language,record,onBack,onPrevious,onNext,o
       <div className="record-flow-title"><div className="record-section-icon"><FileClock size={20}/></div><div><h2 id="record-flow-heading">{lead?l.leadJourney:l.accountJourney}</h2><p>{l.connectionDesc}</p></div></div>
       <div className="record-flow-stages">{flow.map((label,index)=><div className="record-flow-stage" key={label}><span className="record-flow-step">{String(index+1).padStart(2,"0")}</span><span>{label}</span><span className="record-flow-pending">{l.connection}</span></div>)}</div>
     </section>}
+    {dialog==="lead"&&lead&&<EditLeadDialog lead={record} language={language} onClose={()=>setDialog(null)} onSaved={next=>{setDialog(null);onRecordChanged?.(next);}}/>}
+    {dialog==="account"&&!lead&&<AccountDialog account={record} language={language} onClose={()=>setDialog(null)} onSaved={next=>{setDialog(null);onRecordChanged?.(next);}}/>}
+    {dialog==="contact"&&!lead&&<ContactDialog account={record} language={language} onClose={()=>setDialog(null)} onSaved={()=>{setDialog(null);void reload();}}/>}
   </article>;
 }
