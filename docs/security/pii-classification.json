@@ -761,6 +761,8 @@
     "ReviewEventView.kind": "REFERENCE",
     "ReviewEventView.reason": "REFERENCE",
     "ReviewView.contractId": "REFERENCE",
+    "ReviewView.opportunityId": "REFERENCE",
+    "ReviewView.subjectReference": "BUSINESS",
     "ReviewView.decisionStatus": "REFERENCE",
     "ReviewView.events": "PERSONAL",
     "ReviewView.id": "REFERENCE",

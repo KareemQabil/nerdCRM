@@ -37,6 +37,7 @@ import com.ioeti.workspace.db.InvoiceRequest;
 import com.ioeti.workspace.db.ReviewEvent;
 import com.ioeti.workspace.db.ReviewRequest;
 import com.ioeti.workspace.db.repo.InvoiceRequestRepository;
+import com.ioeti.workspace.db.repo.ReviewRequestRepository;
 import com.ioeti.workspace.service.WorkspaceService;
 import io.swagger.v3.oas.annotations.Operation;
 import jakarta.ws.rs.Consumes;
@@ -72,12 +73,17 @@ public class WorkspaceRestController {
 
   @GET
   @Path("/reviews")
-  @Operation(summary = "Review history of a quotation or a contract, newest first", tags = {"IOETI workspace"})
+  @Operation(summary = "Review history of a quotation or a contract, newest first; or, with pending=true, the pending reviews"
+      + " the caller may see and did not request (a reviewer's queue)", tags = {"IOETI workspace"})
   @IoetiEndpoint
-  public Response reviews(@QueryParam("quoteId") Long quoteId, @QueryParam("contractId") Long contractId) {
+  public Response reviews(@QueryParam("quoteId") Long quoteId, @QueryParam("contractId") Long contractId,
+      @QueryParam("pending") Boolean pending) {
     new SecurityCheck().readAccess(ReviewRequest.class).check();
     Filter where;
-    if (quoteId != null) {
+    if (Boolean.TRUE.equals(pending) && quoteId == null && contractId == null) {
+      where = new JPQLFilter("self.statusSelect = ? AND (self.requestedBy IS NULL OR self.requestedBy != ?)",
+          ReviewRequestRepository.STATUS_PENDING, AuthUtils.getUser());
+    } else if (quoteId != null) {
       RecordAccess.readable(SaleOrder.class, quoteId);
       where = new JPQLFilter("self.quote.id = ?", quoteId);
     } else if (contractId != null) {
@@ -338,7 +344,10 @@ public class WorkspaceRestController {
     return new ReviewView(r.getId(), r.getVersion(), r.getQuote() == null ? null : r.getQuote().getId(),
         r.getContract() == null ? null : r.getContract().getId(), r.getSubjectVersionNumber(), name(r.getStatusSelect(), REVIEW_STATUSES),
         userName(r.getRequestedBy()), r.getRequestedAt(), userName(r.getReviewedBy()), name(r.getReasonSelect(), REASONS),
-        "BLOCKED_BY_POLICY", r.getRequestedBy() != null && r.getRequestedBy().equals(AuthUtils.getUser()), events);
+        "BLOCKED_BY_POLICY", r.getRequestedBy() != null && r.getRequestedBy().equals(AuthUtils.getUser()), events,
+        r.getQuote() != null && r.getQuote().getOpportunity() != null ? r.getQuote().getOpportunity().getId()
+            : r.getContract() != null && r.getContract().getOpportunity() != null ? r.getContract().getOpportunity().getId() : null,
+        r.getQuote() != null ? r.getQuote().getSaleOrderSeq() : r.getContract() != null ? r.getContract().getContractId() : null);
   }
 
   static InvoiceRequestView view(InvoiceRequest r) {
@@ -357,7 +366,7 @@ public class WorkspaceRestController {
   public record ReviewView(
       Long id, Integer version, Long quoteId, Long contractId, Integer quoteVersionNumber, String status, String requestedBy,
       LocalDateTime requestedAt, String reviewedBy, String reason, String decisionStatus, boolean requestedByMe,
-      List<ReviewEventView> events) {}
+      List<ReviewEventView> events, Long opportunityId, String subjectReference) {}
   public record InvoiceRequestView(
       Long id, Integer version, Long quoteId, Long milestoneId, String milestoneTitle, java.time.LocalDate dueDate,
       BigDecimal amountBeforeTax, String currency, String status, String requestedBy, LocalDateTime requestedAt, String invoiceStatus) {}

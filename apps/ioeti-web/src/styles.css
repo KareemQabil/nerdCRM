@@ -1358,3 +1358,11 @@ select, input, textarea { font-size: 14px; }
   .top-bar { padding-inline: 12px; }
   .page-head-actions { margin-bottom: 16px; }
 }
+.demo-record-tabs { gap: 2px; margin-bottom: 18px; }
+.demo-record-tabs button { font-size: 13.5px; padding: 11px 15px; }
+.demo-record-tabs button.active { color: var(--on-surface); }
+.demo-record-tabs button.active::after { background: var(--area, var(--primary)); }
+.detail-placeholder { min-height: 260px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; text-align: center; color: var(--on-surface-variant); padding: 24px; }
+.detail-placeholder svg { color: var(--area, var(--primary)); opacity: .8; }
+.detail-placeholder strong { color: var(--on-surface); font-size: 15px; }
+@media (max-width: 900px) { .detail-placeholder { display: none; } }

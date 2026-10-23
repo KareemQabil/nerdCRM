@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { CircleAlert, Download, LockKeyhole } from "lucide-react";
 import { ApiError, getBusinessLines, type BusinessLine } from "./api";
+import { stageLabel } from "./labels";
 import { download, getAreasReport, getSalesReport, toCsv, type AreasReport, type SalesReport } from "./reportsApi";
 import type { Language } from "./preferences";
 import "./insights.css";
@@ -78,7 +79,7 @@ export function ReportsPage({language}:{language:Language}){
           sales.pipeline!.map(r=>[r.businessLineCode,r.stage,r.count,r.amounts.map(a=>`${money(a.amount)} ${a.currency??""}`).join(" | ")])))}><Download size={15}/>{l.csv}</button></div>
       {sales.pipeline.length===0?<p className="wf-muted">{l.empty}</p>:<div className="rp-scroll"><table className="rp-table">
         <thead><tr><th>{l.line}</th><th>{l.stage}</th><th>{l.count}</th><th>{l.amount}</th></tr></thead>
-        <tbody>{sales.pipeline.map((r,i)=><tr key={i}><td>{r.businessLineCode??"—"}</td><td>{r.stage??"—"}{r.open===false?<small className="mk-sub">{l.closed}</small>:null}</td>
+        <tbody>{sales.pipeline.map((r,i)=><tr key={i}><td>{(()=>{const bl=lines.find(x=>x.code===r.businessLineCode);return bl?(ar?bl.nameAr:bl.nameEn):r.businessLineCode??"—";})()}</td><td>{stageLabel(r.stage,language)}{r.open===false?<small className="mk-sub">{l.closed}</small>:null}</td>
           <td><span className="rp-bar" style={{inlineSize:`${Math.round(r.count*100/maxCount)}%`}} aria-hidden="true"/>{num(r.count)}</td>
           <td dir="ltr">{r.amounts.length===0?"—":r.amounts.map(a=><div key={a.currency??"-"}>{money(a.amount)} {a.currency??""}</div>)}</td></tr>)}</tbody></table></div>}
       <p className="wf-muted">{l.amountNote}</p>

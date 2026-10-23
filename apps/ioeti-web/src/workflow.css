@@ -21,3 +21,6 @@
 .wf-cards strong{font-size:20px;font-variant-numeric:tabular-nums;}
 .wf-cards span{font-size:12px;color:var(--on-surface-variant);}
 .wf-money td,.wf-money th{white-space:nowrap;}
+.wf-reviewer { margin-top: 14px; padding: 14px 16px; border: 1px solid color-mix(in srgb, var(--warning) 35%, transparent); border-radius: var(--radius); background: var(--warning-container); }
+.wf-reviewer strong { display: block; margin-bottom: 2px; }
+.wf-inline-field { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; }

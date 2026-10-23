@@ -7,6 +7,7 @@ import {
 import type { Opportunity } from "./api";
 import { DEMO_MODE } from "./demo";
 import type { Language } from "./preferences";
+import { stageLabel } from "./labels";
 import { QuotesPanel } from "./QuotesPanel";
 import { ContractPanel } from "./ContractPanel";
 import { DocumentsPanel } from "./DocumentsPanel";
@@ -20,7 +21,7 @@ type Props = {
 const copy = {
   ar: {
     back: "الرجوع إلى الفرص", eyebrow: "ملف الفرصة التجارية", sample: "بيانات تجريبية خيالية",
-    real: "حقول من Axelor", read: "حسب صلاحيات الخادم", edit: "تعديل اسم الفرصة",
+    real: "البيانات المسجلة على الفرصة", read: "حسب صلاحيات الخادم", edit: "تعديل اسم الفرصة",
     previous: "السابق", next: "التالي", overview: "نظرة عامة", source: "المصدر",
     line: "خط الأعمال", stage: "المرحلة الحالية", ref: "مرجع الفرصة",
     version: "نسخة السجل", id: "رقم السجل", unknown: "غير محدد",
@@ -31,12 +32,12 @@ const copy = {
     steps: ["التأهيل", "العرض والموافقة", "العقد والتوقيع", "التسليم للتنفيذ"],
     permission: "تُعرض الحقول المصرح بها فقط. لا يتم استنتاج العميل أو المسؤول أو القيمة التجارية من اسم الفرصة.",
     timeline: "الأنشطة والمتابعة", timelineNote: "سيظهر سجل الأنشطة بعد ربط Event API مع قواعد وصول مستقلة.",
-    quote: "عروض الأسعار", quoteNote: "لم يتم ربط SaleOrder بهذا السجل بعد.",
+    quote: "عروض الأسعار", quoteNote: "لا توجد عروض أسعار بعد.",
     contract: "العقود", contractNote: "لم يتم ربط Contract بهذا السجل بعد.",
   },
   en: {
     back: "Back to opportunities", eyebrow: "Opportunity workspace", sample: "Fictional demo data",
-    real: "Fields from Axelor", read: "Server permissions apply", edit: "Rename opportunity",
+    real: "What is recorded on this opportunity", read: "Server permissions apply", edit: "Rename opportunity",
     previous: "Previous", next: "Next", overview: "Overview", source: "Source",
     line: "Business line", stage: "Current stage", ref: "Opportunity reference",
     version: "Record version", id: "Record ID", unknown: "Not specified",
@@ -47,7 +48,7 @@ const copy = {
     steps: ["Qualification", "Proposal & approval", "Contract & signature", "Operations handover"],
     permission: "Only allowlisted fields are shown. Client, owner, and deal value are never inferred from the opportunity name.",
     timeline: "Activities & follow-ups", timelineNote: "Activity history awaits a separately authorized Event API.",
-    quote: "Quotations", quoteNote: "No authorized SaleOrder linkage has been connected yet.",
+    quote: "Quotations", quoteNote: "No quotations yet.",
     contract: "Contracts", contractNote: "No authorized Contract linkage has been connected yet.",
   },
 } as const;
@@ -65,7 +66,7 @@ export function OpportunityRecordWorkspace({record,language,onBack,onRename,onPr
   const line=ar?record.businessLineNameAr||record.businessLineCode:record.businessLineNameEn||record.businessLineCode;
   const facts=[
     {label:c.line,value:line||c.unknown},
-    {label:c.stage,value:record.stage||c.unknown},
+    {label:c.stage,value:record.stage?stageLabel(record.stage,language):c.unknown},
     {label:c.ref,value:record.reference||c.unknown},
     {label:c.id,value:"#"+record.id},
     {label:c.version,value:"v"+record.version},
@@ -83,7 +84,7 @@ export function OpportunityRecordWorkspace({record,language,onBack,onRename,onPr
           <div className="record-identity-icon"><Workflow size={30}/></div>
           <div><h1 ref={heading} tabIndex={-1} id="opportunity-record-title">{record.name}</h1>
             <div className="record-tags">
-              <span className="record-status-tag"><BadgeCheck size={14}/>{record.stage||c.unknown}</span>
+              <span className="record-status-tag"><BadgeCheck size={14}/>{record.stage?stageLabel(record.stage,language):c.unknown}</span>
               <span className="record-ref" dir="ltr">{record.reference||"#"+record.id}</span>
             </div>
           </div>
@@ -99,7 +100,7 @@ export function OpportunityRecordWorkspace({record,language,onBack,onRename,onPr
         </div>
       </div>
     </div>
-    <div className="record-section-label"><strong className="record-label-active">{c.overview}</strong><span>{c.source}: Axelor CRM · Opportunity</span></div>
+    <div className="record-section-label"><strong className="record-label-active">{c.overview}</strong><span>{c.source}: {ar ? "المبيعات · الفرص التجارية" : "Sales · Opportunities"}</span></div>
     <div className={"record-content-grid"+(DEMO_MODE?"":" is-single")}>
       <section className="record-content-card" aria-labelledby="opportunity-facts-title">
         <div className="record-section-header"><div className="record-section-icon"><Layers3 size={20}/></div><div>

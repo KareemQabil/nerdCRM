@@ -262,6 +262,13 @@ def main():
               and error(b_ap).get("code") == "BLOCKED_BY_POLICY" and "D-11" in error(b_ap).get("message", ""),
               f"{s_q} {s_v} {b_v} {s_r1} {s_ch} {s_r2} {r2} {s_ap} {total_v1} {total(quote_id)}")
 
+        queue = {k: [(r["id"], r.get("opportunityId")) for r in rows(c.call("GET", f"{WS}/reviews?pending=true")[1])]
+                 for k, c in (("Manager", mgr_c), ("RepA", a), ("RepB", b))}
+        check("3 reviewer's queue: the pending review appears for the manager, linked to its opportunity; never for the "
+              "requester or another salesperson",
+              queue["Manager"].count((r2.get("id"), opp_id)) == 1 and r2.get("id") not in [x for x, _ in queue["RepA"] + queue["RepB"]],
+              queue)
+
         # --- 4. milestones and the contract ---------------------------------------------------------------
         for title, pct in (("Deposit", "30"), ("Final report", "70")):
             s_m, b_m = a.call("POST", f"{QUOTES}/{quote_id}/milestones", {"version": version(SALE_ORDER, quote_id), "title": title,

@@ -1,7 +1,7 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import {
   Activity, ArrowLeft, ArrowRight, BadgeCheck, BriefcaseBusiness, Building2,
-  Check, ChevronDown, CircleAlert, CircleHelp, Crown, GraduationCap,
+  Check, CircleAlert, CircleHelp, Crown, GraduationCap,
   HeartHandshake, House, Layers3, LockKeyhole, LogOut, Menu,
   Moon, Palette, RefreshCw, Search, Settings2,
   ShieldCheck, Sun, Workflow, UsersRound, X, ClipboardList, BookOpen, Bell, BarChart3,
@@ -292,13 +292,7 @@ export function App() {
           {!DEMO_MODE && <HomeCockpit language={prefs.language} name={identity?.name || identity?.code || null} unread={unread}
             onNavigate={next => navigate(next as Page)}/>}
           {DEMO_MODE && <Suspense fallback={<div role="status" className="empty-state">{labels.loading}</div>}><DemoExecutiveOverview language={prefs.language} onOpen={navigateDemo}/></Suspense>}
-          {!DEMO_MODE && <>
-          <div className="section-top"><div><span className="eyebrow">{labels.workspace}</span><h2>{labels.businessLines}</h2></div><button className="btn btn-secondary" type="button" onClick={() => navigate("businessLines")}>{labels.view}{isRTL ? <ArrowLeft size={16}/> : <ArrowRight size={16}/>}</button></div>
-          <div className="lines-preview">
-            {lines.length === 0 ? <div className="empty-state">{labels.noAccess}</div> : lines.slice(0, 5).map((line) => <button key={line.id} className="preview-row" type="button" onClick={() => openLine(line)}><div className="line-monogram">{line.code.slice(0, 2)}</div><div className="line-name"><strong>{isRTL ? line.nameAr : line.nameEn}</strong><small dir="ltr">{line.code}</small></div><StatusPill status={line.status} labels={labels}/><ChevronDown className="row-chevron" size={17}/></button>)}
-          </div>
-          </>}
-          <p className="scope-note"><ShieldCheck size={15}/>{DEMO_MODE ? (isRTL ? "كل البيانات الظاهرة افتراضية ولا تمثل عملاء IOETI" : "All displayed business records are fictional") : labels.visualNote}</p>
+          {DEMO_MODE && <p className="scope-note"><ShieldCheck size={15}/>{isRTL ? "كل البيانات الظاهرة افتراضية ولا تمثل عملاء IOETI" : "All displayed business records are fictional"}</p>}
         </section>}
 
         {page === "opportunities" && <OpportunitiesPage language={prefs.language} lines={lines} labels={labels} />}
@@ -324,7 +318,6 @@ export function App() {
             {matching.length === 0 ? <div className="empty-state"><CircleHelp size={28}/>{labels.empty}</div> : <div className="table-scroll"><table><thead><tr><th>{labels.businessLines}</th><th>{labels.code}</th><th>{labels.team}</th><th>{labels.status}</th><th><span className="sr-only">{labels.actions}</span></th></tr></thead>
             <tbody>{matching.map((line) => <tr key={line.id}><td><div className="table-primary"><div className="line-monogram">{line.code.slice(0, 2)}</div><div><strong>{isRTL ? line.nameAr : line.nameEn}</strong><small>{isRTL ? line.nameEn : line.nameAr}</small></div></div></td><td><code dir="ltr">{line.code}</code></td><td>{line.responsibleTeam || labels.none}</td><td><StatusPill status={line.status} labels={labels}/></td><td><button className="text-action" type="button" onClick={() => openLine(line)}>{labels.details}{isRTL ? <ArrowLeft size={15}/> : <ArrowRight size={15}/>}</button></td></tr>)}</tbody></table></div>}
           </div>
-          <p className="scope-note"><LockKeyhole size={15}/>{labels.visualNote}</p>
         </section>}
 
         {activeDemoArea && <Suspense fallback={<div className="empty-state" role="status">{labels.loading}</div>}>

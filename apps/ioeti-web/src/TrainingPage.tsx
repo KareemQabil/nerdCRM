@@ -99,10 +99,13 @@ export function TrainingPage({language}:{language:Language}){
         :<div className="directory-items">{cohorts.map(c=><button type="button" key={c.id}
           className={"directory-item training-cohort-row"+(selected?.id===c.id?" is-selected":"")} aria-pressed={selected?.id===c.id} onClick={()=>setSelected(c)}>
           <div className="line-monogram">{c.code.slice(0,2)}</div>
-          <div className="directory-record"><strong>{c.courseName}</strong><small><span dir="ltr">{c.code}</span> · {status(c)}</small></div>
+          <div className="directory-record"><strong>{(language==="ar"&&courses.find(k=>k.id===c.courseId)?.nameAr)||c.courseName}</strong><small><span dir="ltr">{c.code}</span> · {status(c)}</small></div>
           <span className="training-seats" dir="ltr">{c.confirmed}/{c.capacity}{c.waitlisted?` +${c.waitlisted}`:""}</span>
         </button>)}</div>}
       </div>
+      {!selected&&cohorts!==null&&cohorts.length>0&&<div className="data-panel detail-placeholder" aria-hidden="true">
+        <GraduationCap size={30}/><strong>{language==="ar"?"اختر دفعة من القائمة":"Choose a cohort"}</strong>
+        <span>{language==="ar"?"لترى المقاعد وقائمة الانتظار والجلسات والحضور.":"to see seats, the waitlist, sessions and attendance."}</span></div>}
       {selected&&<CohortDetail key={selected.id} cohortId={selected.id} l={l} statusLabel={status}
         onChanged={updated=>{setSelected(updated);setCohorts(cur=>(cur||[]).map(c=>c.id===updated.id?updated:c));}}/>}
     </div>

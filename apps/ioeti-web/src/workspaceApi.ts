@@ -9,6 +9,7 @@ export type Review = {
   id: number; version: number; quoteId: number | null; contractId: number | null; quoteVersionNumber: number | null;
   status: "PENDING" | "CHANGES_REQUESTED" | "WITHDRAWN"; requestedBy: string | null; requestedAt: string | null; reviewedBy: string | null;
   reason: ReviewReason | null; decisionStatus: string; requestedByMe: boolean; events: ReviewEvent[];
+  opportunityId?: number | null; subjectReference?: string | null;
 };
 export type InvoiceRequest = {
   id: number; version: number; quoteId: number; milestoneId: number; milestoneTitle: string | null; dueDate: string | null;
@@ -41,6 +42,8 @@ export const restoreQuoteVersion = (quoteId: number, number: number, version: nu
   post<unknown>(`/ws/ioeti/quotes/${id(quoteId)}/versions/${id(number)}/restore`, { version });
 export const getReviews = (subject: { quoteId?: number; contractId?: number }) =>
   list<Review>(`${BASE}/reviews?` + (subject.quoteId ? `quoteId=${id(subject.quoteId)}` : `contractId=${id(subject.contractId!)}`));
+/** Pending reviews the caller may see and did not request: a reviewer's queue. */
+export const getPendingReviews = () => list<Review>(`${BASE}/reviews?pending=true`);
 export const requestReview = (subject: { quoteId?: number; contractId?: number }, version: number) => post<Review>(`${BASE}/reviews`, { ...subject, version });
 export const withdrawReview = (reviewId: number, version: number) => post<Review>(`${BASE}/reviews/${id(reviewId)}/withdraw`, { version });
 export const requestChanges = (reviewId: number, version: number, reason: ReviewReason) =>

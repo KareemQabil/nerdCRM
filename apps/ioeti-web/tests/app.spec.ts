@@ -296,7 +296,7 @@ test("Opportunity view details opens a full record page, supports browser histor
   await expect(page.locator(".opportunity-record h1")).toHaveText("Hotel certification");
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await expect(page.locator(".opportunity-record")).toContainText("OP-101");
-  await expect(page.locator(".opportunity-record")).toContainText("Axelor CRM");
+  await expect(page.locator(".opportunity-record")).toContainText("المبيعات · الفرص التجارية");
   // quotations and the contract are connected sections; live mode shows no placeholder for anything unconnected
   await expect(page.getByRole("heading", { name: "عروض الأسعار" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "العقد", exact: true })).toBeVisible();
