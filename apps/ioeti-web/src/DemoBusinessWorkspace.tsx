@@ -291,7 +291,7 @@ function DemoBusinessInner({area,language,onNavigateArea}:Props){
     </div>
     <button className="btn btn-primary" type="button" onClick={e=>openDialog("create",e.currentTarget)}><Plus size={17}/>{strings.new}</button>
    </div>
-   {view==="board" && visible.length>0 ? <DemoPipelineBoard area={area} language={language} rows={visible} onOpen={open}/> : <div className="demo-data-panel">
+   {view==="board" && visible.length>0 ? <DemoPipelineBoard area={area} language={language} rows={visible} onOpen={open} onNavigateArea={onNavigateArea}/> : <div className="demo-data-panel">
     <div className="demo-data-head"><strong>{strings.records}</strong><span>{visible.length} {strings.rowCount}</span></div>
     {visible.length===0?<div className="empty-state">{strings.none}</div>:<div className="demo-record-list">{visible.map(row=><button key={row.id} type="button" className="demo-record-row" onClick={()=>open(row.id)}>
      <span className="demo-record-monogram"><FileText size={20}/></span>
