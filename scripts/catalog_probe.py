@@ -64,8 +64,10 @@ def main():
 
     exit_code = 1
     try:
-        _, companies = admin.call("POST", f"/ws/rest/{COMPANY}/search", {"fields": ["id", "code"], "limit": 1, "data": {}})
-        company = (companies.get("data") or [None])[0]
+        # a company of its own, so the probe behaves the same on a fresh database (CI has none) and a seeded one
+        _, currencies = admin.call("POST", "/ws/rest/com.axelor.apps.base.db.Currency/search",
+                                   {"fields": ["id"], "limit": 1, "data": {"_domain": "self.codeISO = 'EGP'"}})
+        company = create(COMPANY, {"name": f"Catalog Probe Co {tag}", "code": f"CT{tag}", "currency": {"id": currencies["data"][0]["id"]}})
         sessions = {}
         for label, rights in (("manager", dict(canRead=True, canWrite=True, canCreate=True)), ("seller", dict(canRead=True))):
             perm = create(PERM, {"name": f"catalog.{label}.{tag}", "object": PRODUCT, **rights})
@@ -73,7 +75,7 @@ def main():
             password = "Ct!" + secrets.token_urlsafe(14)
             create(USER, {"code": f"catalog.{label}.{tag}", "name": f"Catalog {label} {tag}", "blocked": False, "language": "ar",
                           "group": {"id": group["id"]}, "password": axelor_password_hash(password),
-                          **({"activeCompany": {"id": company["id"]}, "companySet": [{"id": company["id"]}]} if company else {})})
+                          "activeCompany": {"id": company["id"]}, "companySet": [{"id": company["id"]}]})
             sessions[label] = Client()
             assert sessions[label].login(f"catalog.{label}.{tag}", password) == 200, label
         manager, seller, anon = sessions["manager"], sessions["seller"], Client()
@@ -133,18 +135,15 @@ def main():
               (s, seller_sees, manager_row))
 
         # --- accounting readiness --------------------------------------------------------------------
-        if company:
-            ledger = create(ACCOUNT, {"name": f"Catalog revenue {tag}", "code": f"CT{tag}", "company": {"id": company["id"]}, "commonPosition": 0})
-            create(ACCOUNT_MANAGEMENT, {"company": {"id": company["id"]}, "product": {"id": svc["id"]}, "typeSelect": 1, "saleAccount": {"id": ledger["id"]}})
-            s, body = manager.call("GET", f"{CP}/{svc.get('id')}")
-            check("with finance's revenue account for the manager's company, the service shows ready to invoice", obj(body).get("accountingReady") is True, obj(body))
-        else:
-            check("a company exists for the accounting readiness check", False, "no company")
+        ledger = create(ACCOUNT, {"name": f"Catalog revenue {tag}", "code": f"CT{tag}", "company": {"id": company["id"]}, "commonPosition": 0})
+        create(ACCOUNT_MANAGEMENT, {"company": {"id": company["id"]}, "product": {"id": svc["id"]}, "typeSelect": 1, "saleAccount": {"id": ledger["id"]}})
+        s, body = manager.call("GET", f"{CP}/{svc.get('id')}")
+        check("with finance's revenue account for the manager's company, the service shows ready to invoice", obj(body).get("accountingReady") is True, obj(body))
 
         exit_code = 0 if all(r["result"] == "PASS" for r in RESULTS) else 1
         print(f"\n{sum(r['result'] == 'PASS' for r in RESULTS)}/{len(RESULTS)} checks passed")
     finally:
-        order = {ACCOUNT_MANAGEMENT: 0, PRODUCT: 1, ACCOUNT: 2, USER: 10, GROUP: 11, PERM: 12}
+        order = {ACCOUNT_MANAGEMENT: 0, PRODUCT: 1, ACCOUNT: 2, USER: 10, GROUP: 11, PERM: 12, COMPANY: 13}
         complete, left = cleanup(admin, created, order)
         if not complete:
             print(f"FAIL cleanup left {left}")
