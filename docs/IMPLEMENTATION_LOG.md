@@ -794,3 +794,22 @@ Slice: `docs/slices/A11-quality-root-cause-evidence.md`.
 - Probe `scripts/quality_rca_probe.py` 14/14 (backend CI). `quality_probe.py` 18/18 and `content_probe.py` 15/15 unchanged.
 - Mocked UI tests `tests/quality.spec.ts` 7/7, three of them new (mocked suite 95 + 2 live skipped, demo 27).
 - G-007 registry: 1370 fields, 0 problems.
+
+## 2026-10-24 · unit tests for the A7–A11 rules
+
+- `ioeti-operations` `FieldAndQualityRulesTest` (7) covers, without a database:
+  - the visit lifecycle (a started visit cannot be cancelled; nothing leaves "finished" or "cancelled");
+  - when a visit has a checklist;
+  - answers given only on site, to answerable items, and to conditional questions only once the answer they depend on is given;
+  - quality labels, including the native defaults of the generated getters;
+  - native refusals mapped to NUMBERING_REQUIRED / SETUP_REQUIRED / NOT_CONSISTENT;
+  - internal causes attributed to the company's party record (null, so fail closed, without one), never a person;
+  - native responsible types mapped to INTERNAL / CUSTOMER / SUPPLIER.
+- `ioeti-admin` `QualitySetupRulesTest` (5) covers:
+  - set-up list paths (an unknown list answers 404);
+  - status kinds (cancelled wins over closed);
+  - detection origins (native default INTERNAL);
+  - numbering prefixes;
+  - quality numbering being per company.
+- The finance queue (A9) keeps its rules in private query helpers. They are covered by `scripts/finance_probe.py` against the real database rather than restructured for unit tests.
+- `scripts/ioeti.sh test`: 121 tests, 0 failures.
