@@ -25,6 +25,8 @@ dependencies {
 	api project(":modules:axelor-intervention")
 	// quality issues are the native axelor-quality QualityImprovement
 	api project(":modules:axelor-quality")
+	// photo and signature answers are checked like any upload (ioeti-content)
+	api project(":modules:ioeti-content")
 
 	implementation libs.swagger_jaxrs
 }

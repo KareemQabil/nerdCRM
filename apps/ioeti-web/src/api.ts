@@ -117,6 +117,11 @@ export async function wrapped<T>(path: string, options?: RequestInit): Promise<T
     throw failure;
   }
 }
+/** A protected image (e.g. a checklist photo) as a blob, through the same session and error handling. */
+export async function blob(path: string): Promise<Blob> {
+  const response = await request(path, { headers: { Accept: "image/png, image/jpeg" } });
+  return response.blob();
+}
 export async function getSession(): Promise<SessionIdentity> {
   if (DEMO_MODE) return demoStore.session();
   const response = await request("/ws/ioeti/session");

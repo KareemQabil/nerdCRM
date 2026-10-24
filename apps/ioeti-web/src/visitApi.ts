@@ -1,4 +1,4 @@
-import { ApiError, wrapped } from "./api";
+import { ApiError, blob, wrapped } from "./api";
 import { DEMO_MODE } from "./demo";
 
 /** Field visits (capability map) on the native intervention; the server checks permissions on every call. */
@@ -38,3 +38,27 @@ export const addVisitNote = (id: number, version: number, text: string) =>
   wrapped<VisitNote>(`${BASE}/${encodeURIComponent(id)}/notes`, json({ version, text, zone: zone() }));
 export const getVisitTypes = () => list<Option>(`${BASE}/types`);
 export const getVisitPeople = () => list<Option>(`${BASE}/people`);
+
+/** The visit checklist: the native survey generated from the visit type. */
+export type ChecklistChoice = { id: number; name: string; nonConforming: boolean };
+export type ChecklistItem = {
+  id: number; version: number; title: string | null; hint: string | null;
+  type: "list" | "text" | "date" | "picture" | "measure" | "checkbox" | "indication" | "signature" | "advancedMonitoring";
+  required: boolean; active: boolean; answered: boolean; answerable: boolean; unit: string | null; checkboxLabel: string | null; indicationText: string | null;
+  choices: ChecklistChoice[]; choiceId: number | null; text: string | null; date: string | null; measure: number | null; checked: boolean | null;
+  hasFile: boolean; nonConforming: boolean;
+};
+export type ChecklistSection = { id: number; title: string | null; items: ChecklistItem[] };
+export type Checklist = {
+  available: boolean; generated: boolean; generating: boolean; canAnswer: boolean; requiredOpen: number; message: string | null; sections: ChecklistSection[];
+};
+export type ChecklistAnswer = { choiceId?: number; text?: string; date?: string; measure?: number; checked?: boolean; clear?: boolean };
+export const getChecklist = (visitId: number) => wrapped<Checklist>(`${BASE}/${encodeURIComponent(visitId)}/checklist`);
+export const prepareChecklist = (visitId: number, version: number) =>
+  wrapped<Checklist>(`${BASE}/${encodeURIComponent(visitId)}/checklist/prepare`, json({ version }));
+export const answerItem = (visitId: number, item: ChecklistItem, answer: ChecklistAnswer) =>
+  wrapped<Checklist>(`${BASE}/${encodeURIComponent(visitId)}/checklist/${encodeURIComponent(item.id)}`, json({ version: item.version, ...answer }));
+export const answerItemFile = (visitId: number, item: ChecklistItem, fileName: string, contentBase64: string) =>
+  wrapped<Checklist>(`${BASE}/${encodeURIComponent(visitId)}/checklist/${encodeURIComponent(item.id)}/file`, json({ version: item.version, fileName, contentBase64 }));
+export const itemFile = (visitId: number, item: ChecklistItem) =>
+  blob(`${BASE}/${encodeURIComponent(visitId)}/checklist/${encodeURIComponent(item.id)}/file?v=${item.version}`);

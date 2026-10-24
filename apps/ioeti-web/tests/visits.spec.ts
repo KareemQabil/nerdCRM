@@ -108,9 +108,9 @@ test("field visits: grouped by when; start, pause, resume and finish on site; th
   await expect(page.getByText("60 دقيقة")).toBeVisible();
 
   await expect(page.getByText("لسه مفيش ملاحظات.")).toBeVisible();
-  await expect(page.getByRole("button", { name: "إضافة" })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "إضافة", exact: true })).toBeDisabled();
   await page.getByRole("textbox", { name: "اكتب ملاحظة…" }).fill("العميل طلب موعد التدقيق الأول في ديسمبر");
-  await page.getByRole("button", { name: "إضافة" }).click();
+  await page.getByRole("button", { name: "إضافة", exact: true }).click();
   await expect(page.locator(".visit-notes li")).toHaveCount(1);
   await expect(page.locator(".visit-notes li").first()).toContainText("العميل طلب موعد التدقيق الأول في ديسمبر");
   await expect(page.getByRole("textbox", { name: "اكتب ملاحظة…" })).toHaveValue("");

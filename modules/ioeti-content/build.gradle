@@ -22,6 +22,8 @@ dependencies {
 	api project(":modules:ioeti-commercial")
 	// engagements are native projects
 	api project(":modules:axelor-project")
+	// documents can be filed on a field visit (native intervention)
+	api project(":modules:axelor-intervention")
 
 	implementation libs.swagger_jaxrs
 }

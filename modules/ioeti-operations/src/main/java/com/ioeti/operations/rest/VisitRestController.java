@@ -6,7 +6,10 @@ import com.axelor.apps.base.db.repo.TraceBackRepository;
 import com.axelor.apps.base.service.app.AppBaseService;
 import com.axelor.apps.contract.db.Contract;
 import com.axelor.apps.crm.db.Opportunity;
+import com.axelor.apps.intervention.db.AnswerValue;
 import com.axelor.apps.intervention.db.Intervention;
+import com.axelor.apps.intervention.db.InterventionQuestion;
+import com.axelor.apps.intervention.db.InterventionRange;
 import com.axelor.apps.intervention.db.InterventionType;
 import com.axelor.auth.AuthUtils;
 import com.axelor.auth.db.User;
@@ -25,7 +28,18 @@ import com.ioeti.core.api.IoetiEndpoint;
 import com.ioeti.core.api.RecordAccess;
 import com.ioeti.core.web.OptimisticLockConflicts;
 import com.ioeti.operations.db.VisitNote;
+import com.ioeti.content.service.ContentService;
+import com.ioeti.operations.service.VisitChecklistService;
 import com.ioeti.operations.service.VisitService;
+import com.axelor.apps.intervention.service.helper.InterventionQuestionHelper;
+import com.axelor.meta.MetaFiles;
+import com.axelor.meta.db.MetaFile;
+import java.math.BigDecimal;
+import java.nio.file.Files;
+import java.time.LocalDate;
+import java.util.Base64;
+import java.util.Comparator;
+import java.util.Set;
 import io.swagger.v3.oas.annotations.Operation;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.GET;
@@ -53,6 +67,8 @@ import java.util.List;
 @Path("/ioeti/visits")
 @Produces(MediaType.APPLICATION_JSON)
 public class VisitRestController {
+
+  private static final org.slf4j.Logger LOG = org.slf4j.LoggerFactory.getLogger(VisitRestController.class);
 
   @GET
   @Operation(summary = "Visits the caller may read: mine (assigned to me) or all, optionally by status", tags = {"IOETI visits"})
@@ -125,7 +141,8 @@ public class VisitRestController {
       }
       throw e;
     }
-    return ResponseConstructor.build(Response.Status.CREATED, "Visit added", view(saved[0]));
+    prepareChecklist(saved[0]);
+    return ResponseConstructor.build(Response.Status.CREATED, "Visit added", view(reloaded(saved[0].getId())));
   }
 
   @POST
@@ -139,7 +156,10 @@ public class VisitRestController {
     User assignee = person(command.assignedToId());
     LocalDateTime start = time("start", command.start()), end = time("end", command.end());
     check(start, end, command.zone(), true);
-    return run(() -> Beans.get(VisitService.class).plan(visit, assignee, start, end), "Visit planned");
+    Intervention[] saved = new Intervention[1];
+    OptimisticLockConflicts.translate(() -> saved[0] = Beans.get(VisitService.class).plan(visit, assignee, start, end));
+    prepareChecklist(saved[0]);
+    return ResponseConstructor.build(Response.Status.OK, "Visit planned", view(reloaded(saved[0].getId())));
   }
 
   @POST
@@ -195,12 +215,202 @@ public class VisitRestController {
             .map(u -> new VisitOption(u.getId(), u.getName())).toList());
   }
 
+  // --- the checklist (native survey) --------------------------------------------------------------
+
+  @GET
+  @Path("/{id}/checklist")
+  @Operation(summary = "The visit's checklist from its type's native ranges, with answers and what is still required", tags = {"IOETI visits"})
+  @IoetiEndpoint
+  public Response checklist(@PathParam("id") Long id) {
+    Intervention visit = RecordAccess.readable(Intervention.class, id);
+    return ResponseConstructor.build(Response.Status.OK, "Checklist", checklistView(visit, null));
+  }
+
+  @POST
+  @Path("/{id}/checklist/prepare")
+  @Consumes(MediaType.APPLICATION_JSON)
+  @Operation(summary = "Generate or update the checklist from the visit type (native generator), for a planned or running visit", tags = {"IOETI visits"})
+  @IoetiEndpoint
+  public Response prepareChecklist(@PathParam("id") Long id, VisitCommand body) {
+    Intervention visit = versioned(id, body == null ? null : body.version());
+    int status = visit.getStatusSelect() == null ? VisitService.TO_PLAN : visit.getStatusSelect();
+    if (status < VisitService.PLANNED || status >= VisitService.FINISHED) {
+      throw new ApiException(422, "STATUS_NOT_ALLOWED", "The checklist is prepared for a planned or running visit.", null);
+    }
+    if (!VisitChecklistService.hasTemplate(visit)) {
+      throw new ApiException(422, "NO_CHECKLIST", "This visit type has no checklist.", null);
+    }
+    String message = Beans.get(VisitChecklistService.class).generate(visit);
+    return ResponseConstructor.build(Response.Status.OK, "Checklist", checklistView(reloaded(id), message));
+  }
+
+  @POST
+  @Path("/{id}/checklist/{questionId}")
+  @Consumes(MediaType.APPLICATION_JSON)
+  @Operation(summary = "Answer one checklist item on site (or clear the answer), with the item's version", tags = {"IOETI visits"})
+  @IoetiEndpoint
+  public Response answer(@PathParam("id") Long id, @PathParam("questionId") Long questionId, AnswerChecklistItem body) {
+    Intervention visit = RecordAccess.writable(Intervention.class, id);
+    InterventionQuestion question = question(visit, questionId, body == null ? null : body.version());
+    VisitChecklistService.checkAnswerable(visit, question);
+    VisitChecklistService service = Beans.get(VisitChecklistService.class);
+    boolean clear = Boolean.TRUE.equals(body.clear());
+    OptimisticLockConflicts.translate(() -> {
+      switch (question.getAnswerTypeSelect()) {
+        case "list" -> {
+          AnswerValue value = null;
+          if (!clear) {
+            if (body.choiceId() == null) throw ApiException.invalidField("choiceId", "REQUIRED", "Choose an answer.");
+            value = question.getAnswerValueList() == null ? null
+                : question.getAnswerValueList().stream().filter(v -> v.getId().equals(body.choiceId())).findFirst().orElse(null);
+            if (value == null) throw ApiException.invalidField("choiceId", "UNAVAILABLE", "Choose one of the item's answers.");
+          }
+          service.answerList(question, value);
+        }
+        case "text" -> service.answerText(question, clear ? null : text("text", body.text(), 4000, true));
+        case "date" -> service.answerDate(question, clear ? null : date(body.date()));
+        case "measure" -> {
+          if (!clear && body.measure() == null) throw ApiException.invalidField("measure", "REQUIRED", "Give the measured value.");
+          service.answerMeasure(question, clear ? null : body.measure());
+        }
+        case "checkbox" -> {
+          if (!clear && body.checked() == null) throw ApiException.invalidField("checked", "REQUIRED", "Tick or untick the item.");
+          service.answerCheckbox(question, clear ? null : body.checked());
+        }
+        default -> {
+          // photos and signatures are uploaded as files; here they can only be cleared
+          if (!clear) throw ApiException.invalidField("content", "REQUIRED", "Upload the photo or signature as a file.");
+          service.answerFile(question, null, null);
+        }
+      }
+    });
+    return ResponseConstructor.build(Response.Status.OK, "Answered", checklistView(JPA.find(Intervention.class, id), null));
+  }
+
+  @POST
+  @Path("/{id}/checklist/{questionId}/file")
+  @Consumes(MediaType.APPLICATION_JSON)
+  @Operation(summary = "Answer a photo or signature item with a PNG or JPEG image (checked like any upload)", tags = {"IOETI visits"})
+  @IoetiEndpoint
+  public Response answerFile(@PathParam("id") Long id, @PathParam("questionId") Long questionId, UploadChecklistFile body) {
+    Intervention visit = RecordAccess.writable(Intervention.class, id);
+    InterventionQuestion question = question(visit, questionId, body == null ? null : body.version());
+    VisitChecklistService.checkAnswerable(visit, question);
+    if (!Set.of("picture", "signature").contains(question.getAnswerTypeSelect())) {
+      throw new ApiException(422, "NOT_A_FILE_ITEM", "This item is not answered with a photo or a signature.", null);
+    }
+    if (body.contentBase64() == null || body.contentBase64().isBlank()) throw ApiException.invalidField("content", "REQUIRED", "The image is empty.");
+    if (body.contentBase64().length() > (ContentService.MAX_BYTES / 3 + 1) * 4 + 8) {
+      throw ApiException.invalidField("content", "TOO_LARGE", "Images can be at most 10 MiB.");
+    }
+    byte[] bytes;
+    try { bytes = Base64.getDecoder().decode(body.contentBase64().strip()); }
+    catch (IllegalArgumentException e) { throw ApiException.invalidField("content", "FORMAT", "The image is not valid base64."); }
+    ContentService.Upload upload = ContentService.check(body.fileName(), bytes);
+    if (!Set.of("png", "jpg", "jpeg").contains(upload.extension())) {
+      throw ApiException.invalidField("fileName", "TYPE_NOT_ALLOWED", "Use a PNG or JPEG image.");
+    }
+    OptimisticLockConflicts.translate(() -> Beans.get(VisitChecklistService.class).answerFile(question, upload.fileName(), upload.bytes()));
+    return ResponseConstructor.build(Response.Status.OK, "Answered", checklistView(JPA.find(Intervention.class, id), null));
+  }
+
+  @GET
+  @Path("/{id}/checklist/{questionId}/file")
+  @Produces({"image/png", "image/jpeg"})
+  @Operation(summary = "The photo or signature given for a checklist item", tags = {"IOETI visits"})
+  @IoetiEndpoint
+  public Response answerFileContent(@PathParam("id") Long id, @PathParam("questionId") Long questionId) {
+    Intervention visit = RecordAccess.readable(Intervention.class, id);
+    InterventionQuestion question = question(visit, questionId, null);
+    MetaFile file = "signature".equals(question.getAnswerTypeSelect()) ? question.getSignatureAnswer() : question.getPictureAnswer();
+    if (file == null) throw ApiException.notFound();
+    java.nio.file.Path path = MetaFiles.getPath(file);
+    if (path == null || !Files.isRegularFile(path)) throw new ApiException(410, "FILE_MISSING", "The stored image is missing.", null);
+    String type = "image/png".equals(file.getFileType()) ? "image/png" : "image/jpeg";
+    return Response.ok(path.toFile(), type)
+        .header("Content-Disposition", "inline")
+        .header("X-Content-Type-Options", "nosniff")
+        .header("Cache-Control", "private, no-store")
+        .header("Content-Security-Policy", "default-src 'none'; sandbox")
+        .build();
+  }
+
   // --- helpers -------------------------------------------------------------------------------------
 
   private Response run(java.util.function.Supplier<Intervention> action, String message) {
     Intervention[] saved = new Intervention[1];
     OptimisticLockConflicts.translate(() -> saved[0] = action.get());
     return ResponseConstructor.build(Response.Status.OK, message, view(saved[0]));
+  }
+
+  /**
+   * Generates the checklist once a visit with a checklist is planned, as native planning does. The visit is
+   * already saved: a generation failure is logged and the checklist can be prepared later from the visit.
+   */
+  private static void prepareChecklist(Intervention visit) {
+    int status = visit.getStatusSelect() == null ? VisitService.TO_PLAN : visit.getStatusSelect();
+    if (status >= VisitService.PLANNED && status < VisitService.FINISHED && VisitChecklistService.hasTemplate(visit)) {
+      try {
+        Beans.get(VisitChecklistService.class).generate(visit);
+      } catch (RuntimeException e) {
+        LOG.warn("Checklist generation failed for visit {}; it can be prepared from the visit", visit.getId(), e);
+      }
+    }
+  }
+
+  /** The visit as stored now: the native checklist generator changes it from another thread. */
+  private static Intervention reloaded(Long id) {
+    Intervention visit = JPA.find(Intervention.class, id);
+    JPA.em().refresh(visit);
+    return visit;
+  }
+
+  private static InterventionQuestion question(Intervention visit, Long questionId, Integer version) {
+    InterventionQuestion question = questionId == null ? null : Query.of(InterventionQuestion.class)
+        .filter("self.id = ?1 AND self.interventionRange.intervention = ?2", questionId, visit).fetchOne();
+    if (question == null) throw ApiException.notFound();
+    if (version != null) ConflictChecker.checkVersion(question, version);
+    return question;
+  }
+
+  private static LocalDate date(String value) {
+    if (value == null || value.isBlank()) throw ApiException.invalidField("date", "REQUIRED", "Give the date.");
+    try { return LocalDate.parse(value.strip()); }
+    catch (DateTimeParseException e) { throw ApiException.invalidField("date", "FORMAT", "Use a date like 2026-11-01."); }
+  }
+
+  static ChecklistView checklistView(Intervention visit, String message) {
+    boolean template = VisitChecklistService.hasTemplate(visit);
+    List<InterventionRange> ranges = Query.of(InterventionRange.class).filter("self.intervention = ?1", visit).order("orderSeq").order("id").fetch(200);
+    int status = visit.getStatusSelect() == null ? VisitService.TO_PLAN : visit.getStatusSelect();
+    boolean canAnswer = (status == VisitService.STARTED || status == VisitService.SUSPENDED)
+        && Beans.get(JpaSecurity.class).isPermitted(JpaSecurity.CAN_WRITE, Intervention.class, visit.getId());
+    long requiredOpen = 0;
+    List<ChecklistSectionView> sections = new ArrayList<>();
+    for (InterventionRange range : ranges) {
+      List<InterventionQuestion> questions = range.getInterventionQuestionList() == null ? List.of()
+          : range.getInterventionQuestionList().stream().sorted(Comparator.comparing((InterventionQuestion q) -> q.getOrderSeq() == null ? 0L : q.getOrderSeq())
+              .thenComparing(InterventionQuestion::getId)).toList();
+      List<ChecklistItemView> items = new ArrayList<>();
+      for (InterventionQuestion q : questions) {
+        boolean active = InterventionQuestionHelper.isActive(q);
+        boolean answered = Boolean.TRUE.equals(q.getIsAnswered());
+        boolean required = Boolean.TRUE.equals(q.getIsRequired());
+        if (required && !answered) requiredOpen++;
+        List<ChecklistChoice> choices = q.getAnswerValueList() == null ? List.of()
+            : q.getAnswerValueList().stream().sorted(Comparator.comparing((AnswerValue v) -> v.getSequence() == null ? 0 : v.getSequence()).thenComparing(AnswerValue::getId))
+                .map(v -> new ChecklistChoice(v.getId(), v.getName(), Boolean.TRUE.equals(v.getNonConforming()))).toList();
+        AnswerValue chosen = q.getListAnswer();
+        MetaFile file = "signature".equals(q.getAnswerTypeSelect()) ? q.getSignatureAnswer() : q.getPictureAnswer();
+        items.add(new ChecklistItemView(q.getId(), q.getVersion(), q.getTitle(), q.getIndication(), q.getAnswerTypeSelect(), required, active, answered,
+            VisitChecklistService.ANSWERABLE.contains(q.getAnswerTypeSelect()), q.getDesiredUnit() == null ? null : q.getDesiredUnit().getName(),
+            q.getCheckboxName(), q.getIndicationText(), choices, chosen == null ? null : chosen.getId(), q.getTextAnswer(), q.getDateAnswer(),
+            q.getMeasureAnswer(), q.getCheckboxAnswer(), file != null, chosen != null && Boolean.TRUE.equals(chosen.getNonConforming())));
+      }
+      sections.add(new ChecklistSectionView(range.getId(), range.getRangeVal() == null ? range.getName() : range.getRangeVal().getTitle(), items));
+    }
+    return new ChecklistView(template, !ranges.isEmpty(), Boolean.TRUE.equals(visit.getIsSurveyGenerationRunning()), canAnswer, requiredOpen,
+        message, sections);
   }
 
   /** The category of a native error raised while saving (the native repository wraps it), if any. */
@@ -294,4 +504,21 @@ public class VisitRestController {
   public record VisitDetail(VisitView visit, List<VisitNoteView> log) {}
 
   public record VisitOption(Long id, String name) {}
+
+  public record AnswerChecklistItem(Integer version, Long choiceId, String text, String date, BigDecimal measure, Boolean checked, Boolean clear) {}
+
+  public record UploadChecklistFile(Integer version, String fileName, String contentBase64) {}
+
+  /** The visit's checklist: available = the visit type has one; requiredOpen counts required items not answered. */
+  public record ChecklistView(boolean available, boolean generated, boolean generating, boolean canAnswer, long requiredOpen, String message,
+      List<ChecklistSectionView> sections) {}
+
+  public record ChecklistSectionView(Long id, String title, List<ChecklistItemView> items) {}
+
+  /** One checklist item; type is the native answer type; nonConforming marks an answer the company flagged as such. */
+  public record ChecklistItemView(Long id, Integer version, String title, String hint, String type, boolean required, boolean active,
+      boolean answered, boolean answerable, String unit, String checkboxLabel, String indicationText, List<ChecklistChoice> choices,
+      Long choiceId, String text, LocalDate date, BigDecimal measure, Boolean checked, boolean hasFile, boolean nonConforming) {}
+
+  public record ChecklistChoice(Long id, String name, boolean nonConforming) {}
 }
