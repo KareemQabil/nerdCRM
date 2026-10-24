@@ -727,3 +727,17 @@ Slice: `docs/slices/A8-quality-corrective-actions.md`.
   - the system map shows quality as live (D-10 holds telling a client or supplier).
 - Probe `scripts/quality_probe.py` 18/18 (backend CI); mocked UI tests `tests/quality.spec.ts` 4/4. The live system-map test now uses invoicing as the partly live example.
 - G-007 registry: 1249 fields, 0 problems.
+
+## 2026-10-24 · A9 · finance's invoicing queue (within D-06)
+
+Slice: `docs/slices/A9-finance-invoicing-queue.md`.
+
+- `ioeti-workspace`: `FinanceRestController` at `/ws/ioeti/finance`.
+  - The queue of invoice requests.
+  - Milestones of confirmed orders coming due that are neither invoiced nor requested.
+  - Booked / requested / invoiced / collected per currency from real records, in the caller's read scope (a stage that may not be read is null, never zero).
+  - Issuing stays `BLOCKED_BY_POLICY` (D-06); nothing records a payment as received.
+- UI: the Invoices & collection page (the held-policy note, figures, the queue with issue/cancel, milestones coming due with "request invoicing"). The system map links to it and keeps the domain partly live.
+- Probe `scripts/finance_probe.py` 7/7 (backend CI). Orders are confirmed by SQL in the disposable database as a test-only stand-in, as in the workspace probe.
+- Mocked UI tests `tests/finance.spec.ts` 2/2 (mocked suite 90 + 2 live skipped, demo 27).
+- G-007 registry: 1288 fields, 0 problems.
