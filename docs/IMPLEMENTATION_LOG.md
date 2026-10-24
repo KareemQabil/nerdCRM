@@ -659,3 +659,19 @@ Slice: `docs/slices/A3-reference-lists.md`.
 - UI: the admin console's Lists tab, with inline add and rename, guarded delete, and drag reordering (`@dnd-kit` 6.3.1 / sortable 10.0.0, keyboard and touch, localized announcements).
 - Probe `scripts/reference_lists_probe.py` 15/15 (backend CI). The neighbouring probes still pass: daily work 44/44, admin 43/43, contract 31/31. Mocked UI tests `tests/lists.spec.ts` 2/2.
 - G-007 registry: 1042 fields, 0 problems.
+
+## 2026-10-24 · A4 · the service catalogue · A5 · the live system map
+
+Slices: `docs/slices/A4-service-catalogue.md`, `docs/slices/A5-live-system-map.md`.
+
+- `ioeti-commercial`: `CatalogService` and the catalogue endpoints.
+  - Add and change services with their version, under the native product permissions.
+  - Units and categories.
+  - Accounting readiness from finance's set-up; no tax is set or guessed (D-06).
+- UI:
+  - the Service catalogue page (price-tag cards, filters, add/edit dialogs);
+  - in live mode, the system map replaces the schematic capability map: real status, decisions, live access check and links;
+  - the top bar no longer overflows on phones in English.
+- Probes: `scripts/catalog_probe.py` 7/7 (backend CI); `quote_probe.py` 50/50. `probe_fixtures` clean-up also removes files a test user generated.
+- Tests: `tests/catalog.spec.ts` 3/3 and 2 system-map tests (mocked suite 78); the 3 schematic journey tests moved to the demo suite (27).
+- G-007 registry: 1072 fields, 0 problems.

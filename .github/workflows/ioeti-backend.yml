@@ -134,6 +134,9 @@ jobs:
           # Reference lists from the admin console: lost reasons, lead sources, opportunity stages (values in use
           # are renamed, never deleted; core stages protected; drag order shared with sellers)
           python3 scripts/reference_lists_probe.py
+          # The service catalogue from the platform: managers add and change services (native product rights),
+          # sellers see what is on sale; no tax invented, accounting readiness shown from finance's set-up
+          python3 scripts/catalog_probe.py
           # Release scenarios: one ISO client from intake to certification across every team (exact figures,
           # notices, permission removed mid-session, backup restored mid-scenario); training, recruitment
           # and fundraising under concurrent load; 5000 leads and 1000 opportunities with 20 concurrent users
@@ -185,6 +188,7 @@ jobs:
             logs/admin-probe.json
             logs/daily-work-probe.json
             logs/reference-lists-probe.json
+            logs/catalog-probe.json
           if-no-files-found: ignore
       - name: Attach Axelor integration logs
         if: failure()

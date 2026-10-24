@@ -1351,10 +1351,17 @@ select, input, textarea { font-size: 14px; }
 .cockpit-tile-go { top: auto; bottom: 14px; }
 .list-toolbar { justify-content: flex-start; gap: 10px; }
 .list-toolbar .search-field { max-width: 560px; }
+/* the page name gives way to the actions on narrow screens instead of pushing them off the edge */
+.top-start { min-width: 0; flex: 1 1 auto; }
+.top-actions { flex: 0 0 auto; }
+.breadcrumb { min-width: 0; }
+.breadcrumb strong { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 @media (max-width: 760px) {
   .account-name, .server-status { display: none; }
   .account-chip { padding: 2px; border: 0; background: transparent; }
   .top-actions { gap: 8px; }
+  .top-start { gap: 10px; }
+  .top-divider, .breadcrumb > span:first-child, .breadcrumb > .crumb-separator { display: none; }
   .top-bar { padding-inline: 12px; }
   .page-head-actions { margin-bottom: 16px; }
 }

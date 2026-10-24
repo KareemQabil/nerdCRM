@@ -4,7 +4,7 @@ import {
   Check, CircleAlert, CircleHelp, Crown, GraduationCap,
   HeartHandshake, House, Layers3, LockKeyhole, LogOut, Menu,
   Moon, Palette, RefreshCw, Search, Settings2,
-  ShieldCheck, Sun, Workflow, UsersRound, X, ClipboardList, BookOpen, Bell, BarChart3, CalendarDays,
+  ShieldCheck, Sun, Workflow, UsersRound, X, ClipboardList, BookOpen, Bell, BarChart3, CalendarDays, Tag,
 } from "lucide-react";
 import { ApiError, PASSWORD_CHANGE_REQUIRED, getBusinessLines, getSession, signIn, signOut, type BusinessLine, type SessionIdentity } from "./api";
 import { OpportunitiesPage } from "./OpportunitiesPage";
@@ -22,6 +22,8 @@ import { HomeCockpit } from "./HomeCockpit";
 import { SettingsPage } from "./SettingsPage";
 import { AdminConsole } from "./AdminConsole";
 import { AgendaPage } from "./AgendaPage";
+import { CatalogPage } from "./CatalogPage";
+import { SystemMap } from "./SystemMap";
 import { CommandPalette } from "./CommandPalette";
 import { getUnreadCount } from "./automationApi";
 import { DEMO_MODE } from "./demo";
@@ -31,7 +33,7 @@ const DemoExecutiveOverview = lazy(() => import("./DemoExecutiveOverview"));
 import { t } from "./labels";
 import { usePreferences, type Theme } from "./preferences";
 
-type Page = "home" | "agenda" | "admin" | "businessLines" | "opportunities" | "leads" | "accounts" | "capabilities" | "design" | "demo" | "certification" | "training" | "recruitment" | "fundraising" | "operations" | "knowledge" | "inbox" | "reports" | "settings";
+type Page = "home" | "agenda" | "catalog" | "admin" | "businessLines" | "opportunities" | "leads" | "accounts" | "capabilities" | "design" | "demo" | "certification" | "training" | "recruitment" | "fundraising" | "operations" | "knowledge" | "inbox" | "reports" | "settings";
 type Session = "checking" | "login" | "authenticated";
 type LineFilter = "all" | "active" | "setup" | "suspended";
 type IconType = typeof House;
@@ -40,7 +42,7 @@ function getPageFromDemoArea(area: DemoArea): Page {
     : area === "recruiting" ? "recruitment" : area === "fundraising" ? "fundraising" : "demo";
 }
 
-const allPages: Page[] = ["home","agenda","admin","businessLines","opportunities","leads","accounts","capabilities","design","demo","certification","training","recruitment","fundraising","operations","knowledge","inbox","reports","settings"];
+const allPages: Page[] = ["home","agenda","catalog","admin","businessLines","opportunities","leads","accounts","capabilities","design","demo","certification","training","recruitment","fundraising","operations","knowledge","inbox","reports","settings"];
 function getPageFromLocation(): Page {
   const segment = window.location.hash.match(/^#\/([^/]+)/)?.[1];
   if (!DEMO_MODE && segment === "demo") return "home";
@@ -238,6 +240,7 @@ export function App() {
       { id: "leads", label: labels.leads, icon: UsersRound },
       { id: "accounts", label: labels.accountDirectory, icon: Building2 },
       { id: "opportunities", label: labels.opportunities, icon: Activity },
+      ...(DEMO_MODE ? [] : [{ id: "catalog", label: isRTL ? "كتالوج الخدمات" : "Service catalogue", icon: Tag }]),
     ] },
     { id: "delivery", label: labels.delivery, items: [
       // real mode only: the demo keeps its own projects area
@@ -288,7 +291,7 @@ export function App() {
       <header className="top-bar">
         <div className="top-start">
           <IconButton className="mobile-menu" label={labels.navigation} onClick={() => setMobileNav(true)}><Menu size={19}/></IconButton>
-          <div className="breadcrumb"><span>{labels.workspace}</span><span className="crumb-separator">/</span><strong>{page === "home" ? labels.home : page === "agenda" ? (isRTL ? "أجندتي" : "My agenda") : page === "admin" ? (isRTL ? "لوحة الإدارة" : "Admin console") : page === "businessLines" ? labels.businessLines : page === "opportunities" ? labels.opportunities : page === "leads" ? labels.leads : page === "accounts" ? labels.accountDirectory : page === "capabilities" ? labels.capabilityMap : page === "training" && !DEMO_MODE ? labels.training : page === "certification" && !DEMO_MODE ? labels.certification : page === "recruitment" && !DEMO_MODE ? labels.recruitment : page === "fundraising" && !DEMO_MODE ? labels.fundraising : page === "operations" && !DEMO_MODE ? labels.operations : page === "knowledge" && !DEMO_MODE ? labels.knowledge : page === "inbox" && !DEMO_MODE ? labels.inbox : page === "reports" && !DEMO_MODE ? labels.reports : page === "settings" && !DEMO_MODE ? labels.settings : activeDemoArea ? (isRTL ? {quotes:"عروض الأسعار",catalog:"كتالوج الخدمات",contracts:"العقود",finance:"المالية",projects:"المشروعات",visits:"الزيارات",quality:"الجودة",marketing:"التسويق",learning:"التدريب",recruiting:"التوظيف",certification:"الشهادات",fundraising:"التمويل",documents:"المستندات",automations:"الأتمتة",reports:"التقارير",admin:"الإعدادات"}[activeDemoArea] : {quotes:"Quotations",catalog:"Service catalog",contracts:"Contracts",finance:"Finance",projects:"Projects",visits:"Visits",quality:"Quality",marketing:"Marketing",learning:"Training",recruiting:"Recruitment",certification:"Certification",fundraising:"Fundraising",documents:"Documents",automations:"Automations",reports:"Reports",admin:"Settings"}[activeDemoArea]) : labels.design}</strong></div>
+          <div className="breadcrumb"><span>{labels.workspace}</span><span className="crumb-separator">/</span><strong>{page === "home" ? labels.home : page === "agenda" ? (isRTL ? "أجندتي" : "My agenda") : page === "catalog" ? (isRTL ? "كتالوج الخدمات" : "Service catalogue") : page === "admin" ? (isRTL ? "لوحة الإدارة" : "Admin console") : page === "businessLines" ? labels.businessLines : page === "opportunities" ? labels.opportunities : page === "leads" ? labels.leads : page === "accounts" ? labels.accountDirectory : page === "capabilities" ? labels.capabilityMap : page === "training" && !DEMO_MODE ? labels.training : page === "certification" && !DEMO_MODE ? labels.certification : page === "recruitment" && !DEMO_MODE ? labels.recruitment : page === "fundraising" && !DEMO_MODE ? labels.fundraising : page === "operations" && !DEMO_MODE ? labels.operations : page === "knowledge" && !DEMO_MODE ? labels.knowledge : page === "inbox" && !DEMO_MODE ? labels.inbox : page === "reports" && !DEMO_MODE ? labels.reports : page === "settings" && !DEMO_MODE ? labels.settings : activeDemoArea ? (isRTL ? {quotes:"عروض الأسعار",catalog:"كتالوج الخدمات",contracts:"العقود",finance:"المالية",projects:"المشروعات",visits:"الزيارات",quality:"الجودة",marketing:"التسويق",learning:"التدريب",recruiting:"التوظيف",certification:"الشهادات",fundraising:"التمويل",documents:"المستندات",automations:"الأتمتة",reports:"التقارير",admin:"الإعدادات"}[activeDemoArea] : {quotes:"Quotations",catalog:"Service catalog",contracts:"Contracts",finance:"Finance",projects:"Projects",visits:"Visits",quality:"Quality",marketing:"Marketing",learning:"Training",recruiting:"Recruitment",certification:"Certification",fundraising:"Fundraising",documents:"Documents",automations:"Automations",reports:"Reports",admin:"Settings"}[activeDemoArea]) : labels.design}</strong></div>
         </div>
         <div className="top-actions">
           {!DEMO_MODE && <button type="button" className="palette-trigger" onClick={() => setPalette(true)} aria-label={isRTL ? "بحث سريع" : "Quick search"}>
@@ -326,8 +329,10 @@ export function App() {
         {page === "reports" && !DEMO_MODE && <ReportsPage language={prefs.language} />}
         {page === "settings" && !DEMO_MODE && <SettingsPage language={prefs.language} />}
         {page === "agenda" && !DEMO_MODE && <AgendaPage language={prefs.language} />}
+        {page === "catalog" && !DEMO_MODE && <CatalogPage language={prefs.language} />}
         {page === "admin" && !DEMO_MODE && <AdminConsole language={prefs.language} routeHash={routeHash} myCode={identity?.code || null} />}
-        {page === "capabilities" && <NativeModules language={prefs.language} onOpen={navigate} onOpenDemo={navigateDemo} />}
+        {page === "capabilities" && !DEMO_MODE && <SystemMap language={prefs.language} />}
+        {page === "capabilities" && DEMO_MODE && <NativeModules language={prefs.language} onOpen={navigate} onOpenDemo={navigateDemo} />}
         {page === "businessLines" && !selected && <section className="page-enter">
           <PageTitle eyebrow={labels.workspace} title={labels.businessLines} description={labels.description} />
           <div className="list-toolbar"><label className="search-field"><Search size={18}/><span className="sr-only">{labels.search}</span><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder={labels.search}/>{search && <button type="button" aria-label={labels.back} onClick={() => setSearch("")}><X size={16}/></button>}</label>
