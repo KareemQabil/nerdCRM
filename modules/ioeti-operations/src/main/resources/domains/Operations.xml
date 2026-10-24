@@ -89,4 +89,25 @@
     <datetime name="writtenAt" title="Written at" required="true"/>
   </entity>
 
+  <!-- Quality and corrective actions (capability map): the issue itself is the native QualityImprovement
+       (axelor-quality). Its actions are kept here because the native QITask needs a contact card as the
+       responsible and a defect set; IOETI assigns an action to a person on the platform with a due date. -->
+  <entity name="CorrectiveAction" table="ioeti_ops_corrective_action">
+    <many-to-one name="improvement" ref="com.axelor.apps.quality.db.QualityImprovement" title="Quality issue" required="true"/>
+    <string name="title" title="Action" required="true" max="300"/>
+    <many-to-one name="owner" ref="com.axelor.auth.db.User" title="Owner" required="true"/>
+    <date name="dueDate" title="Due date"/>
+    <many-to-one name="actionType" ref="com.axelor.apps.quality.db.QIAction" title="Action type"/>
+    <integer name="statusSelect" title="Status" required="true"/>
+    <many-to-one name="createdByUser" ref="com.axelor.auth.db.User" title="Added by"/>
+    <datetime name="doneAt" title="Done at"/>
+    <string name="doneNote" title="What was done" large="true"/>
+
+    <extra-code><![CDATA[
+      public static final int STATUS_OPEN = 1;
+      public static final int STATUS_DONE = 2;
+      public static final int STATUS_CANCELLED = 3;
+    ]]></extra-code>
+  </entity>
+
 </domain-models>

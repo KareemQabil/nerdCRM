@@ -347,7 +347,7 @@ test("live mode shows the system map: real status per domain, decisions that hol
   await expect(visits.locator(".system-map-status")).toHaveText("شغال");
   await expect(visits.locator(".system-map-decision")).toHaveText("D-10");
   await expect(visits.getByRole("link",{name:/افتح/})).toHaveAttribute("href","#/visits");
-  await expect(page.locator(".system-map-card").filter({hasText:"الجودة والإجراءات التصحيحية"}).locator(".system-map-status")).toHaveText("شغال جزئيًا");
+  await expect(page.locator(".system-map-card").filter({hasText:"الفواتير والتحصيل"}).locator(".system-map-status")).toHaveText("شغال جزئيًا");
   const cert=page.locator(".system-map-card").filter({hasText:"إدارة شهادات ISO"});
   await expect(cert).toContainText("شغال");
   await expect(cert.locator(".system-map-decision")).toHaveText("D-02");

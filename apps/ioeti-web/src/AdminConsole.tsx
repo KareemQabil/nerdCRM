@@ -12,16 +12,17 @@ import {
 import { ChipPicker, Dialog, copyText } from "./Dialog";
 import { AdminLists } from "./AdminLists";
 import { AdminNumbering } from "./AdminNumbering";
+import { AdminQuality } from "./AdminQuality";
 import "./admin.css";
 
 type Language = "ar" | "en";
-type Tab = "people" | "teams" | "lines" | "lists" | "numbering" | "profiles" | "changes";
-const TABS: Tab[] = ["people", "teams", "lines", "lists", "numbering", "profiles", "changes"];
+type Tab = "people" | "teams" | "lines" | "lists" | "quality" | "numbering" | "profiles" | "changes";
+const TABS: Tab[] = ["people", "teams", "lines", "lists", "quality", "numbering", "profiles", "changes"];
 
 const L = {
   ar: {
     area: "الإدارة", title: "لوحة الإدارة", hint: "الأشخاص، والوصول، والفرق، وخطوط الأعمال، وسجل كل تغيير. كل حاجة هنا بتتعمل من المنصة وبتتسجل.",
-    tabs: { people: "الأشخاص", teams: "الفرق", lines: "خطوط الأعمال", lists: "القوائم", numbering: "الترقيم", profiles: "ملفات الصلاحيات", changes: "سجل التغييرات" },
+    tabs: { people: "الأشخاص", teams: "الفرق", lines: "خطوط الأعمال", lists: "القوائم", quality: "إعداد الجودة", numbering: "الترقيم", profiles: "ملفات الصلاحيات", changes: "سجل التغييرات" },
     addPerson: "إضافة شخص", addTeam: "إضافة فريق", addLine: "إضافة خط أعمال", search: "ابحث بالاسم أو اسم الدخول",
     all: "الكل", active: "نشط", inactive: "موقوف", allLines: "كل الخطوط", person: "الشخص", login: "اسم الدخول", profile: "ملف الصلاحيات",
     lines: "خطوط الأعمال", teams: "الفرق", status: "الحالة", open: "فتح", mustChange: "سيغيّر كلمة المرور", admin: "مسؤول نظام",
@@ -56,11 +57,15 @@ const L = {
       SOURCE_ADDED: "إضافة مصدر", SOURCE_RENAMED: "تسمية مصدر", SOURCE_DELETED: "حذف مصدر",
       OPPORTUNITY_STAGE_ADDED: "إضافة مرحلة", OPPORTUNITY_STAGE_RENAMED: "تسمية مرحلة", OPPORTUNITY_STAGE_DELETED: "حذف مرحلة",
       OPPORTUNITY_STAGE_ORDERED: "ترتيب المراحل", NUMBERING_SET: "ضبط الترقيم", CAMPAIGN_TYPE_ADDED: "إضافة نوع حملة", CAMPAIGN_TYPE_RENAMED: "تسمية نوع حملة", CAMPAIGN_TYPE_DELETED: "حذف نوع حملة",
+      QI_STATUS_ADDED: "إضافة حالة جودة", QI_STATUS_CHANGED: "تعديل حالة جودة", QI_STATUS_DELETED: "حذف حالة جودة",
+      QI_DETECTION_ADDED: "إضافة مصدر اكتشاف", QI_DETECTION_CHANGED: "تعديل مصدر اكتشاف", QI_DETECTION_DELETED: "حذف مصدر اكتشاف",
+      QI_ISSUE_TYPE_ADDED: "إضافة نوع مشكلة", QI_ISSUE_TYPE_CHANGED: "تعديل نوع مشكلة", QI_ISSUE_TYPE_DELETED: "حذف نوع مشكلة",
+      QI_ACTION_TYPE_ADDED: "إضافة نوع إجراء", QI_ACTION_TYPE_CHANGED: "تعديل نوع إجراء", QI_ACTION_TYPE_DELETED: "حذف نوع إجراء",
     } as Record<string, string>,
   },
   en: {
     area: "Administration", title: "Admin console", hint: "People, access, teams, business lines and a record of every change, all from the platform.",
-    tabs: { people: "People", teams: "Teams", lines: "Business lines", lists: "Lists", numbering: "Numbering", profiles: "Access profiles", changes: "Change log" },
+    tabs: { people: "People", teams: "Teams", lines: "Business lines", lists: "Lists", quality: "Quality set-up", numbering: "Numbering", profiles: "Access profiles", changes: "Change log" },
     addPerson: "Add person", addTeam: "Add team", addLine: "Add business line", search: "Search by name or sign-in name",
     all: "All", active: "Active", inactive: "Deactivated", allLines: "All lines", person: "Person", login: "Sign-in name", profile: "Access profile",
     lines: "Business lines", teams: "Teams", status: "Status", open: "Open", mustChange: "Will change password", admin: "Administrator",
@@ -95,6 +100,10 @@ const L = {
       SOURCE_ADDED: "Source added", SOURCE_RENAMED: "Source renamed", SOURCE_DELETED: "Source deleted",
       OPPORTUNITY_STAGE_ADDED: "Stage added", OPPORTUNITY_STAGE_RENAMED: "Stage renamed", OPPORTUNITY_STAGE_DELETED: "Stage deleted",
       OPPORTUNITY_STAGE_ORDERED: "Stages reordered", NUMBERING_SET: "Numbering set", CAMPAIGN_TYPE_ADDED: "Campaign type added", CAMPAIGN_TYPE_RENAMED: "Campaign type renamed", CAMPAIGN_TYPE_DELETED: "Campaign type deleted",
+      QI_STATUS_ADDED: "Quality status added", QI_STATUS_CHANGED: "Quality status changed", QI_STATUS_DELETED: "Quality status deleted",
+      QI_DETECTION_ADDED: "Detection source added", QI_DETECTION_CHANGED: "Detection source changed", QI_DETECTION_DELETED: "Detection source deleted",
+      QI_ISSUE_TYPE_ADDED: "Issue type added", QI_ISSUE_TYPE_CHANGED: "Issue type changed", QI_ISSUE_TYPE_DELETED: "Issue type deleted",
+      QI_ACTION_TYPE_ADDED: "Action type added", QI_ACTION_TYPE_CHANGED: "Action type changed", QI_ACTION_TYPE_DELETED: "Action type deleted",
     } as Record<string, string>,
   },
 };
@@ -202,6 +211,7 @@ export function AdminConsole({ language, routeHash, myCode }: { language: Langua
     {tab === "teams" && <TeamsTab l={l} people={people} teams={teams} onChanged={() => void loadShared()}/>}
     {tab === "lines" && <LinesTab l={l} ar={ar} lines={lines} teams={teams} people={people} onChanged={() => void loadShared()}/>}
     {tab === "lists" && <AdminLists language={language}/>}
+    {tab === "quality" && <AdminQuality language={language}/>}
     {tab === "numbering" && <AdminNumbering language={language}/>}
     {tab === "profiles" && <ProfilesTab l={l} ar={ar} profiles={profiles}/>}
     {tab === "changes" && <ChangesTab l={l} ar={ar}/>}

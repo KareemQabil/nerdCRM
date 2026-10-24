@@ -1,5 +1,6 @@
 package com.ioeti.admin.service;
 
+import com.axelor.apps.base.db.Company;
 import com.axelor.apps.base.db.Sequence;
 import com.axelor.apps.base.db.SequenceLettersTypeSelect;
 import com.axelor.apps.base.db.SequenceTypeSelect;
@@ -16,6 +17,7 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import java.util.regex.Pattern;
 
 /**
@@ -30,6 +32,11 @@ public class Numbering {
     {"partner", "Accounts"}, {"opportunity", "Opportunities"}, {"saleOrder", "Quotations"}, {"customerContract", "Contracts"},
     {"project", "Engagements"}, {"intervention", "Field visits"}, {"qualityImprovement", "Quality improvements"},
   };
+  /**
+   * Record types whose native numbering is looked up for the record's company only (no shared fallback):
+   * their numbering is set up for the company the administrator works in.
+   */
+  static final Set<String> PER_COMPANY = Set.of("qualityImprovement");
   static final Pattern PREFIX = Pattern.compile("[A-Za-z0-9][A-Za-z0-9_/%-]{0,11}");
 
   public record Entry(String code, String name, boolean configured, Long sequenceId, Integer version, String prefix, Integer padding,
@@ -55,14 +62,18 @@ public class Numbering {
     List<String> changes = new ArrayList<>();
     if (sequence == null) {
       sequence = new Sequence();
+      if (PER_COMPANY.contains(code)) {
+        Company company = company();
+        if (company == null) throw new ApiException(422, "COMPANY_REQUIRED", "Choose your active company first; this numbering belongs to a company.", null);
+        sequence.setCompany(company);
+      }
       sequence.setCodeSelect(code);
       sequence.setName(name);
       sequence.setSequenceTypeSelect(SequenceTypeSelect.NUMBERS);
       sequence.setSequenceLettersTypeSelect(SequenceLettersTypeSelect.UPPERCASE);
       sequence.setToBeAdded(1);
       SequenceVersion first = new SequenceVersion();
-      User me = AuthUtils.getUser();
-      LocalDate today = Beans.get(AppBaseService.class).getTodayDate(me == null ? null : me.getActiveCompany());
+      LocalDate today = Beans.get(AppBaseService.class).getTodayDate(company());
       first.setStartDate(today.withDayOfYear(1));
       first.setNextNum(1L);
       sequence.addSequenceVersionListItem(first);
@@ -85,14 +96,27 @@ public class Numbering {
     throw ApiException.notFound();
   }
 
-  /** The sequence used for new records: the caller's company's own, else the shared one. */
+  /**
+   * The sequence used for new records: the company's own, else the shared one; for per-company record
+   * types only the company's own, as the native lookup does.
+   */
   private static Sequence current(String code) {
-    User me = AuthUtils.getUser();
-    if (me != null && me.getActiveCompany() != null) {
-      Sequence own = Query.of(Sequence.class).filter("self.codeSelect = ?1 AND self.company = ?2", code, me.getActiveCompany()).fetchOne();
-      if (own != null) return own;
+    Company company = company();
+    if (company != null) {
+      Sequence own = Query.of(Sequence.class).filter("self.codeSelect = ?1 AND self.company = ?2", code, company).fetchOne();
+      if (own != null || PER_COMPANY.contains(code)) return own;
+    } else if (PER_COMPANY.contains(code)) {
+      return null;
     }
     return Query.of(Sequence.class).filter("self.codeSelect = ?1 AND self.company IS NULL", code).order("id").fetchOne();
+  }
+
+  /** The company the administrator works in: the active one, else the only one. */
+  private static Company company() {
+    User me = AuthUtils.getUser();
+    if (me != null && me.getActiveCompany() != null) return me.getActiveCompany();
+    List<Company> companies = Query.of(Company.class).fetch(2);
+    return companies.size() == 1 ? companies.get(0) : null;
   }
 
   private static Entry entry(String code, String name, Sequence s) {

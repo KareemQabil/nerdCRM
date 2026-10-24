@@ -709,3 +709,21 @@ Slice: `docs/slices/A7-field-visits.md`.
   - the system map shows field visits as live (D-10 holds sending to the client).
 - Probe `scripts/visit_probe.py` (backend CI); mocked UI tests `tests/visits.spec.ts` 4/4. The live system-map test now expects field visits to be live.
 - G-007 registry: 1156 fields, 0 problems. Visit notes and the account name are personal data.
+
+## 2026-10-24 · A8 · quality issues and corrective actions
+
+Slice: `docs/slices/A8-quality-corrective-actions.md`.
+
+- `ioeti-operations` (now on `axelor-quality`): `QualityService` and `/ws/ioeti/quality`, on the native system-type `QualityImprovement`.
+  - Raise through the native creation steps (default status, consistency checks, company numbering).
+  - The plan and the effectiveness check on the native analysis, and the company's own statuses.
+  - Corrective actions (`CorrectiveAction`, migration V018/U018), with the native progress following the share done.
+  - Every change moves the issue's version.
+- `ioeti-admin`: `QualitySetup` and `/ws/ioeti/admin/quality` for statuses (kind), detection sources (origin), and issue and action types. None are shipped, and raising fails closed until they exist.
+  - Numbering: quality numbering is set up for the administrator's company, because the native lookup is by company.
+- UI:
+  - the Quality page (register with real counts, the raise dialog, the issue page with plan, effectiveness, actions and status moves);
+  - the admin console's Quality set-up tab;
+  - the system map shows quality as live (D-10 holds telling a client or supplier).
+- Probe `scripts/quality_probe.py` 18/18 (backend CI); mocked UI tests `tests/quality.spec.ts` 4/4. The live system-map test now uses invoicing as the partly live example.
+- G-007 registry: 1249 fields, 0 problems.

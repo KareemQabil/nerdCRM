@@ -13,7 +13,7 @@ const L = {
     missing: "مش متظبط", next: "الرقم الجاي", set: "ظبط الترقيم", change: "تعديل", prefix: "البادئة", digits: "عدد الأرقام",
     prefixHint: "حروف وأرقام و - _ / (و %YY للسنة). مثال: VIS- أو QI%YY-", example: "الشكل", save: "حفظ", saving: "جاري الحفظ…", cancel: "إلغاء",
     blocked: "مفيش زيارات هتتسجل لحد ما الترقيم ده يتظبط.", loading: "جاري التحميل…",
-    errors: { FORMAT: "البادئة مش صحيحة.", RANGE: "عدد الأرقام من 1 لـ 10.", conflict: "الترقيم اتغير من مكان تاني؛ اتحدّث.", forbidden: "لمسؤولي النظام بس.", failed: "تعذّر تنفيذ الطلب." },
+    errors: { COMPANY_REQUIRED: "اختار الشركة النشطة الأول؛ الترقيم ده تابع لشركة.", FORMAT: "البادئة مش صحيحة.", RANGE: "عدد الأرقام من 1 لـ 10.", conflict: "الترقيم اتغير من مكان تاني؛ اتحدّث.", forbidden: "لمسؤولي النظام بس.", failed: "تعذّر تنفيذ الطلب." },
   },
   en: {
     title: "Numbering", hint: "How the records the platform creates are numbered. Some types come ready; field visits need it set up before the first visit.",
@@ -21,13 +21,13 @@ const L = {
     missing: "Not set up", next: "Next number", set: "Set up numbering", change: "Change", prefix: "Prefix", digits: "Digits",
     prefixHint: "Letters, digits and - _ / (and %YY for the year). For example VIS- or QI%YY-", example: "Looks like", save: "Save", saving: "Saving…", cancel: "Cancel",
     blocked: "No visit can be recorded until this numbering is set up.", loading: "Loading…",
-    errors: { FORMAT: "The prefix is not valid.", RANGE: "Use 1 to 10 digits.", conflict: "The numbering changed elsewhere; it was refreshed.", forbidden: "Administrators only.", failed: "The request failed." },
+    errors: { COMPANY_REQUIRED: "Choose your active company first; this numbering belongs to a company.", FORMAT: "The prefix is not valid.", RANGE: "Use 1 to 10 digits.", conflict: "The numbering changed elsewhere; it was refreshed.", forbidden: "Administrators only.", failed: "The request failed." },
   },
 };
 type Labels = typeof L.ar;
 function problem(e: unknown, l: Labels) {
   if (!(e instanceof ApiError)) return l.errors.failed;
-  const code = e.fields?.[0]?.code ?? "";
+  const code = e.fields?.[0]?.code ?? e.code ?? "";
   if (code in l.errors) return (l.errors as Record<string, string>)[code];
   if (e.statusCode === 409) return l.errors.conflict;
   if (e.statusCode === 403) return l.errors.forbidden;
