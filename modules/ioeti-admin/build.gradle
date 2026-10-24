@@ -19,6 +19,8 @@ dependencies {
 	api project(":modules:ioeti-core")
 	// business lines and the user's line membership (SEC-003)
 	api project(":modules:ioeti-business-lines")
+	// campaign types are one of the reference lists administrators manage
+	implementation project(":modules:axelor-marketing")
 
 	implementation libs.swagger_jaxrs
 }
