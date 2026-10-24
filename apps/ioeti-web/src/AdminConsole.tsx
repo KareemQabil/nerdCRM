@@ -10,16 +10,17 @@ import {
   type AdminChange, type AdminLine, type AdminTeam, type AdminUser, type AdminUserDetail, type PersonRef, type Profile, type ProfileAccess,
 } from "./adminApi";
 import { ChipPicker, Dialog, copyText } from "./Dialog";
+import { AdminLists } from "./AdminLists";
 import "./admin.css";
 
 type Language = "ar" | "en";
-type Tab = "people" | "teams" | "lines" | "profiles" | "changes";
-const TABS: Tab[] = ["people", "teams", "lines", "profiles", "changes"];
+type Tab = "people" | "teams" | "lines" | "lists" | "profiles" | "changes";
+const TABS: Tab[] = ["people", "teams", "lines", "lists", "profiles", "changes"];
 
 const L = {
   ar: {
     area: "الإدارة", title: "لوحة الإدارة", hint: "الأشخاص، والوصول، والفرق، وخطوط الأعمال، وسجل كل تغيير. كل حاجة هنا بتتعمل من المنصة وبتتسجل.",
-    tabs: { people: "الأشخاص", teams: "الفرق", lines: "خطوط الأعمال", profiles: "ملفات الصلاحيات", changes: "سجل التغييرات" },
+    tabs: { people: "الأشخاص", teams: "الفرق", lines: "خطوط الأعمال", lists: "القوائم", profiles: "ملفات الصلاحيات", changes: "سجل التغييرات" },
     addPerson: "إضافة شخص", addTeam: "إضافة فريق", addLine: "إضافة خط أعمال", search: "ابحث بالاسم أو اسم الدخول",
     all: "الكل", active: "نشط", inactive: "موقوف", allLines: "كل الخطوط", person: "الشخص", login: "اسم الدخول", profile: "ملف الصلاحيات",
     lines: "خطوط الأعمال", teams: "الفرق", status: "الحالة", open: "فتح", mustChange: "سيغيّر كلمة المرور", admin: "مسؤول نظام",
@@ -50,11 +51,15 @@ const L = {
       USER_CREATED: "إضافة شخص", USER_UPDATED: "تعديل بيانات", USER_DEACTIVATED: "إيقاف حساب", USER_ACTIVATED: "تفعيل حساب",
       USER_PASSWORD_RESET: "كلمة مرور مؤقتة", TEAM_CREATED: "إضافة فريق", TEAM_UPDATED: "تعديل فريق", LINE_CREATED: "إضافة خط أعمال",
       LINE_UPDATED: "تعديل خط أعمال", LINE_MEMBERS: "أعضاء خط أعمال",
+      LOST_REASON_ADDED: "إضافة سبب خسارة", LOST_REASON_RENAMED: "تسمية سبب خسارة", LOST_REASON_DELETED: "حذف سبب خسارة",
+      SOURCE_ADDED: "إضافة مصدر", SOURCE_RENAMED: "تسمية مصدر", SOURCE_DELETED: "حذف مصدر",
+      OPPORTUNITY_STAGE_ADDED: "إضافة مرحلة", OPPORTUNITY_STAGE_RENAMED: "تسمية مرحلة", OPPORTUNITY_STAGE_DELETED: "حذف مرحلة",
+      OPPORTUNITY_STAGE_ORDERED: "ترتيب المراحل",
     } as Record<string, string>,
   },
   en: {
     area: "Administration", title: "Admin console", hint: "People, access, teams, business lines and a record of every change, all from the platform.",
-    tabs: { people: "People", teams: "Teams", lines: "Business lines", profiles: "Access profiles", changes: "Change log" },
+    tabs: { people: "People", teams: "Teams", lines: "Business lines", lists: "Lists", profiles: "Access profiles", changes: "Change log" },
     addPerson: "Add person", addTeam: "Add team", addLine: "Add business line", search: "Search by name or sign-in name",
     all: "All", active: "Active", inactive: "Deactivated", allLines: "All lines", person: "Person", login: "Sign-in name", profile: "Access profile",
     lines: "Business lines", teams: "Teams", status: "Status", open: "Open", mustChange: "Will change password", admin: "Administrator",
@@ -85,6 +90,10 @@ const L = {
       USER_CREATED: "Person added", USER_UPDATED: "Details changed", USER_DEACTIVATED: "Deactivated", USER_ACTIVATED: "Activated",
       USER_PASSWORD_RESET: "Temporary password", TEAM_CREATED: "Team added", TEAM_UPDATED: "Team changed", LINE_CREATED: "Line added",
       LINE_UPDATED: "Line changed", LINE_MEMBERS: "Line members",
+      LOST_REASON_ADDED: "Lost reason added", LOST_REASON_RENAMED: "Lost reason renamed", LOST_REASON_DELETED: "Lost reason deleted",
+      SOURCE_ADDED: "Source added", SOURCE_RENAMED: "Source renamed", SOURCE_DELETED: "Source deleted",
+      OPPORTUNITY_STAGE_ADDED: "Stage added", OPPORTUNITY_STAGE_RENAMED: "Stage renamed", OPPORTUNITY_STAGE_DELETED: "Stage deleted",
+      OPPORTUNITY_STAGE_ORDERED: "Stages reordered",
     } as Record<string, string>,
   },
 };
@@ -125,7 +134,7 @@ function readableChanges(text: string | null, ar: boolean): string {
     "temporary password set": ["كلمة مرور مؤقتة", "temporary password"], "change required at next sign-in": ["تغيير إلزامي عند الدخول", "change required at sign-in"],
     active: ["نشط", "active"], inactive: ["موقوف", "deactivated"], status: ["الحالة", "status"], nameEn: ["الاسم الإنجليزي", "English name"],
     nameAr: ["الاسم العربي", "Arabic name"], sequence: ["الترتيب", "order"], description: ["الغرض", "purpose"], responsibleTeam: ["الفريق المسؤول", "responsible team"],
-    manager: ["المدير", "manager"], code: ["الرمز", "code"],
+    manager: ["المدير", "manager"], code: ["الرمز", "code"], deleted: ["حذف", "deleted"], order: ["الترتيب", "order"],
   };
   return text.split("; ").map(part => {
     const [key, value] = part.split("=");
@@ -191,6 +200,7 @@ export function AdminConsole({ language, routeHash, myCode }: { language: Langua
       onBack={() => go("#/admin/people")} onChanged={() => void loadShared()}/>}
     {tab === "teams" && <TeamsTab l={l} people={people} teams={teams} onChanged={() => void loadShared()}/>}
     {tab === "lines" && <LinesTab l={l} ar={ar} lines={lines} teams={teams} people={people} onChanged={() => void loadShared()}/>}
+    {tab === "lists" && <AdminLists language={language}/>}
     {tab === "profiles" && <ProfilesTab l={l} ar={ar} profiles={profiles}/>}
     {tab === "changes" && <ChangesTab l={l} ar={ar}/>}
   </section>;

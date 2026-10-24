@@ -101,3 +101,14 @@ export function makeTemporaryPassword(length = 16): string {
   }
   return chars.join("");
 }
+
+/** Reference lists (lost reasons, lead sources, opportunity stages) managed by administrators. */
+export type ListKind = "lost-reasons" | "sources" | "opportunity-stages";
+export type ListValue = { id: number; version: number; name: string; sequence: number | null; role: "WON" | "LOST" | "DEFAULT" | "PROPOSITION" | null; uses: number };
+export const getListValues = (kind: ListKind) => list<ListValue>(`${BASE}/lists/${kind}`);
+export const addListValue = (kind: ListKind, name: string) => post<ListValue>(`${BASE}/lists/${kind}`, { name });
+export const renameListValue = (kind: ListKind, id: number, version: number, name: string) =>
+  post<ListValue>(`${BASE}/lists/${kind}/${enc(id)}`, { version, name });
+export const deleteListValue = (kind: ListKind, id: number, version: number) =>
+  post<ListValue[]>(`${BASE}/lists/${kind}/${enc(id)}/delete`, { version });
+export const orderStages = (ids: number[]) => post<ListValue[]>(`${BASE}/lists/opportunity-stages/order`, { ids });

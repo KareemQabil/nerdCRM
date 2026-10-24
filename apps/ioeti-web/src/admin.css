@@ -122,3 +122,43 @@
   .admin-table th:nth-child(3), .admin-table td:nth-child(3), .admin-table th:nth-child(4), .admin-table td:nth-child(4) { display: none; }
   .admin-rights th:nth-child(3), .admin-rights td:nth-child(3), .admin-rights th:nth-child(4), .admin-rights td:nth-child(4) { display: table-cell; }
 }
+
+/* reference lists (lost reasons, lead sources, opportunity stages) */
+.admin-lists { display: grid; gap: 14px; }
+.admin-lists > .segmented { justify-self: start; }
+.admin-list-panel { padding: 18px; display: grid; gap: 14px; }
+.admin-list-head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 14px; }
+.admin-list-head h2 { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 17px; }
+.admin-list-head p { margin: 4px 0 0; max-width: 62ch; color: var(--on-surface-variant); font-size: 13px; line-height: 1.6; }
+.admin-list-add { display: flex; gap: 8px; flex: 1 1 320px; max-width: 460px; }
+.admin-list-add input, .admin-list-edit { flex: 1; min-width: 0; min-height: var(--control-height); padding: 8px 12px; border: 1px solid var(--outline);
+  border-radius: var(--radius); background: var(--surface); color: var(--on-surface); font: inherit; }
+.admin-list-add input:focus-visible, .admin-list-edit:focus-visible { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-container); }
+.admin-list-error { display: flex; align-items: center; gap: 7px; margin: 0; padding: 9px 12px; border-radius: var(--radius); background: var(--error-container); color: var(--error); font-size: 13px; }
+.admin-list-notice { margin: 0; padding: 8px 12px; border-radius: var(--radius); background: var(--success-container); color: var(--success); font-size: 13px; }
+.admin-list-empty { margin: 0; padding: 26px 16px; text-align: center; color: var(--on-surface-variant); border: 1px dashed var(--outline-variant); border-radius: var(--radius); font-size: 13.5px; }
+.admin-list-rows { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.admin-list-rows.is-fixed { margin-top: 6px; padding-top: 8px; border-top: 1px dashed var(--outline-variant); }
+.admin-list-row { display: flex; align-items: center; gap: 10px; min-height: 52px; padding: 6px 10px; border-radius: var(--radius); border: 1px solid var(--outline-variant);
+  background: var(--surface); transition: box-shadow var(--duration-fast, 120ms), border-color var(--duration-fast, 120ms); touch-action: manipulation; }
+.admin-list-row:hover { border-color: var(--outline); }
+.admin-list-row.is-dragging { position: relative; z-index: 2; border-color: var(--primary); box-shadow: 0 10px 28px rgba(0,0,0,.18); background: var(--surface-strong, var(--surface)); }
+.admin-list-row.is-locked { background: var(--surface-variant); }
+.admin-list-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; }
+.admin-list-edit { flex: 1; }
+.admin-list-meta { display: flex; flex-wrap: wrap; gap: 5px; justify-content: flex-end; }
+.admin-badge.is-quiet { background: transparent; border: 1px solid var(--outline-variant); color: var(--on-surface-variant); }
+.admin-list-actions { display: flex; gap: 2px; }
+.admin-list-actions .icon-button:disabled { opacity: .35; cursor: not-allowed; }
+.admin-list-handle { display: inline-flex; align-items: center; gap: 4px; min-width: 44px; min-height: 40px; padding: 0 6px; border: 0; border-radius: var(--radius-sm);
+  background: transparent; color: var(--on-surface-variant); font: inherit; font-size: 12px; font-weight: 700; cursor: grab; touch-action: none; }
+.admin-list-handle:hover { background: var(--surface-variant); color: var(--on-surface); }
+.admin-list-handle:active { cursor: grabbing; }
+.admin-list-handle:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--primary-container); }
+.admin-list-lock { display: inline-grid; place-items: center; min-width: 44px; color: var(--on-surface-variant); }
+.admin-danger { background: var(--error); border-color: var(--error); }
+@media (max-width: 720px) {
+  .admin-list-row { flex-wrap: wrap; }
+  .admin-list-name { flex-basis: calc(100% - 140px); }
+  .admin-list-meta { order: 3; flex-basis: 100%; justify-content: flex-start; padding-inline-start: 54px; }
+}
