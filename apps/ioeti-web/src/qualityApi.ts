@@ -16,14 +16,24 @@ export type CorrectiveAction = {
   id: number; version: number; title: string; ownerId: number | null; ownerName: string | null; mine: boolean; due: string | null; type: string | null;
   status: "OPEN" | "DONE" | "CANCELLED"; overdue: boolean; doneAt: string | null; outcome: string | null;
 };
+export type Choice = { id: number; name: string; kind: string | null };
+/** Who a cause is attributed to: the organisation (never a named person), the client or the supplier. */
+export type Responsible = "INTERNAL" | "CUSTOMER" | "SUPPLIER";
+export type RootCause = {
+  id: number; cause: string | null; branch: string | null; process: string | null; responsible: Responsible; responsibleName: string | null; finding: string | null;
+};
+export type RootCauseBranch = { id: number; name: string; causes: Choice[] };
+export type RootCauseAnalysis = {
+  methodId: number | null; methodName: string | null; branches: RootCauseBranch[]; causes: RootCause[]; writtenByName: string | null; writtenAt: string | null;
+};
 export type QualityDetail = {
   issue: QualityIssue; details: string | null; objective: string | null; criteria: string | null; earliest: string | null;
-  check: string | null; checkedByName: string | null; checkedAt: string | null; actions: CorrectiveAction[];
+  check: string | null; checkedByName: string | null; checkedAt: string | null; actions: CorrectiveAction[]; rootCause: RootCauseAnalysis;
 };
-export type Choice = { id: number; name: string; kind: string | null };
 export type QualityOptions = {
   ready: boolean; missing: ("COMPANY" | "STATUSES" | "DETECTIONS" | "ISSUE_TYPES")[];
   statuses: Choice[]; detections: Choice[]; issueTypes: Choice[]; actionTypes: Choice[];
+  analysisReady: boolean; analysisMissing: ("COMPANY" | "METHODS" | "PROCESSES" | "COMPANY_PARTY")[]; processes: Choice[]; methods: Choice[];
 };
 
 const BASE = "/ws/ioeti/quality";
@@ -51,3 +61,9 @@ export const addAction = (n: number, version: number, input: { title: string; ow
   wrapped<QualityDetail>(`${BASE}/${id(n)}/actions`, json({ version, ...input }));
 export const actOn = (n: number, action: CorrectiveAction, command: "done" | "reopen" | "cancel", outcome?: string) =>
   wrapped<QualityDetail>(`${BASE}/${id(n)}/actions/${id(action.id)}/${command}`, json({ version: action.version, outcome, zone: zone() }));
+export const chooseMethod = (n: number, version: number, methodId: number | null) =>
+  wrapped<QualityDetail>(`${BASE}/${id(n)}/analysis/method`, json({ version, methodId }));
+export const addCause = (n: number, version: number, input: { causeId: number; processId: number; responsible: Responsible; finding: string }) =>
+  wrapped<QualityDetail>(`${BASE}/${id(n)}/causes`, json({ version, ...input, zone: zone() }));
+export const removeCause = (n: number, version: number, causeId: number) =>
+  wrapped<QualityDetail>(`${BASE}/${id(n)}/causes/${id(causeId)}/remove`, json({ version }));

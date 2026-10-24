@@ -7,13 +7,18 @@ import com.axelor.apps.base.db.repo.TraceBackRepository;
 import com.axelor.apps.project.db.Project;
 import com.axelor.apps.quality.db.QIAction;
 import com.axelor.apps.quality.db.QIAnalysis;
+import com.axelor.apps.quality.db.QIAnalysisCause;
+import com.axelor.apps.quality.db.QIAnalysisMethod;
+import com.axelor.apps.quality.db.QICause;
 import com.axelor.apps.quality.db.QIDefault;
 import com.axelor.apps.quality.db.QIDetection;
 import com.axelor.apps.quality.db.QIIdentification;
+import com.axelor.apps.quality.db.QIProcess;
 import com.axelor.apps.quality.db.QIResolution;
 import com.axelor.apps.quality.db.QIResolutionDefault;
 import com.axelor.apps.quality.db.QIStatus;
 import com.axelor.apps.quality.db.QualityImprovement;
+import com.axelor.apps.quality.db.repo.QIAnalysisCauseRepository;
 import com.axelor.apps.quality.db.repo.QIAnalysisRepository;
 import com.axelor.apps.quality.db.repo.QIDetectionRepository;
 import com.axelor.apps.quality.db.repo.QualityImprovementRepository;
@@ -38,7 +43,9 @@ import java.util.List;
  * QualityImprovement: where it was found, how grave it is, what happened (its first native defect line),
  * who owns the plan, its objective and how its effectiveness will be judged, and the company's own
  * statuses. Corrective actions are assigned to people with a due date; the native analysis progress
- * follows the share of actions done. Nothing is sent to a client or supplier (D-10).
+ * follows the share of actions done. Root-cause analysis follows the company's own analysis method and
+ * records causes from the company's own cause and process lists on the native analysis. Nothing is sent to
+ * a client or supplier (D-10).
  */
 public class QualityService {
 
@@ -182,6 +189,76 @@ public class QualityService {
     CorrectiveAction saved = JPA.save(action);
     progress(action.getImprovement());
     return saved;
+  }
+
+  /** Who a cause is attributed to: the organisation (never a named person), the client or the supplier. */
+  public enum Responsible { INTERNAL, CUSTOMER, SUPPLIER }
+
+  /**
+   * The party a cause is attributed to. The native field requires a party: an internal cause is attributed to
+   * the company's own party record, so root-cause analysis stays about the process, not a person.
+   */
+  public static Partner responsibleParty(QualityImprovement qi, Responsible responsible) {
+    QIIdentification identification = qi.getQiIdentification();
+    return switch (responsible) {
+      case INTERNAL -> qi.getCompany() == null ? null : qi.getCompany().getPartner();
+      case CUSTOMER -> identification == null ? null : identification.getCustomerPartner();
+      case SUPPLIER -> identification == null ? null : identification.getSupplierPartner();
+    };
+  }
+
+  public static Responsible responsible(QIAnalysisCause cause) {
+    Integer type = cause.getResponsiblePartnerTypeSelect();
+    if (type == null) return Responsible.INTERNAL;
+    return switch (type) {
+      case QIAnalysisCauseRepository.RESPONSIBLE_CUSTOMER, QIAnalysisCauseRepository.RESPONSIBLE_CUSTOMER_CONTACT -> Responsible.CUSTOMER;
+      case QIAnalysisCauseRepository.RESPONSIBLE_SUPPLIER, QIAnalysisCauseRepository.RESPONSIBLE_SUPPLIER_CONTACT -> Responsible.SUPPLIER;
+      default -> Responsible.INTERNAL;
+    };
+  }
+
+  /** Chooses (or clears) the analysis method the issue follows; the issue's version moves. */
+  @Transactional(rollbackOn = {Exception.class})
+  public QualityImprovement method(QualityImprovement qi, QIAnalysisMethod method) {
+    qi.setAnalysisMethod(method);
+    return Beans.get(QualityImprovementRepository.class).save(qi);
+  }
+
+  /** Records a cause on the native analysis, linked to what happened (the issue's defect line). */
+  @Transactional(rollbackOn = {Exception.class})
+  public QualityImprovement addCause(QualityImprovement qi, QICause cause, QIProcess process, Responsible responsible, Partner party,
+      String finding, LocalDateTime now) {
+    QIAnalysis analysis = analysis(qi);
+    QIAnalysisCause row = new QIAnalysisCause();
+    row.setQiCause(cause);
+    row.setQiProcess(process);
+    row.setResponsiblePartnerTypeSelect(switch (responsible) {
+      case INTERNAL -> QIAnalysisCauseRepository.RESPONSIBLE_EMPLOYEE;
+      case CUSTOMER -> QIAnalysisCauseRepository.RESPONSIBLE_CUSTOMER;
+      case SUPPLIER -> QIAnalysisCauseRepository.RESPONSIBLE_SUPPLIER;
+    });
+    row.setResponsiblePartner(party);
+    row.setDescription(finding);
+    QIResolutionDefault line = issue(qi);
+    if (line != null) row.addQiResolutionDefaultsSetItem(line);
+    analysis.addQiAnalysisCausesListItem(row);
+    analysis.setCausesWrittenBy(AuthUtils.getUser());
+    analysis.setCausesWrittenOn(now);
+    touched(qi);
+    return Beans.get(QualityImprovementRepository.class).save(qi);
+  }
+
+  @Transactional(rollbackOn = {Exception.class})
+  public QualityImprovement removeCause(QualityImprovement qi, QIAnalysisCause row) {
+    analysis(qi).removeQiAnalysisCausesListItem(row);
+    JPA.remove(row);
+    touched(qi);
+    return Beans.get(QualityImprovementRepository.class).save(qi);
+  }
+
+  public static List<QIAnalysisCause> causes(QualityImprovement qi) {
+    return qi.getQiAnalysis() == null ? List.of()
+        : Query.of(QIAnalysisCause.class).filter("self.qiAnalysis = ?1", qi.getQiAnalysis()).order("id").fetch(100);
   }
 
   public static String status(CorrectiveAction action) {

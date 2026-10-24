@@ -61,6 +61,10 @@ const L = {
       QI_DETECTION_ADDED: "إضافة مصدر اكتشاف", QI_DETECTION_CHANGED: "تعديل مصدر اكتشاف", QI_DETECTION_DELETED: "حذف مصدر اكتشاف",
       QI_ISSUE_TYPE_ADDED: "إضافة نوع مشكلة", QI_ISSUE_TYPE_CHANGED: "تعديل نوع مشكلة", QI_ISSUE_TYPE_DELETED: "حذف نوع مشكلة",
       QI_ACTION_TYPE_ADDED: "إضافة نوع إجراء", QI_ACTION_TYPE_CHANGED: "تعديل نوع إجراء", QI_ACTION_TYPE_DELETED: "حذف نوع إجراء",
+      QI_METHOD_ADDED: "إضافة طريقة تحليل", QI_METHOD_CHANGED: "تعديل طريقة تحليل", QI_METHOD_DELETED: "حذف طريقة تحليل",
+      QI_METHOD_BRANCH_ADDED: "إضافة فرع لطريقة تحليل", QI_METHOD_BRANCH_DELETED: "حذف فرع من طريقة تحليل",
+      QI_CAUSE_ADDED: "إضافة سبب", QI_CAUSE_CHANGED: "تعديل سبب", QI_CAUSE_DELETED: "حذف سبب",
+      QI_PROCESS_ADDED: "إضافة عملية", QI_PROCESS_CHANGED: "تعديل عملية", QI_PROCESS_DELETED: "حذف عملية",
     } as Record<string, string>,
   },
   en: {
@@ -104,6 +108,10 @@ const L = {
       QI_DETECTION_ADDED: "Detection source added", QI_DETECTION_CHANGED: "Detection source changed", QI_DETECTION_DELETED: "Detection source deleted",
       QI_ISSUE_TYPE_ADDED: "Issue type added", QI_ISSUE_TYPE_CHANGED: "Issue type changed", QI_ISSUE_TYPE_DELETED: "Issue type deleted",
       QI_ACTION_TYPE_ADDED: "Action type added", QI_ACTION_TYPE_CHANGED: "Action type changed", QI_ACTION_TYPE_DELETED: "Action type deleted",
+      QI_METHOD_ADDED: "Analysis method added", QI_METHOD_CHANGED: "Analysis method changed", QI_METHOD_DELETED: "Analysis method deleted",
+      QI_METHOD_BRANCH_ADDED: "Method branch added", QI_METHOD_BRANCH_DELETED: "Method branch removed",
+      QI_CAUSE_ADDED: "Cause added", QI_CAUSE_CHANGED: "Cause changed", QI_CAUSE_DELETED: "Cause deleted",
+      QI_PROCESS_ADDED: "Process added", QI_PROCESS_CHANGED: "Process changed", QI_PROCESS_DELETED: "Process deleted",
     } as Record<string, string>,
   },
 };

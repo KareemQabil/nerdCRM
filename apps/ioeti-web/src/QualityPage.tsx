@@ -1,14 +1,15 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import {
-  ArrowLeft, ArrowRight, Building2, CalendarClock, CheckCircle2, CircleAlert, CircleDashed, ClipboardCheck, Flag, Plus, RotateCcw, Save,
-  ShieldAlert, ShieldCheck, Target, TriangleAlert, UserRound, XCircle,
+  ArrowLeft, ArrowRight, Building2, CalendarClock, CheckCircle2, CircleAlert, CircleDashed, ClipboardCheck, Flag, GitBranch, Plus, RotateCcw, Save,
+  Search, ShieldAlert, ShieldCheck, Target, Trash2, TriangleAlert, UserRound, XCircle,
 } from "lucide-react";
 import { ApiError } from "./api";
 import { Dialog } from "./Dialog";
+import { DocumentsPanel } from "./DocumentsPanel";
 import { searchEverything, wallClock } from "./dailyApi";
 import {
-  actOn, addAction, checkEffectiveness, getIssue, getIssues, getQualityOptions, getQualityPeople, moveIssue, planIssue, raiseIssue,
-  type Choice, type CorrectiveAction, type Gravity, type QualityDetail, type QualityIssue, type QualityOptions,
+  actOn, addAction, addCause, checkEffectiveness, chooseMethod, getIssue, getIssues, getQualityOptions, getQualityPeople, moveIssue, planIssue, raiseIssue,
+  removeCause, type Choice, type CorrectiveAction, type Gravity, type QualityDetail, type QualityIssue, type QualityOptions, type Responsible, type RootCauseBranch,
 } from "./qualityApi";
 import type { Language } from "./preferences";
 import "./daily.css";
@@ -43,7 +44,19 @@ const L = {
     raiseTitle: "تسجيل مشكلة جودة", issueTitle: "عنوان المشكلة", issueDetails: "إيه اللي حصل؟", detection: "اتعرفت منين", issueType: "نوع المشكلة",
     gravityLabel: "الخطورة", accountLabel: "الحساب", accountSearch: "اكتب اسم الحساب…", accountRequired: "مطلوب للمصدر ده", noTypes: "مفيش أنواع",
     save: "حفظ", saving: "جاري الحفظ…", cancel: "إلغاء", keep: "رجوع", confirm: "تأكيد",
+    rca: "تحليل الأسباب الجذرية", rcaHint: "حدد طريقة التحليل، وسجّل الأسباب تحت فروعها: السبب، العملية اللي نشأ فيها، ومين المسؤول عنه، واللي اتلاقى.",
+    method: "طريقة التحليل", chooseMethodHint: "اختار طريقة التحليل الأول.", methodLocked: "الطريقة متثبتة لأن فيه أسباب متسجلة؛ امسحها الأول لو عايز تغيّرها.",
+    noCauses: "لسه مفيش أسباب في الفرع ده.", addCause: "إضافة سبب", addCauseIn: (b: string) => `إضافة سبب في "${b}"`, cause: "السبب", process: "العملية",
+    responsible: "منسوب إلى", resp: { INTERNAL: "المؤسسة", CUSTOMER: "العميل", SUPPLIER: "المورد" } as Record<string, string>,
+    respHint: "الأسباب الداخلية بتتنسب للمؤسسة مش لشخص بالاسم: التحليل عن العملية، مش عن الأفراد.",
+    finding: "اللي اتلاقى", findingHint: "إيه الدليل أو الملاحظة اللي بتأكد السبب؟", removeCause: "حذف السبب", causesBy: "سجّل الأسباب",
+    rcaSetupTitle: "إعداد تحليل الأسباب لسه ناقص", rcaSetupText: "مسؤول النظام يكمّل من إعداد الجودة ← تحليل الأسباب:",
+    rcaMissing: { COMPANY: "الشركة النشطة", METHODS: "طريقة تحليل بفروع وأسباب تحتها", PROCESSES: "عملية واحدة على الأقل",
+      COMPANY_PARTY: "سجل الشركة كطرف (لازم للأسباب الداخلية)" } as Record<string, string>,
+    evidence: "الأدلة والمستندات",
     errors: { SETUP_REQUIRED: "إعداد الجودة ناقص؛ مسؤول النظام يكمّله من لوحة الإدارة ← إعداد الجودة.",
+      METHOD_REQUIRED: "اختار طريقة التحليل الأول.", HAS_CAUSES: "فيه أسباب متسجلة بالطريقة دي؛ امسحها الأول.",
+      NO_CUSTOMER: "المشكلة دي مش مرتبطة بعميل.", NO_SUPPLIER: "المشكلة دي مش مرتبطة بمورد.",
       NUMBERING_REQUIRED: "ترقيم مشاكل الجودة مش متظبط؛ مسؤول النظام يظبطه من لوحة الإدارة ← الترقيم.",
       NOT_CONSISTENT: "بيانات المشكلة مش متسقة مع مصدر الاكتشاف.", REQUIRED: "حقل مطلوب ناقص.", UNAVAILABLE: "اختيار غير متاح.",
       BEFORE_START: "آخر موعد لازم يكون بعد أقرب موعد.", STATUS_NOT_ALLOWED: "الإجراء ده مش متاح في حالته الحالية.", TOO_LONG: "النص طويل.",
@@ -77,7 +90,19 @@ const L = {
     raiseTitle: "Raise a quality issue", issueTitle: "Issue title", issueDetails: "What happened?", detection: "Found by", issueType: "Issue type",
     gravityLabel: "Gravity", accountLabel: "Account", accountSearch: "Type the account name…", accountRequired: "Required for this source", noTypes: "No types",
     save: "Save", saving: "Saving…", cancel: "Cancel", keep: "Back", confirm: "Confirm",
+    rca: "Root-cause analysis", rcaHint: "Choose the analysis method and record causes under its branches: the cause, the process it arose in, who it is attributed to, and what was found.",
+    method: "Analysis method", chooseMethodHint: "Choose the analysis method first.", methodLocked: "The method is fixed because causes are recorded; remove them first to change it.",
+    noCauses: "No causes in this branch yet.", addCause: "Add a cause", addCauseIn: (b: string) => `Add a cause under "${b}"`, cause: "Cause", process: "Process",
+    responsible: "Attributed to", resp: { INTERNAL: "The organisation", CUSTOMER: "The client", SUPPLIER: "The supplier" } as Record<string, string>,
+    respHint: "Internal causes are attributed to the organisation, not a named person: the analysis is about the process, not individuals.",
+    finding: "What was found", findingHint: "What evidence or observation confirms the cause?", removeCause: "Remove cause", causesBy: "Causes recorded by",
+    rcaSetupTitle: "The root-cause set-up is not complete", rcaSetupText: "An administrator completes it under Quality set-up → Root-cause analysis:",
+    rcaMissing: { COMPANY: "the active company", METHODS: "an analysis method with branches and causes", PROCESSES: "at least one process",
+      COMPANY_PARTY: "the company's party record (needed for internal causes)" } as Record<string, string>,
+    evidence: "Evidence & documents",
     errors: { SETUP_REQUIRED: "The quality set-up is incomplete; an administrator completes it in the admin console → Quality set-up.",
+      METHOD_REQUIRED: "Choose the analysis method first.", HAS_CAUSES: "Causes are recorded with this method; remove them first.",
+      NO_CUSTOMER: "This issue is not linked to a client.", NO_SUPPLIER: "This issue is not linked to a supplier.",
       NUMBERING_REQUIRED: "Quality issue numbering is not set up; an administrator sets it in the admin console → Numbering.",
       NOT_CONSISTENT: "The issue's details do not match its detection source.", REQUIRED: "A required field is missing.", UNAVAILABLE: "This choice is not available.",
       BEFORE_START: "The latest date must be after the earliest.", STATUS_NOT_ALLOWED: "This is not available in the action's status.", TOO_LONG: "The text is too long.",
@@ -185,7 +210,8 @@ function IssueRecord({ id, language }: { id: number; language: Language }) {
   const [people, setPeople] = useState<Choice[]>([]);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
-  const [dialog, setDialogState] = useState<null | { kind: "plan" } | { kind: "effectiveness" } | { kind: "move"; status: Choice } | { kind: "done"; action: CorrectiveAction }>(null);
+  const [dialog, setDialogState] = useState<null | { kind: "plan" } | { kind: "effectiveness" } | { kind: "move"; status: Choice } | { kind: "done"; action: CorrectiveAction }
+    | { kind: "cause"; branch: RootCauseBranch }>(null);
   const setDialog = (next: typeof dialog) => { setError(""); setDialogState(next); };
   const load = useCallback(() => getIssue(id).then(setData).catch(e => setError(problem(e, l))), [id, l]);
   useEffect(() => { void load(); void getQualityOptions().then(setOptions).catch(() => setOptions(null)); }, [load]);
@@ -251,6 +277,11 @@ function IssueRecord({ id, language }: { id: number; language: Language }) {
         </section>
       </div>
 
+      <RootCauseSection l={l} data={data} options={options} busy={busy} when={when}
+        onMethod={methodId => void run(() => chooseMethod(q.id, q.version, methodId))}
+        onAdd={branch => setDialog({ kind: "cause", branch })}
+        onRemove={causeId => void run(() => removeCause(q.id, q.version, causeId))}/>
+
       <section className="record-content-card quality-actions" aria-labelledby="quality-actions-title">
         <h2 id="quality-actions-title"><CheckCircle2 size={17}/>{l.actions}</h2>
         {data.actions.length === 0 ? <p className="activity-empty">{l.noActions}</p>
@@ -277,10 +308,14 @@ function IssueRecord({ id, language }: { id: number; language: Language }) {
           onAdd={input => run(() => addAction(q.id, q.version, input))}/>
       </section>
 
+      <section className="record-content-card" aria-label={l.evidence}><DocumentsPanel subject="QUALITY_ISSUE" subjectId={q.id} language={language}/></section>
+
       {dialog?.kind === "plan" && <PlanDialog l={l} data={data} people={people} onClose={() => setDialog(null)}
         onSave={input => run(() => planIssue(q.id, q.version, input))} busy={busy} error={error}/>}
       {dialog?.kind === "effectiveness" && <EffectivenessDialog l={l} busy={busy} error={error} onClose={() => setDialog(null)}
         onSave={(effective, check) => run(() => checkEffectiveness(q.id, q.version, effective, check))}/>}
+      {dialog?.kind === "cause" && <CauseDialog l={l} q={q} branch={dialog.branch} processes={options?.processes ?? []} busy={busy} error={error}
+        onClose={() => setDialog(null)} onSave={input => run(() => addCause(q.id, q.version, input))}/>}
       {dialog?.kind === "done" && <DoneDialog l={l} action={dialog.action} busy={busy} error={error} onClose={() => setDialog(null)}
         onSave={outcome => run(() => actOn(q.id, dialog.action, "done", outcome))}/>}
       {dialog?.kind === "move" && <Dialog title={l.closeTitle} kicker={q.title ?? ""} busy={busy} onClose={() => setDialog(null)}
@@ -293,6 +328,87 @@ function IssueRecord({ id, language }: { id: number; language: Language }) {
       </Dialog>}
     </>}
   </article>;
+}
+
+/**
+ * Root-cause analysis on the company's own method: its branches side by side (as on a cause-and-effect diagram), each with the
+ * causes recorded under it. The method is fixed once causes are recorded; nothing here is a scoring rule.
+ */
+function RootCauseSection({ l, data, options, busy, when, onMethod, onAdd, onRemove }: {
+  l: Labels; data: QualityDetail; options: QualityOptions | null; busy: boolean; when: (value: string | null) => string;
+  onMethod: (methodId: number | null) => void; onAdd: (branch: RootCauseBranch) => void; onRemove: (causeId: number) => void;
+}) {
+  const q = data.issue, rc = data.rootCause;
+  const open = q.statusKind === "OPEN";
+  const locked = rc.causes.length > 0;
+  const methods = options?.methods ?? [];
+  return <section className="record-content-card quality-rca" aria-labelledby="quality-rca-title">
+    <div className="quality-section-head"><h2 id="quality-rca-title"><Search size={17}/>{l.rca}</h2></div>
+    <p className="quality-rca-hint">{l.rcaHint}</p>
+    {options && !options.analysisReady && <div className="quality-setup is-compact" role="note"><TriangleAlert size={16}/>
+      <div><strong>{l.rcaSetupTitle}</strong><p>{l.rcaSetupText}</p><ul>{options.analysisMissing.map(m => <li key={m}>{l.rcaMissing[m]}</li>)}</ul></div></div>}
+    {(methods.length > 0 || rc.methodId) && <div className="quality-rca-method" role="radiogroup" aria-label={l.method}>
+      <span>{l.method}:</span>
+      {rc.methodId && !methods.some(m => m.id === rc.methodId) && <button type="button" role="radio" aria-checked className="quality-rca-chip is-chosen" disabled>{rc.methodName}</button>}
+      {methods.map(m => <button key={m.id} type="button" role="radio" aria-checked={rc.methodId === m.id}
+        className={"quality-rca-chip" + (rc.methodId === m.id ? " is-chosen" : "")} disabled={busy || !open || (locked && rc.methodId !== m.id)}
+        onClick={() => rc.methodId !== m.id && onMethod(m.id)}><GitBranch size={13}/>{m.name}</button>)}
+      {locked && <small className="quality-rca-locked">{l.methodLocked}</small>}
+    </div>}
+    {!rc.methodId ? (methods.length > 0 && <p className="activity-empty">{l.chooseMethodHint}</p>)
+      : <div className="quality-fishbone">
+        {rc.branches.map(b => {
+          const recorded = rc.causes.filter(c => c.branch === b.name);
+          return <div key={b.id} className="quality-bone" aria-labelledby={`quality-bone-${b.id}`} role="group">
+            <h3 id={`quality-bone-${b.id}`}><GitBranch size={14}/>{b.name}<small>{recorded.length}</small></h3>
+            {recorded.length === 0 ? <p className="quality-bone-empty">{l.noCauses}</p>
+              : <ul>{recorded.map(c => <li key={c.id} className={"quality-cause is-" + c.responsible.toLowerCase()}>
+                <div className="quality-cause-head"><strong>{c.cause}</strong>
+                  {open && <button type="button" className="icon-button" aria-label={`${l.removeCause}: ${c.cause}`} disabled={busy} onClick={() => onRemove(c.id)}><Trash2 size={14}/></button>}</div>
+                <span className="quality-card-meta">
+                  {c.process && <span>{l.process}: {c.process}</span>}
+                  <span className={"quality-resp is-" + c.responsible.toLowerCase()}>{l.resp[c.responsible]}{c.responsibleName && ` · ${c.responsibleName}`}</span>
+                </span>
+                {c.finding && <p>{c.finding}</p>}
+              </li>)}</ul>}
+            {open && b.causes.length > 0 && <button type="button" className="btn btn-small btn-secondary quality-bone-add" disabled={busy || !options?.processes.length}
+              aria-label={l.addCauseIn(b.name)} onClick={() => onAdd(b)}><Plus size={14}/>{l.addCause}</button>}
+          </div>;
+        })}
+      </div>}
+    {rc.writtenByName && <small className="quality-rca-by">{l.causesBy}: {rc.writtenByName} · {when(rc.writtenAt)}</small>}
+  </section>;
+}
+
+function CauseDialog({ l, q, branch, processes, busy, error, onClose, onSave }: {
+  l: Labels; q: QualityIssue; branch: RootCauseBranch; processes: Choice[]; busy: boolean; error: string; onClose: () => void;
+  onSave: (input: { causeId: number; processId: number; responsible: Responsible; finding: string }) => Promise<boolean>;
+}) {
+  const [cause, setCause] = useState(branch.causes.length === 1 ? String(branch.causes[0].id) : "");
+  const [process, setProcess] = useState(processes.length === 1 ? String(processes[0].id) : "");
+  const external: Responsible | null = q.origin === "CUSTOMER" ? "CUSTOMER" : q.origin === "SUPPLIER" ? "SUPPLIER" : null;
+  const [responsible, setResponsible] = useState<Responsible>("INTERNAL");
+  const [finding, setFinding] = useState("");
+  const choices: Responsible[] = external ? ["INTERNAL", external] : ["INTERNAL"];
+  return <Dialog title={l.addCauseIn(branch.name)} kicker={q.title ?? ""} busy={busy} onClose={onClose} wide
+    footer={<><button type="button" className="btn btn-secondary" disabled={busy} onClick={onClose}>{l.cancel}</button>
+      <button type="submit" form="quality-cause-form" className="btn btn-primary" disabled={busy || !cause || !process || !finding.trim()}><Save size={16}/>{busy ? l.saving : l.save}</button></>}>
+    <form id="quality-cause-form" className="daily-form daily-form-two" onSubmit={e => { e.preventDefault();
+      void onSave({ causeId: Number(cause), processId: Number(process), responsible, finding: finding.trim() }); }}>
+      <label><span>{l.cause}</span><select value={cause} required onChange={e => setCause(e.target.value)}><option value="">{l.choose}</option>
+        {branch.causes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
+      <label><span>{l.process}</span><select value={process} required onChange={e => setProcess(e.target.value)}><option value="">{l.choose}</option>
+        {processes.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select></label>
+      <fieldset className="daily-span quality-choice"><legend>{l.responsible}</legend>
+        {choices.map(r => <label key={r}><input type="radio" name="responsible" checked={responsible === r} onChange={() => setResponsible(r)}/>
+          {l.resp[r]}{r !== "INTERNAL" && q.accountName ? ` · ${q.accountName}` : ""}</label>)}
+        <small>{l.respHint}</small>
+      </fieldset>
+      <label className="daily-span"><span>{l.finding}</span><textarea value={finding} required rows={3} maxLength={4000} placeholder={l.findingHint}
+        onChange={e => setFinding(e.target.value)}/></label>
+      {error && <p className="daily-error daily-span" role="alert"><CircleAlert size={15}/>{error}</p>}
+    </form>
+  </Dialog>;
 }
 
 function AddActionForm({ l, q, people, types, busy, onAdd }: {

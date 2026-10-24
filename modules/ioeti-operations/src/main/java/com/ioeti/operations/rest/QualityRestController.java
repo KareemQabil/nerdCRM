@@ -6,9 +6,14 @@ import com.axelor.apps.base.service.app.AppBaseService;
 import com.axelor.apps.project.db.Project;
 import com.axelor.apps.quality.db.QIAction;
 import com.axelor.apps.quality.db.QIAnalysis;
+import com.axelor.apps.quality.db.QIAnalysisCause;
+import com.axelor.apps.quality.db.QIAnalysisMethod;
+import com.axelor.apps.quality.db.QIAnalysisMethodItem;
+import com.axelor.apps.quality.db.QICause;
 import com.axelor.apps.quality.db.QIDefault;
 import com.axelor.apps.quality.db.QIDetection;
 import com.axelor.apps.quality.db.QIIdentification;
+import com.axelor.apps.quality.db.QIProcess;
 import com.axelor.apps.quality.db.QIResolutionDefault;
 import com.axelor.apps.quality.db.QIStatus;
 import com.axelor.apps.quality.db.QualityImprovement;
@@ -33,6 +38,7 @@ import com.ioeti.core.web.OptimisticLockConflicts;
 import com.ioeti.operations.db.CorrectiveAction;
 import com.ioeti.operations.db.repo.CorrectiveActionRepository;
 import com.ioeti.operations.service.QualityService;
+import com.ioeti.operations.service.QualityService.Responsible;
 import io.swagger.v3.oas.annotations.Operation;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.GET;
@@ -54,8 +60,10 @@ import java.util.List;
  * what happened, for which client or engagement), plan it (owner, objective, how effectiveness is judged,
  * the window), assign actions with due dates, judge effectiveness and move it through the company's own
  * statuses. Native quality-improvement permissions decide on every call. Until an administrator has set up
- * the statuses, detections and issue types, nothing can be raised (422 SETUP_REQUIRED). Nothing is sent
- * to a client or supplier (D-10).
+ * the statuses, detections and issue types, nothing can be raised (422 SETUP_REQUIRED). Root-cause analysis
+ * follows one of the company's analysis methods: causes are chosen from that method's branches and attributed to
+ * one of the company's processes; until they are set up no cause can be recorded (422 SETUP_REQUIRED). Nothing
+ * is sent to a client or supplier (D-10).
  */
 @Path("/ioeti/quality")
 @Produces(MediaType.APPLICATION_JSON)
@@ -111,13 +119,25 @@ public class QualityRestController {
     List<QualityChoice> actionTypes = company == null ? List.of() : Query.of(QIAction.class)
         .filter("self.isSystemAction = true AND self.company = ?1", company).order("name").fetch(100).stream()
         .map(t -> new QualityChoice(t.getId(), t.getName(), null)).toList();
+    List<QualityChoice> processes = company == null ? List.of() : Query.of(QIProcess.class).filter("self.company = ?1", company).order("name")
+        .fetch(200).stream().map(p -> new QualityChoice(p.getId(), p.getName(), null)).toList();
+    // only methods with causes under their branches can be used for an analysis
+    List<QualityChoice> methods = company == null ? List.of() : Query.of(QIAnalysisMethod.class)
+        .filter("self.isSystem = true AND self.company = ?1 AND EXISTS (SELECT c FROM QICause c WHERE c.branch.analysisMethod = self)", company)
+        .order("name").fetch(100).stream().map(m -> new QualityChoice(m.getId(), m.getName(), null)).toList();
     List<String> missing = new ArrayList<>();
     if (company == null) missing.add("COMPANY");
     if (statuses.stream().noneMatch(st -> "OPEN".equals(st.kind()))) missing.add("STATUSES");
     if (detections.isEmpty()) missing.add("DETECTIONS");
     if (issueTypes.isEmpty()) missing.add("ISSUE_TYPES");
+    List<String> analysisMissing = new ArrayList<>();
+    if (company == null) analysisMissing.add("COMPANY");
+    if (methods.isEmpty()) analysisMissing.add("METHODS");
+    if (processes.isEmpty()) analysisMissing.add("PROCESSES");
+    if (company != null && company.getPartner() == null) analysisMissing.add("COMPANY_PARTY");
     return ResponseConstructor.build(Response.Status.OK, "Quality options",
-        new QualityOptionsView(missing.isEmpty(), missing, statuses, detections, issueTypes, actionTypes));
+        new QualityOptionsView(missing.isEmpty(), missing, statuses, detections, issueTypes, actionTypes,
+            analysisMissing.isEmpty(), analysisMissing, processes, methods));
   }
 
   @GET
@@ -256,6 +276,80 @@ public class QualityRestController {
     return ResponseConstructor.build(Response.Status.OK, "Action updated", detail(qi));
   }
 
+  @POST
+  @Path("/{id}/analysis/method")
+  @Consumes(MediaType.APPLICATION_JSON)
+  @Operation(summary = "Choose the company analysis method the root-cause analysis follows, or clear it, before causes are recorded (the issue's version)", tags = {"IOETI quality"})
+  @IoetiEndpoint
+  public Response method(@PathParam("id") Long id, ChooseAnalysisMethod command) {
+    QualityImprovement qi = versioned(id, command == null ? null : command.version());
+    Long current = qi.getAnalysisMethod() == null ? null : qi.getAnalysisMethod().getId();
+    if (!QualityService.causes(qi).isEmpty() && !java.util.Objects.equals(command.methodId(), current)) {
+      throw new ApiException(422, "HAS_CAUSES", "Causes are recorded with this method; remove them before changing it.", null);
+    }
+    QIAnalysisMethod method = null;
+    if (command.methodId() != null) {
+      method = Query.of(QIAnalysisMethod.class).filter("self.isSystem = true AND self.company = ?1 AND self.id = ?2", qi.getCompany(), command.methodId()).fetchOne();
+      if (method == null) throw ApiException.invalidField("methodId", "UNAVAILABLE", "Choose an analysis method from the list.");
+    }
+    QIAnalysisMethod chosen = method;
+    return run(() -> Beans.get(QualityService.class).method(qi, chosen), "Analysis method saved");
+  }
+
+  @POST
+  @Path("/{id}/causes")
+  @Consumes(MediaType.APPLICATION_JSON)
+  @Operation(summary = "Record a root cause: a cause from the method's branches, the process where it arose, who it is attributed to (the organisation, the client or the supplier) and what was found (the issue's version)", tags = {"IOETI quality"})
+  @IoetiEndpoint
+  public Response addCause(@PathParam("id") Long id, RecordRootCause command) {
+    QualityImprovement qi = versioned(id, command == null ? null : command.version());
+    Company company = qi.getCompany();
+    if (company == null || Query.of(QIProcess.class).filter("self.company = ?1", company).count() == 0
+        || Query.of(QICause.class).filter("self.company = ?1", company).count() == 0) {
+      throw new ApiException(422, "SETUP_REQUIRED", "No causes or processes are set up; an administrator adds them under Quality set-up.", null);
+    }
+    QIAnalysisMethod method = qi.getAnalysisMethod();
+    if (method == null) throw new ApiException(422, "METHOD_REQUIRED", "Choose the analysis method first.", null);
+    if (command.causeId() == null) throw ApiException.invalidField("causeId", "REQUIRED", "Choose the cause.");
+    QICause cause = Query.of(QICause.class).filter("self.id = ?1 AND self.branch.analysisMethod = ?2", command.causeId(), method).fetchOne();
+    if (cause == null) throw ApiException.invalidField("causeId", "UNAVAILABLE", "Choose a cause from the method's branches.");
+    if (command.processId() == null) throw ApiException.invalidField("processId", "REQUIRED", "Choose the process where it arose.");
+    QIProcess process = Query.of(QIProcess.class).filter("self.company = ?1 AND self.id = ?2", company, command.processId()).fetchOne();
+    if (process == null) throw ApiException.invalidField("processId", "UNAVAILABLE", "Choose the process from the list.");
+    Responsible responsible;
+    try {
+      responsible = Responsible.valueOf(command.responsible() == null ? "" : command.responsible().strip());
+    } catch (IllegalArgumentException e) {
+      throw ApiException.invalidField("responsible", "UNAVAILABLE", "Use INTERNAL, CUSTOMER or SUPPLIER.");
+    }
+    Partner party = QualityService.responsibleParty(qi, responsible);
+    if (party == null) {
+      throw switch (responsible) {
+        case INTERNAL -> new ApiException(422, "SETUP_REQUIRED", "The company has no party record; an administrator sets it on the company.", null);
+        case CUSTOMER -> ApiException.invalidField("responsible", "NO_CUSTOMER", "This issue has no client.");
+        case SUPPLIER -> ApiException.invalidField("responsible", "NO_SUPPLIER", "This issue has no supplier.");
+      };
+    }
+    String finding = text("finding", command.finding(), 4000, true);
+    LocalDateTime now = VisitRestController.now(command.zone());
+    QualityImprovement[] saved = new QualityImprovement[1];
+    OptimisticLockConflicts.translate(() -> saved[0] = Beans.get(QualityService.class).addCause(qi, cause, process, responsible, party, finding, now));
+    return ResponseConstructor.build(Response.Status.CREATED, "Cause recorded", detail(saved[0]));
+  }
+
+  @POST
+  @Path("/{id}/causes/{causeId}/remove")
+  @Consumes(MediaType.APPLICATION_JSON)
+  @Operation(summary = "Remove a recorded root cause (the issue's version)", tags = {"IOETI quality"})
+  @IoetiEndpoint
+  public Response removeCause(@PathParam("id") Long id, @PathParam("causeId") Long causeId, VersionOnly command) {
+    QualityImprovement qi = versioned(id, command == null ? null : command.version());
+    QIAnalysisCause row = qi.getQiAnalysis() == null ? null
+        : Query.of(QIAnalysisCause.class).filter("self.id = ?1 AND self.qiAnalysis = ?2", causeId, qi.getQiAnalysis()).fetchOne();
+    if (row == null) throw ApiException.notFound();
+    return run(() -> Beans.get(QualityService.class).removeCause(qi, row), "Cause removed");
+  }
+
   // --- helpers -------------------------------------------------------------------------------------
 
   private Response run(java.util.function.Supplier<QualityImprovement> action, String message) {
@@ -373,7 +467,29 @@ public class QualityRestController {
         analysis == null ? null : analysis.getEarliestDate(),
         analysis == null ? null : analysis.getAnalysisCheck(),
         analysis == null || analysis.getEfficiencyCheckedBy() == null ? null : analysis.getEfficiencyCheckedBy().getName(),
-        analysis == null ? null : analysis.getEfficiencyCheckedOn(), actions);
+        analysis == null ? null : analysis.getEfficiencyCheckedOn(), actions, rootCause(qi));
+  }
+
+  /** The analysis method with its branches and their causes, and the causes recorded; a party is named only to those who may read it. */
+  static RootCauseAnalysisView rootCause(QualityImprovement qi) {
+    JpaSecurity security = Beans.get(JpaSecurity.class);
+    QIAnalysisMethod method = qi.getAnalysisMethod();
+    List<RootCauseBranchView> branches = method == null ? List.of() : Query.of(QIAnalysisMethodItem.class).filter("self.analysisMethod = ?1", method)
+        .order("id").fetch(100).stream().map(b -> new RootCauseBranchView(b.getId(), b.getName(),
+            Query.of(QICause.class).filter("self.branch = ?1", b).order("name").fetch(100).stream().map(c -> new QualityChoice(c.getId(), c.getName(), null)).toList()))
+        .toList();
+    List<RootCauseView> causes = QualityService.causes(qi).stream().map(c -> {
+      Partner party = c.getResponsiblePartner();
+      Responsible responsible = QualityService.responsible(c);
+      boolean seeParty = party != null && responsible != Responsible.INTERNAL && security.isPermitted(JpaSecurity.CAN_READ, Partner.class, party.getId());
+      QICause cause = c.getQiCause();
+      return new RootCauseView(c.getId(), cause == null ? null : cause.getName(), cause == null || cause.getBranch() == null ? null : cause.getBranch().getName(),
+          c.getQiProcess() == null ? null : c.getQiProcess().getName(), responsible.name(), seeParty ? party.getName() : null, c.getDescription());
+    }).toList();
+    QIAnalysis analysis = qi.getQiAnalysis();
+    return new RootCauseAnalysisView(method == null ? null : method.getId(), method == null ? null : method.getName(), branches, causes,
+        analysis == null || analysis.getCausesWrittenBy() == null ? null : analysis.getCausesWrittenBy().getName(),
+        analysis == null ? null : analysis.getCausesWrittenOn());
   }
 
   public record RaiseQualityIssue(String title, String details, Long detectionId, Long issueTypeId, String gravity, Long accountId,
@@ -389,6 +505,13 @@ public class QualityRestController {
 
   public record CorrectiveActionCommand(Integer version, String outcome, String zone) {}
 
+  public record ChooseAnalysisMethod(Integer version, Long methodId) {}
+
+  /** responsible: INTERNAL (the organisation, never a named person), CUSTOMER or SUPPLIER of the issue. */
+  public record RecordRootCause(Integer version, Long causeId, Long processId, String responsible, String finding, String zone) {}
+
+  public record VersionOnly(Integer version) {}
+
   /** A quality issue in the register; statusKind is OPEN, CLOSED or CANCELLED; origin INTERNAL, CUSTOMER or SUPPLIER. */
   public record QualityIssueView(Long id, Integer version, String reference, String title, String gravity, Long statusId, String statusName,
       String statusKind, String detection, String origin, String issueType, Long accountId, String accountName, Long projectId,
@@ -399,10 +522,24 @@ public class QualityRestController {
       String type, String status, boolean overdue, LocalDateTime doneAt, String outcome) {}
 
   public record QualityIssueDetail(QualityIssueView issue, String details, String objective, String criteria, LocalDate earliest,
-      String check, String checkedByName, LocalDateTime checkedAt, List<CorrectiveActionView> actions) {}
+      String check, String checkedByName, LocalDateTime checkedAt, List<CorrectiveActionView> actions, RootCauseAnalysisView rootCause) {}
+
+  /** A recorded cause; responsibleName is the client's or supplier's name (null for the organisation or if not readable). */
+  public record RootCauseView(Long id, String cause, String branch, String process, String responsible, String responsibleName, String finding) {}
+
+  /** A branch of the issue's analysis method and the causes that can be chosen under it. */
+  public record RootCauseBranchView(Long id, String name, List<QualityChoice> causes) {}
+
+  public record RootCauseAnalysisView(Long methodId, String methodName, List<RootCauseBranchView> branches, List<RootCauseView> causes,
+      String writtenByName, LocalDateTime writtenAt) {}
 
   public record QualityChoice(Long id, String name, String kind) {}
 
+  /**
+   * analysisReady/analysisMissing: whether root causes can be recorded (COMPANY, METHODS with causes, PROCESSES,
+   * COMPANY_PARTY); methods are those with causes under their branches.
+   */
   public record QualityOptionsView(boolean ready, List<String> missing, List<QualityChoice> statuses, List<QualityChoice> detections,
-      List<QualityChoice> issueTypes, List<QualityChoice> actionTypes) {}
+      List<QualityChoice> issueTypes, List<QualityChoice> actionTypes, boolean analysisReady, List<String> analysisMissing,
+      List<QualityChoice> processes, List<QualityChoice> methods) {}
 }

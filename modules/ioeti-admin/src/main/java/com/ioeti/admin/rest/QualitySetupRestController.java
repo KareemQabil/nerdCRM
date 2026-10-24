@@ -22,8 +22,10 @@ import jakarta.ws.rs.core.Response;
 import java.util.List;
 
 /**
- * The company's quality set-up (statuses, where issues are found, issue types, action types), managed by
- * administrators. Values are the company's own; none are shipped.
+ * The company's quality set-up (statuses, where issues are found, issue types, action types, and for
+ * root-cause analysis analysis methods with their branches, the causes under each branch and processes),
+ * managed by administrators.
+ * Values are the company's own; none are shipped.
  */
 @Path("/ioeti/admin/quality")
 @Produces(MediaType.APPLICATION_JSON)
@@ -47,7 +49,7 @@ public class QualitySetupRestController {
     admin();
     Kind kind = Kind.of(list);
     if (command == null) throw ApiException.badRequest("A name is required.");
-    return ResponseConstructor.build(Response.Status.CREATED, "Value added", view(setup().add(kind, command.name(), command.kind())));
+    return ResponseConstructor.build(Response.Status.CREATED, "Value added", view(setup().add(kind, command.name(), command.kind(), command.branchId(), command.ownerId())));
   }
 
   @POST
@@ -60,7 +62,7 @@ public class QualitySetupRestController {
     Kind kind = Kind.of(list);
     if (command == null) throw ApiException.badRequest("Record version is required.");
     Entry[] saved = new Entry[1];
-    OptimisticLockConflicts.translate(() -> saved[0] = setup().update(kind, id, command.version(), command.name(), command.kind()));
+    OptimisticLockConflicts.translate(() -> saved[0] = setup().update(kind, id, command.version(), command.name(), command.kind(), command.branchId(), command.ownerId()));
     return ResponseConstructor.build(Response.Status.OK, "Value changed", view(saved[0]));
   }
 
@@ -76,6 +78,31 @@ public class QualitySetupRestController {
     return ResponseConstructor.build(Response.Status.OK, "Value deleted", views(setup().list(kind)));
   }
 
+  @POST
+  @Path("/methods/{id}/branches")
+  @Consumes(MediaType.APPLICATION_JSON)
+  @Operation(summary = "Add a branch (cause category) at the end of an analysis method (the method's version; administrators)", tags = {"IOETI admin"})
+  @IoetiEndpoint
+  public Response addBranch(@PathParam("id") Long id, QualityValueCommand command) {
+    admin();
+    if (command == null) throw ApiException.badRequest("Record version is required.");
+    Entry[] saved = new Entry[1];
+    OptimisticLockConflicts.translate(() -> saved[0] = setup().addBranch(id, command.version(), command.name()));
+    return ResponseConstructor.build(Response.Status.CREATED, "Branch added", view(saved[0]));
+  }
+
+  @POST
+  @Path("/methods/{id}/branches/{branchId}/delete")
+  @Consumes(MediaType.APPLICATION_JSON)
+  @Operation(summary = "Remove a branch without causes from an analysis method (the method's version; administrators)", tags = {"IOETI admin"})
+  @IoetiEndpoint
+  public Response deleteBranch(@PathParam("id") Long id, @PathParam("branchId") Long branchId, QualityValueCommand command) {
+    admin();
+    Entry[] saved = new Entry[1];
+    OptimisticLockConflicts.translate(() -> saved[0] = setup().deleteBranch(id, command == null ? null : command.version(), branchId));
+    return ResponseConstructor.build(Response.Status.OK, "Branch removed", view(saved[0]));
+  }
+
   private static QualitySetup setup() {
     return Beans.get(QualitySetup.class);
   }
@@ -86,15 +113,25 @@ public class QualitySetupRestController {
   }
 
   static QualityValueView view(Entry e) {
-    return new QualityValueView(e.id(), e.version(), e.name(), e.code(), e.flag(), e.sequence(), e.uses());
+    return new QualityValueView(e.id(), e.version(), e.name(), e.code(), e.flag(), e.sequence(), e.uses(),
+        e.branches() == null ? null : e.branches().stream().map(b -> new QualityBranchView(b.id(), b.name(), b.causes())).toList(),
+        e.branchId(), e.branchName(), e.ownerId(), e.ownerName());
   }
 
   static List<QualityValueView> views(List<Entry> entries) {
     return entries.stream().map(QualitySetupRestController::view).toList();
   }
 
-  public record QualityValueCommand(Integer version, String name, String kind) {}
+  /** branchId: the branch a cause belongs to (causes only); ownerId: who owns a process (processes only). */
+  public record QualityValueCommand(Integer version, String name, String kind, Long branchId, Long ownerId) {}
 
-  /** A quality set-up value; kind is the status kind or the detection origin, null for types. */
-  public record QualityValueView(Long id, Integer version, String name, String code, String kind, Integer sequence, long uses) {}
+  /**
+   * A quality set-up value; kind is the status kind or the detection origin, null otherwise; branches only for
+   * methods; branchId/branchName only for causes; ownerId/ownerName only for processes.
+   */
+  public record QualityValueView(Long id, Integer version, String name, String code, String kind, Integer sequence, long uses,
+      List<QualityBranchView> branches, Long branchId, String branchName, Long ownerId, String ownerName) {}
+
+  /** A branch of an analysis method with how many causes it has. */
+  public record QualityBranchView(Long id, String name, long causes) {}
 }
