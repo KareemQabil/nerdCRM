@@ -1,0 +1,69 @@
+/* Field visits: a field-first list and a record with big on-site actions (shared tokens; phone first). */
+.visits-page, .visit-record { display: grid; gap: 16px; }
+.visits-page > .segmented { justify-self: start; }
+.visit-group { display: grid; gap: 8px; }
+.visit-group h2 { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 15px; }
+.visit-group h2 b { min-width: 22px; padding: 0 7px; border-radius: 999px; background: var(--surface-variant); font-size: 12px; text-align: center; }
+.visit-group.is-active h2 { color: var(--warning); }
+.visit-group ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.visit-card { display: flex; align-items: center; gap: 14px; min-height: 64px; padding: 10px 14px; border-radius: var(--radius-lg); background: var(--surface);
+  border: 1px solid var(--outline-variant); border-inline-start: 5px solid var(--primary); color: var(--on-surface); text-decoration: none;
+  transition: transform var(--duration-fast, 120ms), border-color var(--duration-fast, 120ms); }
+.visit-card:hover { transform: translateY(-1px); border-color: var(--outline); }
+.visit-card:focus-visible { outline: none; box-shadow: var(--focus-halo, 0 0 0 3px var(--primary-container)); }
+.visit-card.is-started, .visit-card.is-suspended { border-inline-start-color: var(--warning); }
+.visit-card.is-finished { border-inline-start-color: var(--success); opacity: .8; }
+.visit-card.is-cancelled { border-inline-start-color: var(--outline); opacity: .6; }
+.visit-card.is-to_plan { border-inline-start-style: dashed; }
+.visit-time { flex: 0 0 74px; display: grid; justify-items: center; color: var(--on-surface-variant); }
+.visit-time b { font-size: 17px; color: var(--on-surface); font-variant-numeric: tabular-nums; }
+.visit-time small { font-size: 11.5px; }
+.visit-main { flex: 1; min-width: 0; display: grid; gap: 2px; }
+.visit-main strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.visit-main small { color: var(--on-surface-variant); font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.visit-side { display: grid; justify-items: end; gap: 4px; }
+.visit-side small { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: var(--on-surface-variant); }
+.visit-status { padding: 2px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; background: var(--surface-variant); white-space: nowrap; }
+.visit-status.is-planned { background: var(--primary-container); color: var(--on-primary-container); }
+.visit-status.is-started, .visit-status.is-suspended { background: var(--warning-container); color: var(--warning); }
+.visit-status.is-finished { background: var(--success-container); color: var(--success); }
+.visit-hero { display: grid; gap: 10px; padding: 20px; border-radius: var(--radius-xl, 18px); background: var(--surface); border: 1px solid var(--outline-variant);
+  border-top: 5px solid var(--primary); }
+.visit-hero.is-started, .visit-hero.is-suspended { border-top-color: var(--warning); }
+.visit-hero.is-finished { border-top-color: var(--success); }
+.visit-hero-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.visit-ref { font-size: 12px; color: var(--on-surface-variant); }
+.visit-hero h1 { margin: 0; font-size: 26px; overflow-wrap: anywhere; }
+.visit-hero p { margin: 0; color: var(--on-surface-variant); line-height: 1.7; }
+.visit-facts { display: flex; flex-wrap: wrap; gap: 8px 24px; margin: 0; }
+.visit-facts dt { display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--on-surface-variant); }
+.visit-facts dd { margin: 2px 0 0; font-weight: 600; }
+.visit-facts a { color: inherit; }
+.visit-actions { display: flex; flex-wrap: wrap; gap: 8px; padding-top: 6px; }
+.visit-big { min-height: 52px; padding-inline: 20px; font-size: 15px; }
+.visit-big.is-finish { background: var(--success); border-color: var(--success); }
+.visit-cancel { color: var(--error); }
+.visit-log h2 { margin: 0 0 4px; font-size: 17px; }
+.visit-note-form { display: flex; gap: 8px; align-items: flex-end; margin: 12px 0; }
+.visit-note-form textarea { flex: 1; min-width: 0; min-height: 52px; padding: 10px 12px; border: 1px solid var(--outline); border-radius: var(--radius);
+  background: var(--surface); color: var(--on-surface); font: inherit; resize: vertical; }
+.visit-note-form textarea:focus-visible { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-container); }
+.visit-notes { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.visit-notes li { padding: 10px 12px; border-radius: var(--radius); background: var(--surface-variant); }
+.visit-notes p { margin: 0 0 4px; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.6; }
+.visit-notes small { color: var(--on-surface-variant); font-size: 12px; }
+.visit-account-pick { display: grid; gap: 7px; position: relative; }
+.visit-account-pick > span:first-child { font-size: 12.5px; font-weight: 700; color: var(--on-surface-variant); }
+.visit-account-pick > .chip { justify-self: start; }
+.visit-account-pick input { min-height: var(--control-height); padding: 8px 12px; border: 1px solid var(--outline); border-radius: var(--radius); background: var(--surface); color: var(--on-surface); font: inherit; }
+.visit-account-pick ul { list-style: none; margin: 0; padding: 4px; display: grid; gap: 2px; border: 1px solid var(--outline-variant); border-radius: var(--radius); background: var(--surface); }
+.visit-account-pick ul button { display: flex; align-items: center; gap: 8px; width: 100%; padding: 8px 10px; border: 0; border-radius: var(--radius-sm); background: transparent;
+  color: var(--on-surface); font: inherit; text-align: start; cursor: pointer; }
+.visit-account-pick ul button:hover, .visit-account-pick ul button:focus-visible { background: var(--primary-container); outline: none; }
+.daily-confirm-plain { display: flex !important; align-items: center; gap: 8px; align-self: end; min-height: var(--control-height); cursor: pointer; }
+@media (max-width: 720px) {
+  .visit-card { gap: 10px; padding: 10px; }
+  .visit-time { flex-basis: 56px; }
+  .visit-actions .btn { flex: 1 1 100%; }
+  .visit-note-form { flex-direction: column; align-items: stretch; }
+}

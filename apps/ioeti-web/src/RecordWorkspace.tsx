@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import {
   ArrowLeft, ArrowRight, BadgeCheck, Building2, ChevronLeft, ChevronRight,
-  CircleDashed, FileClock, GitMerge, Layers3, LockKeyhole, Network, Pencil, ShieldCheck, UserPlus, UserRound
+  CircleDashed, FileClock, GitMerge, Layers3, LockKeyhole, MapPin, Network, Pencil, ShieldCheck, UserPlus, UserRound
 } from "lucide-react";
 import { Account360 } from "./Account360";
 import { LeadQualificationPanel } from "./LeadQualificationPanel";
@@ -11,6 +11,7 @@ import { MentionForm, OutboxPanel } from "./InboxPage";
 import { getAccount, getLead, type AccountSummary, type LeadSummary } from "./api";
 import { ActivityPanel } from "./ActivityPanel";
 import { AccountDialog, ContactDialog, EditLeadDialog } from "./RecordDialogs";
+import { NewVisitDialog } from "./VisitsPage";
 import type { Language } from "./preferences";
 import { DEMO_MODE } from "./demo";
 
@@ -46,7 +47,7 @@ const strings = {
     accountRelated:"الفرص وجهات الاتصال المرتبطة بهذا الحساب ضمن صلاحياتك",
     lostLead:"عميل محتمل خاسر · أعد فتحه للتحويل",
     qualification:"مرحلة العميل المحتمل والمسؤول عنه ونتيجته",
-    editLead:"تعديل البيانات",editAccount:"تعديل الحساب",addContact:"إضافة جهة اتصال",
+    editLead:"تعديل البيانات",editAccount:"تعديل الحساب",addContact:"إضافة جهة اتصال",planVisit:"خطط زيارة",
   },
   en: {
     backAccounts:"Back to accounts",backLeads:"Back to leads",
@@ -73,7 +74,7 @@ const strings = {
     accountRelated:"Opportunities and contacts of this account within your permissions",
     lostLead:"Lost lead · reopen it to convert",
     qualification:"Stage, ownership and outcome of this lead",
-    editLead:"Edit details",editAccount:"Edit account",addContact:"Add contact",
+    editLead:"Edit details",editAccount:"Edit account",addContact:"Add contact",planVisit:"Plan a visit",
   },
 } as const;
 function isLead(record:RecordItem):record is LeadSummary{return "organization" in record;}
@@ -91,7 +92,7 @@ export function RecordWorkspace({kind,language,record,onBack,onPrevious,onNext,o
   const NextArrow=ar?ChevronLeft:ChevronRight;
   const PreviousArrow=ar?ChevronRight:ChevronLeft;
   const heading=useRef<HTMLHeadingElement>(null);
-  const [dialog,setDialog]=useState<"lead"|"account"|"contact"|null>(null);
+  const [dialog,setDialog]=useState<"lead"|"account"|"contact"|"visit"|null>(null);
   useEffect(()=>{heading.current?.focus();window.scrollTo({top:0,behavior:"instant"});},[record.id]);
   // logging an activity or adding a contact moves the record's version: read it again
   const reload=async()=>{try{onRecordChanged?.(lead?await getLead(record.id):await getAccount(record.id));}catch{/* the panel shows its own error */}};
@@ -132,6 +133,7 @@ export function RecordWorkspace({kind,language,record,onBack,onPrevious,onNext,o
           {editableLead&&<button type="button" className="btn btn-secondary" onClick={()=>setDialog("lead")}><Pencil size={16}/>{l.editLead}</button>}
           {liveAccount&&<button type="button" className="btn btn-secondary" onClick={()=>setDialog("account")}><Pencil size={16}/>{l.editAccount}</button>}
           {liveAccount&&<button type="button" className="btn btn-secondary" onClick={()=>setDialog("contact")}><UserPlus size={16}/>{l.addContact}</button>}
+          {liveAccount&&<button type="button" className="btn btn-secondary" onClick={()=>setDialog("visit")}><MapPin size={16}/>{l.planVisit}</button>}
         </div>}
         {lead&&!DEMO_MODE&&record.converted?<div className="record-paging">
           <span className="record-readonly-pill"><BadgeCheck size={14}/>{l.converted}</span>
@@ -179,6 +181,7 @@ export function RecordWorkspace({kind,language,record,onBack,onPrevious,onNext,o
     </section>}
     {dialog==="lead"&&lead&&<EditLeadDialog lead={record} language={language} onClose={()=>setDialog(null)} onSaved={next=>{setDialog(null);onRecordChanged?.(next);}}/>}
     {dialog==="account"&&!lead&&<AccountDialog account={record} language={language} onClose={()=>setDialog(null)} onSaved={next=>{setDialog(null);onRecordChanged?.(next);}}/>}
+    {dialog==="visit"&&!lead&&<NewVisitDialog language={language} account={{id:record.id,name:record.name}} onClose={()=>setDialog(null)} onSaved={v=>{setDialog(null);window.location.hash="#/visits/"+v.id;}}/>}
     {dialog==="contact"&&!lead&&<ContactDialog account={record} language={language} onClose={()=>setDialog(null)} onSaved={()=>{setDialog(null);void reload();}}/>}
   </article>;
 }

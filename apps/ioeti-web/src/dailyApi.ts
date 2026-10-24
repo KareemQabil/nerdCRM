@@ -15,7 +15,7 @@ export type Activity = {
   ownerName: string | null; mine: boolean; outcomeRecorded: boolean;
 };
 export type AgendaItem = {
-  type: "ACTIVITY" | "SESSION" | "AUDIT" | "INTERVIEW"; id: number; title: string | null; at: string | null; endsAt: string | null;
+  type: "ACTIVITY" | "SESSION" | "AUDIT" | "INTERVIEW" | "VISIT"; id: number; title: string | null; at: string | null; endsAt: string | null;
   kind: ActivityKind | null; status: string | null; recordType: string | null; recordId: number | null;
 };
 export type SearchHit = { type: RecordType; id: number; title: string; subtitle: string | null };
@@ -86,6 +86,7 @@ export function recordHref(type: string | null, recordId: number | null): string
     case "CYCLE": return `#/certification/${recordId}`;
     case "JOB_ORDER": return `#/recruitment/orders/${recordId}`;
     case "COHORT": return `#/training`;
+    case "VISIT": return `#/visits/${recordId}`;
     default: return null;
   }
 }

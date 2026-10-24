@@ -333,7 +333,7 @@ test("live mode shows the system map: real status per domain, decisions that hol
   await intercept(page);
   const probed:string[]=[];
   // later routes win: these answer the map's access checks
-  await page.route(/\/axelor-erp\/ws\/ioeti\/(certification\/cycles|training\/courses|fundraising\/donors|recruitment\/job-orders|operations\/handovers|marketing\/campaigns|catalog\/products)/,route=>{
+  await page.route(/\/axelor-erp\/ws\/ioeti\/(certification\/cycles|training\/courses|fundraising\/donors|recruitment\/job-orders|operations\/handovers|marketing\/campaigns|catalog\/products|visits)/,route=>{
     const path=new URL(route.request().url()).pathname;
     probed.push(path);
     if(path.endsWith("/fundraising/donors"))return route.fulfill({status:403,contentType:"application/json",body:JSON.stringify({codeStatus:403,error:{code:"FORBIDDEN",fields:[]}})});
@@ -343,7 +343,11 @@ test("live mode shows the system map: real status per domain, decisions that hol
   await page.getByRole("button",{name:"خريطة النظام"}).click();
   await expect(page.getByRole("heading",{name:"خريطة النظام",level:1})).toBeVisible();
   await expect(page.locator(".system-map-card")).toHaveCount(15);
-  await expect(page.locator(".system-map-card").filter({hasText:"الزيارات الميدانية"})).toContainText("لسه بيتبني");
+  const visits=page.locator(".system-map-card").filter({hasText:"الزيارات الميدانية"});
+  await expect(visits.locator(".system-map-status")).toHaveText("شغال");
+  await expect(visits.locator(".system-map-decision")).toHaveText("D-10");
+  await expect(visits.getByRole("link",{name:/افتح/})).toHaveAttribute("href","#/visits");
+  await expect(page.locator(".system-map-card").filter({hasText:"الجودة والإجراءات التصحيحية"}).locator(".system-map-status")).toHaveText("شغال جزئيًا");
   const cert=page.locator(".system-map-card").filter({hasText:"إدارة شهادات ISO"});
   await expect(cert).toContainText("شغال");
   await expect(cert.locator(".system-map-decision")).toHaveText("D-02");

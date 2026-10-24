@@ -21,6 +21,8 @@ dependencies {
 	// handovers start from native contracts
 	api project(":modules:ioeti-commercial")
 	api project(":modules:axelor-project")
+	// field visits are the native axelor-intervention Intervention
+	api project(":modules:axelor-intervention")
 
 	implementation libs.swagger_jaxrs
 }
