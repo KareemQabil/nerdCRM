@@ -1,6 +1,7 @@
 package com.ioeti.commercial.service;
 
 import com.axelor.apps.base.AxelorException;
+import com.axelor.apps.base.db.repo.PriceListLineRepository;
 import com.axelor.apps.base.db.repo.SequenceRepository;
 import com.axelor.apps.base.service.administration.SequenceService;
 import com.axelor.apps.base.service.app.AppBaseService;
@@ -80,17 +81,33 @@ public class QuoteApprovalService {
         + " AND (r MEMBER OF self.roles OR (self.group IS NOT NULL AND r MEMBER OF self.group.roles)))", roleOf(approver)).order("id").fetch(50);
   }
 
-  /** The discount the quotation gives against its lines' unit prices, in % (native price vs discounted price). */
+  /**
+   * The discount the quotation gives against its lines' unit prices, in %. Each line's discounted price is taken from its
+   * native discount (percent or fixed amount off the unit price, as AOS computes it), not from the stored discounted price,
+   * which reads as 0 before the line is computed and would count as a 100% discount.
+   */
   public static BigDecimal discountPercent(SaleOrder quote) {
     BigDecimal list = BigDecimal.ZERO;
     BigDecimal sold = BigDecimal.ZERO;
     for (SaleOrderLine line : quote.getSaleOrderLineList() == null ? List.<SaleOrderLine>of() : quote.getSaleOrderLineList()) {
       if (!Objects.equals(line.getTypeSelect(), SaleOrderLineRepository.TYPE_NORMAL) || line.getQty() == null || line.getPrice() == null) continue;
       list = list.add(line.getQty().multiply(line.getPrice()));
-      sold = sold.add(line.getQty().multiply(line.getPriceDiscounted() == null ? line.getPrice() : line.getPriceDiscounted()));
+      sold = sold.add(line.getQty().multiply(discounted(line)));
     }
     if (list.signum() <= 0) return BigDecimal.ZERO;
     return BigDecimal.ONE.subtract(sold.divide(list, 8, RoundingMode.HALF_UP)).multiply(HUNDRED).setScale(2, RoundingMode.HALF_UP).max(BigDecimal.ZERO);
+  }
+
+  /** A line's unit price after its native discount (never below 0). */
+  static BigDecimal discounted(SaleOrderLine line) {
+    BigDecimal price = line.getPrice();
+    BigDecimal amount = line.getDiscountAmount() == null ? BigDecimal.ZERO : line.getDiscountAmount();
+    Integer type = line.getDiscountTypeSelect();
+    if (Integer.valueOf(PriceListLineRepository.AMOUNT_TYPE_PERCENT).equals(type)) {
+      return price.multiply(BigDecimal.ONE.subtract(amount.divide(HUNDRED, 10, RoundingMode.HALF_UP))).max(BigDecimal.ZERO);
+    }
+    if (Integer.valueOf(PriceListLineRepository.AMOUNT_TYPE_FIXED).equals(type)) return price.subtract(amount).max(BigDecimal.ZERO);
+    return price;
   }
 
   /**

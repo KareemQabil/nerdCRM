@@ -14,7 +14,10 @@ class WorkspaceRulesTest {
     assertEquals(1, WorkspaceRestController.select("reason", "PRICING", WorkspaceRestController.REASONS));
     assertEquals("CHANGES_REQUESTED", WorkspaceRestController.name(2, WorkspaceRestController.REVIEW_STATUSES));
     assertEquals("WITHDRAWN", WorkspaceRestController.name(3, WorkspaceRestController.REVIEW_EVENTS));
-    assertNull(WorkspaceRestController.name(4, WorkspaceRestController.REVIEW_STATUSES));
+    // D-11: a quotation review is decided by the tier's approver
+    assertEquals("APPROVED", WorkspaceRestController.name(4, WorkspaceRestController.REVIEW_STATUSES));
+    assertEquals("REJECTED", WorkspaceRestController.name(5, WorkspaceRestController.REVIEW_EVENTS));
+    assertNull(WorkspaceRestController.name(6, WorkspaceRestController.REVIEW_STATUSES));
   }
 
   @Test

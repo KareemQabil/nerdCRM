@@ -18,12 +18,14 @@ import org.junit.jupiter.api.Test;
 /** D-11: how a quotation's discount is measured and who holds an approver's role. */
 class QuoteApprovalRulesTest {
 
-  private static SaleOrderLine line(int type, String qty, String price, String discounted) {
+  /** A line with a native discount: type 0 none, 1 percent, 2 fixed amount off the unit price. */
+  private static SaleOrderLine line(int type, String qty, String price, int discountType, String discount) {
     SaleOrderLine line = new SaleOrderLine();
     line.setTypeSelect(type);
     line.setQty(new BigDecimal(qty));
     line.setPrice(new BigDecimal(price));
-    line.setPriceDiscounted(discounted == null ? null : new BigDecimal(discounted));
+    line.setDiscountTypeSelect(discountType);
+    line.setDiscountAmount(new BigDecimal(discount));
     return line;
   }
 
@@ -36,15 +38,17 @@ class QuoteApprovalRulesTest {
   @Test
   void discountIsWeightedByQuantityAndPriceOverNormalLinesOnly() {
     int normal = SaleOrderLineRepository.TYPE_NORMAL;
-    // 2 × 1500 at 10% off and 1 × 1000 undiscounted: 1 − (2700 + 1000) / 4000 = 7.5%
-    assertEquals(new BigDecimal("7.50"), QuoteApprovalService.discountPercent(quote(
-        line(normal, "2", "1500", "1350"), line(normal, "1", "1000", "1000"))));
-    // a title line does not count; a missing discounted price means no discount
+    // 2 × 1500 at 10% off and 1 × 1000 with 100 off: 1 − (2700 + 900) / 4000 = 10%
+    assertEquals(new BigDecimal("10.00"), QuoteApprovalService.discountPercent(quote(
+        line(normal, "2", "1500", 1, "10"), line(normal, "1", "1000", 2, "100"))));
+    // a title line does not count; a line not computed yet (no discounted price stored) is not a 100% discount
+    SaleOrderLine uncomputed = line(normal, "1", "1000", 0, "0");
+    assertEquals(0, uncomputed.getPriceDiscounted().signum()); // the generated getter reads 0 until AOS computes the line
     assertEquals(new BigDecimal("0.00"), QuoteApprovalService.discountPercent(quote(
-        line(normal, "1", "1000", null), line(SaleOrderLineRepository.TYPE_TITLE, "1", "500", "0"))));
+        uncomputed, line(SaleOrderLineRepository.TYPE_TITLE, "1", "500", 1, "100"))));
     assertEquals(BigDecimal.ZERO, QuoteApprovalService.discountPercent(quote()));
-    // a price above the list price is never a negative discount
-    assertEquals(new BigDecimal("0.00"), QuoteApprovalService.discountPercent(quote(line(normal, "1", "1000", "1100"))));
+    // a fixed amount above the price is a full discount, never below zero
+    assertEquals(new BigDecimal("100.00"), QuoteApprovalService.discountPercent(quote(line(normal, "1", "1000", 2, "1500"))));
   }
 
   @Test
