@@ -154,6 +154,9 @@ jobs:
           # Visits and quality on the shared surfaces: my agenda (corrective actions due), search, Account 360 and
           # report areas, each through native permissions (left out, never zero, for those without rights)
           python3 scripts/cross_domain_probe.py
+          # P1: business-rule policies (owner decisions D-01..D-12): none shipped, refused until set; only policy
+          # owners change them, from today or later, with a reason; the last owner cannot be removed
+          python3 scripts/policy_probe.py
           # Finance's invoicing queue within D-06: requests, milestones coming due and real figures per currency;
           # issuing stays BLOCKED_BY_POLICY and no payment is recorded as received
           python3 scripts/finance_probe.py
@@ -215,6 +218,7 @@ jobs:
             logs/quality-probe.json
             logs/quality-rca-probe.json
             logs/cross-domain-probe.json
+            logs/policy-probe.json
             logs/finance-probe.json
           if-no-files-found: ignore
       - name: Attach Axelor integration logs

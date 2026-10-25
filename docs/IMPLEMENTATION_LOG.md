@@ -843,3 +843,20 @@ Slice: `docs/slices/A13-assignment-notices.md`.
 - UI: inbox labels for the six new kinds and for `ENGAGEMENT_ASSIGNED`, which had shown its raw code; notices open the visit or the quality issue.
 - `scripts/cross_domain_probe.py` extended to 9/9 with a second worker. The probe also removes the notices its users received or caused.
 - Mocked UI test for the new inbox labels and links in `tests/app.spec.ts` (mocked suite 97 + 2 live skipped, demo 27). Full regression: 39 probes, all exit 0.
+
+## 2026-10-25 · P1 · business-rule policy engine (principle P, D-01..D-12)
+
+Slice: `docs/slices/P1-policy-engine.md`. Decision record: `docs/decisions/OPEN_IOETI_POLICY_DECISIONS.md` (signed section).
+
+- `ioeti-core`:
+  - `PolicyVersion` (append-only, effective-dated, with reason and author);
+  - `PolicyCatalog` with 17 owner-decided policies, none shipped;
+  - `PolicyValidator` (per-kind and between-field checks);
+  - `PolicyService`: value in force with default fallback; `require()` returns `422 POLICY_NOT_SET`; the policy-owner role; first-owner bootstrap; last-owner guard.
+  - The session exposes `policyOwner`.
+- `ioeti-admin`: `PolicyAdmin` (changes plus admin change log in one transaction) and `PolicyRestController` at `/ws/ioeti/policies`.
+- Migration `V019` / rollback `U019`: `verify` 8/8.
+- UI: Policies page (`PoliciesPage.tsx`) for administrators and policy owners. Mocked tests in `tests/policies.spec.ts` 3/3; desktop and 390 px without overflow.
+- Probe `scripts/policy_probe.py` 9/9, cleanup complete (backend CI); `PolicyValidatorTest` 6/6.
+- G-007 registry: policy DTO fields classified (1432 fields, 0 problems).
+- Fixed along the way: retiring checked "in force on `LocalDate.MAX`", which PostgreSQL cannot store (500). Retiring now checks what is in force on the retire date.

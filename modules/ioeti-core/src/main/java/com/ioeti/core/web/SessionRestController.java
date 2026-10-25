@@ -31,9 +31,13 @@ public class SessionRestController {
     if (user == null || !AuthUtils.isActive(user)) {
       return Response.status(Response.Status.UNAUTHORIZED).build();
     }
-    return Response.ok(new SessionIdentity(user.getCode(), user.getName(), user.getLanguage(), AuthUtils.isAdmin(user))).build();
+    return Response.ok(new SessionIdentity(user.getCode(), user.getName(), user.getLanguage(), AuthUtils.isAdmin(user),
+        com.ioeti.core.policy.PolicyService.isOwner(user))).build();
   }
 
-  /** {@code administrator} only chooses which screens to offer; every admin endpoint checks it again. */
-  public record SessionIdentity(String code, String name, String language, boolean administrator) {}
+  /**
+   * {@code administrator} and {@code policyOwner} only choose which screens to offer; every admin and policy
+   * endpoint checks them again.
+   */
+  public record SessionIdentity(String code, String name, String language, boolean administrator, boolean policyOwner) {}
 }
