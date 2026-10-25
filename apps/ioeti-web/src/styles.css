@@ -1388,3 +1388,11 @@ select, input, textarea { font-size: 14px; }
 .detail-placeholder svg { color: var(--area, var(--primary)); opacity: .8; }
 .detail-placeholder strong { color: var(--on-surface); font-size: 15px; }
 @media (max-width: 900px) { .detail-placeholder { display: none; } }
+/* D-11: client acceptance and contract activation on uploaded evidence */
+.commitment{display:grid;gap:10px;padding:14px 16px;border:1px solid var(--outline-variant);border-radius:var(--radius);background:var(--surface);}
+.commitment h3{display:flex;align-items:center;gap:6px;margin:0;font-size:15px;}
+.commitment>.btn{justify-self:start;}
+.commitment-form{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(min(200px,100%),1fr));align-items:end;}
+.commitment-form label{display:grid;gap:4px;font-size:13px;min-width:0;}
+.commitment-form select,.commitment-form input{inline-size:100%;min-inline-size:0;}
+.commitment-form .btn{justify-self:start;}

@@ -21,8 +21,8 @@ Checks:
                    bad input → 422, another rep → 404, amounts follow line changes, booked / invoiced /
                    collected reported apart (all zero for a draft), invoicing → 422 BLOCKED_BY_POLICY (D-06)
   contracts        native draft contract from the opportunity, one per opportunity (also under concurrency),
-                   refusals create nothing, reads scoped, activation → 422 BLOCKED_BY_POLICY (D-11),
-                   handover of a draft → 422 CONTRACT_NOT_ACTIVE; lines from the quotation (native
+                   refusals create nothing, reads scoped, activation without signature evidence → 422 (D-11);
+                   lines from the quotation (native
                    ContractLineService): same lines and total, lineage, once only (also under concurrency)
   finalize         422 POLICY_NOT_SET without the owners' policies (D-06, D-11), quotation stays a draft
 Report: logs/quote-probe.json.
@@ -383,11 +383,11 @@ def main():
               and s_ro == 403 and contracts_of(opp_b["id"]) == contracts_of(opp_a["id"]) == 0, (s_other, s_missing, s_ro))
         s, body = new_contract(a, opp_a)
         contract = body.get("object") or {}
-        check("draft contract created from the opportunity (native), activation policy-blocked",
+        check("draft contract created from the opportunity (native); activation waits for the signatory policy (D-11)",
               s == 201 and contract.get("status") == "DRAFT" and contract.get("contractType") == "BILLING"
               and (contract.get("reference") or "").startswith(f"T{tag[:3].upper()}")
               and contract.get("opportunityId") == opp_a["id"] and contract.get("accountId") == account["id"]
-              and contract.get("activationStatus") == "BLOCKED_BY_POLICY", f"{s} {contract}")
+              and contract.get("activationStatus") == "POLICY_NOT_SET", f"{s} {contract}")
         stored = fetch(CONTRACT, contract.get("id"), ["statusSelect", "partner", "opportunity", "company", "targetTypeSelect",
                                                       "contractTypeSelect"])
         check("persisted natively: customer contract, draft, account, opportunity, company",
@@ -419,12 +419,13 @@ def main():
         check("contract reads: owner lists it; another rep gets the same 404 as a missing id",
               s_list == 200 and [c["id"] for c in b_list.get("object") or []] == [contract.get("id")]
               and s_b_get == s_b_miss == s_b_list == 404, (s_list, s_b_get, s_b_miss, s_b_list))
-        s, body = a.call("POST", f"/ws/ioeti/contracts/{contract.get('id')}/activate")
-        s2, body2 = a.call("POST", f"/ws/ioeti/contracts/{contract.get('id')}/handover")
-        check("activation → 422 BLOCKED_BY_POLICY (D-11); handover of a draft → 422 CONTRACT_NOT_ACTIVE; still draft",
-              s == 422 and body.get("error", {}).get("code") == "BLOCKED_BY_POLICY"
-              and s2 == 422 and body2.get("error", {}).get("code") == "CONTRACT_NOT_ACTIVE"
-              and fetch(CONTRACT, contract.get("id"), ["statusSelect"]).get("statusSelect") == 1, (s, s2))
+        s, body = a.call("POST", f"/ws/ioeti/workspace/contracts/{contract.get('id')}/activate",
+                         {"version": version(CONTRACT, contract.get("id")), "signedOn": "2026-01-01"})
+        s2, _ = a.call("POST", f"/ws/ioeti/contracts/{contract.get('id')}/activate")
+        check("activation needs the signature evidence filed on the contract (422 documentId, D-11; commitment_probe covers it);"
+              " the old commercial activation stub is gone (404); still draft",
+              s == 422 and ((body.get("error", {}).get("fields") or [{}])[0]).get("field") == "documentId" and s2 == 404
+              and fetch(CONTRACT, contract.get("id"), ["statusSelect"]).get("statusSelect") == 1, (s, body.get("error"), s2))
 
         # --- 7b. contract lines from the quotation (native ContractLineService) -----------------------------
         CONTRACT_LINE = "com.axelor.apps.contract.db.ContractLine"

@@ -55,6 +55,12 @@ export const approveReview = (reviewId: number, version: number, rationale: stri
   post<Review>(`${BASE}/reviews/${id(reviewId)}/approve`, { version, rationale });
 export const rejectReview = (reviewId: number, version: number, reason: ReviewReason, rationale: string) =>
   post<Review>(`${BASE}/reviews/${id(reviewId)}/reject`, { version, reason, rationale });
+/** D-11: the client's acceptance on its evidence (a document filed on the quotation); confirms the order natively. */
+export const acceptQuote = (quote: { id: number; version: number }, input: { kind: "SIGNED_QUOTE" | "PURCHASE_ORDER"; reference: string; acceptedOn: string; documentId: number }) =>
+  post<{ quoteId: number; status: string }>(`${BASE}/quotes/${id(quote.id)}/accept`, { version: quote.version, ...input });
+/** D-11: activation on the signed copy filed on the contract, by the business line's signatory role. */
+export const activateContract = (contract: { id: number; version: number }, input: { signedOn: string; startOn?: string; documentId: number }) =>
+  post<{ contractId: number; status: string }>(`${BASE}/contracts/${id(contract.id)}/activate`, { version: contract.version, ...input });
 export const getInvoiceRequests = (quoteId: number) => list<InvoiceRequest>(`${BASE}/invoice-requests?quoteId=${id(quoteId)}`);
 export const requestInvoice = (milestoneId: number, quoteVersion: number) => post<InvoiceRequest>(`${BASE}/invoice-requests`, { milestoneId, quoteVersion });
 export const cancelInvoiceRequest = (requestId: number, version: number) => post<InvoiceRequest>(`${BASE}/invoice-requests/${id(requestId)}/cancel`, { version });

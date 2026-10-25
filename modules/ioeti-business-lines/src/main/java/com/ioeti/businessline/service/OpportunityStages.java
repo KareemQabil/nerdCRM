@@ -21,8 +21,8 @@ import java.time.LocalDate;
  *   <li>The kinds come from the CRM configuration: its closed-won stage is WON, its closed-lost stage is
  *       LOST, every other stage is OPEN.
  *   <li>Moving between open stages is free, like the native kanban. Losing needs its own command with a
- *       reason. Winning is not offered: when a deal counts as won is tied to the signed contract, which is
- *       policy D-11, so a move to the won stage answers BLOCKED_BY_POLICY.
+ *       reason. Winning needs the evidence the business line sets (D-11, {@link WonEvidence}): an active
+ *       contract, or an accepted quotation with uploaded evidence; without the line's setting it fails closed.
  *   <li>A lost opportunity is reopened at the configured default stage.
  *   <li>Planning figures (amount, currency, expected close date, probability) are the salesperson's own
  *       estimate; they are never shown as revenue.
@@ -52,7 +52,12 @@ public class OpportunityStages {
   public Opportunity move(Opportunity opportunity, OpportunityStatus target) {
     String from = kind(opportunity.getOpportunityStatus());
     String to = kind(target);
-    if ("WON".equals(to)) throw ApiException.policyBlocked("D-11");
+    if ("WON".equals(to)) {
+      if (!"OPEN".equals(from)) throw new ApiException(422, "STAGE_CLOSED", "Reopen the opportunity before moving it.", null);
+      Beans.get(WonEvidence.class).check(opportunity);
+      opportunity.setOpportunityStatus(target);
+      return Beans.get(OpportunityRepository.class).save(opportunity);
+    }
     if ("LOST".equals(to)) {
       throw new ApiException(422, "USE_LOSE", "Mark the opportunity lost with a reason instead.", null);
     }

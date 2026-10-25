@@ -10,6 +10,16 @@
   <entity name="Contract">
     <many-to-one name="ioetiSourceQuote" ref="com.axelor.apps.sale.db.SaleOrder"
       title="Source quotation"/>
+    <!-- D-11 (signed 2026-10-25): the signature evidence an authorized person activated the contract on (a document filed on
+         the contract, pinned to its revision and content hash), the date it was signed, who activated it and when, and the
+         sales.contract-signatory policy version that authorized them -->
+    <long name="ioetiSignatureDocument" title="Signature evidence (document)"/>
+    <integer name="ioetiSignatureRevision" title="Signature evidence (revision)"/>
+    <string name="ioetiSignatureSha256" title="Signature evidence (SHA-256)" max="64"/>
+    <date name="ioetiSignedOn" title="Signed on"/>
+    <many-to-one name="ioetiActivatedBy" ref="com.axelor.auth.db.User" title="Activated by"/>
+    <datetime name="ioetiActivatedAt" title="Activated at"/>
+    <many-to-one name="ioetiSignatoryPolicy" ref="com.ioeti.core.db.PolicyVersion" title="Signatory policy version"/>
   </entity>
 
 </domain-models>

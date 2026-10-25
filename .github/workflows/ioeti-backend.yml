@@ -168,6 +168,9 @@ jobs:
           # P3a (D-11): quotation approval tiers from sales.quote-approval, native finalize with the validity from
           # sales.quote-validity, approve/reject by the tier's role only (never the requester), recording sending
           python3 scripts/quote_approval_probe.py
+          # P3b (D-11): client acceptance on uploaded evidence confirms the order natively; the signatory role activates a
+          # contract on its signed copy; won follows the business line's evidence setting
+          python3 scripts/commitment_probe.py
           # Finance's invoicing queue within D-06: requests, milestones coming due and real figures per currency;
           # issuing stays BLOCKED_BY_POLICY and no payment is recorded as received
           python3 scripts/finance_probe.py

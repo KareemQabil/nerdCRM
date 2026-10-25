@@ -20,6 +20,16 @@
     <many-to-one name="ioetiSentBy" ref="com.axelor.auth.db.User" title="Sent by"/>
     <datetime name="ioetiSentAt" title="Sent at"/>
     <string name="ioetiSentNote" title="Sent how" max="300"/>
+    <!-- D-11: the client's acceptance (a signed quotation or a purchase order) with its uploaded evidence, a document filed on
+         the quotation pinned to its revision and content hash; recording it confirms the order natively -->
+    <string name="ioetiAcceptanceKind" title="Accepted with" max="20"/>
+    <string name="ioetiAcceptanceReference" title="Purchase order number" max="100"/>
+    <date name="ioetiAcceptedOn" title="Accepted on"/>
+    <long name="ioetiAcceptanceDocument" title="Acceptance evidence (document)"/>
+    <integer name="ioetiAcceptanceRevision" title="Acceptance evidence (revision)"/>
+    <string name="ioetiAcceptanceSha256" title="Acceptance evidence (SHA-256)" max="64"/>
+    <many-to-one name="ioetiAcceptedBy" ref="com.axelor.auth.db.User" title="Recorded by"/>
+    <datetime name="ioetiAcceptedAt" title="Recorded at"/>
   </entity>
 
 </domain-models>

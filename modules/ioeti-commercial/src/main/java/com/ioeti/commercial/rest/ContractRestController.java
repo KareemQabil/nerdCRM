@@ -18,7 +18,10 @@ import com.axelor.utils.api.ResponseConstructor;
 import com.axelor.utils.api.SecurityCheck;
 import com.ioeti.commercial.service.ContractDraftService;
 import com.ioeti.commercial.service.ContractLinesService;
+import com.axelor.apps.base.service.app.AppBaseService;
+import com.ioeti.commercial.service.QuoteApprovalService;
 import com.ioeti.commercial.service.QuoteService;
+import com.ioeti.core.policy.PolicyService;
 import com.ioeti.core.api.ApiException;
 import com.ioeti.core.api.IoetiEndpoint;
 import com.ioeti.core.api.NativeCommands;
@@ -39,9 +42,10 @@ import java.util.List;
 /**
  * Customer contracts of opportunities (Wave 3), on native AOS {@code Contract}.
  *
- * <p>Drafts can be created. Activation (signature, legal approval, effective dates) is blocked until
- * IOETI's commercial and legal approval policy (D-11) is signed. So is the operations handover,
- * which needs an active contract.
+ * <p>Drafts can be created and filled from a quotation. D-11 (signed 2026-10-25): a holder of the role the business
+ * line's {@code sales.contract-signatory} policy names activates a contract on its uploaded signature evidence
+ * ({@code POST /ws/ioeti/workspace/contracts/{id}/activate}, where the documents module is reachable); the view says
+ * whether the caller may. The operations handover of an active contract is {@code /ws/ioeti/operations/handovers}.
  */
 @Path("/ioeti/contracts")
 @Produces(MediaType.APPLICATION_JSON)
@@ -135,28 +139,6 @@ public class ContractRestController {
     return quote;
   }
 
-  @POST
-  @Path("/{id}/activate")
-  @Operation(summary = "Activate (sign) a contract: blocked until the approval and legal policy (D-11)", tags = {"IOETI contracts"})
-  @IoetiEndpoint
-  public Response activate(@PathParam("id") Long id) {
-    RecordAccess.writable(Contract.class, id);
-    throw ApiException.policyBlocked("D-11");
-  }
-
-  @POST
-  @Path("/{id}/handover")
-  @Operation(summary = "Hand an active contract over to operations: needs an active contract (D-11)", tags = {"IOETI contracts"})
-  @IoetiEndpoint
-  public Response handover(@PathParam("id") Long id) {
-    Contract contract = RecordAccess.writable(Contract.class, id);
-    if (!Integer.valueOf(ContractRepository.ACTIVE_CONTRACT).equals(contract.getStatusSelect())) {
-      throw new ApiException(
-          422, "CONTRACT_NOT_ACTIVE", "Only an active (signed) contract can be handed over to operations.", null);
-    }
-    throw ApiException.policyBlocked("D-11");
-  }
-
   static int contractType(String value) {
     if ("BILLING".equals(value)) return 1;
     if ("FRAMEWORK".equals(value)) return 2;
@@ -197,10 +179,32 @@ public class ContractRestController {
         canReadAccount ? account.getId() : null,
         canReadAccount ? account.getName() : null,
         contract.getCurrency() == null ? null : contract.getCurrency().getCode(),
-        "BLOCKED_BY_POLICY",
+        activation(contract).status(),
         sourceQuote(contract, security),
         lines,
-        total);
+        total,
+        activation(contract));
+  }
+
+  /**
+   * D-11: an active contract shows its signature record; a draft shows whether the caller may activate it (the
+   * signatory policy of its business line, and whether they hold its role).
+   */
+  static ActivationView activation(Contract contract) {
+    if (Integer.valueOf(ContractRepository.ACTIVE_CONTRACT).equals(contract.getStatusSelect())
+        || Integer.valueOf(ContractRepository.CLOSED_CONTRACT).equals(contract.getStatusSelect())) {
+      return new ActivationView(contract.getIoetiSignatureDocument() == null ? "ACTIVE" : "SIGNED", null, contract.getIoetiSignedOn(),
+          contract.getIoetiActivatedBy() == null ? null : contract.getIoetiActivatedBy().getName(), contract.getIoetiActivatedAt(),
+          contract.getIoetiSignatureDocument(), contract.getIoetiSignatureRevision());
+    }
+    String line = contract.getOpportunity() == null || contract.getOpportunity().getIoetiBusinessLine() == null ? null
+        : contract.getOpportunity().getIoetiBusinessLine().getCode();
+    java.util.Optional<PolicyService.Applied> policy = Beans.get(PolicyService.class)
+        .current("sales.contract-signatory", line, Beans.get(AppBaseService.class).getTodayDate(contract.getCompany()));
+    if (policy.isEmpty()) return new ActivationView("POLICY_NOT_SET", null, null, null, null, null, null);
+    String signatory = policy.get().value().path("signatory").asText();
+    return new ActivationView(QuoteApprovalService.holds(AuthUtils.getUser(), signatory) ? "READY" : "NOT_SIGNATORY", signatory,
+        null, null, null, null, null);
   }
 
   private static Long sourceQuote(Contract contract, JpaSecurity security) {
@@ -218,5 +222,12 @@ public class ContractRestController {
   public record ContractView(
       Long id, Integer version, String reference, String name, String status, String contractType,
       Long opportunityId, Long accountId, String accountName, String currency, String activationStatus,
-      Long sourceQuoteId, List<ContractLineView> lines, BigDecimal totalBeforeTax) {}
+      Long sourceQuoteId, List<ContractLineView> lines, BigDecimal totalBeforeTax, ActivationView activation) {}
+  /**
+   * D-11: SIGNED (activated on signature evidence: when signed, who activated, which document revision), ACTIVE (activated
+   * before D-11), POLICY_NOT_SET, NOT_SIGNATORY or READY (the caller may activate it; the signatory role is named).
+   */
+  public record ActivationView(
+      String status, String signatory, java.time.LocalDate signedOn, String activatedBy, java.time.LocalDateTime activatedAt,
+      Long documentId, Integer documentRevision) {}
 }

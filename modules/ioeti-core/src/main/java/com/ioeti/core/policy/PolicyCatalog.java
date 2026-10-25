@@ -64,6 +64,11 @@ public final class PolicyCatalog {
     add(new PolicyDefinition("sales.quote-validity", "D-11", "SALES", Scope.BUSINESS_LINE, true,
         List.of(integer("days", true, 1, 365, "مدة الصلاحية بالأيام", "Valid for (days)")),
         "صلاحية عرض السعر", "Quotation validity", "عدد الأيام اللي العرض النهائي بيفضل ساري فيها.", "How long a finalized quotation stays valid."));
+    add(new PolicyDefinition("sales.contract-signatory", "D-11", "SALES", Scope.BUSINESS_LINE, true,
+        List.of(choice("signatory", true, List.of("SALES_MANAGER", "GM"), "مين يفعّل العقد", "Activated by")),
+        "تفعيل العقود", "Contract activation",
+        "الدور اللي يفعّل العقد بعد رفع دليل التوقيع (نسخة موقّعة مرفوعة).",
+        "The role that activates a contract once its signature evidence (an uploaded signed copy) is filed."));
     add(new PolicyDefinition("sales.won-evidence", "D-11", "SALES", Scope.BUSINESS_LINE, false,
         List.of(choice("evidence", true, List.of("ACTIVE_CONTRACT", "ACCEPTED_QUOTE"), "دليل الالتزام", "Evidence of commitment")),
         "متى تُكسب الفرصة", "When an opportunity is won",

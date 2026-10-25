@@ -8,8 +8,8 @@ blocked in the API, so they are done with SQL in the disposable database as stan
 Checks:
   native quotation versions: save, list, restore; unknown version → 422; stale → 409; empty → 422
   review requests: one pending per record (409); approving finalizes, so a read-only reviewer → 403; rejecting without the
-  owners' policies → POLICY_NOT_SET (D-11, fail closed; scripts/quote_approval_probe.py covers the decisions); contracts →
-  BLOCKED_BY_POLICY;
+  owners' policies → POLICY_NOT_SET (D-11, fail closed; scripts/quote_approval_probe.py covers the decisions); a contract
+  review → USE_CONTRACT_ACTIVATION (scripts/commitment_probe.py covers activation);
   changes requested with a reason; withdraw; history with actors; contract reviews
   invoice requests: only for a confirmed order; one open per milestone (409, also when concurrent);
   issue → BLOCKED_BY_POLICY (D-06); cancel and request again
@@ -220,11 +220,11 @@ def main():
               f"{notes_a} {inbox_m}")
         check("review: empty quotation → 422; pending with the quotation version; twice → 409; approving finalizes, so a reviewer with"
               " read-only rights on quotations → 403; rejecting without the owners' policies → POLICY_NOT_SET (D-11, fail closed);"
-              " a contract's approval → BLOCKED_BY_POLICY",
+              " a contract is approved by activating it on signature evidence, not here (USE_CONTRACT_ACTIVATION)",
               (s_e, error(b_e).get("code"), s1, r1.get("status"), r1.get("quoteVersionNumber"), s2, error(b2).get("code"), s_ap, s_rj, s_cap)
               == (422, "NO_LINES", 201, "PENDING", obj(b_r).get("versionNumber"), 409, "REVIEW_PENDING", 403, 422, 422)
               and error(b_rj).get("code") == "POLICY_NOT_SET" and r1.get("approver") is None
-              and error(b_cap).get("code") == "BLOCKED_BY_POLICY" and "D-11" in error(b_cap).get("message", ""),
+              and error(b_cap).get("code") == "USE_CONTRACT_ACTIVATION",
               f"{s_e} {s1} {r1} {s2} {s_ap} {error(b_ap)} {s_rj} {error(b_rj)} {s_cap} {error(b_cap)}")
         check("review: another salesperson → 404; manager sends back with a reason; withdraw of a decided review → 422; "
               "a new review can be withdrawn; history lists every step with its actor; contract reviews too",

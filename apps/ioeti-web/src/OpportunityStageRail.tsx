@@ -14,7 +14,7 @@ type Reason = { id: number; name: string };
 const L = {
   ar: {
     title: "مسار الفرصة", hint: "اضغط على أي مرحلة مفتوحة لنقل الفرصة إليها.",
-    move: "نقل إلى", current: "المرحلة الحالية", won: "الفوز يُسجَّل بعد العقد الموقّع، والقاعدة بانتظار قرار D-11.",
+    move: "نقل إلى", current: "المرحلة الحالية", won: "الفوز محتاج دليل التزام حسب خط الأعمال (D-11): عقد متفعّل بدليل توقيع، أو قبول عميل مسجّل بدليله.", markWon: "تسجيل كمكسوبة", isWon: "مكسوبة",
     lose: "تسجيل كخاسرة", reopen: "إعادة فتح", lost: "خاسرة", reason: "سبب الخسارة", choose: "اختر سببًا…",
     noReasons: "لم تُضف أسباب خسارة بعد. مسؤول النظام هو اللي يضيفها؛ لحد كده مش هينفع تتسجل الفرصة كخاسرة.",
     note: "ملاحظة (اختياري)", loseTitle: "تسجيل الفرصة كخاسرة", loseHint: "السبب بيساعد الفريق يفهم ليه بنخسر صفقات. تقدر تعيد فتحها بعدين.",
@@ -25,7 +25,7 @@ const L = {
   },
   en: {
     title: "Opportunity path", hint: "Select any open stage to move the opportunity there.",
-    move: "Move to", current: "Current stage", won: "Won is recorded after the signed contract; the rule waits for decision D-11.",
+    move: "Move to", current: "Current stage", won: "Won needs the evidence of commitment the business line sets (D-11): a contract activated on signature evidence, or a client acceptance recorded with its evidence.", markWon: "Mark won", isWon: "Won",
     lose: "Mark lost", reopen: "Reopen", lost: "Lost", reason: "Lost reason", choose: "Choose a reason…",
     noReasons: "No lost reasons are set up yet. An administrator adds them; until then an opportunity cannot be marked lost.",
     note: "Note (optional)", loseTitle: "Mark the opportunity lost", loseHint: "The reason helps the team learn why deals are lost. You can reopen it later.",
@@ -36,8 +36,8 @@ const L = {
   },
 } as const;
 
-/** The stage path of one opportunity: open stages are one tap away, lost needs a reason, won is locked
- * until the company decides when a deal counts as won (D-11). */
+/** The stage path of one opportunity: open stages are one tap away, lost needs a reason, and won needs the evidence of
+ * commitment the business line sets (D-11), which the server checks. */
 export function OpportunityStageRail({ record, language, onChanged }: {
   record: OpportunityPlan; language: Language; onChanged: (next: OpportunityPlan) => void;
 }) {
@@ -49,6 +49,7 @@ export function OpportunityStageRail({ record, language, onChanged }: {
   const [loadError, setLoadError] = useState("");
   useEffect(() => { void getOpportunityStages().then(setStages).catch(e => setLoadError(problem(e, ar))); }, [ar]);
   const lost = record.stageKind === "LOST";
+  const isWon = record.stageKind === "WON";
   const currentIndex = stages.findIndex(s => s.id === record.stageId);
   async function run(key: number | "reopen", action: () => Promise<OpportunityPlan>) {
     setBusy(key); setError("");
@@ -60,11 +61,11 @@ export function OpportunityStageRail({ record, language, onChanged }: {
   const won = stages.find(s => s.kind === "WON");
   return <section className="stage-rail-card" aria-labelledby="stage-rail-title">
     <div className="stage-rail-head">
-      <div><h2 id="stage-rail-title">{l.title}</h2><p>{lost ? `${l.lost}${record.lostReason ? " · " + record.lostReason : ""}` : l.hint}</p></div>
+      <div><h2 id="stage-rail-title">{l.title}</h2><p>{lost ? `${l.lost}${record.lostReason ? " · " + record.lostReason : ""}` : isWon ? l.isWon : l.hint}</p></div>
       <div className="stage-rail-actions">
         {lost ? <button type="button" className="btn btn-secondary" disabled={busy !== null}
           onClick={() => void run("reopen", () => reopenOpportunity(record.id, record.version))}><RotateCcw size={16}/>{l.reopen}</button>
-          : <button type="button" className="btn btn-secondary stage-lose" disabled={busy !== null} onClick={() => setLosing(true)}><XCircle size={16}/>{l.lose}</button>}
+          : !isWon && <button type="button" className="btn btn-secondary stage-lose" disabled={busy !== null} onClick={() => setLosing(true)}><XCircle size={16}/>{l.lose}</button>}
       </div>
     </div>
     <ol className={"stage-rail" + (lost ? " is-lost" : "")}>
@@ -73,7 +74,7 @@ export function OpportunityStageRail({ record, language, onChanged }: {
         const state = stage.id === record.stageId ? "current" : currentIndex >= 0 && index < currentIndex ? "passed" : "ahead";
         const label = stageLabel(stage.name, language);
         return <li key={stage.id} className={"stage-step is-" + state}>
-          <button type="button" disabled={lost || busy !== null || state === "current"} aria-current={state === "current" ? "step" : undefined}
+          <button type="button" disabled={lost || isWon || busy !== null || state === "current"} aria-current={state === "current" ? "step" : undefined}
             aria-label={state === "current" ? `${l.current}: ${label}` : `${l.move} ${label}`}
             onClick={() => void run(stage.id, () => moveOpportunity(record.id, record.version, stage.id))}>
             <span className="stage-dot">{state === "passed" ? <Check size={13}/> : busy === stage.id ? "…" : index + 1}</span>
@@ -81,11 +82,16 @@ export function OpportunityStageRail({ record, language, onChanged }: {
           </button>
         </li>;
       })}
-      {won && <li className="stage-step is-locked" title={l.won}>
-        <span className="stage-locked"><span className="stage-dot"><LockKeyhole size={12}/></span><span className="stage-name">{stageLabel(won.name, language)}</span></span>
+      {won && <li className={"stage-step " + (isWon ? "is-current" : "is-ahead")} title={l.won}>
+        <button type="button" disabled={lost || isWon || busy !== null} aria-current={isWon ? "step" : undefined}
+          aria-label={isWon ? `${l.current}: ${stageLabel(won.name, language)}` : l.markWon}
+          onClick={() => void run(won.id, () => moveOpportunity(record.id, record.version, won.id))}>
+          <span className="stage-dot">{isWon ? <Check size={13}/> : busy === won.id ? "…" : <LockKeyhole size={12}/>}</span>
+          <span className="stage-name">{stageLabel(won.name, language)}</span>
+        </button>
       </li>}
     </ol>
-    {won && !lost && <p className="daily-note"><LockKeyhole size={14}/>{l.won}</p>}
+    {won && !lost && !isWon && <p className="daily-note"><LockKeyhole size={14}/>{l.won}</p>}
     {loadError && <p className="daily-note"><CircleAlert size={14}/>{loadError}</p>}
     {error && <p className="daily-error" role="alert"><CircleAlert size={15}/>{error}</p>}
     {losing && <LoseDialog record={record} language={language} onClose={() => setLosing(false)} onSaved={next => { setLosing(false); onChanged(next); }}/>}

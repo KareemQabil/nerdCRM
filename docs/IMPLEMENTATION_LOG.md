@@ -939,3 +939,24 @@ Slice: `docs/slices/P3a-quote-approvals.md`.
 - `workspace_probe.py`, `scenario_iso_lifecycle_probe.py` and `quote_probe.py` no longer expect `BLOCKED_BY_POLICY`:
   - approving, by their read-only reviewers, now answers `403`, because approving finalizes the quotation;
   - rejecting and finalizing answer `POLICY_NOT_SET` (signed, values not set).
+
+## 2026-10-25 · P3b · D-11 client acceptance, contract activation and won on evidence
+
+Slice: `docs/slices/P3b-commitments.md`.
+
+- New policy `sales.contract-signatory`, per business line or default: the role that activates contracts.
+- `ioeti-workspace` `CommitmentService`. Evidence is a document filed on the record, pinned by revision and SHA-256.
+  - **Client acceptance:** a signed quotation or a purchase order with its number. The service checks the dates and validity, then confirms the order natively (`SaleOrderConfirmService`).
+  - **Contract activation:** by the signatory role only (`NOT_SIGNATORY` otherwise). The service checks the dates, then activates natively (`ContractService.ongoingCurrentVersion`). The signatory policy version is recorded.
+- API:
+  - `POST /workspace/quotes/{id}/accept` and `POST /workspace/contracts/{id}/activate`.
+  - Contract reviews answer `USE_CONTRACT_ACTIVATION`.
+  - The commercial `activate` and `handover` stubs are removed; operations handovers already require an active contract.
+- Won: the business lines' `WonEvidence` interface fails closed by default, and `ioeti-commercial` binds `PolicyWonEvidence` (`sales.won-evidence`: `ACTIVE_CONTRACT` or `ACCEPTED_QUOTE`).
+- Views: the quote approval gains `acceptance`; the contract gains `activation` (SIGNED / ACTIVE / POLICY_NOT_SET / NOT_SIGNATORY / READY).
+- Web:
+  - "Client acceptance" and "Signature and activation" boxes, each with a documents panel for the evidence;
+  - a "Request handover to operations" button;
+  - the won step becomes a button whose refusals name the missing evidence.
+- Migration `V023`/`U023`. Probe `scripts/commitment_probe.py` 7/7 (backend CI). Unit tests: `CommitmentRulesTest`, plus the acceptance kinds in `WorkspaceRulesTest`.
+- `quote_probe`, `operations_probe`, `daily_work_probe` and `workspace_probe` expectations follow the signed decision; all pass live.

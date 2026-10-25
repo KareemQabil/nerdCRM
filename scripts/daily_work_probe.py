@@ -9,7 +9,7 @@ Checks:
   accounts: add (contact details never returned), Arabic-variant duplicate → 409 until confirmed, similar
   list, edit with version, add a contact (listed, account version moves), read-only and anonymous refused,
   a contact person is not an account (404)
-  opportunities: stages with kinds; move between open stages; won → BLOCKED_BY_POLICY (D-11); lost only by
+  opportunities: stages with kinds; move between open stages; won without the line's evidence setting → POLICY_NOT_SET (D-11); lost only by
   its command with a reason; moving a lost one → 422; reopen → default stage; plan amount/currency/date/
   probability with range checks; another rep → 404; read-only → 403; stale → 409
   activities: log done and planned activities on a lead, account and opportunity; time rules; the outcome
@@ -193,7 +193,8 @@ def main():
         s, _ = a.call("POST", f"{OP}/{opp.get('id')}/stage", {"version": opp.get("version"), "stageId": opens[0]["id"]})
         check("a stage move on a stale version → 409", s == 409, s)
         s, body = a.call("POST", f"{OP}/{opp.get('id')}/stage", {"version": moved.get("version"), "stageId": won["id"] if won else 0})
-        check("moving to won → 422 BLOCKED_BY_POLICY (D-11: won follows the signed contract)", s == 422 and err(body)[0] == "BLOCKED_BY_POLICY", (s, err(body)))
+        check("moving to won without the business line's evidence setting → 422 POLICY_NOT_SET (D-11, fail closed; commitment_probe covers the evidence)",
+              s == 422 and err(body)[0] == "POLICY_NOT_SET", (s, err(body)))
         s, body = a.call("POST", f"{OP}/{opp.get('id')}/stage", {"version": moved.get("version"), "stageId": lost["id"] if lost else 0})
         check("moving to lost by drag → 422 USE_LOSE (losing needs a reason)", s == 422 and err(body)[0] == "USE_LOSE", (s, err(body)))
         s, body = a.call("POST", f"{OP}/{opp.get('id')}/lose", {"version": moved.get("version")})

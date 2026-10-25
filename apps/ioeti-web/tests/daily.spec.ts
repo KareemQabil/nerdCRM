@@ -61,7 +61,7 @@ async function mockDaily(page: Page, options: { reasons?: { id: number; name: st
       if (body.version !== opportunity.version) return failure(409, { code: "CONFLICT", fields: [] });
       if (command[1] === "stage") {
         const target = stages.find(s => s.id === body.stageId)!;
-        if (target.kind === "WON") return failure(422, { code: "BLOCKED_BY_POLICY", fields: [] });
+        if (target.kind === "WON") return failure(422, { code: "WON_EVIDENCE_MISSING", fields: [] });
         Object.assign(opportunity, { stageId: target.id, stage: target.name, stageKind: target.kind });
       }
       if (command[1] === "lose") Object.assign(opportunity, { stageId: 5, stage: "Closed lost", stageKind: "LOST", lostReason: "السعر" });
@@ -151,16 +151,18 @@ test("a rep logs a call on an account, adds a contact, and the outcome stays pri
   expect(posted.find(p => p.path === "/accounts/31/contacts")!.body).toMatchObject({ version: 5, firstName: "هدى", name: "سمير" });
 });
 
-test("the opportunity path: open stages move, won stays locked by D-11, lost needs a reason, then reopen and estimate", async ({ page }) => {
+test("the opportunity path: open stages move, won asks for the line's evidence (D-11), lost needs a reason, then reopen and estimate", async ({ page }) => {
   const { posted, opportunity } = await mockDaily(page);
   await page.goto("/#/opportunities/40");
   const rail = page.locator(".stage-rail-card");
   await expect(rail.getByRole("button", { name: /المرحلة الحالية/ })).toBeVisible();
-  await expect(rail.locator(".stage-step.is-locked")).toHaveCount(1);
   await expect(rail).toContainText("D-11");
+  await rail.getByRole("button", { name: "تسجيل كمكسوبة" }).click();
+  await expect(rail.getByRole("alert")).toHaveText(/لسه مفيش دليل التزام/);
+  expect(posted.find(p => p.path === "/opportunities/40/stage")!.body).toEqual({ version: 6, stageId: 4 });
   await rail.locator(".stage-step").nth(2).getByRole("button").click();
   await expect.poll(() => opportunity.stageId).toBe(3);
-  expect(posted.find(p => p.path === "/opportunities/40/stage")!.body).toEqual({ version: 6, stageId: 3 });
+  expect(posted.filter(p => p.path === "/opportunities/40/stage").at(-1)!.body).toEqual({ version: 6, stageId: 3 });
   await expect(rail.locator(".stage-step.is-current")).toHaveCount(1);
   await expect(rail.locator(".stage-step").nth(2)).toHaveClass(/is-current/);
   await rail.getByRole("button", { name: "تسجيل كخاسرة" }).click();

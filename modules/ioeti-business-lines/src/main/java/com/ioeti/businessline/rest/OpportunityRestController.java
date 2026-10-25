@@ -143,7 +143,7 @@ public class OpportunityRestController {
   @POST
   @Path("/{id}/stage")
   @Consumes(MediaType.APPLICATION_JSON)
-  @Operation(summary = "Move an open opportunity to another open stage; won is policy D-11, lost has its own command", tags = {"IOETI opportunities"})
+  @Operation(summary = "Move an open opportunity to another stage; won needs the business line's evidence (D-11), lost has its own command", tags = {"IOETI opportunities"})
   @IoetiEndpoint
   public Response move(@PathParam("id") Long id, MoveStage command) {
     Opportunity opportunity = versioned(id, command == null ? null : command.version());

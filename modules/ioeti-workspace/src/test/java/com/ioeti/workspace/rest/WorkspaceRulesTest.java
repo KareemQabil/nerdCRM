@@ -25,4 +25,12 @@ class WorkspaceRulesTest {
     assertEquals("reason", assertThrows(ApiException.class,
         () -> WorkspaceRestController.select("reason", "BECAUSE", WorkspaceRestController.REASONS)).fieldErrors().get(0).field());
   }
+
+  @Test
+  void acceptanceKindsAreStableApiValues() {
+    assertEquals("SIGNED_QUOTE", WorkspaceRestController.acceptanceKind("SIGNED_QUOTE"));
+    assertEquals("PURCHASE_ORDER", WorkspaceRestController.acceptanceKind("PURCHASE_ORDER"));
+    ApiException e = assertThrows(ApiException.class, () -> WorkspaceRestController.acceptanceKind("EMAIL"));
+    assertEquals("kind", e.fieldErrors().get(0).field());
+  }
 }

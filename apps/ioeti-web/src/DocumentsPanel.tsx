@@ -48,12 +48,14 @@ const stamp = (value: string | null) => value ? value.replace("T", " ").slice(0,
 const size = (bytes: number | null) => bytes == null ? "—" : bytes < 1024 * 1024 ? `${Math.max(1, Math.round(bytes / 1024))} KB` : `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 
 /** Documents filed on one record; access follows the record (the server checks it on every call). */
-export function DocumentsPanel({subject,subjectId,language}:{subject:Subject; subjectId:number; language:Language}){
+export function DocumentsPanel({subject,subjectId,language,onChanged,defaultKind="PROPOSAL"}:{subject:Subject; subjectId:number; language:Language;
+  /** Called after a document is filed, revised or archived (e.g. so an evidence picker reloads). */
+  onChanged?:()=>void; defaultKind?:DocumentKind}){
   const l=strings[language];
   const [docs,setDocs]=useState<RecordDocument[]|null>(null);
   const [adding,setAdding]=useState(false);
   const [title,setTitle]=useState("");
-  const [kind,setKind]=useState<DocumentKind>("PROPOSAL");
+  const [kind,setKind]=useState<DocumentKind>(defaultKind);
   const [docLanguage,setDocLanguage]=useState<DocumentLanguage>("BILINGUAL");
   const [summary,setSummary]=useState("");
   const [file,setFile]=useState<File|null>(null);
@@ -71,7 +73,7 @@ export function DocumentsPanel({subject,subjectId,language}:{subject:Subject; su
   async function run(action:()=>Promise<unknown>){
     if(busy)return;
     setBusy(true);setError("");
-    try{await action();reset();}
+    try{await action();reset();onChanged?.();}
     catch(e){setError(message(e,l));}
     finally{await load();setBusy(false);}
   }
