@@ -23,7 +23,7 @@ const strings = {
     invoiceNote:"الطلب يُبلغ المالية فقط؛ إصدار الفاتورة والضرائب متوقف حتى اعتماد D-06.",
     renew:"فتح فرصة تجديد",renewed:"فُتحت فرصة التجديد",openOpportunity:"فتح الفرصة",renewNote:"التجديد متاح لعقد ساري أو منتهٍ فقط.",
     summary:"الحساب عبر كل الأقسام",money:"المبالغ (قبل الضريبة)",moneyNote:"المراحل منفصلة ولا تُجمع؛ ما لا تملك صلاحية رؤيته يظهر \"—\".",
-    sections:{OPPORTUNITIES:"الفرص",QUOTES:"عروض الأسعار",CONTRACTS:"العقود",HANDOVERS:"طلبات التسليم",ENGAGEMENTS:"المشروعات التنفيذية",CERTIFICATION_CYCLES:"دورات الاعتماد",TRAINING_ENROLLMENTS:"تسجيلات التدريب",JOB_ORDERS:"طلبات التوظيف",DONOR_PROFILE:"ملف المانح"},
+    sections:{OPPORTUNITIES:"الفرص",QUOTES:"عروض الأسعار",CONTRACTS:"العقود",HANDOVERS:"طلبات التسليم",ENGAGEMENTS:"المشروعات التنفيذية",CERTIFICATION_CYCLES:"دورات الاعتماد",TRAINING_ENROLLMENTS:"تسجيلات التدريب",JOB_ORDERS:"طلبات التوظيف",DONOR_PROFILE:"ملف المانح",FIELD_VISITS:"الزيارات الميدانية",QUALITY_ISSUES:"مشاكل الجودة"},
     stages:{quotedDraft:"عروض مسودة",bookedActive:"عقود سارية",invoiceRequested:"مطلوب فوترته",invoiced:"مُفوتر",collected:"محصّل"},
     loading:"جار التحميل...",
     errors:{NO_LINES:"أضف بندًا واحدًا على الأقل أولًا.",QUOTE_NOT_DRAFT:"عرض السعر ليس مسودة.",VERSION_UNKNOWN:"هذا الإصدار غير موجود.",REVIEW_PENDING:"توجد مراجعة قائمة بالفعل.",REVIEW_STATE:"لا يمكن تغيير هذه المراجعة الآن.",CONTRACT_NOT_DRAFT:"العقد ليس مسودة.",ORDER_NOT_CONFIRMED:"الفوترة متاحة لطلب بيع مؤكد فقط؛ تأكيد الطلب متوقف حتى اعتماد السياسات.",INVOICE_REQUEST_EXISTS:"توجد طلب فوترة مفتوح لهذه الدفعة.",ALREADY_INVOICED:"هذه الدفعة مُفوترة بالفعل.",REQUEST_STATE:"الطلب ملغى بالفعل.",CONTRACT_NOT_ACTIVE:"التجديد متاح لعقد ساري أو منتهٍ فقط.",RENEWAL_EXISTS:"لهذا العقد فرصة تجديد بالفعل.",BLOCKED_BY_POLICY:"متوقف حتى اعتماد السياسة.",conflict:"تم تعديل البيانات من مكان آخر؛ حدّثناها، أعد المحاولة.",denied:"ليست لديك صلاحية لهذا الإجراء.",failed:"تعذّر تنفيذ الطلب."},
@@ -41,7 +41,7 @@ const strings = {
     invoiceNote:"A request only informs finance; issuing the invoice and taxes wait for D-06.",
     renew:"Open a renewal opportunity",renewed:"Renewal opportunity opened",openOpportunity:"Open the opportunity",renewNote:"Renewal is available for an active or closed contract only.",
     summary:"The account across every area",money:"Amounts (before tax)",moneyNote:"Stages are kept apart and never added; what you may not see shows \"—\".",
-    sections:{OPPORTUNITIES:"Opportunities",QUOTES:"Quotations",CONTRACTS:"Contracts",HANDOVERS:"Handovers",ENGAGEMENTS:"Engagements",CERTIFICATION_CYCLES:"Certification cycles",TRAINING_ENROLLMENTS:"Training enrolments",JOB_ORDERS:"Job orders",DONOR_PROFILE:"Donor profile"},
+    sections:{OPPORTUNITIES:"Opportunities",QUOTES:"Quotations",CONTRACTS:"Contracts",HANDOVERS:"Handovers",ENGAGEMENTS:"Engagements",CERTIFICATION_CYCLES:"Certification cycles",TRAINING_ENROLLMENTS:"Training enrolments",JOB_ORDERS:"Job orders",DONOR_PROFILE:"Donor profile",FIELD_VISITS:"Field visits",QUALITY_ISSUES:"Quality issues"},
     stages:{quotedDraft:"Draft quotations",bookedActive:"Active contracts",invoiceRequested:"Invoice requested",invoiced:"Invoiced",collected:"Collected"},
     loading:"Loading...",
     errors:{NO_LINES:"Add at least one line first.",QUOTE_NOT_DRAFT:"The quotation is not a draft.",VERSION_UNKNOWN:"This version does not exist.",REVIEW_PENDING:"A review is already pending.",REVIEW_STATE:"This review cannot change now.",CONTRACT_NOT_DRAFT:"The contract is not a draft.",ORDER_NOT_CONFIRMED:"Invoicing is for a confirmed order only; confirming orders waits for the policies.",INVOICE_REQUEST_EXISTS:"This milestone already has an open invoice request.",ALREADY_INVOICED:"This milestone is already invoiced.",REQUEST_STATE:"The request is already cancelled.",CONTRACT_NOT_ACTIVE:"Renewal is available for an active or closed contract only.",RENEWAL_EXISTS:"This contract already has a renewal opportunity.",BLOCKED_BY_POLICY:"Blocked until the policy is signed.",conflict:"The data changed elsewhere; it is refreshed, try again.",denied:"You do not have permission for this action.",failed:"The request failed."},
@@ -192,7 +192,8 @@ export function AccountSummary({ accountId, language }: { accountId: number; lan
   if (failed) return null;
   if (!data) return <div className="empty-state" role="status">{l.loading}</div>;
   const links: Record<string, string> = { OPPORTUNITIES: "#/opportunities", HANDOVERS: "#/operations", ENGAGEMENTS: "#/operations/engagements",
-    CERTIFICATION_CYCLES: "#/certification", TRAINING_ENROLLMENTS: "#/training", JOB_ORDERS: "#/recruitment", DONOR_PROFILE: "#/fundraising/donors" };
+    CERTIFICATION_CYCLES: "#/certification", TRAINING_ENROLLMENTS: "#/training", JOB_ORDERS: "#/recruitment", DONOR_PROFILE: "#/fundraising/donors",
+    FIELD_VISITS: "#/visits", QUALITY_ISSUES: "#/quality" };
   return <section className="wf-summary" aria-label={l.summary}>
     <h3>{l.summary}</h3>
     <ul className="wf-cards">{data.sections.map(s => <li key={s.key}>

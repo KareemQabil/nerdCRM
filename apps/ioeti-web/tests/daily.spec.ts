@@ -230,3 +230,48 @@ test("with no lost reasons set up, the lose dialog says so and cannot be saved",
   await expect(dialog.getByRole("button", { name: "حفظ" })).toBeDisabled();
   expect(posted.some(p => p.path.endsWith("/lose"))).toBe(false);
 });
+
+test("visits and quality on the shared surfaces: a corrective action due on my agenda, visits and issues in search, and on Account 360", async ({ page }) => {
+  await mockDaily(page);
+  const today = new Date();
+  const day = (n: number) => { const d = new Date(today.getFullYear(), today.getMonth(), today.getDate() + n); const p = (x: number) => String(x).padStart(2, "0");
+    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T00:00:00`; };
+  const ok = (object: unknown) => ({ status: 200, contentType: "application/json", body: JSON.stringify({ codeStatus: 200, messageStatus: "ok", object }) });
+  // routes registered later take precedence over the shared mock
+  await page.route("**/ws/ioeti/workspace/agenda*", route => route.fulfill(ok([
+    { type: "VISIT", id: 7, title: "مصنع النور", at: day(1).replace("T00", "T10"), endsAt: null, kind: null, status: "PLANNED", recordType: "VISIT", recordId: 7 },
+    { type: "ACTION", id: 101, title: "قالب تقرير موحد", at: day(2), endsAt: null, kind: null, status: "OPEN", recordType: "QUALITY", recordId: 9 },
+  ])));
+  await page.route("**/ws/ioeti/workspace/search*", route => route.fulfill(ok([
+    { type: "ACCOUNT", id: 31, title: "مصنع النور", subtitle: "P1070" },
+    { type: "VISIT", id: 7, title: "مصنع النور", subtitle: "VIS-0007" },
+    { type: "QUALITY", id: 9, title: "شكوى مصنع النور من تأخير التقرير", subtitle: "QI-009" },
+  ])));
+  await page.route("**/ws/ioeti/workspace/account360/31", route => route.fulfill(ok({ id: 31, name: "شركة الأمل للتجارة",
+    sections: [{ key: "FIELD_VISITS", count: 2, permitted: true }, { key: "QUALITY_ISSUES", count: 1, permitted: true }], money: [] })));
+
+  await page.goto("/#/agenda");
+  const action = page.locator(".agenda-item.is-action");
+  await expect(action).toContainText("قالب تقرير موحد");
+  await expect(action).toContainText("إجراء تصحيحي مستحق");
+  await expect(action).toContainText("طوال اليوم");
+  await expect(action.locator("a")).toHaveAttribute("href", "#/quality/9");
+  await expect(page.locator(".agenda-item.is-visit a")).toHaveAttribute("href", "#/visits/7");
+
+  await page.keyboard.press("Control+k");
+  const palette = page.getByRole("dialog");
+  await palette.getByRole("combobox").fill("النور");
+  await expect(palette.getByRole("option")).toHaveCount(3);
+  await expect(palette.getByRole("option").nth(1)).toContainText("زيارة ميدانية");
+  await expect(palette.getByRole("option").nth(2)).toContainText("مشكلة جودة");
+  await page.keyboard.press("ArrowDown");
+  await page.keyboard.press("ArrowDown");
+  await page.keyboard.press("Enter");
+  await expect(page).toHaveURL(/#\/quality\/9$/);
+
+  await page.goto("/#/accounts/31");
+  const summary = page.locator(".wf-summary");
+  await expect(summary.getByRole("link", { name: /الزيارات الميدانية/ })).toHaveAttribute("href", "#/visits");
+  await expect(summary.getByRole("link", { name: /مشاكل الجودة/ })).toHaveAttribute("href", "#/quality");
+  await expect(summary.getByRole("link", { name: /الزيارات الميدانية/ })).toContainText("2");
+});

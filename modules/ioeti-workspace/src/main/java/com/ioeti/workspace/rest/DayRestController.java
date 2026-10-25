@@ -7,6 +7,9 @@ import com.axelor.apps.crm.db.Lead;
 import com.axelor.apps.crm.db.Opportunity;
 import com.axelor.apps.crm.db.repo.EventRepository;
 import com.axelor.apps.intervention.db.Intervention;
+import com.axelor.apps.quality.db.QIResolutionDefault;
+import com.axelor.apps.quality.db.QualityImprovement;
+import com.axelor.apps.quality.db.repo.QualityImprovementRepository;
 import com.axelor.auth.AuthUtils;
 import com.axelor.auth.db.AuditableModel;
 import com.axelor.auth.db.User;
@@ -25,6 +28,9 @@ import com.ioeti.core.api.IoetiEndpoint;
 import com.ioeti.core.api.RecordAccess;
 import com.ioeti.core.text.ArabicNormalizer;
 import com.ioeti.core.web.OptimisticLockConflicts;
+import com.ioeti.operations.db.CorrectiveAction;
+import com.ioeti.operations.db.repo.CorrectiveActionRepository;
+import com.ioeti.operations.service.QualityService;
 import com.ioeti.operations.service.VisitService;
 import com.ioeti.recruitment.db.ClientInterview;
 import com.ioeti.training.db.CohortSession;
@@ -135,7 +141,7 @@ public class DayRestController {
 
   @GET
   @Path("/agenda")
-  @Operation(summary = "The caller's own agenda across domains: follow-ups and activities, sessions they coordinate, audits they lead or manage, interviews for their job orders, field visits assigned to them", tags = {"IOETI workspace"})
+  @Operation(summary = "The caller's own agenda across domains: follow-ups and activities, sessions they coordinate, audits they lead or manage, interviews for their job orders, field visits assigned to them, open corrective actions they own falling due", tags = {"IOETI workspace"})
   @IoetiEndpoint
   public Response agenda(@QueryParam("from") String from, @QueryParam("to") String to) {
     LocalDate start, end;
@@ -181,6 +187,14 @@ public class DayRestController {
                   ? v.getSequence() : v.getDeliveredPartner().getName(),
               v.getPlanifStartDateTime(), v.getPlanifEndDateTime(), null, VisitService.status(v), "VISIT", v.getId())));
     }
+    if (security.isPermitted(JpaSecurity.CAN_READ, QualityImprovement.class)) {
+      // open corrective actions I own falling due in the range; an action is seen through its quality issue
+      Query.of(CorrectiveAction.class).filter("self.owner = ?1 AND self.statusSelect = ?2 AND self.dueDate >= ?3 AND self.dueDate <= ?4",
+              me, CorrectiveActionRepository.STATUS_OPEN, start, end).order("dueDate").fetch(200).stream()
+          .filter(x -> security.isPermitted(JpaSecurity.CAN_READ, QualityImprovement.class, x.getImprovement().getId()))
+          .forEach(x -> items.add(new AgendaItem("ACTION", x.getId(), x.getTitle(), x.getDueDate().atStartOfDay(), null, null,
+              QualityService.status(x), "QUALITY", x.getImprovement().getId())));
+    }
     items.sort(Comparator.comparing(AgendaItem::at, Comparator.nullsLast(Comparator.naturalOrder())));
     return ResponseConstructor.build(Response.Status.OK, "Agenda", items);
   }
@@ -189,7 +203,7 @@ public class DayRestController {
 
   @GET
   @Path("/search")
-  @Operation(summary = "Leads, client accounts and opportunities the caller may read whose names match (Arabic-normalised)", tags = {"IOETI workspace"})
+  @Operation(summary = "Leads, client accounts, opportunities, field visits and quality issues the caller may read whose names or references match (Arabic-normalised)", tags = {"IOETI workspace"})
   @IoetiEndpoint
   public Response search(@QueryParam("q") String q) {
     String key = ArabicNormalizer.normalize(text("q", q, 100, true));
@@ -214,6 +228,24 @@ public class DayRestController {
       readable(Opportunity.class, null).order("-id").fetch(1000).stream()
           .filter(o -> ArabicNormalizer.normalize(o.getName() + " " + o.getOpportunitySeq()).contains(key)).limit(8)
           .forEach(o -> hits.add(new SearchHit("OPPORTUNITY", o.getId(), o.getName(), o.getOpportunitySeq())));
+    }
+    if (security.isPermitted(JpaSecurity.CAN_READ, Intervention.class)) {
+      // a visit matches its reference, or its client's name only when the caller may read the client
+      readable(Intervention.class, null).order("-id").fetch(1000).stream().map(v -> {
+        Partner client = v.getDeliveredPartner();
+        String name = client != null && security.isPermitted(JpaSecurity.CAN_READ, Partner.class, client.getId()) ? client.getName() : null;
+        return ArabicNormalizer.normalize(java.util.Objects.toString(v.getSequence(), "") + " " + (name == null ? "" : name)).contains(key)
+            ? new SearchHit("VISIT", v.getId(), name == null ? v.getSequence() : name, v.getSequence()) : null;
+      }).filter(java.util.Objects::nonNull).limit(8).forEach(hits::add);
+    }
+    if (security.isPermitted(JpaSecurity.CAN_READ, QualityImprovement.class)) {
+      readable(QualityImprovement.class, new JPQLFilter("self.type = ?", QualityImprovementRepository.TYPE_SYSTEM)).order("-id").fetch(1000).stream()
+          .map(qi -> {
+            QIResolutionDefault line = QualityService.issue(qi);
+            String title = line == null ? null : line.getName();
+            return ArabicNormalizer.normalize(java.util.Objects.toString(qi.getSequence(), "") + " " + (title == null ? "" : title)).contains(key)
+                ? new SearchHit("QUALITY", qi.getId(), title == null ? qi.getSequence() : title, qi.getSequence()) : null;
+          }).filter(java.util.Objects::nonNull).limit(8).forEach(hits::add);
     }
     return ResponseConstructor.build(Response.Status.OK, "Search", hits);
   }

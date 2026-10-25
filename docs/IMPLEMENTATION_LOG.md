@@ -813,3 +813,21 @@ Slice: `docs/slices/A11-quality-root-cause-evidence.md`.
   - quality numbering being per company.
 - The finance queue (A9) keeps its rules in private query helpers. They are covered by `scripts/finance_probe.py` against the real database rather than restructured for unit tests.
 - `scripts/ioeti.sh test`: 121 tests, 0 failures.
+
+## 2026-10-25 · A12 · field visits and quality on the shared surfaces
+
+Slice: `docs/slices/A12-cross-domain-wiring.md`.
+
+- `ioeti-workspace`:
+  - **Agenda:** adds my open corrective actions falling due in the range (all-day, linked to the issue, only where the issue is readable).
+  - **Search:** adds field visits (by reference, or by the client's name only when the client is readable) and quality issues (by reference or title).
+  - **Account 360:** adds field visits and quality issues (as client or supplier).
+- `ioeti-reports`: report areas add field visits and quality issues. As everywhere, an area or section the caller may not read is left out, not zero.
+- UI: agenda items for corrective actions (overdue flagged), Ctrl+K types for visits and quality issues, and Account 360, report and cockpit labels with links.
+- Probe `scripts/cross_domain_probe.py` 6/6 (backend CI). Mocked UI test in `tests/daily.spec.ts`.
+- Two existing probes asserted the exact set of report areas and Account 360 sections and failed on the two new keys:
+  - `insights_probe.py` now expects all 10 areas for the administrator, including the new two;
+  - `scenario_iso_lifecycle_probe.py` now expects `FIELD_VISITS: 0, QUALITY_ISSUES: 0` for the administrator.
+
+  Both checks stay exact, and both probes pass (14/14 and 15/15). Mocked suite: 96 + 2 live skipped; demo: 27.
+- G-007 registry: unchanged (1370 fields, 0 problems); no response record changed shape.

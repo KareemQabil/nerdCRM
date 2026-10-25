@@ -5,8 +5,11 @@ import com.axelor.apps.crm.db.Lead;
 import com.axelor.apps.crm.db.LeadStatus;
 import com.axelor.apps.crm.db.Opportunity;
 import com.axelor.apps.crm.db.repo.EventRepository;
+import com.axelor.apps.intervention.db.Intervention;
 import com.axelor.apps.marketing.db.Campaign;
 import com.axelor.apps.project.db.Project;
+import com.axelor.apps.quality.db.QualityImprovement;
+import com.axelor.apps.quality.db.repo.QualityImprovementRepository;
 import com.axelor.auth.AuthUtils;
 import com.axelor.db.JPA;
 import com.axelor.db.Model;
@@ -175,6 +178,8 @@ public class ReportsRestController {
     area(rows, "HANDOVERS", HandoverRequest.class, range, null);
     area(rows, "ENGAGEMENTS", Project.class, range, "self.ioetiHandover IS NOT NULL");
     area(rows, "FUNDING_OPPORTUNITIES", FundingOpportunity.class, range, null);
+    area(rows, "FIELD_VISITS", Intervention.class, range, null);
+    area(rows, "QUALITY_ISSUES", QualityImprovement.class, range, "self.type = " + QualityImprovementRepository.TYPE_SYSTEM);
     return ResponseConstructor.build(Response.Status.OK, "Areas", new AreasReport(range.from(), range.to(), rows));
   }
 

@@ -15,7 +15,7 @@ const strings = {
     leads:"العملاء المحتملون حسب المصدر",source:"المصدر",noSource:"بدون مصدر",total:"الإجمالي",converted:"تم تحويلهم",lost:"خسارة",rate:"نسبة التحويل",
     campaigns:"الحملات",campaign:"الحملة",attributed:"عملاء محتملون مرتبطون",followUps:"متابعاتي",planned:"مخططة",overdue:"متأخرة",done:"تمت آخر 30 يومًا",
     areas:"السجلات في كل قسم",notPermitted:"لا تظهر الأقسام التي لا تملك صلاحية قراءتها.",empty:"لا توجد بيانات في هذه الفترة",
-    keys:{TRAINING_ENROLLMENTS:"تسجيلات التدريب",CERTIFICATION_CYCLES:"دورات الاعتماد",JOB_ORDERS:"طلبات التوظيف",APPLICATIONS:"طلبات المرشحين",PLACEMENTS:"التعيينات",HANDOVERS:"طلبات التسليم",ENGAGEMENTS:"المشروعات التنفيذية",FUNDING_OPPORTUNITIES:"فرص التمويل"},
+    keys:{TRAINING_ENROLLMENTS:"تسجيلات التدريب",CERTIFICATION_CYCLES:"دورات الاعتماد",JOB_ORDERS:"طلبات التوظيف",APPLICATIONS:"طلبات المرشحين",PLACEMENTS:"التعيينات",HANDOVERS:"طلبات التسليم",ENGAGEMENTS:"المشروعات التنفيذية",FUNDING_OPPORTUNITIES:"فرص التمويل",FIELD_VISITS:"الزيارات الميدانية",QUALITY_ISSUES:"مشاكل الجودة"},
     errors:{BEFORE_START:"تاريخ النهاية قبل البداية.",TOO_LONG:"أقصى فترة خمس سنوات.",FORMAT:"تاريخ غير صحيح.",denied:"ليست لديك صلاحية.",failed:"تعذّر تحميل التقرير."},
   },
   en: {
@@ -26,7 +26,7 @@ const strings = {
     leads:"Leads by source",source:"Source",noSource:"No source",total:"Total",converted:"Converted",lost:"Lost",rate:"Conversion",
     campaigns:"Campaigns",campaign:"Campaign",attributed:"Attributed leads",followUps:"My follow-ups",planned:"Planned",overdue:"Overdue",done:"Done, last 30 days",
     areas:"Records in each area",notPermitted:"Areas you may not read are not shown.",empty:"No data in this period",
-    keys:{TRAINING_ENROLLMENTS:"Training enrolments",CERTIFICATION_CYCLES:"Certification cycles",JOB_ORDERS:"Job orders",APPLICATIONS:"Candidate applications",PLACEMENTS:"Placements",HANDOVERS:"Handovers",ENGAGEMENTS:"Engagements",FUNDING_OPPORTUNITIES:"Funding opportunities"},
+    keys:{TRAINING_ENROLLMENTS:"Training enrolments",CERTIFICATION_CYCLES:"Certification cycles",JOB_ORDERS:"Job orders",APPLICATIONS:"Candidate applications",PLACEMENTS:"Placements",HANDOVERS:"Handovers",ENGAGEMENTS:"Engagements",FUNDING_OPPORTUNITIES:"Funding opportunities",FIELD_VISITS:"Field visits",QUALITY_ISSUES:"Quality issues"},
     errors:{BEFORE_START:"The end is before the start.",TOO_LONG:"Use at most five years.",FORMAT:"Invalid date.",denied:"You do not have permission.",failed:"The report could not be loaded."},
   },
 } as const;
