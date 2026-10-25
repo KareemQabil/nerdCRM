@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
-import { CircleAlert, FileClock, History, LockKeyhole, Receipt, RefreshCcw, RotateCcw, Send, Undo2 } from "lucide-react";
+import { Check, CircleAlert, FileClock, History, LockKeyhole, Receipt, RefreshCcw, RotateCcw, Send, Undo2, X } from "lucide-react";
 import { ApiError, type Contract, type MilestonePlan, type Quote } from "./api";
 import {
-  cancelInvoiceRequest, getAccountSummary, getInvoiceRequests, getQuoteVersions, getReviews, renewContract, requestInvoice,
-  requestChanges, requestReview, restoreQuoteVersion, saveQuoteVersion, withdrawReview,
+  approveReview, cancelInvoiceRequest, getAccountSummary, getInvoiceRequests, getQuoteVersions, getReviews, renewContract, requestInvoice,
+  rejectReview, requestChanges, requestReview, restoreQuoteVersion, saveQuoteVersion, withdrawReview,
   type AccountSummary360, type InvoiceRequest, type QuoteVersion, type Review, type ReviewReason,
 } from "./workspaceApi";
 import type { Language } from "./preferences";
@@ -13,11 +13,14 @@ const strings = {
   ar: {
     versions:"إصدارات العرض",current:"الإصدار الحالي",saveVersion:"حفظ كإصدار",restore:"استعادة",noVersions:"لا توجد إصدارات محفوظة",lines:"بنود",
     review:"المراجعة",requestReview:"طلب مراجعة",withdraw:"سحب الطلب",noReview:"لم تُطلب مراجعة بعد",
-    status:{PENDING:"بانتظار المراجعة",CHANGES_REQUESTED:"مطلوب تعديل",WITHDRAWN:"مسحوب"},
-    events:{REQUESTED:"طُلبت المراجعة",CHANGES_REQUESTED:"طُلب تعديل",WITHDRAWN:"سُحب الطلب"},
+    status:{PENDING:"بانتظار المراجعة",CHANGES_REQUESTED:"مطلوب تعديل",WITHDRAWN:"مسحوب",APPROVED:"اتعتمد",REJECTED:"اترفض"},
+    events:{REQUESTED:"طُلبت المراجعة",CHANGES_REQUESTED:"طُلب تعديل",WITHDRAWN:"سُحب الطلب",APPROVED:"اتعتمد العرض",REJECTED:"اترفض العرض"},
+    approvers:{NONE:"أي مراجع",SALES_MANAGER:"مدير المبيعات",GM:"المدير العام"},approvedBy:"الموافقة من",approverUnknown:"مستويات الموافقة لسه مش متحددة لخط الأعمال ده",
+    approveHint:"الاعتماد بيحوّل العرض لنهائي في Axelor بالمدة اللي في سياسة الصلاحية. مينفعش تعتمد طلب انت اللي طالبه.",
+    notePlaceholder:"ملاحظة (اختياري)",noteLabel:"ملاحظة",
     reasons:{PRICING:"التسعير",SCOPE:"النطاق",TERMS:"الشروط",DOCUMENTS:"المستندات",OTHER:"سبب آخر"},
     reviewerTitle:"مراجعتك",reviewerHint:"أعِده لصاحبه مع سبب واضح، وسيصله إشعار داخل النظام.",reasonLabel:"سبب الإعادة",sendBack:"إعادة للتعديل",
-    approve:"اعتماد",reject:"رفض",decisionNote:"قرار الاعتماد أو الرفض متوقف حتى اعتماد مصفوفة الموافقات (D-11).",
+    approve:"اعتماد",reject:"رفض",decisionNote:"قرار اعتماد العقد أو رفضه بييجي مع تفعيل العقد بدليل التوقيع (D-11).",
     forVersion:"للإصدار",invoiceRequests:"طلبات الفوترة",requestInvoice:"طلب فاتورة",cancel:"إلغاء الطلب",issue:"إصدار الفاتورة",
     requested:"مطلوب",cancelled:"ملغى",noRequests:"لا توجد طلبات فوترة",
     invoiceNote:"الطلب بيوصل للمالية، وهي اللي بتصدر الفاتورة في حسابات Axelor (D-06).",
@@ -26,16 +29,19 @@ const strings = {
     sections:{OPPORTUNITIES:"الفرص",QUOTES:"عروض الأسعار",CONTRACTS:"العقود",HANDOVERS:"طلبات التسليم",ENGAGEMENTS:"المشروعات التنفيذية",CERTIFICATION_CYCLES:"دورات الاعتماد",TRAINING_ENROLLMENTS:"تسجيلات التدريب",JOB_ORDERS:"طلبات التوظيف",DONOR_PROFILE:"ملف المانح",FIELD_VISITS:"الزيارات الميدانية",QUALITY_ISSUES:"مشاكل الجودة"},
     stages:{quotedDraft:"عروض مسودة",bookedActive:"عقود سارية",invoiceRequested:"مطلوب فوترته",invoiced:"مُفوتر",collected:"محصّل"},
     loading:"جار التحميل...",
-    errors:{NO_LINES:"أضف بندًا واحدًا على الأقل أولًا.",QUOTE_NOT_DRAFT:"عرض السعر ليس مسودة.",VERSION_UNKNOWN:"هذا الإصدار غير موجود.",REVIEW_PENDING:"توجد مراجعة قائمة بالفعل.",REVIEW_STATE:"لا يمكن تغيير هذه المراجعة الآن.",CONTRACT_NOT_DRAFT:"العقد ليس مسودة.",ORDER_NOT_CONFIRMED:"الفوترة متاحة لطلب بيع مؤكد فقط؛ تأكيد الطلب متوقف حتى اعتماد السياسات.",INVOICE_REQUEST_EXISTS:"توجد طلب فوترة مفتوح لهذه الدفعة.",ALREADY_INVOICED:"هذه الدفعة مُفوترة بالفعل.",REQUEST_STATE:"الطلب ملغى بالفعل.",CONTRACT_NOT_ACTIVE:"التجديد متاح لعقد ساري أو منتهٍ فقط.",RENEWAL_EXISTS:"لهذا العقد فرصة تجديد بالفعل.",BLOCKED_BY_POLICY:"متوقف حتى اعتماد السياسة.",conflict:"تم تعديل البيانات من مكان آخر؛ حدّثناها، أعد المحاولة.",denied:"ليست لديك صلاحية لهذا الإجراء.",failed:"تعذّر تنفيذ الطلب."},
+    errors:{NO_LINES:"أضف بندًا واحدًا على الأقل أولًا.",QUOTE_NOT_DRAFT:"عرض السعر ليس مسودة.",VERSION_UNKNOWN:"هذا الإصدار غير موجود.",REVIEW_PENDING:"توجد مراجعة قائمة بالفعل.",REVIEW_STATE:"لا يمكن تغيير هذه المراجعة الآن.",OWN_REQUEST:"مينفعش تعتمد أو ترفض طلب انت اللي طالبه.",NOT_APPROVER:"المستوى ده محتاج موافقة دور تاني.",QUOTE_CHANGED:"العرض اتغير بعد طلب المراجعة؛ لازم تتطلب من جديد.",POLICY_NOT_SET:"سياسة لازمة لسه مش متحددة؛ مالك السياسات يحددها من صفحة السياسات.",OUTSIDE_APPROVAL_TIERS:"الخصم أو القيمة أكبر من كل مستويات الموافقة.",TAX_OUTDATED:"سياسة الضريبة اتغيرت؛ طبّق الضريبة الحالية الأول.",CONTRACT_NOT_DRAFT:"العقد ليس مسودة.",ORDER_NOT_CONFIRMED:"الفوترة متاحة لطلب بيع مؤكد فقط؛ تأكيد الطلب متوقف حتى اعتماد السياسات.",INVOICE_REQUEST_EXISTS:"توجد طلب فوترة مفتوح لهذه الدفعة.",ALREADY_INVOICED:"هذه الدفعة مُفوترة بالفعل.",REQUEST_STATE:"الطلب ملغى بالفعل.",CONTRACT_NOT_ACTIVE:"التجديد متاح لعقد ساري أو منتهٍ فقط.",RENEWAL_EXISTS:"لهذا العقد فرصة تجديد بالفعل.",BLOCKED_BY_POLICY:"متوقف حتى اعتماد السياسة.",conflict:"تم تعديل البيانات من مكان آخر؛ حدّثناها، أعد المحاولة.",denied:"ليست لديك صلاحية لهذا الإجراء.",failed:"تعذّر تنفيذ الطلب."},
   },
   en: {
     versions:"Quotation versions",current:"Current version",saveVersion:"Save as a version",restore:"Restore",noVersions:"No saved versions",lines:"lines",
     review:"Review",requestReview:"Request review",withdraw:"Withdraw",noReview:"No review requested yet",
-    status:{PENDING:"Awaiting review",CHANGES_REQUESTED:"Changes requested",WITHDRAWN:"Withdrawn"},
-    events:{REQUESTED:"Review requested",CHANGES_REQUESTED:"Changes requested",WITHDRAWN:"Withdrawn"},
+    status:{PENDING:"Awaiting review",CHANGES_REQUESTED:"Changes requested",WITHDRAWN:"Withdrawn",APPROVED:"Approved",REJECTED:"Rejected"},
+    events:{REQUESTED:"Review requested",CHANGES_REQUESTED:"Changes requested",WITHDRAWN:"Withdrawn",APPROVED:"Quotation approved",REJECTED:"Quotation rejected"},
+    approvers:{NONE:"Any reviewer",SALES_MANAGER:"Sales manager",GM:"General manager"},approvedBy:"Approved by",approverUnknown:"Approval tiers are not set for this business line yet",
+    approveHint:"Approving finalizes the quotation in Axelor for the validity the owners set. You cannot approve a request you made.",
+    notePlaceholder:"Note (optional)",noteLabel:"Note",
     reasons:{PRICING:"Pricing",SCOPE:"Scope",TERMS:"Terms",DOCUMENTS:"Documents",OTHER:"Other"},
     reviewerTitle:"Your review",reviewerHint:"Send it back to its owner with a clear reason; they are told in the app.",reasonLabel:"Reason",sendBack:"Send back for changes",
-    approve:"Approve",reject:"Reject",decisionNote:"Approving or rejecting waits for the approval matrix (D-11).",
+    approve:"Approve",reject:"Reject",decisionNote:"Approving or rejecting a contract comes with contract activation on signature evidence (D-11).",
     forVersion:"for version",invoiceRequests:"Invoice requests",requestInvoice:"Request invoice",cancel:"Cancel request",issue:"Issue invoice",
     requested:"Requested",cancelled:"Cancelled",noRequests:"No invoice requests",
     invoiceNote:"A request reaches finance, who issues the invoice in Axelor accounting (D-06).",
@@ -44,7 +50,7 @@ const strings = {
     sections:{OPPORTUNITIES:"Opportunities",QUOTES:"Quotations",CONTRACTS:"Contracts",HANDOVERS:"Handovers",ENGAGEMENTS:"Engagements",CERTIFICATION_CYCLES:"Certification cycles",TRAINING_ENROLLMENTS:"Training enrolments",JOB_ORDERS:"Job orders",DONOR_PROFILE:"Donor profile",FIELD_VISITS:"Field visits",QUALITY_ISSUES:"Quality issues"},
     stages:{quotedDraft:"Draft quotations",bookedActive:"Active contracts",invoiceRequested:"Invoice requested",invoiced:"Invoiced",collected:"Collected"},
     loading:"Loading...",
-    errors:{NO_LINES:"Add at least one line first.",QUOTE_NOT_DRAFT:"The quotation is not a draft.",VERSION_UNKNOWN:"This version does not exist.",REVIEW_PENDING:"A review is already pending.",REVIEW_STATE:"This review cannot change now.",CONTRACT_NOT_DRAFT:"The contract is not a draft.",ORDER_NOT_CONFIRMED:"Invoicing is for a confirmed order only; confirming orders waits for the policies.",INVOICE_REQUEST_EXISTS:"This milestone already has an open invoice request.",ALREADY_INVOICED:"This milestone is already invoiced.",REQUEST_STATE:"The request is already cancelled.",CONTRACT_NOT_ACTIVE:"Renewal is available for an active or closed contract only.",RENEWAL_EXISTS:"This contract already has a renewal opportunity.",BLOCKED_BY_POLICY:"Blocked until the policy is signed.",conflict:"The data changed elsewhere; it is refreshed, try again.",denied:"You do not have permission for this action.",failed:"The request failed."},
+    errors:{NO_LINES:"Add at least one line first.",QUOTE_NOT_DRAFT:"The quotation is not a draft.",VERSION_UNKNOWN:"This version does not exist.",REVIEW_PENDING:"A review is already pending.",REVIEW_STATE:"This review cannot change now.",OWN_REQUEST:"You cannot decide on a request you made.",NOT_APPROVER:"This tier is approved by another role.",QUOTE_CHANGED:"The quotation changed after the review was asked for; ask again.",POLICY_NOT_SET:"A required policy is not set yet; a policy owner sets it under Policies.",OUTSIDE_APPROVAL_TIERS:"The discount or value is above every approval tier.",TAX_OUTDATED:"The tax policy changed; apply the current tax first.",CONTRACT_NOT_DRAFT:"The contract is not a draft.",ORDER_NOT_CONFIRMED:"Invoicing is for a confirmed order only; confirming orders waits for the policies.",INVOICE_REQUEST_EXISTS:"This milestone already has an open invoice request.",ALREADY_INVOICED:"This milestone is already invoiced.",REQUEST_STATE:"The request is already cancelled.",CONTRACT_NOT_ACTIVE:"Renewal is available for an active or closed contract only.",RENEWAL_EXISTS:"This contract already has a renewal opportunity.",BLOCKED_BY_POLICY:"Blocked until the policy is signed.",conflict:"The data changed elsewhere; it is refreshed, try again.",denied:"You do not have permission for this action.",failed:"The request failed."},
   },
 } as const;
 type Labels = typeof strings.ar | typeof strings.en;
@@ -83,23 +89,28 @@ function ReviewBox({ reviews, subject, version, editable, l, run, busy }: {
       <span className={"wf-status wf-status-" + latest.status.toLowerCase()}>{l.status[latest.status]}</span>
       {latest.quoteVersionNumber != null && <span className="wf-muted">{l.forVersion} {latest.quoteVersionNumber}</span>}
       {latest.reason && <span className="wf-muted">· {l.reasons[latest.reason]}</span>}
+      {latest.quoteId != null && latest.status === "PENDING" && <span className="wf-muted">· {latest.approver
+        ? `${l.approvedBy}: ${(l.approvers as Record<string, string>)[latest.approver] ?? latest.approver}` : l.approverUnknown}</span>}
+      {latest.rationale && <span className="wf-muted">· {latest.rationale}</span>}
       <ol className="wf-trail">{reviews.flatMap(r => r.events.map((e, i) => <li key={r.id + ":" + i}>
         <strong>{l.events[e.kind]}</strong>{e.reason ? ` · ${l.reasons[e.reason]}` : ""}<small>{e.actorName ?? "—"} · <span dir="ltr">{stamp(e.at)}</span></small></li>))}</ol>
     </div>}
     {editable && <div className="lead-actions">
       {(!latest || latest.status !== "PENDING") && <button type="button" className="btn btn-secondary" disabled={busy} onClick={() => void run(() => requestReview(subject, version))}><Send size={15}/>{l.requestReview}</button>}
       {latest?.status === "PENDING" && latest.requestedByMe && <button type="button" className="btn btn-secondary" disabled={busy} onClick={() => void run(() => withdrawReview(latest.id, latest.version))}><Undo2 size={15}/>{l.withdraw}</button>}
-      <button type="button" className="btn btn-secondary" disabled aria-describedby="wf-decision-note">{l.approve}</button>
-      <button type="button" className="btn btn-secondary" disabled aria-describedby="wf-decision-note">{l.reject}</button>
     </div>}
     {latest?.status === "PENDING" && !latest.requestedByMe && <ReviewerActions review={latest} l={l} run={run} busy={busy}/>}
-    <p className="record-security-note" id="wf-decision-note"><LockKeyhole size={15}/>{l.decisionNote}</p>
+    {subject.contractId != null && <p className="record-security-note" id="wf-decision-note"><LockKeyhole size={15}/>{l.decisionNote}</p>}
   </div>;
 }
 
-/** What a reviewer can do today: send the record back with a reason. Approval itself waits for D-11. */
+/**
+ * What a reviewer can do: send the record back with a reason; and, for a quotation whose tier they hold (D-11), approve it
+ * (finalized natively) or reject it with a reason. The server checks the role, the requester and the version again.
+ */
 function ReviewerActions({ review, l, run, busy }: { review: Review; l: Labels; run: (a: () => Promise<unknown>) => Promise<void>; busy: boolean }) {
   const [reason, setReason] = useState<ReviewReason>("PRICING");
+  const [note, setNote] = useState("");
   return <form className="wf-reviewer" onSubmit={e => { e.preventDefault(); void run(() => requestChanges(review.id, review.version, reason)); }}>
     <strong>{l.reviewerTitle}</strong><p className="wf-muted">{l.reviewerHint}</p>
     <div className="lead-actions">
@@ -109,6 +120,15 @@ function ReviewerActions({ review, l, run, busy }: { review: Review; l: Labels; 
         </select></label>
       <button type="submit" className="btn btn-primary" disabled={busy}><Undo2 size={15}/>{l.sendBack}</button>
     </div>
+    {review.canDecide && <div className="wf-decide">
+      <p className="wf-muted">{l.approveHint}</p>
+      <label className="wf-inline-field">{l.noteLabel}
+        <input type="text" maxLength={500} value={note} placeholder={l.notePlaceholder} onChange={e => setNote(e.target.value)}/></label>
+      <div className="lead-actions">
+        <button type="button" className="btn btn-primary" disabled={busy} onClick={() => void run(() => approveReview(review.id, review.version, note))}><Check size={15}/>{l.approve}</button>
+        <button type="button" className="btn btn-secondary" disabled={busy} onClick={() => void run(() => rejectReview(review.id, review.version, reason, note))}><X size={15}/>{l.reject}</button>
+      </div>
+    </div>}
   </form>;
 }
 

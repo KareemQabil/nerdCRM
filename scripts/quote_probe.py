@@ -24,7 +24,7 @@ Checks:
                    refusals create nothing, reads scoped, activation → 422 BLOCKED_BY_POLICY (D-11),
                    handover of a draft → 422 CONTRACT_NOT_ACTIVE; lines from the quotation (native
                    ContractLineService): same lines and total, lineage, once only (also under concurrency)
-  finalize         422 BLOCKED_BY_POLICY (D-06, D-11), quotation stays a draft
+  finalize         422 POLICY_NOT_SET without the owners' policies (D-06, D-11), quotation stays a draft
 Report: logs/quote-probe.json.
 """
 import json
@@ -490,12 +490,12 @@ def main():
               sorted(answers) == [201, 409] and contract_lines_of(race_contract) == 1,
               f"{sorted(answers)} {contract_lines_of(race_contract)}")
 
-        # --- 8. finalize is policy-blocked -----------------------------------------------------------------
-        s, body = a.call("POST", f"/ws/ioeti/quotes/{qid}/finalize")
-        check("finalize → 422 BLOCKED_BY_POLICY (D-06, D-11); still a draft",
-              s == 422 and body.get("error", {}).get("code") == "BLOCKED_BY_POLICY"
+        # --- 8. finalize fails closed without the owners' policies (D-06 tax, D-11 approval and validity) ----------
+        s, body = a.call("POST", f"/ws/ioeti/quotes/{qid}/finalize", {"version": version(SALE_ORDER, qid)})
+        check("finalize without the owners' policies → 422 POLICY_NOT_SET (D-06, D-11); still a draft",
+              s == 422 and body.get("error", {}).get("code") == "POLICY_NOT_SET"
               and fetch(SALE_ORDER, qid, ["statusSelect"]).get("statusSelect") == 1, f"{s} {body.get('error')}")
-        s, _ = b.call("POST", f"/ws/ioeti/quotes/{qid}/finalize")
+        s, _ = b.call("POST", f"/ws/ioeti/quotes/{qid}/finalize", {"version": version(SALE_ORDER, qid)})
         check("finalize by another rep → 404", s == 404, s)
 
         failed = [r for r in RESULTS if r["result"] != "PASS"]

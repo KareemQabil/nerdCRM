@@ -497,11 +497,13 @@ const emptyPlan = (quoteVersion: number) => ({ quoteId: 7, quoteVersion, currenc
   plannedPercentage: "0", plannedAmountBeforeTax: "0", bookingStatus: "NOT_BOOKED", bookedBeforeTax: "0", invoiced: "0",
   collected: "0", invoicingStatus: "BLOCKED_BY_POLICY", milestones: [] as unknown[] });
 
-test("quotations: opportunity page creates a draft from the catalog, no tax until the owners set it, finalize blocked by policy", async ({page}) => {
+test("quotations: opportunity page creates a draft from the catalog, no tax until the owners set it, no finalizing until the approval policy (D-11)", async ({page}) => {
   await intercept(page);
   const ok = (object: unknown, code = 200) => ({ status: code, contentType: "application/json", body: JSON.stringify({ codeStatus: code, messageStatus: "ok", object }) });
   let quote = { id: 7, version: 0, reference: "#7", status: "DRAFT", opportunityId: 101, accountId: 901, accountName: "Nile View Hotel",
-    currency: "EGP", totalBeforeTax: "0", taxStatus: "POLICY_NOT_SET", lines: [] as unknown[] };
+    currency: "EGP", totalBeforeTax: "0", taxStatus: "POLICY_NOT_SET", lines: [] as unknown[],
+    approval: { status: "POLICY_NOT_SET", approver: null, discountPercent: "0", approvedBy: null, approvedAt: null, validUntil: null, expired: false,
+      sentAt: null, sentBy: null, sentVia: null } };
   const posts: { path: string; body: unknown }[] = [];
   await page.route(/\/axelor-erp\/ws\/ioeti\/catalog\/products/, route => route.fulfill(ok([
     { id: 31, code: "ISO-AUD-DAY", name: "Audit day", unit: "Day", salePrice: "1500.0000", currency: "EGP" }])));
@@ -528,7 +530,8 @@ test("quotations: opportunity page creates a draft from the catalog, no tax unti
     { path: "/axelor-erp/ws/ioeti/quotes/7/lines", body: { version: 0, productId: 31, quantity: 2 } },
   ]);
   await expect(page.getByText("لم يحدد مالك السياسات ضريبة لخط الأعمال هذا بعد (D-06)، فالعرض محسوب بدون ضريبة ولا يمكن اعتماده.")).toBeVisible();
-  await expect(page.getByRole("button", { name: "اعتماد وإرسال العرض" })).toBeDisabled();
+  await expect(page.locator(".quote-approval")).toContainText("مالك السياسات لسه ما حددش مستويات الموافقة أو مدة صلاحية العروض لخط الأعمال ده (D-11)");
+  await expect(page.getByRole("button", { name: "اعتماد العرض نهائيًا" })).toHaveCount(0);
   await page.screenshot({ path: "test-results/ioeti-quote-draft.png", fullPage: true });
 });
 
@@ -1513,14 +1516,14 @@ test("operations: rework with a reason is recorded; mobile layout without horizo
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
 });
 
-async function workflowMocks(page: Page, options: { quoteStatus?: string; contractStatus?: string } = {}) {
+async function workflowMocks(page: Page, options: { quoteStatus?: string; contractStatus?: string; reviews?: Record<string, unknown>[] } = {}) {
   await intercept(page);
   const ok = (object: unknown, code = 200) => ({ status: code, contentType: "application/json", body: JSON.stringify({ codeStatus: code, messageStatus: "ok", object }) });
   const fail = (status: number, code: string) => ({ status, contentType: "application/json", body: JSON.stringify({
     codeStatus: status, messageStatus: "x", error: { code, message: "raw server text", correlationId: "c0ffee05", fields: [] } }) });
   const line = (id: number, qty: string) => ({ id, productCode: "ISO-AUD-DAY", name: "Audit day", quantity: qty, unit: "Day", unitPriceBeforeTax: "1500.00",
     totalBeforeTax: String(1500 * Number(qty)) + ".00" });
-  const s = { version: 3, versionNumber: 1, lines: [line(1, "2")], versions: [] as Record<string, unknown>[], reviews: [] as Record<string, unknown>[],
+  const s = { version: 3, versionNumber: 1, lines: [line(1, "2")], versions: [] as Record<string, unknown>[], reviews: options.reviews ?? [] as Record<string, unknown>[],
     requests: [] as Record<string, unknown>[], contractVersion: 1, renewed: false };
   const quote = () => ({ id: 7, version: s.version, reference: "SO-0007", status: options.quoteStatus ?? "DRAFT", opportunityId: 101, accountId: 901,
     accountName: "Nile View Hotel", currency: "EGP", totalBeforeTax: String(s.lines.reduce((t, l) => t + Number(l.totalBeforeTax), 0)), taxStatus: "POLICY_NOT_SET",
@@ -1546,15 +1549,27 @@ async function workflowMocks(page: Page, options: { quoteStatus?: string; contra
       s.versionNumber++; s.version++; s.lines = [...s.lines, line(2, "1")]; return route.fulfill(ok(quote(), 201));
     }
     if (path === "/quotes/7/versions/1/restore") { s.lines = [line(1, "2")]; s.version++; return route.fulfill(ok(quote())); }
-    if (path.startsWith("/workspace/reviews?")) return route.fulfill(ok(s.reviews));
+    if (path.startsWith("/workspace/reviews?")) {
+      const quoteId = url.searchParams.get("quoteId"), contractId = url.searchParams.get("contractId");
+      return route.fulfill(ok(s.reviews.filter(r => quoteId ? r.quoteId === Number(quoteId) : contractId ? r.contractId === Number(contractId) : true)));
+    }
     if (path === "/workspace/reviews") {
       const r = { id: 81, version: 0, quoteId: (body as Record<string, unknown>).quoteId ?? null, contractId: (body as Record<string, unknown>).contractId ?? null,
         quoteVersionNumber: s.versionNumber, status: "PENDING", requestedBy: "Sara Sales", requestedAt: "2026-10-20T10:05:00", reviewedBy: null, reason: null,
-        decisionStatus: "BLOCKED_BY_POLICY", requestedByMe: true, events: [{ kind: "REQUESTED", reason: null, actorName: "Sara Sales", at: "2026-10-20T10:05:00" }] };
+        decisionStatus: (body as Record<string, unknown>).quoteId ? "OPEN" : "BLOCKED_BY_POLICY", requestedByMe: true,
+        approver: (body as Record<string, unknown>).quoteId ? "SALES_MANAGER" : null, canDecide: false,
+        events: [{ kind: "REQUESTED", reason: null, actorName: "Sara Sales", at: "2026-10-20T10:05:00" }] };
       s.reviews = [r]; return route.fulfill(ok(r, 201));
     }
     if (path === "/workspace/reviews/81/withdraw") {
       Object.assign(s.reviews[0], { status: "WITHDRAWN", version: 1, events: [...(s.reviews[0].events as unknown[]), { kind: "WITHDRAWN", reason: null, actorName: "Sara Sales", at: "2026-10-20T10:06:00" }] });
+      return route.fulfill(ok(s.reviews[0]));
+    }
+    if (path === "/workspace/reviews/82/approve" || path === "/workspace/reviews/82/reject") {
+      const approve = path.endsWith("approve");
+      Object.assign(s.reviews[0], { status: approve ? "APPROVED" : "REJECTED", version: 1, canDecide: false, reviewedBy: "Mona Manager",
+        reason: approve ? null : (body as Record<string, unknown>).reason, rationale: (body as Record<string, unknown>).rationale || null,
+        events: [...(s.reviews[0].events as unknown[]), { kind: approve ? "APPROVED" : "REJECTED", reason: null, actorName: "Mona Manager", at: "2026-10-20T11:00:00" }] });
       return route.fulfill(ok(s.reviews[0]));
     }
     if (path.startsWith("/workspace/invoice-requests?")) return route.fulfill(ok(s.requests));
@@ -1576,7 +1591,7 @@ async function workflowMocks(page: Page, options: { quoteStatus?: string; contra
   return { requests, answers, fail };
 }
 
-test("quote workflow: versions saved and restored with the quotation version; review requested and withdrawn; decisions blocked (D-11)", async ({page}) => {
+test("quote workflow: versions saved and restored with the quotation version; review requested with its approver and withdrawn; the requester cannot decide (D-11)", async ({page}) => {
   const { requests, answers, fail } = await workflowMocks(page);
   await page.goto("/#/opportunities/101");
   await expect(page.locator(".quotes-panel .quote-head")).toContainText("SO-0007");
@@ -1592,13 +1607,127 @@ test("quote workflow: versions saved and restored with the quotation version; re
     .toEqual([["/quotes/7/versions", { version: 3 }], ["/quotes/7/versions", { version: 3 }], ["/quotes/7/versions/1/restore", { version: 4 }]]);
   await page.getByRole("button", { name: "طلب مراجعة" }).first().click();
   await expect(page.locator(".wf-review .wf-status")).toHaveText("بانتظار المراجعة");
-  await expect(page.getByRole("button", { name: "اعتماد", exact: true }).first()).toBeDisabled();
-  await expect(page.getByRole("button", { name: "رفض", exact: true }).first()).toBeDisabled();
-  await expect(page.locator("#wf-decision-note").first()).toContainText("D-11");
+  await expect(page.locator(".wf-review")).toContainText("الموافقة من: مدير المبيعات");
+  await expect(page.getByRole("button", { name: "اعتماد", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "رفض", exact: true })).toHaveCount(0);
   await page.getByRole("button", { name: "سحب الطلب" }).click();
   await expect(page.locator(".wf-trail")).toContainText("سُحب الطلب");
   expect(requests.some(r => /approve|reject/.test(r.path))).toBe(false);
   await expect(page.locator("body")).not.toContainText("raw server text");
+});
+
+test("quote approval: a holder of the tier's role approves with a note or rejects with a reason; refusals are localized (D-11)", async ({page}) => {
+  const pending = () => ({ id: 82, version: 0, quoteId: 7, contractId: null, quoteVersionNumber: 1, status: "PENDING", requestedBy: "Sara Sales",
+    requestedAt: "2026-10-20T10:05:00", reviewedBy: null, reason: null, decisionStatus: "OPEN", requestedByMe: false, approver: "SALES_MANAGER", canDecide: true,
+    events: [{ kind: "REQUESTED", reason: null, actorName: "Sara Sales", at: "2026-10-20T10:05:00" }] });
+  const { requests, answers, fail } = await workflowMocks(page, { reviews: [pending()] });
+  await page.goto("/#/opportunities/101");
+  const reviewer = page.locator(".wf-reviewer");
+  await expect(reviewer).toContainText("الاعتماد بيحوّل العرض لنهائي في Axelor");
+  answers.push(fail(409, "QUOTE_CHANGED"));
+  await reviewer.getByLabel("ملاحظة").fill("within margin");
+  await reviewer.getByRole("button", { name: "اعتماد", exact: true }).click();
+  await expect(page.getByRole("alert")).toHaveText(/العرض اتغير بعد طلب المراجعة/);
+  await reviewer.getByRole("button", { name: "اعتماد", exact: true }).click();
+  await expect(page.locator(".wf-review .wf-status")).toHaveText("اتعتمد");
+  await expect(page.locator(".wf-trail")).toContainText("اتعتمد العرض");
+  expect(requests.filter(r => /reviews\/82\/approve/.test(r.path)).map(r => r.body))
+    .toEqual([{ version: 0, rationale: "within margin" }, { version: 0, rationale: "within margin" }]);
+  await expect(page.locator(".wf-reviewer")).toHaveCount(0);
+});
+
+test("quote approval: a holder of the tier's role rejects with the chosen reason (D-11)", async ({page}) => {
+  const base = { id: 82, version: 0, quoteId: 7, contractId: null, quoteVersionNumber: 1, status: "PENDING", requestedBy: "Sara Sales",
+    requestedAt: "2026-10-20T10:05:00", reviewedBy: null, reason: null, decisionStatus: "OPEN", requestedByMe: false, approver: "GM",
+    events: [{ kind: "REQUESTED", reason: null, actorName: "Sara Sales", at: "2026-10-20T10:05:00" }] };
+  const { requests } = await workflowMocks(page, { reviews: [{ ...base, canDecide: true }] });
+  await page.goto("/#/opportunities/101");
+  await expect(page.locator(".wf-review")).toContainText("الموافقة من: المدير العام");
+  await page.locator(".wf-reviewer").getByLabel("سبب الإعادة").selectOption("TERMS");
+  await page.locator(".wf-reviewer").getByRole("button", { name: "رفض", exact: true }).click();
+  await expect(page.locator(".wf-review .wf-status")).toHaveText("اترفض");
+  expect(requests.filter(r => /reviews\/82\/reject/.test(r.path)).map(r => r.body)).toEqual([{ version: 0, reason: "TERMS", rationale: "" }]);
+});
+
+test("quote approval: a non-holder of the tier's role sees only send-back, no approve or reject (D-11)", async ({page}) => {
+  await workflowMocks(page, { reviews: [{ id: 82, version: 0, quoteId: 7, contractId: null, quoteVersionNumber: 1, status: "PENDING", requestedBy: "Sara Sales",
+    requestedAt: "2026-10-20T10:05:00", reviewedBy: null, reason: null, decisionStatus: "OPEN", requestedByMe: false, approver: "GM", canDecide: false,
+    events: [{ kind: "REQUESTED", reason: null, actorName: "Sara Sales", at: "2026-10-20T10:05:00" }] }] });
+  await page.goto("/#/opportunities/101");
+  await expect(page.getByRole("button", { name: "إعادة للتعديل" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "اعتماد", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "رفض", exact: true })).toHaveCount(0);
+});
+
+test("quote approval: a line discount moves the tier; within the no-approval tier the rep finalizes; then records sending (D-11)", async ({page}) => {
+  await intercept(page);
+  const ok = (object: unknown, code = 200) => ({ status: code, contentType: "application/json", body: JSON.stringify({ codeStatus: code, messageStatus: "ok", object }) });
+  const fail = (status: number, code: string, field?: string) => ({ status, contentType: "application/json", body: JSON.stringify({
+    codeStatus: status, messageStatus: "x", error: { code, message: "raw server text", correlationId: "c0ffee11", fields: field ? [{ field, code: "RANGE", message: "x" }] : [] } }) });
+  const approval = (over: Record<string, unknown>) => ({ status: "NOT_NEEDED", approver: "NONE", discountPercent: "0", approvedBy: null, approvedAt: null,
+    validUntil: null, expired: false, sentAt: null, sentBy: null, sentVia: null, ...over });
+  const line = (discount: string) => ({ id: 1, productCode: "ISO-AUD-DAY", name: "Audit day", quantity: "2", unit: "Day", unitPriceBeforeTax: "1500.00",
+    discountPercent: discount, totalBeforeTax: String(3000 * (1 - Number(discount) / 100)) });
+  let quote: Record<string, unknown> = { id: 7, version: 3, reference: "#7", status: "DRAFT", opportunityId: 101, accountId: 901, accountName: "Nile View Hotel",
+    currency: "EGP", totalBeforeTax: "3000.00", taxStatus: "APPLIED", taxTotal: "420.00", totalWithTax: "3420.00",
+    tax: { name: "VAT", ratePercent: "14", policyVersionId: 12, since: "2026-10-25" }, taxOutdated: false, lines: [line("0")], approval: approval({}) };
+  const posts: { path: string; body: unknown }[] = [];
+  const answers: ReturnType<typeof fail>[] = [];
+  await page.route(/\/axelor-erp\/ws\/ioeti\/catalog\/products/, route => route.fulfill(ok([])));
+  await page.route(/\/axelor-erp\/ws\/ioeti\/quotes(\/.*|\?.*)?$/, route => {
+    const url = new URL(route.request().url());
+    if (route.request().method() === "GET") return route.fulfill(ok(url.pathname.endsWith("/quotes") ? [quote] : []));
+    const body = route.request().postDataJSON() as Record<string, unknown>;
+    posts.push({ path: url.pathname.replace(/.*\/quotes/, ""), body });
+    const refusal = answers.shift();
+    if (refusal) return route.fulfill(refusal);
+    const v = (quote.version as number) + 1;
+    if (url.pathname.endsWith("/discount")) {
+      const d = String(body.percent);
+      quote = { ...quote, version: v, lines: [line(d)], approval: approval(Number(d) > 5 ? { status: "NEEDED", approver: "SALES_MANAGER", discountPercent: d }
+        : { discountPercent: d }) };
+    } else if (url.pathname.endsWith("/finalize")) {
+      quote = { ...quote, version: v, status: "FINALIZED", reference: "Q-0001",
+        approval: approval({ status: "APPROVED", approvedBy: "Sara Sales", approvedAt: "2026-10-25T10:00:00", validUntil: "2026-11-24" }) };
+    } else if (url.pathname.endsWith("/sent")) {
+      quote = { ...quote, version: v, approval: { ...(quote.approval as object), sentAt: "2026-10-25T10:05:00", sentBy: "Sara Sales", sentVia: body.via } };
+    }
+    return route.fulfill(ok(quote));
+  });
+  await page.route(/\/axelor-erp\/ws\/ioeti\/quotes\/\d+\/milestones/, route => route.fulfill(ok(emptyPlan(3))));
+  await page.route(/\/axelor-erp\/ws\/ioeti\/workspace\/reviews/, route => route.fulfill(ok([])));
+  await page.goto("/#/opportunities/101");
+  const box = page.locator(".quote-approval");
+  await expect(box).toContainText("الخصم 0% في حدود المستوى اللي مش محتاج موافقة");
+  const form = page.getByRole("form", { name: "خصم على بند" });
+  await form.getByLabel("خصم على بند").selectOption("1");
+  answers.push(fail(422, "INVALID_REQUEST", "percent"));
+  await form.getByLabel("الخصم %").fill("10");
+  await form.getByRole("button", { name: "طبّق الخصم" }).click();
+  await expect(page.getByRole("alert")).toHaveText("الخصم من 0 لـ 100 وبحد أقصى رقمين عشريين.");
+  await form.getByRole("button", { name: "طبّق الخصم" }).click();
+  await expect(box).toContainText("الخصم 10% والقيمة دي محتاجين موافقة مدير المبيعات");
+  await expect(page.locator(".quote-lines tbody").first()).toContainText("10%");
+  await expect(box.getByRole("button", { name: "اعتماد العرض نهائيًا" })).toHaveCount(0);
+  await form.getByLabel("خصم على بند").selectOption("1");
+  await form.getByLabel("الخصم %").fill("5");
+  await form.getByRole("button", { name: "طبّق الخصم" }).click();
+  await expect(box).toContainText("الخصم 5% في حدود المستوى");
+  await box.getByRole("button", { name: "اعتماد العرض نهائيًا" }).click();
+  await expect(box).toContainText("اتعتمد بواسطة Sara Sales في 2026-10-25 10:00 (من غير موافقة). ساري لحد 2026-11-24.");
+  await box.getByLabel("إزاي بعته (مثلًا: إيميل من حسابي، واتساب، تسليم باليد)").fill("واتساب");
+  await box.getByRole("button", { name: "سجّل إنه اتبعت" }).click();
+  await expect(box).toContainText("اتبعت بواسطة Sara Sales في 2026-10-25 10:05. · واتساب");
+  expect(posts).toEqual([
+    { path: "/7/lines/1/discount", body: { version: 3, percent: "10" } },
+    { path: "/7/lines/1/discount", body: { version: 3, percent: "10" } },
+    { path: "/7/lines/1/discount", body: { version: 4, percent: "5" } },
+    { path: "/7/finalize", body: { version: 5 } },
+    { path: "/7/sent", body: { version: 6, via: "واتساب" } },
+  ]);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(0);
+  await page.screenshot({ path: "test-results/ioeti-quote-approval.png", fullPage: true });
 });
 
 test("invoice requests on a confirmed order: requested once, refusals localized, issue blocked (D-06); contract renewal", async ({page}) => {

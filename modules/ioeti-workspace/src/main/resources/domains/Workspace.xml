@@ -8,8 +8,9 @@
   <!-- Wave 5b: commercial review requests, invoice requests and renewals across the native chain.
        Explicit ioeti_ table names keep every object under the migration gate (G-008). -->
 
-  <!-- A request to review a draft quotation or contract. Who may approve, at which value, is D-11:
-       the approval and rejection decisions fail closed; reviewers can only send it back for changes. -->
+  <!-- A request to review a draft quotation or contract. D-11 (signed 2026-10-25): a quotation is approved or
+       rejected by a holder of the role its tier names (sales.quote-approval), never by the requester, and only at the
+       record version that was asked about; approving finalizes it natively. Contract decisions stay closed (P3b). -->
   <entity name="ReviewRequest" table="ioeti_ws_review">
     <many-to-one name="quote" ref="com.axelor.apps.sale.db.SaleOrder" title="Quotation"/>
     <many-to-one name="contract" ref="com.axelor.apps.contract.db.Contract" title="Contract"/>
@@ -19,11 +20,17 @@
     <datetime name="requestedAt" title="Requested at"/>
     <many-to-one name="reviewedBy" ref="com.axelor.auth.db.User" title="Reviewed by"/>
     <integer name="reasonSelect" title="Reason"/>
+    <integer name="subjectRecordVersion" title="Record version asked about"/>
+    <string name="approverCode" title="Approved by (tier)" max="20"/>
+    <datetime name="decidedAt" title="Decided at"/>
+    <string name="decisionNote" title="Decision note" max="500"/>
 
     <extra-code><![CDATA[
       public static final int STATUS_PENDING = 1;
       public static final int STATUS_CHANGES_REQUESTED = 2;
       public static final int STATUS_WITHDRAWN = 3;
+      public static final int STATUS_APPROVED = 4;
+      public static final int STATUS_REJECTED = 5;
       public static final int REASON_PRICING = 1;
       public static final int REASON_SCOPE = 2;
       public static final int REASON_TERMS = 3;
@@ -44,6 +51,8 @@
       public static final int KIND_REQUESTED = 1;
       public static final int KIND_CHANGES_REQUESTED = 2;
       public static final int KIND_WITHDRAWN = 3;
+      public static final int KIND_APPROVED = 4;
+      public static final int KIND_REJECTED = 5;
     ]]></extra-code>
   </entity>
 

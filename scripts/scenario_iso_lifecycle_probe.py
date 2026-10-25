@@ -12,7 +12,7 @@ Steps, through the IOETI APIs only (generic /ws/rest is used by the administrato
   1 intake with an Arabic duplicate (another spelling and Arabic-Indic digits) → 409; RepB's own copy allowed
   2 conversion → account, contact, opportunity on the business line; RepB → 404
   3 quotation with lines, a saved version, review sent back for pricing (notice to RepA), revised and
-    re-sent; approval stays BLOCKED_BY_POLICY (D-11)
+    re-sent; approval without the owners' policies → POLICY_NOT_SET (D-11, fail closed)
   4 milestones 30/70 with exact amounts; contract with the quotation's lines (same total)
   5 handover refused before activation; activation by SQL (TEST FIXTURE: stands in for the signature,
     D-11); order confirmation by SQL (TEST FIXTURE: D-06/D-11); invoice request for the deposit with its
@@ -253,14 +253,14 @@ def main():
         add_line(quote_id, "1")
         s_r2, b_r2 = a.call("POST", f"{WS}/reviews", {"quoteId": quote_id, "version": version(SALE_ORDER, quote_id)})
         r2 = obj(b_r2)
-        s_ap, b_ap = mgr_c.call("POST", f"{WS}/reviews/{r2.get('id')}/approve")
+        s_ap, b_ap = mgr_c.call("POST", f"{WS}/reviews/{r2.get('id')}/approve", {"version": version(REVIEW, r2.get("id"))})
         check("3 quotation: 3 + 2 audit days at 1,500 = 7,500 EGP; version saved; review sent back for pricing; "
-              "revised to 9,000 and re-sent; approval → BLOCKED_BY_POLICY (D-11)",
+              "revised to 9,000 and re-sent; approval without the owners' policies → POLICY_NOT_SET (D-11, fail closed)",
               (s_q, s_v, s_r1, s_ch, obj(b_ch).get("status"), s_r2, r2.get("status"), s_ap)
               == (201, 201, 201, 200, "CHANGES_REQUESTED", 201, "PENDING", 422)
               and total_v1 == 7500.0 and total(quote_id) == 9000.0
-              and error(b_ap).get("code") == "BLOCKED_BY_POLICY" and "D-11" in error(b_ap).get("message", ""),
-              f"{s_q} {s_v} {b_v} {s_r1} {s_ch} {s_r2} {r2} {s_ap} {total_v1} {total(quote_id)}")
+              and error(b_ap).get("code") == "POLICY_NOT_SET",
+              f"{s_q} {s_v} {b_v} {s_r1} {s_ch} {s_r2} {r2} {s_ap} {error(b_ap)} {total_v1} {total(quote_id)}")
 
         queue = {k: [(r["id"], r.get("opportunityId")) for r in rows(c.call("GET", f"{WS}/reviews?pending=true")[1])]
                  for k, c in (("Manager", mgr_c), ("RepA", a), ("RepB", b))}

@@ -19,6 +19,8 @@ import com.axelor.utils.api.ResponseConstructor;
 import com.axelor.utils.api.SecurityCheck;
 import com.axelor.apps.base.service.app.AppBaseService;
 import com.fasterxml.jackson.databind.JsonNode;
+import com.axelor.apps.base.db.repo.PriceListLineRepository;
+import com.ioeti.commercial.service.QuoteApprovalService;
 import com.ioeti.commercial.service.QuoteService;
 import com.ioeti.commercial.service.TaxPolicyBridge;
 import com.ioeti.core.db.PolicyVersion;
@@ -50,8 +52,12 @@ import java.util.TreeMap;
  * <p>Tax (D-06, signed 2026-10-25) is the {@code finance.tax} policy the owners set for the quotation's
  * business line (or the default), applied with the native tax services after every change. Without a
  * policy in force {@code taxStatus = "POLICY_NOT_SET"} and no tax amounts are given. When the owners change
- * the policy, a draft shows {@code taxOutdated} until its tax is applied again. Finalizing or sending a
- * quotation also needs the commercial approval matrix (D-11), so that command fails closed.
+ * the policy, a draft shows {@code taxOutdated} until its tax is applied again.
+ *
+ * <p>Approval (D-11, signed 2026-10-25): the quotation's discount and value select a tier of the owners'
+ * {@code sales.quote-approval} policy. A tier approved by {@code NONE} is finalized here (native finalize, end of
+ * validity from {@code sales.quote-validity}); any other tier is approved through a review by a holder of the
+ * tier's role. The rep sends a finalized quotation themselves and records it; nothing is e-mailed.
  */
 @Path("/ioeti/quotes")
 @Produces(MediaType.APPLICATION_JSON)
@@ -203,12 +209,58 @@ public class QuoteRestController {
   }
 
   @POST
-  @Path("/{id}/finalize")
-  @Operation(summary = "Finalize a quotation: blocked until finance (D-06) and approval (D-11) policies", tags = {"IOETI quotes"})
+  @Path("/{id}/lines/{lineId}/discount")
+  @Consumes(MediaType.APPLICATION_JSON)
+  @Operation(summary = "Set a line's discount in % (native line discount); the approval tier follows it (D-11)", tags = {"IOETI quotes"})
   @IoetiEndpoint
-  public Response finalizeQuote(@PathParam("id") Long id) {
-    RecordAccess.writable(SaleOrder.class, id);
-    throw ApiException.policyBlocked("D-06 and D-11");
+  public Response discount(@PathParam("id") Long id, @PathParam("lineId") Long lineId, Discount command) {
+    SaleOrder quote = draftForChange(id, command == null ? null : command.version());
+    SaleOrderLine line = quote.getSaleOrderLineList() == null ? null
+        : quote.getSaleOrderLineList().stream().filter(l -> l.getId().equals(lineId)).findFirst().orElse(null);
+    if (line == null) throw ApiException.invalidField("lineId", "UNAVAILABLE", "Choose a line of this quotation.");
+    BigDecimal percent = command.percent();
+    if (percent == null || percent.signum() < 0 || percent.compareTo(new BigDecimal("100")) > 0 || percent.stripTrailingZeros().scale() > 2) {
+      throw ApiException.invalidField("percent", "RANGE", "Give a discount from 0 to 100 with up to 2 decimals.");
+    }
+    runNative(() -> Beans.get(QuoteService.class).discount(quote, line, percent));
+    return ResponseConstructor.build(Response.Status.OK, "Discount set", view(quote));
+  }
+
+  @POST
+  @Path("/{id}/finalize")
+  @Consumes(MediaType.APPLICATION_JSON)
+  @Operation(summary = "Finalize a draft quotation natively when its approval tier needs no approval (D-11); otherwise"
+      + " 422 APPROVAL_REQUIRED and a review is asked for", tags = {"IOETI quotes"})
+  @IoetiEndpoint
+  public Response finalizeQuote(@PathParam("id") Long id, VersionOnly command) {
+    if (command == null || command.version() == null) throw ApiException.badRequest("Record version is required.");
+    new SecurityCheck().writeAccess(SaleOrder.class).check();
+    SaleOrder quote = RecordAccess.writable(SaleOrder.class, id);
+    ConflictChecker.checkVersion(quote, command.version());
+    QuoteApprovalService approvals = Beans.get(QuoteApprovalService.class);
+    java.time.LocalDate today = approvals.today(quote);
+    PolicyService.Applied validity = approvals.checkFinalizable(quote, today, Beans.get(TaxPolicyBridge.class));
+    QuoteApprovalService.Tier tier = approvals.tier(quote, today);
+    if (!QuoteApprovalService.NONE.equals(tier.approver())) {
+      throw new ApiException(422, "APPROVAL_REQUIRED", "This quotation's tier is approved by " + tier.approver() + "; ask for a review.", null);
+    }
+    runNative(() -> approvals.finalizeUnder(quote, tier, validity, AuthUtils.getUser(), today));
+    return ResponseConstructor.build(Response.Status.OK, "Quotation finalized", view(quote));
+  }
+
+  @POST
+  @Path("/{id}/sent")
+  @Consumes(MediaType.APPLICATION_JSON)
+  @Operation(summary = "Record that the rep sent the finalized quotation to the client themselves (nothing is e-mailed)", tags = {"IOETI quotes"})
+  @IoetiEndpoint
+  public Response markSent(@PathParam("id") Long id, MarkSent command) {
+    if (command == null || command.version() == null) throw ApiException.badRequest("Record version is required.");
+    new SecurityCheck().writeAccess(SaleOrder.class).check();
+    SaleOrder quote = RecordAccess.writable(SaleOrder.class, id);
+    ConflictChecker.checkVersion(quote, command.version());
+    QuoteApprovalService approvals = Beans.get(QuoteApprovalService.class);
+    runNative(() -> approvals.markSent(quote, AuthUtils.getUser(), command.via(), approvals.today(quote)));
+    return ResponseConstructor.build(Response.Status.OK, "Recorded as sent", view(quote));
   }
 
   /** Unknown, unreadable and non-sellable products are rejected identically (no oracle). */
@@ -253,6 +305,7 @@ public class QuoteRestController {
             line.getQty(),
             line.getUnit() == null ? null : line.getUnit().getName(),
             line.getPrice(),
+            Integer.valueOf(PriceListLineRepository.AMOUNT_TYPE_PERCENT).equals(line.getDiscountTypeSelect()) ? line.getDiscountAmount() : BigDecimal.ZERO,
             line.getExTaxTotal())).toList();
     // the tax the quotation was computed with, and whether the owners have set a different one since
     PolicyVersion used = quote.getIoetiTaxPolicy();
@@ -280,7 +333,35 @@ public class QuoteRestController {
         tax,
         draft && !java.util.Objects.equals(inForce, used == null ? null : used.getId()),
         quote.getVersionNumber(),
-        lines);
+        lines,
+        approval(quote, draft));
+  }
+
+  /**
+   * D-11: for a draft, the tier its discount and value fall in today (or why there is none); once finalized, the
+   * tier it was finalized under, who approved, how long it is valid and when the rep sent it.
+   */
+  static ApprovalView approval(SaleOrder quote, boolean draft) {
+    String status;
+    String approver = quote.getIoetiApprovalTier();
+    BigDecimal discount = draft ? QuoteApprovalService.discountPercent(quote) : quote.getIoetiDiscountPercent();
+    if (draft) {
+      QuoteApprovalService approvals = Beans.get(QuoteApprovalService.class);
+      try {
+        approver = approvals.tier(quote, approvals.today(quote)).approver();
+        status = QuoteApprovalService.NONE.equals(approver) ? "NOT_NEEDED" : "NEEDED";
+      } catch (ApiException e) {
+        status = e.code();
+        approver = null;
+      }
+    } else {
+      status = quote.getIoetiApprovalTier() == null ? null : "APPROVED";
+    }
+    java.time.LocalDate validUntil = quote.getEndOfValidityDate();
+    return new ApprovalView(status, approver, discount, quote.getIoetiApprovedBy() == null ? null : quote.getIoetiApprovedBy().getName(),
+        quote.getIoetiApprovedAt(), draft ? null : validUntil,
+        !draft && validUntil != null && validUntil.isBefore(Beans.get(AppBaseService.class).getTodayDate(quote.getCompany())),
+        quote.getIoetiSentAt(), quote.getIoetiSentBy() == null ? null : quote.getIoetiSentBy().getName(), quote.getIoetiSentNote());
   }
 
   static String status(Integer statusSelect) {
@@ -299,12 +380,19 @@ public class QuoteRestController {
   public record AddLine(Integer version, Long productId, BigDecimal quantity) {}
   public record QuoteLineView(
       Long id, String productCode, String name, BigDecimal quantity, String unit,
-      BigDecimal unitPriceBeforeTax, BigDecimal totalBeforeTax) {}
+      BigDecimal unitPriceBeforeTax, BigDecimal discountPercent, BigDecimal totalBeforeTax) {}
   public record QuoteView(
       Long id, Integer version, String reference, String status, Long opportunityId,
       Long accountId, String accountName, String currency, BigDecimal totalBeforeTax,
       String taxStatus, BigDecimal taxTotal, BigDecimal totalWithTax, TaxView tax, boolean taxOutdated,
-      Integer versionNumber, List<QuoteLineView> lines) {}
+      Integer versionNumber, List<QuoteLineView> lines, ApprovalView approval) {}
+  /** D-11 approval and sending of a quotation; status is NEEDED, NOT_NEEDED, POLICY_NOT_SET, OUTSIDE_APPROVAL_TIERS or APPROVED. */
+  public record ApprovalView(
+      String status, String approver, BigDecimal discountPercent, String approvedBy, LocalDateTime approvedAt,
+      java.time.LocalDate validUntil, boolean expired, LocalDateTime sentAt, String sentBy, String sentVia) {}
+  public record Discount(Integer version, BigDecimal percent) {}
+  /** How the rep sent the quotation themselves (e.g. e-mail from their account, WhatsApp, by hand). */
+  public record MarkSent(Integer version, String via) {}
   /** The finance.tax policy version a quotation's tax was computed with (D-06). */
   public record TaxView(String name, BigDecimal ratePercent, Long policyVersionId, java.time.LocalDate since) {}
   public record VersionOnly(Integer version) {}

@@ -21,7 +21,13 @@ import com.ioeti.workspace.db.ReviewRequest;
 import com.ioeti.workspace.db.repo.InvoiceRequestRepository;
 import com.ioeti.workspace.db.repo.ReviewEventRepository;
 import com.ioeti.workspace.db.repo.ReviewRequestRepository;
+import com.axelor.apps.base.AxelorException;
+import com.axelor.auth.db.User;
+import com.ioeti.commercial.service.QuoteApprovalService;
+import com.ioeti.commercial.service.TaxPolicyBridge;
+import com.ioeti.core.policy.PolicyService;
 import jakarta.persistence.LockModeType;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 /**
@@ -29,8 +35,10 @@ import java.time.LocalDateTime;
  *
  * <ul>
  *   <li>A review request asks for a review of a draft quotation (at its current version) or a draft
- *       contract; one pending request per record. Reviewers may send it back with a reason; the
- *       approval and rejection decisions are D-11 and fail closed in the API.
+ *       contract; one pending request per record. Reviewers may send it back with a reason. D-11: a
+ *       quotation is approved (finalized natively) or rejected by a holder of the role its approval tier
+ *       names, never by the requester, and only at the record version asked about; the holders get an
+ *       in-app notice. Contract decisions stay closed until contract activation (P3b).
  *   <li>An invoice request records that one payment milestone of a confirmed order should be
  *       invoiced; one open request per milestone. Issuing the invoice is D-06.
  *   <li>A renewal opens one native opportunity for an active or closed contract (unique link).
@@ -69,12 +77,103 @@ public class WorkspaceService {
     review.setQuote(quote);
     review.setContract(contract);
     review.setSubjectVersionNumber(quote == null ? null : quote.getVersionNumber());
+    // the lock above already raised the quotation's version: this is the version the decision must match
+    review.setSubjectRecordVersion(quote == null ? null : quote.getVersion());
     review.setStatusSelect(ReviewRequestRepository.STATUS_PENDING);
     review.setRequestedBy(AuthUtils.getUser());
     review.setRequestedAt(LocalDateTime.now());
+    if (quote != null) review.setApproverCode(approverNow(quote));
     JPA.save(review);
     event(review, ReviewEventRepository.KIND_REQUESTED, null);
+    if (review.getApproverCode() != null && !QuoteApprovalService.NONE.equals(review.getApproverCode())) {
+      Notifier notifier = Beans.get(Notifier.class);
+      String title = "Quotation " + quote.getSaleOrderSeq();
+      Long opportunity = quote.getOpportunity() == null ? null : quote.getOpportunity().getId();
+      for (User holder : QuoteApprovalService.holders(review.getApproverCode())) {
+        notifier.notify(holder, "REVIEW_APPROVAL_NEEDED", opportunity == null ? null : "OPPORTUNITY", opportunity, title);
+      }
+    }
     return review;
+  }
+
+  /** Who the quotation's tier says approves it today, or null while the owners' policy does not cover it. */
+  private static String approverNow(SaleOrder quote) {
+    QuoteApprovalService approvals = Beans.get(QuoteApprovalService.class);
+    try {
+      return approvals.tier(quote, approvals.today(quote)).approver();
+    } catch (ApiException notCovered) {
+      return null;
+    }
+  }
+
+  /**
+   * D-11: approves a pending quotation review and finalizes the quotation natively under its tier. Refused when the
+   * caller asked for the review, when the quotation changed since, when the owners' policies do not cover it, or
+   * when the caller does not hold the tier's role (a tier needing no approval can be approved by any reviewer).
+   */
+  @Transactional(rollbackOn = {Exception.class})
+  public ReviewRequest approve(ReviewRequest review, String note) throws AxelorException {
+    JPA.em().lock(review, LockModeType.PESSIMISTIC_FORCE_INCREMENT);
+    pending(review);
+    SaleOrder quote = decidable(review);
+    QuoteApprovalService approvals = Beans.get(QuoteApprovalService.class);
+    LocalDate today = approvals.today(quote);
+    PolicyService.Applied validity = approvals.checkFinalizable(quote, today, Beans.get(TaxPolicyBridge.class));
+    QuoteApprovalService.Tier tier = approvals.tier(quote, today);
+    authorize(tier.approver());
+    approvals.finalizeUnder(quote, tier, validity, AuthUtils.getUser(), today);
+    return decide(review, ReviewRequestRepository.STATUS_APPROVED, ReviewEventRepository.KIND_APPROVED, tier.approver(), note,
+        "REVIEW_APPROVED");
+  }
+
+  /** D-11: rejects a pending quotation review (the quotation stays a draft); same authority as approving. */
+  @Transactional(rollbackOn = {Exception.class})
+  public ReviewRequest reject(ReviewRequest review, int reason, String note) {
+    JPA.em().lock(review, LockModeType.PESSIMISTIC_FORCE_INCREMENT);
+    pending(review);
+    SaleOrder quote = decidable(review);
+    QuoteApprovalService approvals = Beans.get(QuoteApprovalService.class);
+    QuoteApprovalService.Tier tier = approvals.tier(quote, approvals.today(quote));
+    authorize(tier.approver());
+    review.setReasonSelect(reason);
+    return decide(review, ReviewRequestRepository.STATUS_REJECTED, ReviewEventRepository.KIND_REJECTED, tier.approver(), note,
+        "REVIEW_REJECTED");
+  }
+
+  private static SaleOrder decidable(ReviewRequest review) {
+    if (review.getQuote() == null) throw ApiException.policyBlocked("D-11");
+    if (review.getRequestedBy() != null && review.getRequestedBy().equals(AuthUtils.getUser())) {
+      throw new ApiException(403, "OWN_REQUEST", "Someone other than the requester decides on this quotation.", null);
+    }
+    SaleOrder quote = review.getQuote();
+    JPA.em().lock(quote, LockModeType.PESSIMISTIC_WRITE);
+    JPA.em().refresh(quote);
+    if (review.getSubjectRecordVersion() == null || !review.getSubjectRecordVersion().equals(quote.getVersion())) {
+      throw new ApiException(409, "QUOTE_CHANGED", "The quotation changed after the review was asked for; ask again.", null);
+    }
+    return quote;
+  }
+
+  private static void authorize(String approver) {
+    if (!QuoteApprovalService.NONE.equals(approver) && !QuoteApprovalService.holds(AuthUtils.getUser(), approver)) {
+      throw new ApiException(403, "NOT_APPROVER", "This quotation's tier is approved by " + approver + ".", null);
+    }
+  }
+
+  private ReviewRequest decide(ReviewRequest review, int status, int kind, String approver, String rawNote, String notice) {
+    String note = rawNote == null ? "" : rawNote.strip();
+    if (note.length() > 500) throw ApiException.invalidField("rationale", "TOO_LONG", "Keep the note under 500 characters.");
+    review.setStatusSelect(status);
+    review.setReviewedBy(AuthUtils.getUser());
+    review.setApproverCode(approver);
+    review.setDecidedAt(LocalDateTime.now());
+    review.setDecisionNote(note.isEmpty() ? null : note);
+    event(review, kind, review.getReasonSelect());
+    ReviewRequest saved = JPA.save(review);
+    Opportunity opportunity = review.getQuote().getOpportunity();
+    Beans.get(Notifier.class).notify(review.getRequestedBy(), notice, opportunity == null ? null : "OPPORTUNITY",
+        opportunity == null ? null : opportunity.getId(), "Quotation " + review.getQuote().getSaleOrderSeq());
+    return saved;
   }
 
   @Transactional(rollbackOn = {Exception.class})

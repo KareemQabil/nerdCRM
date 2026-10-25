@@ -165,6 +165,9 @@ jobs:
           # P2b (D-06): finance issues invoices from requests in Axelor accounting; refused with what is missing until the
           # owners' payment terms and the company's accounting set-up are in place (test-only set-up, removed afterwards)
           python3 scripts/invoicing_probe.py
+          # P3a (D-11): quotation approval tiers from sales.quote-approval, native finalize with the validity from
+          # sales.quote-validity, approve/reject by the tier's role only (never the requester), recording sending
+          python3 scripts/quote_approval_probe.py
           # Finance's invoicing queue within D-06: requests, milestones coming due and real figures per currency;
           # issuing stays BLOCKED_BY_POLICY and no payment is recorded as received
           python3 scripts/finance_probe.py

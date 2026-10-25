@@ -4,12 +4,14 @@ import { DEMO_MODE } from "./demo";
 /** Wave 5b: quotation versions, review requests, invoice requests, renewals and the Account 360 summary. */
 export type QuoteVersion = { number: number; savedAt: string | null; lines: number; totalBeforeTax: string | number };
 export type ReviewReason = "PRICING" | "SCOPE" | "TERMS" | "DOCUMENTS" | "OTHER";
-export type ReviewEvent = { kind: "REQUESTED" | "CHANGES_REQUESTED" | "WITHDRAWN"; reason: ReviewReason | null; actorName: string | null; at: string };
+export type ReviewEvent = { kind: "REQUESTED" | "CHANGES_REQUESTED" | "WITHDRAWN" | "APPROVED" | "REJECTED"; reason: ReviewReason | null; actorName: string | null; at: string };
 export type Review = {
   id: number; version: number; quoteId: number | null; contractId: number | null; quoteVersionNumber: number | null;
-  status: "PENDING" | "CHANGES_REQUESTED" | "WITHDRAWN"; requestedBy: string | null; requestedAt: string | null; reviewedBy: string | null;
+  status: "PENDING" | "CHANGES_REQUESTED" | "WITHDRAWN" | "APPROVED" | "REJECTED"; requestedBy: string | null; requestedAt: string | null; reviewedBy: string | null;
   reason: ReviewReason | null; decisionStatus: string; requestedByMe: boolean; events: ReviewEvent[];
   opportunityId?: number | null; subjectReference?: string | null;
+  /** D-11: who the quotation's tier says approves it (NONE, SALES_MANAGER, GM), and whether the caller may decide. */
+  approver?: string | null; canDecide?: boolean; decidedAt?: string | null; rationale?: string | null;
 };
 export type InvoiceRequest = {
   id: number; version: number; quoteId: number; milestoneId: number; milestoneTitle: string | null; dueDate: string | null;
@@ -48,6 +50,11 @@ export const requestReview = (subject: { quoteId?: number; contractId?: number }
 export const withdrawReview = (reviewId: number, version: number) => post<Review>(`${BASE}/reviews/${id(reviewId)}/withdraw`, { version });
 export const requestChanges = (reviewId: number, version: number, reason: ReviewReason) =>
   post<Review>(`${BASE}/reviews/${id(reviewId)}/changes`, { version, reason });
+/** D-11: a holder of the tier's role approves (the quotation is finalized natively) or rejects with a reason. */
+export const approveReview = (reviewId: number, version: number, rationale: string) =>
+  post<Review>(`${BASE}/reviews/${id(reviewId)}/approve`, { version, rationale });
+export const rejectReview = (reviewId: number, version: number, reason: ReviewReason, rationale: string) =>
+  post<Review>(`${BASE}/reviews/${id(reviewId)}/reject`, { version, reason, rationale });
 export const getInvoiceRequests = (quoteId: number) => list<InvoiceRequest>(`${BASE}/invoice-requests?quoteId=${id(quoteId)}`);
 export const requestInvoice = (milestoneId: number, quoteVersion: number) => post<InvoiceRequest>(`${BASE}/invoice-requests`, { milestoneId, quoteVersion });
 export const cancelInvoiceRequest = (requestId: number, version: number) => post<InvoiceRequest>(`${BASE}/invoice-requests/${id(requestId)}/cancel`, { version });

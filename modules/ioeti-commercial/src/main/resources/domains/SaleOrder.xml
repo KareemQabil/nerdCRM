@@ -3,12 +3,23 @@
   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
   xsi:schemaLocation="http://axelor.com/xml/ns/domain-models https://axelor.com/xml/ns/domain-models/domain-models_8.2.xsd">
 
-  <!-- Extension of the native AOS SaleOrder (no upstream file is modified): the finance.tax policy version
-       the quotation's tax was computed with (D-06; a record keeps the version it used). -->
+  <!-- Extension of the native AOS SaleOrder (no upstream file is modified): the policy versions a quotation was
+       computed and finalized under (a record keeps the version it used). -->
   <module name="sale" package="com.axelor.apps.sale.db"/>
 
   <entity name="SaleOrder">
     <many-to-one name="ioetiTaxPolicy" ref="com.ioeti.core.db.PolicyVersion" title="Tax policy version"/>
+    <!-- D-11 (signed 2026-10-25): the approval the quotation was finalized under (tier from sales.quote-approval, the
+         discount and value it was judged on, who approved and when), its validity policy, and when the rep sent it -->
+    <many-to-one name="ioetiApprovalPolicy" ref="com.ioeti.core.db.PolicyVersion" title="Approval policy version"/>
+    <string name="ioetiApprovalTier" title="Approval tier" max="20"/>
+    <decimal name="ioetiDiscountPercent" title="Discount %" precision="10" scale="2"/>
+    <many-to-one name="ioetiApprovedBy" ref="com.axelor.auth.db.User" title="Approved by"/>
+    <datetime name="ioetiApprovedAt" title="Approved at"/>
+    <many-to-one name="ioetiValidityPolicy" ref="com.ioeti.core.db.PolicyVersion" title="Validity policy version"/>
+    <many-to-one name="ioetiSentBy" ref="com.axelor.auth.db.User" title="Sent by"/>
+    <datetime name="ioetiSentAt" title="Sent at"/>
+    <string name="ioetiSentNote" title="Sent how" max="300"/>
   </entity>
 
 </domain-models>
