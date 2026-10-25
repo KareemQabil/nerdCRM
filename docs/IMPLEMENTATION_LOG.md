@@ -936,4 +936,6 @@ Slice: `docs/slices/P3a-quote-approvals.md`.
   - Contract decisions stay `BLOCKED_BY_POLICY` until P3b.
 - Web: the discount column and form, an approval and sending box, approve and reject for tier holders, and the inbox kinds.
 - Migration `V022`/`U022`. Probe `scripts/quote_approval_probe.py` (backend CI).
-- `workspace_probe.py`, `scenario_iso_lifecycle_probe.py` and `quote_probe.py` now expect `POLICY_NOT_SET` (signed, values not set) instead of `BLOCKED_BY_POLICY`.
+- `workspace_probe.py`, `scenario_iso_lifecycle_probe.py` and `quote_probe.py` no longer expect `BLOCKED_BY_POLICY`:
+  - approving, by their read-only reviewers, now answers `403`, because approving finalizes the quotation;
+  - rejecting and finalizing answer `POLICY_NOT_SET` (signed, values not set).

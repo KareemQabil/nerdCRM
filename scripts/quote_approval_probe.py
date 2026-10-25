@@ -154,7 +154,7 @@ def main():
 
         def new_quote(name, quantity=1):
             opp = create(OPP, {"name": f"Approval probe {name} {tag}", "user": {"id": users["Rep"]["id"]}, "partner": {"id": account["id"]},
-                               "ioetiBusinessLine": {"id": line["id"]}, "company": {"id": co["id"]}})
+                               "ioetiBusinessLine": {"id": line["id"]}})
             _, b_ = rep.call("POST", QUOTES, {"opportunityId": opp["id"], "opportunityVersion": version(OPP, opp["id"])})
             q_ = obj(b_)
             _, b_ = rep.call("POST", f"{QUOTES}/{q_.get('id')}/lines", {"version": version(SALE_ORDER, q_.get("id")), "productId": product["id"],
@@ -188,6 +188,12 @@ def main():
                                                       {"maxDiscountPercent": 15, "approver": "SALES_MANAGER"},
                                                       {"maxDiscountPercent": 30, "maxAmount": 50000, "approver": "GM"}]}, scope=line["code"])
         set_policy("sales.quote-validity", {"days": 30}, scope=line["code"])
+        s_seq, b_seq = finalize(rep, q1["id"])  # tier NONE at 0%, but the company has no quotation sequence yet
+        seq = create(SEQUENCE, {"name": f"Quotations probe {tag}", "codeSelect": "saleOrder", "company": {"id": co["id"]}, "prefixe": f"Q{tag}-",
+                                "padding": 4, "toBeAdded": 1})
+        check("without a quotation sequence the company is told so and nothing is finalized",
+              (s_seq, err(b_seq)[0]) == (422, "SALES_SEQUENCE_MISSING") and fetch(SALE_ORDER, q1["id"], ["statusSelect"]).get("statusSelect") == 1,
+              (s_seq, err(b_seq)))
 
         # --- tiers ------------------------------------------------------------------------------------------------
         bad = [discount(rep, q1, p) for p in (101, -1, "5.555")]
@@ -208,38 +214,31 @@ def main():
 
         s40, b40 = discount(rep, q1, 40)
         s_out, b_out = finalize(rep, q1["id"])
-        _, b_qty = rep.call("POST", f"{QUOTES}/{q1['id']}/lines", {"version": version(SALE_ORDER, q1["id"]), "productId": product["id"], "quantity": 6})
-        big = obj(b_qty)  # 9 000 + 60 000 at 20% overall would pass the discount but not the GM tier's value cap
-        _, b20 = discount(rep, big, 20, line_id=big["lines"][1]["id"])
-        capped = obj(b20)
+        _, q_cap = new_quote("cap", quantity=7)  # 70 000 at 20% = 56 000: within the GM tier's discount, above its 50 000 cap
+        rep.call("POST", f"{QUOTES}/{q_cap['id']}/tax", {"version": version(SALE_ORDER, q_cap["id"])})
+        capped = obj(discount(rep, q_cap, 20)[1])
+        s_back, b_back = discount(rep, q1, 10)
         check("above every tier the quotation is refused (OUTSIDE_APPROVAL_TIERS); a tier's value cap counts too",
               s40 == 200 and obj(b40).get("approval", {}).get("status") == "OUTSIDE_APPROVAL_TIERS" and (s_out, err(b_out)[0]) == (422, "OUTSIDE_APPROVAL_TIERS")
-              and capped.get("approval", {}).get("status") == "OUTSIDE_APPROVAL_TIERS", (s40, obj(b40).get("approval"), s_out, err(b_out), capped.get("approval")))
-        # back to one line at 10%
-        line_ids = [ln["id"] for ln in capped["lines"]]
-        admin.call("POST", f"/ws/rest/{SALE_ORDER_LINE}/removeAll", {"records": [{"id": line_ids[1], "version": version(SALE_ORDER_LINE, line_ids[1])}]})
-        _, b_back = discount(rep, {"id": q1["id"], "lines": [{"id": line_ids[0]}]}, 10)
-        check("TEST FIXTURE: the quotation is back to one line at 10%", dec(obj(b_back).get("totalBeforeTax")) == Decimal("9000"),
-              obj(b_back).get("totalBeforeTax"))
+              and capped.get("approval", {}).get("status") == "OUTSIDE_APPROVAL_TIERS" and dec(capped.get("totalBeforeTax")) == Decimal("56000")
+              and s_back == 200 and obj(b_back).get("approval", {}).get("approver") == "SALES_MANAGER",
+              (s40, obj(b40).get("approval"), s_out, err(b_out), capped.get("approval"), capped.get("totalBeforeTax"), s_back))
 
-        # --- numbering, then no approval needed ---------------------------------------------------------------------
+        # --- no approval needed ------------------------------------------------------------------------------------------
         opp2, q2 = new_quote("direct")
         rep.call("POST", f"{QUOTES}/{q2['id']}/tax", {"version": version(SALE_ORDER, q2["id"])})
-        s_seq, b_seq = finalize(rep, q2["id"])
-        seq = create(SEQUENCE, {"name": f"Quotations probe {tag}", "codeSelect": "saleOrder", "company": {"id": co["id"]}, "prefixe": f"Q{tag}-",
-                                "padding": 4, "toBeAdded": 1})
         s_ok, b_ok = finalize(rep, q2["id"])
         done = obj(b_ok)
         native = fetch(SALE_ORDER, q2["id"], ["statusSelect", "saleOrderSeq", "endOfValidityDate", "ioetiApprovalTier", "ioetiApprovedBy",
                                               "ioetiApprovalPolicy", "ioetiValidityPolicy"])
-        check("without a quotation sequence the company is told so; with it the rep finalizes a tier needing no approval natively",
-              (s_seq, err(b_seq)[0]) == (422, "SALES_SEQUENCE_MISSING") and s_ok == 200 and done.get("status") == "FINALIZED"
+        check("the rep finalizes a tier needing no approval natively: numbered, valid for the policy's days, approval recorded",
+              s_ok == 200 and done.get("status") == "FINALIZED"
               and native.get("statusSelect") == 2 and (native.get("saleOrderSeq") or "").startswith(f"Q{tag}-")
               and native.get("endOfValidityDate") == (today + timedelta(days=30)).isoformat() and native.get("ioetiApprovalTier") == "NONE"
               and (native.get("ioetiApprovedBy") or {}).get("id") == users["Rep"]["id"] and native.get("ioetiApprovalPolicy")
               and native.get("ioetiValidityPolicy") and done.get("approval", {}).get("status") == "APPROVED"
               and done["approval"].get("validUntil") == (today + timedelta(days=30)).isoformat(),
-              (s_seq, err(b_seq), s_ok, done.get("status"), native, done.get("approval")))
+              (s_ok, done.get("status"), native, done.get("approval")))
 
         # --- review: who decides ---------------------------------------------------------------------------------------
         s_req, b_req = rep.call("POST", f"{WS}/reviews", {"quoteId": q1["id"], "version": version(SALE_ORDER, q1["id"])})
@@ -263,27 +262,27 @@ def main():
               and fetch(SALE_ORDER, q1["id"], ["statusSelect"]).get("statusSelect") == 1,
               (s_own, err(b_own), s_np, err(b_np), s_gm, err(b_gm), s_none, s_nr, err(b_nr)))
 
-        rep.call("POST", f"{QUOTES}/{q1['id']}/tax", {"version": version(SALE_ORDER, q1["id"])})  # any change after the request
+        s_12, _ = discount(rep, q1, 12)  # a real change after the request (still the sales manager's tier)
         s_chg, b_chg = decide(mgr, r1["id"], "approve")
         s_wd, _ = rep.call("POST", f"{WS}/reviews/{r1['id']}/withdraw", {"version": version(REVIEW, r1["id"])})
         s_req2, b_req2 = rep.call("POST", f"{WS}/reviews", {"quoteId": q1["id"], "version": version(SALE_ORDER, q1["id"])})
         r2 = obj(b_req2)
         check("a quotation changed after the request is refused (409 QUOTE_CHANGED); the rep withdraws and asks again",
-              (s_chg, err(b_chg)[0]) == (409, "QUOTE_CHANGED") and s_wd == 200 and s_req2 == 201, (s_chg, err(b_chg), s_wd, s_req2))
+              s_12 == 200 and (s_chg, err(b_chg)[0]) == (409, "QUOTE_CHANGED") and s_wd == 200 and s_req2 == 201, (s_12, s_chg, err(b_chg), s_wd, s_req2))
 
         s_ap, b_ap = decide(mgr, r2["id"], "approve", rationale="ok within margin")
         approved = obj(b_ap)
         native = fetch(SALE_ORDER, q1["id"], ["statusSelect", "saleOrderSeq", "endOfValidityDate", "ioetiApprovalTier", "ioetiApprovedBy",
                                               "ioetiDiscountPercent", "ioetiApprovalPolicy", "ioetiValidityPolicy"])
         s_twice, b_twice = decide(mgr, r2["id"], "approve")
-        s_line, b_line = discount(rep, {"id": q1["id"], "lines": [{"id": line_ids[0]}]}, 5)
+        s_line, b_line = discount(rep, q1, 5)
         check("the manager approves: the quotation is finalized natively under the tier with the discount, approver, policy versions"
               " and validity; the requester is told; deciding again and changing it are refused",
               s_ap == 200 and approved.get("status") == "APPROVED" and approved.get("reviewedBy") == users["Manager"]["name"]
               and approved.get("rationale") == "ok within margin" and [e["kind"] for e in approved.get("events") or []][-1] == "APPROVED"
               and native.get("statusSelect") == 2 and (native.get("saleOrderSeq") or "").startswith(f"Q{tag}-")
               and native.get("ioetiApprovalTier") == "SALES_MANAGER" and (native.get("ioetiApprovedBy") or {}).get("id") == users["Manager"]["id"]
-              and dec(native.get("ioetiDiscountPercent")) == 10 and native.get("endOfValidityDate") == (today + timedelta(days=30)).isoformat()
+              and dec(native.get("ioetiDiscountPercent")) == 12 and native.get("endOfValidityDate") == (today + timedelta(days=30)).isoformat()
               and native.get("ioetiApprovalPolicy") and native.get("ioetiValidityPolicy")
               and inbox(rep).count(("REVIEW_APPROVED", "OPPORTUNITY", opp1["id"])) == 1
               and (s_twice, err(b_twice)[0]) == (422, "REVIEW_STATE") and (s_line, err(b_line)[0]) == (422, "QUOTE_NOT_DRAFT"),

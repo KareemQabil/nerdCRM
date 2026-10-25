@@ -87,7 +87,9 @@ Migration `V022` (rollback `U022`):
 
 ## Changed expectations
 
-- `workspace_probe.py`, `scenario_iso_lifecycle_probe.py` and `quote_probe.py` expected `BLOCKED_BY_POLICY` for approving and finalizing quotations. They now expect `POLICY_NOT_SET` on a database without the owners' policies: the decision is signed, and it still fails closed until its values are set.
+- `workspace_probe.py`, `scenario_iso_lifecycle_probe.py` and `quote_probe.py` expected `BLOCKED_BY_POLICY` for approving and finalizing quotations.
+  - Their reviewers have read-only native rights on quotations. Approving finalizes the quotation, so it now answers `403` before any policy is read.
+  - Rejecting (read rights suffice) and finalizing by the owner answer `POLICY_NOT_SET` on a database without the owners' policies: the decision is signed, and it still fails closed until its values are set.
 - `workspace_probe.py` also checks that approving a contract stays `BLOCKED_BY_POLICY`.
 
 ## Next (P3b)
