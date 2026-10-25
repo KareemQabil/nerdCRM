@@ -22,13 +22,18 @@ import com.ioeti.core.api.ApiException;
 import com.ioeti.core.api.IoetiEndpoint;
 import com.axelor.apps.base.db.CurrencyConversionLine;
 import com.ioeti.workspace.db.InvoiceRequest;
+import com.ioeti.commercial.service.TaxPolicyBridge;
+import com.ioeti.core.api.RecordAccess;
+import com.ioeti.core.policy.PolicyService;
 import com.ioeti.workspace.service.FxService;
+import com.ioeti.workspace.service.InvoicingService;
 import com.ioeti.workspace.db.repo.InvoiceRequestRepository;
 import io.swagger.v3.oas.annotations.Operation;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
+import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.MediaType;
@@ -59,20 +64,22 @@ public class FinanceRestController {
 
   @GET
   @Path("/queue")
-  @Operation(summary = "Invoice requests the caller may read: open (default), cancelled or all, oldest first", tags = {"IOETI finance"})
+  @Operation(summary = "Invoice requests the caller may read: open (default), issued, cancelled or all, oldest first", tags = {"IOETI finance"})
   @IoetiEndpoint
   public Response queue(@QueryParam("state") String state) {
     new SecurityCheck().readAccess(InvoiceRequest.class).check();
     String s = state == null || state.isBlank() ? "open" : state.strip();
     JPQLFilter condition = switch (s) {
       case "open" -> new JPQLFilter("self.statusSelect = ?", InvoiceRequestRepository.STATUS_REQUESTED);
+      case "issued" -> new JPQLFilter("self.statusSelect = ?", InvoiceRequestRepository.STATUS_ISSUED);
       case "cancelled" -> new JPQLFilter("self.statusSelect = ?", InvoiceRequestRepository.STATUS_CANCELLED);
       case "all" -> null;
-      default -> throw ApiException.invalidField("state", "UNAVAILABLE", "Use open, cancelled or all.");
+      default -> throw ApiException.invalidField("state", "UNAVAILABLE", "Use open, issued, cancelled or all.");
     };
     LocalDate today = today();
+    boolean canIssue = canIssue();
     List<FinanceRequestView> rows = readable(InvoiceRequest.class, condition).order("requestedAt").order("id").fetch(500).stream()
-        .map(r -> request(r, today)).toList();
+        .map(r -> request(r, today, canIssue)).toList();
     return ResponseConstructor.build(Response.Status.OK, "Invoice requests", rows);
   }
 
@@ -172,6 +179,25 @@ public class FinanceRestController {
   }
 
   @GET
+  @Path("/requests/{id}/readiness")
+  @Operation(summary = "What is still missing before this request can be invoiced: the owners' tax and payment terms, and the company's accounting set-up (D-06; those who may issue)", tags = {"IOETI finance"})
+  @IoetiEndpoint
+  public Response readiness(@PathParam("id") Long id) {
+    new SecurityCheck().createAccess(Invoice.class).writeAccess(Invoice.class).check();
+    InvoiceRequest r = RecordAccess.readable(InvoiceRequest.class, id);
+    SaleOrder order = r.getQuote();
+    LocalDate today = Beans.get(AppBaseService.class).getTodayDate(order.getCompany());
+    List<InvoicingService.Missing> missing = new ArrayList<>();
+    if (order.getIoetiTaxPolicy() == null) missing.add(new InvoicingService.Missing("TAX_POLICY", "finance.tax"));
+    if (Beans.get(PolicyService.class).current(InvoicingService.PAYMENT_TERMS, TaxPolicyBridge.scopeOf(order), today).isEmpty()) {
+      missing.add(new InvoicingService.Missing("PAYMENT_TERMS_POLICY", InvoicingService.PAYMENT_TERMS));
+    }
+    missing.addAll(Beans.get(InvoicingService.class).readiness(order, today));
+    return ResponseConstructor.build(Response.Status.OK, "Invoicing readiness",
+        new ReadinessView(missing.isEmpty(), missing.stream().map(m -> new MissingView(m.code(), m.detail())).toList()));
+  }
+
+  @GET
   @Path("/fx")
   @Operation(summary = "Exchange rates to the company currency: the finance.fx policy, the rate in use per currency and its age, recent history (D-06)", tags = {"IOETI finance"})
   @IoetiEndpoint
@@ -239,7 +265,13 @@ public class FinanceRestController {
     return Beans.get(AppBaseService.class).getTodayDateTime(me == null ? null : me.getActiveCompany()).toLocalDateTime();
   }
 
-  private static FinanceRequestView request(InvoiceRequest r, LocalDate today) {
+  /** Issuing is finance's: native rights to create and change invoices (D-06). */
+  private static boolean canIssue() {
+    JpaSecurity security = Beans.get(JpaSecurity.class);
+    return security.isPermitted(JpaSecurity.CAN_CREATE, Invoice.class) && security.isPermitted(JpaSecurity.CAN_WRITE, Invoice.class);
+  }
+
+  private static FinanceRequestView request(InvoiceRequest r, LocalDate today, boolean canIssue) {
     JpaSecurity security = Beans.get(JpaSecurity.class);
     SaleOrder order = r.getQuote();
     Partner account = order.getClientPartner();
@@ -247,11 +279,13 @@ public class FinanceRestController {
     Timetable m = r.getMilestone();
     boolean open = r.getStatusSelect() == InvoiceRequestRepository.STATUS_REQUESTED;
     LocalDateTime at = r.getRequestedAt();
-    return new FinanceRequestView(r.getId(), r.getVersion(), open ? "REQUESTED" : "CANCELLED", order.getId(), order.getSaleOrderSeq(),
+    Invoice invoice = r.getInvoice();
+    return new FinanceRequestView(r.getId(), r.getVersion(), WorkspaceRestController.status(r), order.getId(), order.getSaleOrderSeq(),
         seeAccount ? account.getId() : null, seeAccount ? account.getName() : null, m.getId(), m.getTitle(), m.getEstimatedDate(),
         r.getAmountBeforeTax(), code(order.getCurrency()), r.getRequestedBy() == null ? null : r.getRequestedBy().getName(), at,
         at == null ? null : ChronoUnit.DAYS.between(at.toLocalDate(), today), open && m.getEstimatedDate() != null && m.getEstimatedDate().isBefore(today),
-        r.getRequestedBy() != null && r.getRequestedBy().equals(AuthUtils.getUser()), "BLOCKED_BY_POLICY");
+        r.getRequestedBy() != null && r.getRequestedBy().equals(AuthUtils.getUser()), open && canIssue,
+        invoice == null ? null : invoice.getInvoiceId(), invoice == null ? null : invoice.getInTaxTotal(), invoice == null ? null : invoice.getDueDate());
   }
 
   private static void add(Map<String, BigDecimal[]> rows, String currency, int stage, BigDecimal value) {
@@ -274,10 +308,11 @@ public class FinanceRestController {
     return combined == null ? Query.of(type) : combined.build(type);
   }
 
-  /** An invoice request in finance's queue; invoiceStatus stays BLOCKED_BY_POLICY until D-06. */
+  /** An invoice request in finance's queue; once issued, the native invoice's number, total including tax and due date. */
   public record FinanceRequestView(Long id, Integer version, String status, Long orderId, String orderReference, Long accountId,
       String accountName, Long milestoneId, String milestoneTitle, LocalDate dueDate, BigDecimal amountBeforeTax, String currency,
-      String requestedBy, LocalDateTime requestedAt, Long ageDays, boolean overdue, boolean mine, String invoiceStatus) {}
+      String requestedBy, LocalDateTime requestedAt, Long ageDays, boolean overdue, boolean mine, boolean canIssue,
+      String invoiceNumber, BigDecimal invoiceTotal, LocalDate invoiceDueDate) {}
 
   public record UpcomingMilestoneView(Long id, String title, LocalDate dueDate, BigDecimal amountBeforeTax, String currency, Long orderId,
       Integer orderVersion, String orderReference, Long accountId, String accountName, boolean overdue, long daysLeft) {}
@@ -293,6 +328,11 @@ public class FinanceRestController {
   /** totalInBase is null unless every currency could be converted. */
   public record FinanceSummaryView(boolean ordersPermitted, boolean requestsPermitted, boolean invoicesPermitted, List<FinanceMoneyView> rows,
       String baseCurrency, FinanceMoneyView totalInBase) {}
+
+  /** ready is true when the invoice can be issued; otherwise each missing item names what finance or the owners still set. */
+  public record ReadinessView(boolean ready, List<MissingView> missing) {}
+
+  public record MissingView(String code, String detail) {}
 
   public record OverrideRate(String currency, BigDecimal rate, String rateDate, String reason) {}
 

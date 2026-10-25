@@ -14,6 +14,7 @@ import com.axelor.apps.quality.db.repo.QualityImprovementRepository;
 import com.axelor.apps.sale.db.SaleOrder;
 import com.axelor.apps.sale.db.repo.SaleOrderRepository;
 import com.axelor.apps.supplychain.db.Timetable;
+import com.axelor.apps.base.service.app.AppBaseService;
 import com.axelor.auth.AuthUtils;
 import com.axelor.auth.db.AuditableModel;
 import com.axelor.auth.db.User;
@@ -30,6 +31,7 @@ import com.axelor.utils.api.SecurityCheck;
 import com.ioeti.certification.db.CertificationCycle;
 import com.ioeti.core.api.ApiException;
 import com.ioeti.core.api.IoetiEndpoint;
+import com.ioeti.core.api.NativeCommands;
 import com.ioeti.core.api.RecordAccess;
 import com.ioeti.core.web.OptimisticLockConflicts;
 import com.ioeti.fundraising.db.DonorProfile;
@@ -41,6 +43,7 @@ import com.ioeti.workspace.db.ReviewEvent;
 import com.ioeti.workspace.db.ReviewRequest;
 import com.ioeti.workspace.db.repo.InvoiceRequestRepository;
 import com.ioeti.workspace.db.repo.ReviewRequestRepository;
+import com.ioeti.workspace.service.InvoicingService;
 import com.ioeti.workspace.service.WorkspaceService;
 import io.swagger.v3.oas.annotations.Operation;
 import jakarta.ws.rs.Consumes;
@@ -203,11 +206,19 @@ public class WorkspaceRestController {
 
   @POST
   @Path("/invoice-requests/{id}/issue")
-  @Operation(summary = "Issue the invoice: blocked until tax and invoicing policy (D-06)", tags = {"IOETI workspace"})
+  @Consumes(MediaType.APPLICATION_JSON)
+  @Operation(summary = "Issue the invoice in Axelor accounting (finance: native rights to create invoices); refused with what is missing until the accounting set-up and the payment-terms policy are in place (D-06)", tags = {"IOETI workspace"})
   @IoetiEndpoint
-  public Response issue(@PathParam("id") Long id) {
-    RecordAccess.writable(InvoiceRequest.class, id);
-    throw ApiException.policyBlocked("D-06");
+  public Response issue(@PathParam("id") Long id, VersionOnly command) {
+    if (command == null || command.version() == null) throw ApiException.badRequest("Record version is required.");
+    // issuing is finance's: native rights to create and validate invoices, on a request the person may read
+    new SecurityCheck().createAccess(Invoice.class).writeAccess(Invoice.class).check();
+    InvoiceRequest request = RecordAccess.readable(InvoiceRequest.class, id);
+    ConflictChecker.checkVersion(request, command.version());
+    User me = AuthUtils.getUser();
+    NativeCommands.run(() -> Beans.get(InvoicingService.class).issue(request, me,
+        Beans.get(AppBaseService.class).getTodayDate(request.getQuote().getCompany())), "INVOICE_REJECTED", "The invoice could not be issued.");
+    return ResponseConstructor.build(Response.Status.OK, "Invoice issued", view(request));
   }
 
   // --- renewals ------------------------------------------------------------------------------------
@@ -361,8 +372,15 @@ public class WorkspaceRestController {
     Timetable m = r.getMilestone();
     return new InvoiceRequestView(r.getId(), r.getVersion(), r.getQuote().getId(), m.getId(), m.getTitle(), m.getEstimatedDate(),
         r.getAmountBeforeTax(), code(r.getQuote().getCurrency()),
-        r.getStatusSelect() == InvoiceRequestRepository.STATUS_REQUESTED ? "REQUESTED" : "CANCELLED",
-        userName(r.getRequestedBy()), r.getRequestedAt(), "BLOCKED_BY_POLICY");
+        status(r), userName(r.getRequestedBy()), r.getRequestedAt(), r.getInvoice() == null ? null : r.getInvoice().getInvoiceId());
+  }
+
+  static String status(InvoiceRequest r) {
+    return switch (r.getStatusSelect()) {
+      case InvoiceRequestRepository.STATUS_REQUESTED -> "REQUESTED";
+      case InvoiceRequestRepository.STATUS_ISSUED -> "ISSUED";
+      default -> "CANCELLED";
+    };
   }
 
   public record VersionOnly(Integer version) {}
@@ -376,7 +394,7 @@ public class WorkspaceRestController {
       List<ReviewEventView> events, Long opportunityId, String subjectReference) {}
   public record InvoiceRequestView(
       Long id, Integer version, Long quoteId, Long milestoneId, String milestoneTitle, java.time.LocalDate dueDate,
-      BigDecimal amountBeforeTax, String currency, String status, String requestedBy, LocalDateTime requestedAt, String invoiceStatus) {}
+      BigDecimal amountBeforeTax, String currency, String status, String requestedBy, LocalDateTime requestedAt, String invoiceNumber) {}
   public record RenewalView(Long opportunityId, String name, Long contractId) {}
   public record Section(String key, long count, boolean permitted) {}
   public record MoneyRow(

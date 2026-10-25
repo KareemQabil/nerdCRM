@@ -619,7 +619,7 @@ test("payment milestones: added with the quotation version; booked, invoiced and
   await expect(page.getByRole("alert")).toHaveText(/مجموع نسب الدفعات لا يمكن أن يتجاوز 100%/);
   expect(posts[1]).toMatchObject({ version: 4 });
   await expect(page.locator("body")).not.toContainText("feedface");
-  await expect(page.getByText("إصدار الفواتير من الدفعات لسه مش متاح؛ هيتعمل في حسابات Axelor (D-06).")).toBeVisible();
+  await expect(page.getByText("الفاتورة بتتصدر من صفحة المالية بعد طلب الفوترة، في حسابات Axelor (D-06).")).toBeVisible();
   await page.screenshot({ path: "test-results/ioeti-quote-milestones.png", fullPage: true });
 });
 
@@ -1560,7 +1560,7 @@ async function workflowMocks(page: Page, options: { quoteStatus?: string; contra
     if (path.startsWith("/workspace/invoice-requests?")) return route.fulfill(ok(s.requests));
     if (path === "/workspace/invoice-requests") {
       const r = { id: 91, version: 0, quoteId: 7, milestoneId: 61, milestoneTitle: "Deposit", dueDate: "2026-11-01", amountBeforeTax: "900.000", currency: "EGP",
-        status: "REQUESTED", requestedBy: "Sara Sales", requestedAt: "2026-10-20T10:10:00", invoiceStatus: "BLOCKED_BY_POLICY" };
+        status: "REQUESTED", requestedBy: "Sara Sales", requestedAt: "2026-10-20T10:10:00", invoiceNumber: null };
       s.requests = [r]; return route.fulfill(ok(r, 201));
     }
     if (path === "/workspace/invoice-requests/91/cancel") { Object.assign(s.requests[0], { status: "CANCELLED", version: 1 }); return route.fulfill(ok(s.requests[0])); }

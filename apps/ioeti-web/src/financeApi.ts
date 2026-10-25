@@ -1,12 +1,18 @@
 import { ApiError, wrapped } from "./api";
 import { DEMO_MODE } from "./demo";
 
-/** Finance's invoicing queue within D-06: requests, coming milestones and real totals; issuing stays blocked. */
+/**
+ * Finance's invoicing queue (D-06): requests, coming milestones and real totals. Finance issues the invoice in Axelor
+ * accounting once the owners' terms and the accounting set-up are in place; canIssue reflects native invoice rights.
+ */
 export type FinanceRequest = {
-  id: number; version: number; status: "REQUESTED" | "CANCELLED"; orderId: number; orderReference: string | null; accountId: number | null;
+  id: number; version: number; status: "REQUESTED" | "CANCELLED" | "ISSUED"; orderId: number; orderReference: string | null; accountId: number | null;
   accountName: string | null; milestoneId: number; milestoneTitle: string | null; dueDate: string | null; amountBeforeTax: number | null; currency: string;
-  requestedBy: string | null; requestedAt: string | null; ageDays: number | null; overdue: boolean; mine: boolean; invoiceStatus: "BLOCKED_BY_POLICY";
+  requestedBy: string | null; requestedAt: string | null; ageDays: number | null; overdue: boolean; mine: boolean; canIssue?: boolean;
+  invoiceNumber?: string | null; invoiceTotal?: number | null; invoiceDueDate?: string | null;
 };
+/** What is still missing before a request can be invoiced (codes such as SALES_JOURNAL, OPEN_PERIOD, PAYMENT_TERMS_POLICY). */
+export type Readiness = { ready: boolean; missing: { code: string; detail: string | null }[] };
 export type UpcomingMilestone = {
   id: number; title: string | null; dueDate: string; amountBeforeTax: number | null; currency: string; orderId: number; orderVersion: number;
   orderReference: string | null; accountId: number | null; accountName: string | null; overdue: boolean; daysLeft: number;
@@ -41,7 +47,7 @@ async function list<T>(url: string): Promise<T[]> {
   return values;
 }
 const id = (n: number) => encodeURIComponent(n);
-export const getFinanceQueue = (state: "open" | "cancelled" | "all") => list<FinanceRequest>(`/ws/ioeti/finance/queue?state=${state}`);
+export const getFinanceQueue = (state: "open" | "issued" | "cancelled" | "all") => list<FinanceRequest>(`/ws/ioeti/finance/queue?state=${state}`);
 export const getUpcomingMilestones = (within: number) => list<UpcomingMilestone>(`/ws/ioeti/finance/milestones?within=${within}`);
 export const getFinanceSummary = () => wrapped<FinanceSummary>("/ws/ioeti/finance/summary");
 export const requestMilestoneInvoice = (m: UpcomingMilestone) =>
@@ -51,4 +57,5 @@ export const getFx = () => wrapped<FxOverview>("/ws/ioeti/finance/fx");
 export const refreshFx = () => wrapped<FxOverview>("/ws/ioeti/finance/fx/refresh", json({}));
 export const enterFxRate = (input: { currency: string; rate: number; rateDate: string; reason: string }) =>
   wrapped<FxOverview>("/ws/ioeti/finance/fx/rates", json(input));
-export const issueInvoice = (r: FinanceRequest) => wrapped<unknown>(`/ws/ioeti/workspace/invoice-requests/${id(r.id)}/issue`, json({}));
+export const issueInvoice = (r: FinanceRequest) => wrapped<unknown>(`/ws/ioeti/workspace/invoice-requests/${id(r.id)}/issue`, json({ version: r.version }));
+export const getReadiness = (r: FinanceRequest) => wrapped<Readiness>(`/ws/ioeti/finance/requests/${id(r.id)}/readiness`);

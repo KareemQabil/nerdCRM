@@ -11,7 +11,7 @@ Checks:
   milestones coming due: only confirmed orders, neither invoiced nor requested, within the window
   (overdue included and flagged), within the caller's read scope
   queue: a salesperson's request reaches finance with its order, client, amount, due date, age and
-  overdue flag; it leaves the coming list; issuing answers 422 BLOCKED_BY_POLICY and no invoice exists;
+  overdue flag; it leaves the coming list; issuing needs native invoice rights (403 otherwise) and no invoice exists;
   finance cannot cancel someone else's request (403); after a cancel it is in the cancelled list and the
   milestone is due again
   figures: booked (confirmed orders before tax) and requested move by exactly the fixtures' amounts;
@@ -192,12 +192,13 @@ def main():
               s == 201 and row.get("status") == "REQUESTED" and row.get("orderReference") and row.get("accountName") == f"عميل المالية {tag}"
               and dec(row.get("amountBeforeTax")) == dec(req.get("amountBeforeTax")) and dec(row.get("amountBeforeTax")) > 0
               and row.get("dueDate") == (today - timedelta(days=3)).isoformat() and row.get("ageDays") == 0 and row.get("overdue") is True
-              and row.get("mine") is False and row.get("invoiceStatus") == "BLOCKED_BY_POLICY" and ma["Deposit"] not in due_now, (s, row))
-        s_iss, b_iss = fin_c.call("POST", f"{WS}/invoice-requests/{req.get('id')}/issue")
-        s_iss_a, b_iss_a = a.call("POST", f"{WS}/invoice-requests/{req.get('id')}/issue")
+              and row.get("mine") is False and row.get("invoiceNumber") is None and ma["Deposit"] not in due_now, (s, row))
+        s_iss, b_iss = fin_c.call("POST", f"{WS}/invoice-requests/{req.get('id')}/issue", {"version": version(INVOICE_REQUEST, req.get("id"))})
+        s_iss_a, b_iss_a = a.call("POST", f"{WS}/invoice-requests/{req.get('id')}/issue", {"version": version(INVOICE_REQUEST, req.get("id"))})
         invoices = search(INVOICE, f"self.partner.id = {account['id']}")
-        check("issuing the invoice answers 422 BLOCKED_BY_POLICY (D-06), finance reading only cannot reach it (403), and no invoice exists",
-              (s_iss_a, err(b_iss_a)[0]) == (422, "BLOCKED_BY_POLICY") and s_iss == 403 and invoices == [], (s_iss, err(b_iss), s_iss_a, invoices))
+        check("issuing the invoice needs native rights to create invoices (D-06; invoicing_probe.py covers issuing): the salesperson and "
+              "finance reading only are refused (403), and no invoice exists",
+              s_iss_a == 403 and s_iss == 403 and row.get("canIssue") is False and invoices == [], (s_iss, err(b_iss), s_iss_a, err(b_iss_a), invoices))
 
         # --- figures -------------------------------------------------------------------------------------------
         after = fin_c.call("GET", F + "/summary")[1]

@@ -162,6 +162,9 @@ jobs:
           # P2a (D-06): tax on quotations from finance.tax through native AOS taxes; exchange rates from the
           # public source (stub) with finance's manual override, mirrored as native conversion lines
           python3 scripts/finance_policy_probe.py
+          # P2b (D-06): finance issues invoices from requests in Axelor accounting; refused with what is missing until the
+          # owners' payment terms and the company's accounting set-up are in place (test-only set-up, removed afterwards)
+          python3 scripts/invoicing_probe.py
           # Finance's invoicing queue within D-06: requests, milestones coming due and real figures per currency;
           # issuing stays BLOCKED_BY_POLICY and no payment is recorded as received
           python3 scripts/finance_probe.py
@@ -225,6 +228,7 @@ jobs:
             logs/cross-domain-probe.json
             logs/policy-probe.json
             logs/finance-policy-probe.json
+            logs/invoicing-probe.json
             logs/finance-probe.json
           if-no-files-found: ignore
       - name: Attach Axelor integration logs

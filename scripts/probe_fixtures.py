@@ -86,3 +86,41 @@ def delete_contract(admin, rid):
         DELETE FROM contract_contract_version WHERE id IN (SELECT id FROM gone_versions);
 """, single_transaction=True)
     return not exists(admin, CONTRACT, rid)
+
+
+# Native accounting records of a fixture company, removed with SQL (TEST FIXTURE ONLY, disposable databases): ventilated
+# invoices, their journal entries, payments and reconciliations cannot be removed through the API, by design.
+_ACCOUNTING_PURGE = """
+CREATE TEMP TABLE _inv AS SELECT id FROM account_invoice WHERE company = {cid};
+CREATE TEMP TABLE _mv AS SELECT id FROM account_move WHERE company = {cid};
+CREATE TEMP TABLE _ml AS SELECT id FROM account_move_line WHERE move IN (SELECT id FROM _mv);
+CREATE TEMP TABLE _il AS SELECT id FROM account_invoice_line WHERE invoice IN (SELECT id FROM _inv);
+CREATE TEMP TABLE _it AS SELECT id FROM account_invoice_term WHERE invoice IN (SELECT id FROM _inv) OR move_line IN (SELECT id FROM _ml);
+UPDATE ioeti_ws_invoice_request SET invoice = NULL WHERE invoice IN (SELECT id FROM _inv);
+UPDATE supplychain_timetable SET invoice = NULL, invoiced = false WHERE invoice IN (SELECT id FROM _inv);
+UPDATE account_invoice SET move = NULL, old_move = NULL, payment_move = NULL, original_invoice = NULL, reject_move_line = NULL
+  WHERE id IN (SELECT id FROM _inv);
+UPDATE account_move SET invoice = NULL WHERE id IN (SELECT id FROM _mv);
+DELETE FROM account_invoice_term_payment WHERE invoice_term IN (SELECT id FROM _it);
+DELETE FROM account_invoice_payment WHERE invoice IN (SELECT id FROM _inv) OR move IN (SELECT id FROM _mv);
+DELETE FROM account_reconcile WHERE credit_move_line IN (SELECT id FROM _ml) OR debit_move_line IN (SELECT id FROM _ml);
+DELETE FROM account_tax_payment_move_line WHERE move_line IN (SELECT id FROM _ml);
+DELETE FROM account_analytic_move_line WHERE move_line IN (SELECT id FROM _ml) OR invoice_line IN (SELECT id FROM _il);
+DELETE FROM account_move_line_tax_line_set WHERE account_move_line IN (SELECT id FROM _ml);
+DELETE FROM account_move_line_source_tax_line_set WHERE account_move_line IN (SELECT id FROM _ml);
+DELETE FROM account_move_line_tax_line_before_reverse_set WHERE account_move_line IN (SELECT id FROM _ml);
+DELETE FROM account_invoice_term WHERE id IN (SELECT id FROM _it);
+DELETE FROM account_move_line WHERE id IN (SELECT id FROM _ml);
+DELETE FROM account_move WHERE id IN (SELECT id FROM _mv);
+DELETE FROM account_invoice_line_tax_line_set WHERE account_invoice_line IN (SELECT id FROM _il);
+DELETE FROM account_invoice_line_tax WHERE invoice IN (SELECT id FROM _inv);
+DELETE FROM account_invoice_note WHERE invoice IN (SELECT id FROM _inv);
+DELETE FROM account_invoice_line WHERE id IN (SELECT id FROM _il);
+DELETE FROM account_invoice WHERE id IN (SELECT id FROM _inv);
+DELETE FROM account_accounting_situation WHERE company = {cid};
+"""
+
+
+def purge_company_accounting(psql, database, company_id):
+    """Removes the native invoices, journal entries, payments and reconciliations of one fixture company."""
+    psql(database, _ACCOUNTING_PURGE.format(cid=int(company_id)), single_transaction=True)

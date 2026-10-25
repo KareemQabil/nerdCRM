@@ -57,10 +57,17 @@
     <many-to-one name="requestedBy" ref="com.axelor.auth.db.User" title="Requested by"/>
     <datetime name="requestedAt" title="Requested at"/>
     <datetime name="cancelledAt" title="Cancelled at"/>
+    <!-- D-06: the native invoice finance issued in Axelor accounting from this request, and the payment-terms
+         policy version it was issued under -->
+    <many-to-one name="invoice" ref="com.axelor.apps.account.db.Invoice" title="Invoice"/>
+    <many-to-one name="issuedBy" ref="com.axelor.auth.db.User" title="Issued by"/>
+    <datetime name="issuedAt" title="Issued at"/>
+    <many-to-one name="paymentTermsPolicy" ref="com.ioeti.core.db.PolicyVersion" title="Payment terms policy version"/>
 
     <extra-code><![CDATA[
       public static final int STATUS_REQUESTED = 1;
       public static final int STATUS_CANCELLED = 2;
+      public static final int STATUS_ISSUED = 3;
     ]]></extra-code>
   </entity>
 

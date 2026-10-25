@@ -41,7 +41,11 @@ export function describeFailure(error: ApiFailure): NoticeInput {
   if (status === 404) return {kind:"error",code:namedCode,status,ar:"السجل المطلوب غير متاح أو ليس ضمن صلاحياتك.",en:"This record is unavailable or outside your access scope."};
   if (status === 409) return {kind:"error",code:namedCode,status,ar:"السجل اتعدل في مكان تاني. حدّثه وراجع التغييرات قبل الحفظ.",en:"This record changed elsewhere. Reload and review before saving."};
   if (status === 422 && id === "BLOCKED_BY_POLICY") return {kind:"error",code:namedCode,status,ar:"الإجراء موقوف لحد اعتماد سياسة الشركة. مفيش اعتماد أو معاملة تمت.",en:"This action is awaiting approved business policy. No transaction was completed."};
+  // business rules are the owners' policies (P1): a missing one is not the user's input error
+  if (status === 422 && id === "POLICY_NOT_SET") return {kind:"error",code:namedCode,status,ar:"الإجراء محتاج قاعدة عمل مالك السياسات لسه ما ضبطهاش. مفيش حاجة اتغيرت.",en:"This needs a business rule the policy owners have not set yet. Nothing was changed."};
+  if (status === 422 && id === "ACCOUNTING_NOT_READY") return {kind:"error",code:namedCode,status,ar:"إعداد الحسابات ناقص للإجراء ده. مفيش فاتورة اتعملت.",en:"The accounting set-up is incomplete for this. No invoice was created."};
   if (status === 400 || status === 422) return {kind:"error",code:namedCode,status,ar:"راجع الحقول المطلوبة وصحة المدخلات.",en:"Review the required fields and entered values."};
+  if (status === 502 && id === "FX_SOURCE_UNAVAILABLE") return {kind:"error",code:namedCode,status,ar:"مصدر أسعار الصرف مش متاح دلوقتي. مفيش سعر اتسجل.",en:"The exchange-rate source is unavailable. No rate was recorded."};
   if (status === 429) return {kind:"error",code:namedCode,status,ar:"طلبات كتير في وقت قصير. حاول بعد شوية.",en:"Too many requests. Try again shortly."};
   if (status >= 500) return {kind:"error",code:namedCode,status,ar:"حصل عطل في الخادم. لم يتم تأكيد نجاح الإجراء؛ راجع السجل قبل إعادة المحاولة.",en:"The server had a problem. The outcome is unconfirmed; check the record before retrying."};
   return {kind:"error",code:namedCode,status,ar:"تعذر إكمال الإجراء. لم يتم تأكيد نجاحه.",en:"The operation could not be confirmed."};
