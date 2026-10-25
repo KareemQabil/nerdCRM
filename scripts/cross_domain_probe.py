@@ -12,6 +12,9 @@ Checks:
   Account 360: the client's field visits and quality issues are counted for those who may read them and
   left out (not zero) for those who may not
   report areas: field visits and quality issues are counted in the caller's scope, left out otherwise
+  in-app notices (never outbound): a colleague is told when a visit is assigned to them, rescheduled, moved to
+  someone else or cancelled, and when a corrective action or a quality plan is assigned to them; the title
+  carries only the reference; nothing is noted for what people assign to themselves
 Report: logs/cross-domain-probe.json.
 """
 import json
@@ -32,6 +35,7 @@ SEQUENCE, SEQUENCE_VERSION, RESERVED = BASE + "Sequence", BASE + "SequenceVersio
 VISIT, NOTE = "com.axelor.apps.intervention.db.Intervention", "com.ioeti.operations.db.VisitNote"
 QI, QI_STATUS, QI_DETECTION, QI_DEFAULT = QDB + "QualityImprovement", QDB + "QIStatus", QDB + "QIDetection", QDB + "QIDefault"
 ACTION = "com.ioeti.operations.db.CorrectiveAction"
+NOTICE = "com.ioeti.automation.db.InboxNotice"
 W, V, Q, ADM, N = "/ws/ioeti/workspace", "/ws/ioeti/visits", "/ws/ioeti/quality", "/ws/ioeti/admin/quality", "/ws/ioeti/admin/numbering"
 RESULTS = []
 
@@ -99,14 +103,14 @@ def main():
         qadm = Client()
         assert qadm.login(login, admin_password) == 200
         sessions, users = {}, {}
-        for label, group in (("A", "w"), ("R", "r")):
+        for label, group in (("A", "w"), ("B", "w"), ("R", "r")):
             password = "Xd!" + secrets.token_urlsafe(14)
             users[label] = create(USER, {"code": f"cross.{label.lower()}.{tag}", "name": f"Cross {label} {tag}", "blocked": False, "language": "ar",
                                          "group": {"id": groups[group]["id"]}, "password": axelor_password_hash(password),
                                          "activeCompany": {"id": company_id}, "companySet": [{"id": company_id}]})
             sessions[label] = Client()
             assert sessions[label].login(users[label]["code"], password) == 200, label
-        a, r = sessions["A"], sessions["R"]
+        a, b, r = sessions["A"], sessions["B"], sessions["R"]
 
         # --- a planned visit, and a client quality issue with two actions --------------------------------
         if not visit_numbering_before:
@@ -178,6 +182,34 @@ def main():
               areas.get("FIELD_VISITS", 0) >= 1 and areas.get("QUALITY_ISSUES", 0) >= 1
               and "FIELD_VISITS" not in reader_areas and "QUALITY_ISSUES" not in reader_areas, (areas, reader_areas))
 
+        # --- in-app notices for assignments -------------------------------------------------------------------
+        def inbox(client):
+            return [n for n in rows(client.call("GET", "/ws/ioeti/automation/inbox?limit=100")[1]) if n["subject"] in ("VISIT", "QUALITY")]
+        s, body = a.call("POST", V, {"accountId": account["id"], "purpose": "زيارة للزميل", "assignedToId": users["B"]["id"], "start": at(2, 10)})
+        v2 = obj(body)
+        if v2.get("id"):
+            created.append((VISIT, v2["id"]))
+        plan = lambda version, who, start: a.call("POST", f"{V}/{v2['id']}/plan", {"version": version, "assignedToId": users[who]["id"], "start": start})
+        s1, body = plan(v2["version"], "B", at(3, 11))
+        s2, body = plan(obj(body).get("version"), "A", at(3, 11))
+        s3, body = plan(obj(body).get("version"), "B", at(3, 11))
+        s4, body = a.call("POST", f"{V}/{v2['id']}/cancel", {"version": obj(body).get("version")})
+        visit_notes = [(n["kind"], n["subjectId"]) for n in inbox(b) if n["subject"] == "VISIT"]
+        check("a colleague is told when a visit is assigned to them, rescheduled, moved to someone else, given back and cancelled",
+              (s1, s2, s3, s4) == (200, 200, 200, 200)
+              and visit_notes == [("VISIT_CANCELLED", v2["id"]), ("VISIT_ASSIGNED", v2["id"]), ("VISIT_UNASSIGNED", v2["id"]),
+                                  ("VISIT_RESCHEDULED", v2["id"]), ("VISIT_ASSIGNED", v2["id"])], (s1, s2, s3, s4, visit_notes))
+        current = obj(a.call("GET", f"{Q}/{issue['id']}")[1]).get("issue") or {}
+        _, body = a.call("POST", f"{Q}/{issue['id']}/actions", {"version": current.get("version"), "title": f"تدريب الفريق {tag}", "ownerId": users["B"]["id"]})
+        current = obj(body).get("issue") or {}
+        a.call("POST", f"{Q}/{issue['id']}/plan", {"version": current.get("version"), "ownerId": users["B"]["id"]})
+        quality_notes = [(n["kind"], n["subjectId"], n["title"]) for n in inbox(b) if n["subject"] == "QUALITY"]
+        expected_title = f"Quality issue {issue.get('reference')}"
+        check("a colleague is told when a corrective action or the issue's plan is assigned to them; the title is the reference only",
+              quality_notes == [("QUALITY_PLAN_ASSIGNED", issue["id"], expected_title), ("QUALITY_ACTION_ASSIGNED", issue["id"], expected_title)],
+              quality_notes)
+        check("nothing is noted for what people assign to themselves (my own visit, my own actions and plan)", inbox(a) == [], inbox(a))
+
         exit_code = 0 if all(x["result"] == "PASS" for x in RESULTS) else 1
         print(f"\n{sum(x['result'] == 'PASS' for x in RESULTS)}/{len(RESULTS)} checks passed")
     finally:
@@ -193,6 +225,10 @@ def main():
         visit_ids = [rid for m, rid in created if m == VISIT]
         if visit_ids:
             created.extend((NOTE, x) for x in search(NOTE, f"self.visit.id in ({','.join(map(str, visit_ids))})"))
+        user_ids = [rid for m, rid in created if m == USER]
+        if user_ids:
+            ids = ",".join(map(str, user_ids))
+            created.extend((NOTICE, x) for x in search(NOTICE, f"self.recipient.id in ({ids}) OR self.actor.id in ({ids})"))
         domains = []
         if company_id:
             domains.append(f"self.codeSelect = 'qualityImprovement' AND self.company.id = {company_id}")
@@ -204,7 +240,7 @@ def main():
                 created.extend((SEQUENCE_VERSION, x) for x in search(SEQUENCE_VERSION, f"self.sequence.id = {seq}"))
                 created.append((SEQUENCE, seq))
         order = {ACTION: 0, NOTE: 0, QI: 1, VISIT: 1, QI_STATUS: 2, QI_DETECTION: 2, QI_DEFAULT: 2, RESERVED: 3, SEQUENCE_VERSION: 4, SEQUENCE: 5,
-                 PARTNER: 6, USER: 10, GROUP: 11, PERM: 12, COMPANY: 13}
+                 PARTNER: 6, NOTICE: 9, USER: 10, GROUP: 11, PERM: 12, COMPANY: 13}
         complete, left = cleanup(admin, created, order)
         if not complete:
             print(f"FAIL cleanup left {left}")

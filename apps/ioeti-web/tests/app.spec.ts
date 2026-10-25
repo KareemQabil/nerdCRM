@@ -1948,6 +1948,32 @@ test("inbox: unread badge in the navigation; notices link to their record; read 
   expect(requests.filter(r => r.method === "POST").map(r => r.path)).toEqual(["/automation/inbox/1/read", "/automation/inbox/read-all"]);
 });
 
+test("inbox: assignment notices for visits, corrective actions, quality plans and engagements are labelled and open their record", async ({page}) => {
+  await insightsMocks(page);
+  const ok = (object: unknown) => ({ status: 200, contentType: "application/json", body: JSON.stringify({ codeStatus: 200, messageStatus: "ok", object }) });
+  const notices = [
+    { id: 11, kind: "VISIT_ASSIGNED", subject: "VISIT", subjectId: 7, title: "Visit VIS-0007", actorName: "Sara Sales", read: false, at: "2026-10-25T09:00:00" },
+    { id: 12, kind: "VISIT_CANCELLED", subject: "VISIT", subjectId: 8, title: "Visit VIS-0008", actorName: "Sara Sales", read: false, at: "2026-10-25T08:00:00" },
+    { id: 13, kind: "QUALITY_ACTION_ASSIGNED", subject: "QUALITY", subjectId: 9, title: "Quality issue QI-009", actorName: "Mona Manager", read: false, at: "2026-10-25T07:00:00" },
+    { id: 14, kind: "QUALITY_PLAN_ASSIGNED", subject: "QUALITY", subjectId: 9, title: "Quality issue QI-009", actorName: "Mona Manager", read: true, at: "2026-10-25T06:00:00" },
+    { id: 15, kind: "ENGAGEMENT_ASSIGNED", subject: "ENGAGEMENT", subjectId: 3, title: "Engagement PRJ-3", actorName: "Omar Ops", read: true, at: "2026-10-25T05:00:00" },
+  ];
+  // registered after the shared mock, so it answers first
+  await page.route(url => /\/ws\/ioeti\/automation\/inbox$/.test(url.pathname), route => route.fulfill(ok(notices)));
+  await page.goto("/#/inbox");
+  const items = page.locator(".in-list li");
+  await expect(items).toHaveCount(5);
+  await expect(items.nth(0)).toContainText("اتكلفت بزيارة");
+  await expect(items.nth(0)).toContainText("Visit VIS-0007");
+  await expect(items.nth(0).getByRole("link", { name: "فتح" })).toHaveAttribute("href", "#/visits/7");
+  await expect(items.nth(1)).toContainText("الزيارة اتلغت");
+  await expect(items.nth(2)).toContainText("اتكلفت بإجراء تصحيحي");
+  await expect(items.nth(2).getByRole("link", { name: "فتح" })).toHaveAttribute("href", "#/quality/9");
+  await expect(items.nth(3)).toContainText("بقيت مسؤول خطة مشكلة جودة");
+  await expect(items.nth(4)).toContainText("اتكلفت بمشروع");
+  await expect(items.nth(4).getByRole("link", { name: "فتح" })).toHaveAttribute("href", "#/operations");
+});
+
 test("lead page: outbox drafts are kept but sending is disabled (D-10); an opt-out refusal is explained; mentions pick a colleague", async ({page}) => {
   const { requests, answers, fail } = await insightsMocks(page);
   await page.goto("/#/leads/207");

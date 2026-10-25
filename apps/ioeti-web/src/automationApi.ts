@@ -44,6 +44,8 @@ export function noticeRoute(notice: Notice): string | null {
     case "ACCOUNT": return `#/accounts/${notice.subjectId}`;
     case "OPPORTUNITY": return `#/opportunities/${notice.subjectId}`;
     case "HANDOVER": case "ENGAGEMENT": return "#/operations";
+    case "VISIT": return `#/visits/${notice.subjectId}`;
+    case "QUALITY": return `#/quality/${notice.subjectId}`;
     default: return null;
   }
 }

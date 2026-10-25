@@ -9,6 +9,7 @@ import com.axelor.db.JPA;
 import com.axelor.inject.Beans;
 import com.google.inject.persist.Transactional;
 import com.ioeti.core.api.ApiException;
+import com.ioeti.core.notify.Notifier;
 import com.ioeti.operations.db.VisitNote;
 import jakarta.persistence.LockModeType;
 import java.time.LocalDateTime;
@@ -50,19 +51,35 @@ public class VisitService {
     }
   }
 
+  /** In-app notice to the person a visit concerns (never outbound); dropped for oneself or without an inbox module. */
+  private static void notice(User recipient, String kind, Intervention visit) {
+    Beans.get(Notifier.class).notify(recipient, kind, "VISIT", visit.getId(), "Visit " + (visit.getSequence() == null ? visit.getId() : visit.getSequence()));
+  }
+
   @Transactional(rollbackOn = {Exception.class})
   public Intervention create(Intervention visit, User assignee, LocalDateTime start, LocalDateTime end) {
     visit.setStatusSelect(TO_PLAN);
     visit.setUserInCharge(AuthUtils.getUser());
     if (assignee != null && start != null) planFields(visit, assignee, start, end);
-    return Beans.get(InterventionRepository.class).save(visit);
+    Intervention saved = Beans.get(InterventionRepository.class).save(visit);
+    if (assignee != null && start != null) notice(assignee, "VISIT_ASSIGNED", saved);
+    return saved;
   }
 
   @Transactional(rollbackOn = {Exception.class})
   public Intervention plan(Intervention visit, User assignee, LocalDateTime start, LocalDateTime end) {
     allowed(visit, "plan");
+    User before = visit.getAssignedTo();
+    LocalDateTime when = visit.getPlanifStartDateTime(), until = visit.getPlanifEndDateTime();
     planFields(visit, assignee, start, end);
-    return Beans.get(InterventionRepository.class).save(visit);
+    Intervention saved = Beans.get(InterventionRepository.class).save(visit);
+    if (!java.util.Objects.equals(before, assignee)) {
+      notice(assignee, "VISIT_ASSIGNED", saved);
+      notice(before, "VISIT_UNASSIGNED", saved);
+    } else if (!java.util.Objects.equals(when, saved.getPlanifStartDateTime()) || !java.util.Objects.equals(until, saved.getPlanifEndDateTime())) {
+      notice(assignee, "VISIT_RESCHEDULED", saved);
+    }
+    return saved;
   }
 
   private static void planFields(Intervention visit, User assignee, LocalDateTime start, LocalDateTime end) {
@@ -101,7 +118,9 @@ public class VisitService {
   @Transactional(rollbackOn = {Exception.class})
   public Intervention cancel(Intervention visit) {
     allowed(visit, "cancel");
+    User assignee = visit.getAssignedTo(); // the native cancel clears it
     Beans.get(InterventionService.class).cancel(visit);
+    notice(assignee, "VISIT_CANCELLED", visit);
     return visit;
   }
 

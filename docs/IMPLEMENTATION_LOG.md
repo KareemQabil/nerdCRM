@@ -831,3 +831,15 @@ Slice: `docs/slices/A12-cross-domain-wiring.md`.
 
   Both checks stay exact, and both probes pass (14/14 and 15/15). Mocked suite: 96 + 2 live skipped; demo: 27.
 - G-007 registry: unchanged (1370 fields, 0 problems); no response record changed shape.
+
+## 2026-10-25 · A13 · in-app notices for visit and quality assignments
+
+Slice: `docs/slices/A13-assignment-notices.md`.
+
+- `ioeti-operations` uses the existing internal `Notifier`. Nothing is outbound and nothing is timed.
+  - `VisitService` notes: a visit assigned (on create or plan), moved away (`VISIT_UNASSIGNED`), rescheduled for the same person, and cancelled (the assignee is kept before the native cancel clears it).
+  - `QualityService` notes: a corrective action assigned to its owner, and a new plan owner.
+  - Titles carry only the record reference. Nothing is noted for oneself (existing notifier rule).
+- UI: inbox labels for the six new kinds and for `ENGAGEMENT_ASSIGNED`, which had shown its raw code; notices open the visit or the quality issue.
+- `scripts/cross_domain_probe.py` extended to 9/9 with a second worker. The probe also removes the notices its users received or caused.
+- Mocked UI test for the new inbox labels and links in `tests/app.spec.ts` (mocked suite 97 + 2 live skipped, demo 27). Full regression: 39 probes, all exit 0.
