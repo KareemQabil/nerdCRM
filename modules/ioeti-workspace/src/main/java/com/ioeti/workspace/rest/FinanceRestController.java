@@ -1,6 +1,8 @@
 package com.ioeti.workspace.rest;
 
 import com.axelor.apps.account.db.Invoice;
+import com.axelor.apps.account.db.InvoicePayment;
+import com.axelor.apps.account.db.repo.InvoicePaymentRepository;
 import com.axelor.apps.account.db.repo.InvoiceRepository;
 import com.axelor.apps.base.db.Currency;
 import com.axelor.apps.base.db.Partner;
@@ -25,6 +27,10 @@ import com.ioeti.workspace.db.InvoiceRequest;
 import com.ioeti.commercial.service.TaxPolicyBridge;
 import com.ioeti.core.api.RecordAccess;
 import com.ioeti.core.policy.PolicyService;
+import com.axelor.db.JPA;
+import com.axelor.utils.api.ConflictChecker;
+import com.ioeti.core.api.NativeCommands;
+import com.ioeti.workspace.service.CollectionService;
 import com.ioeti.workspace.service.FxService;
 import com.ioeti.workspace.service.InvoicingService;
 import com.ioeti.workspace.db.repo.InvoiceRequestRepository;
@@ -198,6 +204,87 @@ public class FinanceRestController {
   }
 
   @GET
+  @Path("/invoices")
+  @Operation(summary = "Issued customer invoices the caller may read: due (default), paid or all, with what is paid, still due and credited (D-06)", tags = {"IOETI finance"})
+  @IoetiEndpoint
+  public Response invoices(@QueryParam("state") String state) {
+    new SecurityCheck().readAccess(Invoice.class).check();
+    String s = state == null || state.isBlank() ? "due" : state.strip();
+    JPQLFilter issued = new JPQLFilter("self.operationTypeSelect = ? AND self.statusSelect = ?",
+        InvoiceRepository.OPERATION_TYPE_CLIENT_SALE, InvoiceRepository.STATUS_VENTILATED);
+    JPQLFilter condition = switch (s) {
+      case "due" -> new JPQLFilter("self.operationTypeSelect = ? AND self.statusSelect = ? AND self.amountRemaining > 0",
+          InvoiceRepository.OPERATION_TYPE_CLIENT_SALE, InvoiceRepository.STATUS_VENTILATED);
+      case "paid" -> new JPQLFilter("self.operationTypeSelect = ? AND self.statusSelect = ? AND self.amountRemaining <= 0",
+          InvoiceRepository.OPERATION_TYPE_CLIENT_SALE, InvoiceRepository.STATUS_VENTILATED);
+      case "all" -> issued;
+      default -> throw ApiException.invalidField("state", "UNAVAILABLE", "Use due, paid or all.");
+    };
+    LocalDate today = today();
+    JpaSecurity security = Beans.get(JpaSecurity.class);
+    boolean canPay = security.isPermitted(JpaSecurity.CAN_CREATE, InvoicePayment.class) && security.isPermitted(JpaSecurity.CAN_WRITE, Invoice.class);
+    boolean canCredit = security.isPermitted(JpaSecurity.CAN_CREATE, Invoice.class) && security.isPermitted(JpaSecurity.CAN_WRITE, Invoice.class);
+    List<FinanceInvoiceView> rows = readable(Invoice.class, condition).order("dueDate").order("id").fetch(500).stream()
+        .map(i -> invoice(i, today, canPay, canCredit)).toList();
+    return ResponseConstructor.build(Response.Status.OK, "Invoices", rows);
+  }
+
+  @GET
+  @Path("/invoices/{id}/readiness")
+  @Operation(summary = "What the set-up still lacks to record a payment or issue a credit note on this invoice (D-06)", tags = {"IOETI finance"})
+  @IoetiEndpoint
+  public Response invoiceReadiness(@PathParam("id") Long id, @QueryParam("for") String purpose) {
+    Invoice invoice = RecordAccess.readable(Invoice.class, id);
+    LocalDate today = Beans.get(AppBaseService.class).getTodayDate(invoice.getCompany());
+    CollectionService collections = Beans.get(CollectionService.class);
+    List<InvoicingService.Missing> missing;
+    if ("credit".equals(purpose)) {
+      new SecurityCheck().createAccess(Invoice.class).writeAccess(Invoice.class).check();
+      missing = collections.creditNoteReadiness(invoice, today);
+    } else {
+      new SecurityCheck().createAccess(InvoicePayment.class).writeAccess(Invoice.class).check();
+      missing = collections.paymentReadiness(invoice, today);
+    }
+    return ResponseConstructor.build(Response.Status.OK, "Readiness",
+        new ReadinessView(missing.isEmpty(), missing.stream().map(m -> new MissingView(m.code(), m.detail())).toList()));
+  }
+
+  @POST
+  @Path("/invoices/{id}/payments")
+  @Consumes(MediaType.APPLICATION_JSON)
+  @Operation(summary = "Record a payment the company received on an issued invoice: amount, date and bank or receipt reference (D-06)", tags = {"IOETI finance"})
+  @IoetiEndpoint
+  public Response recordPayment(@PathParam("id") Long id, RecordPayment command) {
+    if (command == null || command.version() == null) throw ApiException.badRequest("Record version is required.");
+    new SecurityCheck().createAccess(InvoicePayment.class).writeAccess(Invoice.class).check();
+    Invoice invoice = RecordAccess.writable(Invoice.class, id);
+    ConflictChecker.checkVersion(invoice, command.version());
+    LocalDate date = parseDate("paymentDate", command.paymentDate());
+    LocalDate today = Beans.get(AppBaseService.class).getTodayDate(invoice.getCompany());
+    NativeCommands.run(() -> Beans.get(CollectionService.class).recordPayment(invoice, command.amount(), date, command.reference(), today),
+        "PAYMENT_REJECTED", "The payment could not be recorded.");
+    return ResponseConstructor.build(Response.Status.CREATED, "Payment recorded", invoice(JPA.find(Invoice.class, id), today, true, canCreditNow()));
+  }
+
+  @POST
+  @Path("/invoices/{id}/credit-notes")
+  @Consumes(MediaType.APPLICATION_JSON)
+  @Operation(summary = "Issue a credit note for a share of an issued invoice, with the reason (D-06)", tags = {"IOETI finance"})
+  @IoetiEndpoint
+  public Response creditNote(@PathParam("id") Long id, CreditNote command) {
+    if (command == null || command.version() == null) throw ApiException.badRequest("Record version is required.");
+    new SecurityCheck().createAccess(Invoice.class).writeAccess(Invoice.class).check();
+    Invoice invoice = RecordAccess.writable(Invoice.class, id);
+    ConflictChecker.checkVersion(invoice, command.version());
+    LocalDate today = Beans.get(AppBaseService.class).getTodayDate(invoice.getCompany());
+    NativeCommands.run(() -> Beans.get(CollectionService.class).creditNote(invoice, command.percent(), command.reason(), today),
+        "CREDIT_NOTE_REJECTED", "The credit note could not be issued.");
+    JpaSecurity security = Beans.get(JpaSecurity.class);
+    return ResponseConstructor.build(Response.Status.CREATED, "Credit note issued", invoice(JPA.find(Invoice.class, id), today,
+        security.isPermitted(JpaSecurity.CAN_CREATE, InvoicePayment.class), true));
+  }
+
+  @GET
   @Path("/fx")
   @Operation(summary = "Exchange rates to the company currency: the finance.fx policy, the rate in use per currency and its age, recent history (D-06)", tags = {"IOETI finance"})
   @IoetiEndpoint
@@ -236,6 +323,41 @@ public class FinanceRestController {
   }
 
   // --- helpers -------------------------------------------------------------------------------------
+
+  private static boolean canCreditNow() {
+    JpaSecurity security = Beans.get(JpaSecurity.class);
+    return security.isPermitted(JpaSecurity.CAN_CREATE, Invoice.class) && security.isPermitted(JpaSecurity.CAN_WRITE, Invoice.class);
+  }
+
+  private static LocalDate parseDate(String field, String value) {
+    if (value == null || value.isBlank()) return null;
+    try {
+      return LocalDate.parse(value.strip());
+    } catch (DateTimeParseException e) {
+      throw ApiException.invalidField(field, "FORMAT", "Use a date like 2026-11-01.");
+    }
+  }
+
+  /** An issued invoice with what was paid (and how), what is still due, and its credit notes; the client only when readable. */
+  private static FinanceInvoiceView invoice(Invoice i, LocalDate today, boolean canPay, boolean canCredit) {
+    JpaSecurity security = Beans.get(JpaSecurity.class);
+    Partner client = i.getPartner();
+    boolean seeClient = client != null && security.isPermitted(JpaSecurity.CAN_READ, Partner.class, client.getId());
+    BigDecimal remaining = i.getAmountRemaining() == null ? BigDecimal.ZERO : i.getAmountRemaining();
+    BigDecimal paid = i.getAmountPaid() == null ? BigDecimal.ZERO : i.getAmountPaid();
+    String status = remaining.signum() <= 0 ? "PAID" : paid.signum() > 0 ? "PARTLY_PAID" : "DUE";
+    List<PaymentView> payments = i.getInvoicePaymentList() == null ? List.of() : i.getInvoicePaymentList().stream()
+        .filter(p -> p.getStatusSelect() == InvoicePaymentRepository.STATUS_VALIDATED && p.getTypeSelect() == InvoicePaymentRepository.TYPE_PAYMENT)
+        .map(p -> new PaymentView(p.getId(), p.getPaymentDate(), p.getAmount(), p.getInvoicePaymentRef(),
+            p.getCreatedBy() == null ? null : p.getCreatedBy().getName())).toList();
+    List<CreditNoteView> credits = i.getRefundInvoiceList() == null ? List.of() : i.getRefundInvoiceList().stream()
+        .filter(r -> r.getStatusSelect() == InvoiceRepository.STATUS_VENTILATED)
+        .map(r -> new CreditNoteView(r.getId(), r.getInvoiceId(), r.getInvoiceDate(), r.getInTaxTotal(), r.getNote())).toList();
+    boolean overdue = remaining.signum() > 0 && i.getDueDate() != null && i.getDueDate().isBefore(today);
+    return new FinanceInvoiceView(i.getId(), i.getVersion(), i.getInvoiceId(), seeClient ? client.getId() : null, seeClient ? client.getName() : null,
+        i.getInvoiceDate(), i.getDueDate(), code(i.getCurrency()), i.getExTaxTotal(), i.getInTaxTotal(), paid, remaining, status, overdue,
+        CollectionService.credited(i), remaining.signum() > 0 && canPay, canCredit, payments, credits);
+  }
 
   private static FxView fxView() {
     FxService fx = Beans.get(FxService.class);
@@ -333,6 +455,21 @@ public class FinanceRestController {
   public record ReadinessView(boolean ready, List<MissingView> missing) {}
 
   public record MissingView(String code, String detail) {}
+
+  public record RecordPayment(Integer version, BigDecimal amount, String paymentDate, String reference) {}
+
+  public record CreditNote(Integer version, BigDecimal percent, String reason) {}
+
+  /** status: DUE, PARTLY_PAID or PAID; credited is the before-tax total of the credit notes. */
+  public record FinanceInvoiceView(Long id, Integer version, String number, Long accountId, String accountName, LocalDate invoiceDate,
+      LocalDate dueDate, String currency, BigDecimal totalBeforeTax, BigDecimal totalWithTax, BigDecimal paid, BigDecimal remaining,
+      String status, boolean overdue, BigDecimal credited, boolean canRecordPayment, boolean canCredit, List<PaymentView> payments,
+      List<CreditNoteView> refunds) {}
+
+  /** A payment finance recorded: when, how much, its bank or receipt reference, and who recorded it. */
+  public record PaymentView(Long id, LocalDate date, BigDecimal amount, String reference, String recordedBy) {}
+
+  public record CreditNoteView(Long id, String number, LocalDate date, BigDecimal totalWithTax, String reason) {}
 
   public record OverrideRate(String currency, BigDecimal rate, String rateDate, String reason) {}
 

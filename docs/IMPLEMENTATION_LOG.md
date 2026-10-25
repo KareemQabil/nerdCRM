@@ -899,3 +899,19 @@ Slice: `docs/slices/P2b-finance-invoicing.md`.
 - Probe `scripts/invoicing_probe.py` 7/7 (backend CI).
 - `finance_probe.py`, `workspace_probe.py` and `scenario_iso_lifecycle_probe.py` now expect 403 for a salesperson issuing, where they expected `BLOCKED_BY_POLICY`. The decision is signed, and issuing is finance's.
 - `probe_fixtures.purge_company_accounting` removes a fixture company's ventilated invoices and journal entries (disposable databases only).
+
+## 2026-10-25 · P2c · D-06 recording collections and credit notes
+
+Slice: `docs/slices/P2c-finance-collections.md`.
+
+- `ioeti-workspace` `CollectionService`:
+  - **Payments** finance actually received (amount up to what is due, date, reference) go through the native invoice payment. It is posted and reconciled; the amount is typed by finance and spread over the unpaid terms.
+  - **Credit notes** for a share with a reason use the native refund: scaled, terms recomputed, ventilated and offset.
+  - **Readiness:** payment journal and account, reconciliation sequences, credit-note journal and numbering, refund payment mode.
+- Finance API:
+  - `GET /finance/invoices?state=due|paid|all`
+  - `GET /finance/invoices/{id}/readiness?for=payment|credit`
+  - `POST …/payments` and `POST …/credit-notes`
+- Web: an "Issued invoices & collection" panel with payment and credit-note dialogs, each showing what is missing when refused.
+- `scripts/invoicing_probe.py` 12/12 (5 new). `probe_fixtures.purge_company_accounting` now also removes payments, reconciliations and reconcile groups.
+- G-007 registry: 1520 fields, 0 problems.

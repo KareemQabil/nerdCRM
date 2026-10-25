@@ -54,3 +54,11 @@
 .fx-history ol { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 6px; }
 .fx-history li { display: grid; gap: 2px; padding: 8px 10px; border-radius: var(--radius-sm, 8px); background: var(--surface-variant); font-size: 13px; }
 .fx-history small { color: var(--on-surface-variant); overflow-wrap: anywhere; }
+/* D-06: issued invoices, payments recorded and credit notes */
+.finance-figures { display: flex; flex-wrap: wrap; gap: 4px 18px; margin: 2px 0 0; }
+.finance-figures div { display: grid; gap: 1px; }
+.finance-figures dt { font-size: 11.5px; color: var(--on-surface-variant); }
+.finance-figures dd { margin: 0; font-weight: 700; font-variant-numeric: tabular-nums; }
+.finance-chip { padding: 1px 8px; border-radius: 999px; background: var(--surface-variant); font-weight: 600; }
+.finance-row.is-paid { border-inline-start-color: var(--success); }
+.finance-invoice-row { align-items: flex-start; }
