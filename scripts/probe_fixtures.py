@@ -31,8 +31,9 @@ def delete_record(admin, model, rid):
         return True
     if model != USER:
         return False
-    # change tracking is written by an asynchronous audit queue, so retry until it has settled
-    for attempt in range(5):
+    # change tracking is written by an asynchronous audit queue, so retry until it has settled; under load (scale runs, a
+    # finalized quotation's tracking) the queue can lag well past 15 s, so allow about a minute
+    for attempt in range(8):
         _delete_where(admin, MAIL_MESSAGE, f"self.author.id = {int(rid)}")
         _delete_where(admin, MAIL_FOLLOWER, f"self.user.id = {int(rid)}")
         _delete_where(admin, META_MENU, f"self.user.id = {int(rid)}")  # personal menus (team membership)
@@ -45,7 +46,7 @@ def delete_record(admin, model, rid):
         _delete_where(admin, META_FILE, f"self.createdBy.id = {int(rid)}")
         if ok(admin.call("DELETE", f"/ws/rest/{model}/{rid}")[1]):
             return True
-        time.sleep(1 + attempt)
+        time.sleep(min(2 + 2 * attempt, 10))
     _, cur = admin.call("POST", f"/ws/rest/{USER}/{rid}/fetch", {"fields": ["version"]})
     version = (cur.get("data") or [{}])[0].get("version") if isinstance(cur.get("data"), list) else None
     admin.call("POST", f"/ws/rest/{USER}/{rid}", {"data": {"id": rid, "version": version, "blocked": True,
