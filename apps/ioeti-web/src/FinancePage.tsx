@@ -5,6 +5,7 @@ import {
   cancelRequest, getFinanceQueue, getFinanceSummary, getUpcomingMilestones, issueInvoice, requestMilestoneInvoice,
   type FinanceRequest, type FinanceSummary, type UpcomingMilestone,
 } from "./financeApi";
+import { FxPanel } from "./FxPanel";
 import type { Language } from "./preferences";
 import "./daily.css";
 import "./finance.css";
@@ -13,7 +14,9 @@ const L = {
   ar: {
     eyebrow: "المالية", title: "الفواتير والتحصيل",
     hint: "طلبات الفوترة اللي المبيعات رفعتها من الطلبات المؤكدة، والأقساط اللي جاي معادها، والأرقام الفعلية لكل عملة.",
-    held: "إصدار الفاتورة وحساب الضريبة والفاتورة الإلكترونية موقوفين لحد اعتماد سياسة المالية (D-06). مفيش أي دفعة بتتسجل كمحصّلة من هنا.",
+    held: "إصدار الفواتير في الحسابات لسه جاي (D-06)، والفاتورة الإلكترونية مش في النسخة الأولى. مفيش أي دفعة بتتسجل كمحصّلة من هنا.",
+    inBase: (c: string) => c === "EGP" ? "بالجنيه" : `بالـ ${c}`, fx: { POLICY_NOT_SET: "مصدر أسعار الصرف مش محدد", NO_RATE: "مفيش سعر صرف", FX_STALE: "سعر الصرف قديم" } as Record<string, string>,
+    rateUsed: (rate: string, d: string) => `بسعر ${rate} (${d})`, total: (c: string) => c === "EGP" ? "الإجمالي بالجنيه" : `الإجمالي بالـ ${c}`, totalMissing: "الإجمالي بالجنيه مش متاح لحد ما كل العملات يبقى ليها سعر صرف ساري.",
     summary: "الأرقام لكل عملة", booked: "طلبات مؤكدة (قبل الضريبة)", requested: "مطلوب فوترته (قبل الضريبة)", invoiced: "فواتير صادرة (من الحسابات)", collected: "محصّل (من الحسابات)",
     notPermitted: "مش ضمن صلاحياتك", noMoney: "لسه مفيش أرقام.",
     queue: "طلبات الفوترة", open: "مفتوحة", cancelled: "ملغاة", all: "الكل", emptyQueue: "مفيش طلبات هنا.",
@@ -29,7 +32,9 @@ const L = {
   en: {
     eyebrow: "Finance", title: "Invoices & collection",
     hint: "The invoice requests sales raised from confirmed orders, the milestones coming due, and the real figures per currency.",
-    held: "Issuing invoices, computing tax and e-invoicing wait for the finance policy (D-06). No payment is recorded as received from here.",
+    held: "Issuing invoices in accounting comes next (D-06); e-invoicing is not in V1. No payment is recorded as received from here.",
+    inBase: (c: string) => `in ${c}`, fx: { POLICY_NOT_SET: "No exchange-rate source set", NO_RATE: "No exchange rate", FX_STALE: "Exchange rate too old" } as Record<string, string>,
+    rateUsed: (rate: string, d: string) => `at ${rate} (${d})`, total: (c: string) => `Total in ${c}`, totalMissing: "The total in EGP waits until every currency has a current exchange rate.",
     summary: "Figures per currency", booked: "Confirmed orders (before tax)", requested: "Requested for invoicing (before tax)", invoiced: "Invoices issued (from accounting)", collected: "Collected (from accounting)",
     notPermitted: "Not in your access", noMoney: "No figures yet.",
     queue: "Invoice requests", open: "Open", cancelled: "Cancelled", all: "All", emptyQueue: "No requests here.",
@@ -89,13 +94,25 @@ export function FinancePage({ language }: { language: Language }) {
     <section className="data-panel finance-summary" aria-labelledby="finance-summary-title">
       <h2 id="finance-summary-title"><Wallet size={17}/>{l.summary}</h2>
       {summary === null ? <p className="activity-empty">{l.loading}</p> : summary.rows.length === 0 ? <p className="activity-empty">{l.noMoney}</p>
-        : summary.rows.map(r => <dl key={r.currency} className="finance-money" aria-label={r.currency}>
+        : summary.rows.map(r => <div key={r.currency} className="finance-currency"><dl className="finance-money" aria-label={r.currency}>
           <div><dt>{l.booked}</dt><dd>{summary.ordersPermitted ? money(r.booked, r.currency) : <small>{l.notPermitted}</small>}</dd></div>
           <div><dt>{l.requested}</dt><dd>{summary.requestsPermitted ? money(r.requested, r.currency) : <small>{l.notPermitted}</small>}</dd></div>
           <div><dt>{l.invoiced}</dt><dd>{summary.invoicesPermitted ? money(r.invoiced, r.currency) : <small>{l.notPermitted}</small>}</dd></div>
           <div><dt>{l.collected}</dt><dd>{summary.invoicesPermitted ? money(r.collected, r.currency) : <small>{l.notPermitted}</small>}</dd></div>
-        </dl>)}
+        </dl>
+          {r.fxStatus && r.fxStatus !== "BASE" && summary.baseCurrency && <p className="finance-fx">
+            {r.fxStatus === "OK" ? <>{l.inBase(summary.baseCurrency)}: {money(r.bookedInBase ?? null, summary.baseCurrency)} · {l.rateUsed(new Intl.NumberFormat(ar ? "ar-EG" : "en-GB", { maximumFractionDigits: 6 }).format(r.rate ?? 0), day(r.rateDate ?? null))}</>
+              : <><TriangleAlert size={13}/>{l.fx[r.fxStatus]}</>}</p>}
+        </div>)}
+      {summary && summary.rows.length > 1 && summary.baseCurrency && (summary.totalInBase
+        ? <dl className="finance-money finance-total" aria-label={l.total(summary.baseCurrency)}>
+          <div><dt>{l.total(summary.baseCurrency)} · {l.booked}</dt><dd>{summary.ordersPermitted ? money(summary.totalInBase.booked, summary.baseCurrency) : <small>{l.notPermitted}</small>}</dd></div>
+          <div><dt>{l.requested}</dt><dd>{summary.requestsPermitted ? money(summary.totalInBase.requested, summary.baseCurrency) : <small>{l.notPermitted}</small>}</dd></div>
+          <div><dt>{l.invoiced}</dt><dd>{summary.invoicesPermitted ? money(summary.totalInBase.invoiced, summary.baseCurrency) : <small>{l.notPermitted}</small>}</dd></div>
+          <div><dt>{l.collected}</dt><dd>{summary.invoicesPermitted ? money(summary.totalInBase.collected, summary.baseCurrency) : <small>{l.notPermitted}</small>}</dd></div>
+        </dl> : <p className="finance-fx"><TriangleAlert size={13}/>{l.totalMissing}</p>)}
     </section>
+    <FxPanel language={language} onChanged={() => void loadSummary()}/>
 
     <section className="data-panel" aria-labelledby="finance-queue-title">
       <div className="finance-head"><h2 id="finance-queue-title"><ReceiptText size={17}/>{l.queue}</h2>

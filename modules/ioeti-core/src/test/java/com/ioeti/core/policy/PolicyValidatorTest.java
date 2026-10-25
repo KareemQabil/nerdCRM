@@ -36,10 +36,11 @@ class PolicyValidatorTest {
 
   @Test
   void percentagesAndWholeNumbersAreChecked() throws Exception {
-    assertEquals("{\"ratePercent\":14,\"name\":\"VAT\"}", PolicyValidator.write(PolicyValidator.value(PolicyCatalog.get("finance.tax"), json("{'ratePercent':'14.00','name':' VAT '}"))));
-    assertEquals("value.ratePercent:RANGE", code("finance.tax", "{'ratePercent':101,'name':'x'}"));
-    assertEquals("value.ratePercent:FORMAT", code("finance.tax", "{'ratePercent':'abc','name':'x'}"));
-    assertEquals("value.name:REQUIRED", code("finance.tax", "{'ratePercent':14}"));
+    assertEquals("{\"ratePercent\":14,\"name\":\"VAT\",\"type\":\"VAT\"}", PolicyValidator.write(PolicyValidator.value(PolicyCatalog.get("finance.tax"), json("{'ratePercent':'14.00','name':' VAT ','type':'VAT'}"))));
+    assertEquals("value.type:UNAVAILABLE", code("finance.tax", "{'ratePercent':14,'name':'x','type':'SALES'}"));
+    assertEquals("value.ratePercent:RANGE", code("finance.tax", "{'ratePercent':101,'name':'x','type':'VAT'}"));
+    assertEquals("value.ratePercent:FORMAT", code("finance.tax", "{'ratePercent':'abc','name':'x','type':'VAT'}"));
+    assertEquals("value.name:REQUIRED", code("finance.tax", "{'ratePercent':14,'type':'VAT'}"));
     assertEquals("value.days:FORMAT", code("sales.quote-validity", "{'days':2.5}"));
     assertEquals("value.days:RANGE", code("sales.quote-validity", "{'days':0}"));
   }

@@ -68,6 +68,7 @@ const OPTIONS: Record<string, [string, string]> = {
   NONE: ["من غير موافقة", "No approval"], SALES_MANAGER: ["مدير المبيعات", "Sales manager"], GM: ["المدير العام", "General manager"], FINANCE: ["المالية", "Finance"],
   ACTIVE_CONTRACT: ["عقد مفعّل", "Active contract"], ACCEPTED_QUOTE: ["عرض مقبول بدليل", "Accepted quotation with evidence"],
   PUBLIC_API: ["مصدر عام مع تعديل يدوي", "Public source, manual override"], MANUAL_ONLY: ["يدوي فقط", "Manual only"],
+  VAT: ["ضريبة قيمة مضافة", "VAT"], OTHER: ["ضريبة أخرى", "Other tax"],
   INDEPENDENT_REVIEWER: ["مراجع مستقل", "Independent reviewer"], COMMITTEE: ["لجنة", "Committee"],
   NOT_ASKED: ["مش مطلوب", "Not asked"], OPTIONAL: ["اختياري", "Optional"], REQUIRED: ["مطلوب", "Required"],
   START_DATE: ["تاريخ بدء العمل", "Start date"], OFFER_ACCEPTED: ["قبول العرض", "Offer accepted"],

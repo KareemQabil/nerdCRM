@@ -98,7 +98,7 @@ def main():
               (s1, s2, s3, len(keys), overview.get("noOwners")))
 
         # --- separation of duties --------------------------------------------------------------------------
-        tax = {"value": {"ratePercent": 14, "name": "VAT"}, "reason": "probe: rate given by the owner"}
+        tax = {"value": {"ratePercent": 14, "name": "VAT", "type": "VAT"}, "reason": "probe: rate given by the owner"}
         s_admin, _ = admin.call("POST", P + "/finance.tax", tax)
         s_u, _ = u.call("POST", P + "/owners", {"userId": users["U"]["id"]})
         s_boot, _ = admin.call("POST", P + "/owners", {"userId": users["P1"]["id"]})
@@ -108,7 +108,7 @@ def main():
               (s_admin, s_u, s_boot, s_again) == (403, 403, 200, 403), (s_admin, s_u, s_boot, s_again))
 
         # --- values are checked ---------------------------------------------------------------------------
-        bad = [p1.call("POST", P + "/finance.tax", {**tax, "value": {"ratePercent": 140, "name": "VAT"}}),
+        bad = [p1.call("POST", P + "/finance.tax", {**tax, "value": {"ratePercent": 140, "name": "VAT", "type": "VAT"}}),
                p1.call("POST", P + "/finance.tax", {**tax, "reason": " "}),
                p1.call("POST", P + "/finance.tax", {**tax, "effectiveFrom": (today - timedelta(days=1)).isoformat()}),
                p1.call("POST", P + "/sales.won-evidence", {"value": {"evidence": "ACTIVE_CONTRACT"}, "reason": "x"}),
@@ -126,7 +126,7 @@ def main():
         check("a policy owner sets the tax from today: it is in force, with who, when and why in its history",
               s == 201 and (now.get("value") or {}).get("ratePercent") == 14 and now.get("since") == today.isoformat()
               and d["versions"][0]["authorName"] == f"Policy P1 {tag}" and d["versions"][0]["reason"] == tax["reason"], (s, now, d.get("versions", [{}])[:1]))
-        s, body = p1.call("POST", P + "/finance.tax", {**tax, "value": {"ratePercent": 10, "name": "VAT"}, "effectiveFrom": tomorrow.isoformat(),
+        s, body = p1.call("POST", P + "/finance.tax", {**tax, "value": {"ratePercent": 10, "name": "VAT", "type": "VAT"}, "effectiveFrom": tomorrow.isoformat(),
                                                       "reason": "probe: scheduled change"})
         now = next((v for v in obj(body).get("values", []) if v["scope"] is None), {})
         check("a change from tomorrow leaves today's value in force and shows as the next value",

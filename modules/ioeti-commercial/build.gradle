@@ -15,6 +15,7 @@ apply from: rootProject.file("modules/axelor-open-suite/libs.gradle")
 
 dependencies {
 	api project(":modules:ioeti-core")
+	api project(":modules:ioeti-business-lines")
 	api project(":modules:axelor-sale")
 	// payment milestones are the native supplychain Timetable on SaleOrder (Wave 3 part 2)
 	api project(":modules:axelor-supplychain")

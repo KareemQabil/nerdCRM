@@ -200,7 +200,7 @@ public final class PolicyValidator {
     }
   }
 
-  static JsonNode read(String json) {
+  public static JsonNode read(String json) {
     try {
       return json == null ? null : JSON.readTree(json);
     } catch (com.fasterxml.jackson.core.JsonProcessingException e) {

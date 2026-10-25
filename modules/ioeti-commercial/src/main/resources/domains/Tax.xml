@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<domain-models xmlns="http://axelor.com/xml/ns/domain-models"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://axelor.com/xml/ns/domain-models https://axelor.com/xml/ns/domain-models/domain-models_8.2.xsd">
+
+  <module name="ioeti" package="com.ioeti.commercial.db"/>
+
+  <!-- D-06 (signed 2026-10-25): the tax rate is a policy the owners set (finance.tax), not code. Each policy
+       version that is applied gets one native AOS tax version (TaxLine) with the same rate and dates, so
+       quotations, and later invoices and journal entries, use the native tax machinery. -->
+  <entity name="PolicyTaxLine" table="ioeti_policy_tax_line">
+    <many-to-one name="policyVersion" ref="com.ioeti.core.db.PolicyVersion" required="true" unique="true"/>
+    <many-to-one name="taxLine" ref="com.axelor.apps.account.db.TaxLine" required="true"/>
+  </entity>
+
+</domain-models>

@@ -51,6 +51,8 @@ jobs:
         env:
           # issue #10: scheduled-job identity is tested with the Quartz scheduler running
           AXELOR_CONFIG_QUARTZ_ENABLE: "true"
+          # D-06: the public exchange-rate source is a stub served by finance_policy_probe.py (no outside call)
+          AXELOR_CONFIG_IOETI_FX_URL: "http://127.0.0.1:18089/latest/"
         run: |
           set -euo pipefail
           mkdir -p logs
@@ -157,6 +159,9 @@ jobs:
           # P1: business-rule policies (owner decisions D-01..D-12): none shipped, refused until set; only policy
           # owners change them, from today or later, with a reason; the last owner cannot be removed
           python3 scripts/policy_probe.py
+          # P2a (D-06): tax on quotations from finance.tax through native AOS taxes; exchange rates from the
+          # public source (stub) with finance's manual override, mirrored as native conversion lines
+          python3 scripts/finance_policy_probe.py
           # Finance's invoicing queue within D-06: requests, milestones coming due and real figures per currency;
           # issuing stays BLOCKED_BY_POLICY and no payment is recorded as received
           python3 scripts/finance_probe.py
@@ -219,6 +224,7 @@ jobs:
             logs/quality-rca-probe.json
             logs/cross-domain-probe.json
             logs/policy-probe.json
+            logs/finance-policy-probe.json
             logs/finance-probe.json
           if-no-files-found: ignore
       - name: Attach Axelor integration logs
