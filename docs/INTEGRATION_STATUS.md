@@ -1,6 +1,6 @@
 # Integration status and merge-order checklist
 
-Updated: 2026-10-20. Nothing has been merged into `main`; all PRs are drafts awaiting owner review.
+Updated: 2026-10-25 (section 5 adds #41–#58). Nothing has been merged into `main`; all PRs are drafts awaiting owner review.
 
 ## 1. Cumulative baseline
 
@@ -61,3 +61,35 @@ CI is the latest run on the head SHA: B = backend (live Axelor + PostgreSQL prob
 | Lean staging runner and release gate (owner) | `feat/ioeti-lean-staging-release-gate` | #35 | #34 | opened by the owner; touches `scripts/ioeti.sh` like the later slices (merge carefully) |
 
 Merging the slices is the reviewer's decision. Engineering does not merge them into `claude/ioeti-integration-next`, because GitHub would then mark the PRs as merged. Order: #32 → #33 → later slices. The stack is kept to these waves and **ends at Wave 7**: no further slices are stacked on it until the earlier PRs are reviewed; later work branches from the newest reviewed base.
+
+## 5. Slices after Wave 7b (stacked, each on the previous one)
+
+Updated: 2026-10-25. Each PR's base is the branch of the PR before it, so its diff shows only that slice. Merge them in this order, after #40. CI is the latest run on each head: B = backend (live Axelor + PostgreSQL probes), S = session-expiry, F = frontend, I = Railway image build.
+
+| PR | Scope | Head | CI | Status / held items |
+|---|---|---|---|---|
+| #41 | Guided Arabic/English operating journeys for the Vercel preview (fictional demo) | `8f3efef` | F ✓ | ready for review |
+| #42 | Mission focus, WCAG-minded contrast, global API feedback | `2281e41` | F ✓ | ready for review |
+| #43 | Contextual card workbench instead of the modal focus mode | `ae930d5` | F ✓ | ready for review |
+| #44 | Release hardening: real-backend scenarios S1–S7 and the defects they found | `0f82675` | B S F ✓ | ready for review |
+| #45 | Enterprise UX for every screen, reviewer journey, showcase data, Railway staging | `0e47c3f` | B S F I ✓ | ready for review; production deployment is not authorised |
+| #46 | Admin console: people, access, teams, business lines | `3b9c4fb` | B S F ✓ | ready for review |
+| #47 | A2 daily work: leads, accounts, opportunity stages, activities, agenda, search | `78d4795` | B S F ✓ | ready for review; routing/SLA D-12 |
+| #48 | A3 reference lists: lost reasons, sources, opportunity stages | `fbb0efb` | B S F ✓ | ready for review |
+| #49 | A4 service catalogue + A5 live system map | `ee6e76b` | B S F ✓ | ready for review; price lists D-11, taxes D-06 |
+| #50 | A6 campaigns from the platform | `bbde3ef` | B S F ✓ | ready for review; external sending D-10 |
+| #51 | A7 field visits and record numbering | `8736a18` | B S F ✓ | ready for review; maps/routes and customer reports D-10 |
+| #52 | A8 quality issues and corrective actions | `4a625f9` | B S F ✓ | ready for review |
+| #53 | A9 finance's invoicing queue | `b0f0075` | B S F ✓ | ready for review; issuing invoices D-06 |
+| #54 | A10 visit checklists, photos and signature | `81816df` | B S F ✓ | ready for review |
+| #55 | A11 root-cause analysis and evidence on quality issues | `80d14ec` | B S F ✓ | ready for review |
+| #56 | Unit tests for the A7–A11 rules | `9fd28af` | B S ✓ | ready for review |
+| #57 | A12 visits and quality on the shared surfaces (agenda, search, Account 360, reports) | `db4e2ee` | S F ✓, B running at the time of writing | ready for review |
+| #58 | A13 in-app notices for visit and quality assignments (+ this status update) | see the PR | see the PR | ready for review |
+
+Merge-order checklist, continued:
+
+7. [ ] After #40, merge #41 → #42 → #43 (front-end experience).
+8. [ ] Merge #44 → #45 (release hardening, enterprise UX, staging).
+9. [ ] Merge #46 → #47 → #48 → #49 → #50 → #51 → #52 → #53 → #54 → #55 → #56 → #57 → #58 (platform screens A1–A13).
+10. [ ] After each merge, check that backend CI is green on the target. Probes need a disposable database; never point them at production.
