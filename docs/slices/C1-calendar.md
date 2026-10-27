@@ -4,9 +4,9 @@ Status: implemented and checked against the real backend.
 
 | Check | Result |
 |---|---|
-| `scripts/calendar_probe.py` (backend CI) | 20/20, complete cleanup |
+| `scripts/calendar_probe.py` (backend CI) | 22/22, complete cleanup |
 | Daily work probe (activities, agenda, search) | 44/44 |
-| Mocked browser suite `tests/agenda.spec.ts` (incl. axe WCAG 2.1 AA in light and dark, phone width) | 6/6 |
+| Mocked browser suite `tests/agenda.spec.ts` (incl. axe WCAG 2.1 AA in light and dark, phone width) | 7/7 |
 | Full mocked + demo suites | 141 + 27; typecheck OK |
 | PII DTO audit | 0 problems |
 
@@ -18,7 +18,8 @@ The open pipeline card wrote its numbers inside `dir="ltr"` cells. In the right-
 to the left, while the labels aligned to the right.
 
 **Fix:**
-- In right-to-left pages, left-to-right figures align right, like their labels.
+- In right-to-left pages, left-to-right figures align right, like their labels. This covers `dd`, `td`, `th`, `p` and
+  `small` cells: the home pipeline, quotations, contracts, milestones, fundraising, reports and the palette.
 - Figures use tabular digits, so they line up in a column.
 
 ## What the calendar does now
@@ -55,6 +56,12 @@ to the left, while the labels aligned to the right.
   - an item that is not planned → `422 NOT_PLANNED`;
   - a stale version → `409`;
   - a time in the past → `422 PAST`.
+
+**Overdue items stay in view**
+- Your own planned activities whose time has passed are listed in a strip above the calendar, whatever week you look at
+  (`GET /ws/ioeti/workspace/agenda/overdue`, oldest first, at most 100).
+- Each one opens with: done, reschedule, **tomorrow 10:00** or **next week**, in one click.
+- Overdue items are also marked in the grid, the month and the list.
 
 **A teammate's calendar**
 - The person picker lists the caller and the people who share a team with them (either side of the team membership).
