@@ -104,6 +104,9 @@ jobs:
           # Wave 5b: quotation versions, review requests (D-11 decisions blocked), invoice requests (D-06 issue
           # blocked), renewals, Account 360 summary; order confirmation/activation are SQL test fixtures here
           PROBE_WS_ROUNDS=5 python3 scripts/workspace_probe.py
+          # Wave 6: lead intake with duplicate review (Arabic-normalized, scope-limited), consent and opt-out
+          # history on the native flags, campaign attribution, saved views, follow-ups; routing D-12 blocked
+          PROBE_MKT_ROUNDS=5 python3 scripts/marketing_probe.py
           # SEC-004: cookies, fixation, CSRF, logout, per-user login throttle (runs last: it
           # throttles one throw-away user)
           python3 scripts/session_security_probe.py

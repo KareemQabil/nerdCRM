@@ -279,7 +279,7 @@ public class LeadRestController {
     return lead.getFullName() == null || lead.getFullName().isBlank() ? lead.getName() : lead.getFullName();
   }
 
-  private static LeadView project(Lead lead) {
+  public static LeadView project(Lead lead) {
     JpaSecurity security = Beans.get(JpaSecurity.class);
     BusinessLine line = lead.getIoetiBusinessLine();
     Partner account = lead.getPartner();

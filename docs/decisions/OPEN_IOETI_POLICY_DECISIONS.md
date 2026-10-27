@@ -28,6 +28,8 @@ Status values: `OPEN` (no answer), `PROPOSED` (an engineering proposal awaits ow
 
 - **D-11 (2026-10-20, Wave 5):** the operations handover workflow (`/ws/ioeti/operations`) accepts only **active (signed)** contracts. Contract activation stays `BLOCKED_BY_POLICY`, so in production no handover can start until D-11 is signed; the checklist each business line requires is configuration the owners maintain, and a line without one cannot hand over. Probes make a contract active with SQL in the disposable database as a stand-in for the signature (test fixture only). Whether a payment or other financial prerequisite must come before handover (D-06/D-11) is not assumed; it can be added as a checklist item once decided. The decision status stays OPEN.
 
+- **Lead contact consent (2026-10-20, Wave 6):** `ioeti-marketing` records consent and opt-outs per channel (e-mail, calls) with the method and an evidence reference (required for consent, not for an opt-out). The native do-not-email/do-not-call flags hold the current state. Engineering did **not** decide the lawful basis, the consent wording, how long consent evidence is kept (D-07 retention), or whether an opt-out on one lead must apply to every record of the same person. Nothing is sent from the CRM: outbound channels are D-10, and automatic reminders, routing and escalation are D-12. Duplicate leads are reviewed but not merged, because merging changes ownership and history (D-07).
+
 ## Related, owner-only actions (not engineering decisions)
 
 - Send, or decide not to send, the private upstream report for the AOP thread-bound identity issue. The draft is held outside the repository; see PR #9.

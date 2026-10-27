@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<domain-models xmlns="http://axelor.com/xml/ns/domain-models"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://axelor.com/xml/ns/domain-models https://axelor.com/xml/ns/domain-models/domain-models_8.2.xsd">
+
+  <!-- Extension of the native AOS Lead (no upstream file is modified): a normalized search key
+       (Arabic spelling variants, digits, case) kept current by a listener on every save. -->
+  <module name="crm" package="com.axelor.apps.crm.db"/>
+
+  <entity name="Lead">
+    <string name="ioetiSearchKey" title="Search key" max="1000"/>
+    <entity-listener class="com.ioeti.marketing.db.repo.LeadSearchKeyListener"/>
+  </entity>
+
+</domain-models>

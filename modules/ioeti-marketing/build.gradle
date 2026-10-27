@@ -1,0 +1,25 @@
+plugins {
+	id 'com.axelor.app'
+}
+
+apply from: new File(projectDir.canonicalFile, "../../gradle/ioeti-module.gradle")
+
+// IOETI marketing and lead completeness (Wave 6): lead intake with duplicate detection and Arabic
+// normalization, consent and opt-out history on the native lead flags, campaign attribution on native
+// marketing campaigns, server-side lead filters and saved views, the lead's activity timeline and the
+// overdue follow-up queue on native CRM events. Routing, response targets and escalation are D-12.
+// Nothing here sends a message.
+axelor {
+	title "IOETI Marketing"
+	description "IOETI lead intake, consent, attribution, saved views and follow-ups"
+}
+
+apply from: rootProject.file("modules/axelor-open-suite/libs.gradle")
+
+dependencies {
+	api project(":modules:ioeti-core")
+	api project(":modules:ioeti-business-lines")
+	api project(":modules:axelor-marketing")
+
+	implementation libs.swagger_jaxrs
+}
