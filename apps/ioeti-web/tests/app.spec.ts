@@ -35,6 +35,7 @@ async function intercept(page: Page, config: { businessLineDenied?: boolean } = 
     ]);
     if (path.endsWith("/accounts/901") && method === "GET") return result({ id: 901, name: "Nile View Hotel", reference: "AC-901", customer: false, prospect: true });
     if (path.endsWith("/quotes") && method === "GET") return result([]);
+    if (path.endsWith("/contracts") && method === "GET") return result([]);
     if (path.endsWith("/catalog/products") && method === "GET") return result([]);
     if (/\/opportunities\/\d+$/.test(path) && method === "GET") {
       const id = Number(path.split("/").at(-1));
@@ -283,7 +284,10 @@ test("Opportunity view details opens a full record page, supports browser histor
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await expect(page.locator(".opportunity-record")).toContainText("OP-101");
   await expect(page.locator(".opportunity-record")).toContainText("Axelor CRM");
-  await expect(page.locator(".opportunity-record")).toContainText("لم يتم ربط");
+  // quotations and the contract are connected sections; activities are still honestly marked as not connected
+  await expect(page.getByRole("heading", { name: "عروض الأسعار" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "العقد", exact: true })).toBeVisible();
+  await expect(page.locator(".opportunity-record")).toContainText("سيظهر سجل الأنشطة بعد ربط Event API");
   await page.goBack();
   await expect(page).toHaveURL(/#\/opportunities$/);
   await expect(page.getByRole("row").filter({hasText:"Hotel certification"})).toBeVisible();
@@ -569,4 +573,36 @@ test("payment milestones: added with the quotation version; booked, invoiced and
   await expect(page.locator("body")).not.toContainText("feedface");
   await expect(page.getByText("إصدار الفواتير من الدفعات متوقف حتى اعتماد سياسة المالية (D-06).")).toBeVisible();
   await page.screenshot({ path: "test-results/ioeti-quote-milestones.png", fullPage: true });
+});
+
+test("contract: draft created natively with the chosen type and opportunity version; signature and handover stay blocked", async ({page}) => {
+  await intercept(page);
+  const ok = (object: unknown, code = 200) => ({ status: code, contentType: "application/json", body: JSON.stringify({ codeStatus: code, messageStatus: "ok", object }) });
+  const posts: unknown[] = [];
+  let answers: { status: number; body: unknown }[] = [
+    { status: 422, body: { codeStatus: 422, messageStatus: "x", error: { code: "SETUP_REQUIRED", message: "x", correlationId: "cafe0001", fields: [] } } },
+  ];
+  await page.route(/\/axelor-erp\/ws\/ioeti\/contracts$/, route => {
+    posts.push(route.request().postDataJSON());
+    const next = answers.shift();
+    if (next) return route.fulfill({ status: next.status, contentType: "application/json", body: JSON.stringify(next.body) });
+    return route.fulfill(ok({ id: 3, version: 1, reference: "CT0003", name: "Hotel certification", status: "DRAFT", contractType: "FRAMEWORK",
+      opportunityId: 101, accountId: 901, accountName: "Nile View Hotel", currency: "EGP", activationStatus: "BLOCKED_BY_POLICY" }, 201));
+  });
+  await page.goto("/#/opportunities/101");
+  await expect(page.getByRole("heading", { name: "العقد", exact: true })).toBeVisible();
+  await page.getByLabel("نوع العقد").selectOption("FRAMEWORK");
+  await page.getByRole("button", { name: "إنشاء مسودة عقد" }).click();
+  await expect(page.getByRole("alert")).toHaveText(/إعداد العقود لهذه الشركة غير مكتمل/);
+  await expect(page.locator("body")).not.toContainText("cafe0001");
+  await page.getByRole("button", { name: "إنشاء مسودة عقد" }).click();
+  await expect(page.locator(".contract-body")).toContainText("CT0003");
+  await expect(page.locator(".contract-body")).toContainText("عقد إطاري");
+  expect(posts).toEqual([
+    { opportunityId: 101, opportunityVersion: 1, contractType: "FRAMEWORK" },
+    { opportunityId: 101, opportunityVersion: 1, contractType: "FRAMEWORK" },
+  ]);
+  await expect(page.getByRole("button", { name: "توقيع وتفعيل العقد" })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "التسليم لفريق التنفيذ" })).toBeDisabled();
+  await expect(page.getByText("التوقيع والتفعيل والتسليم للتنفيذ متوقفة حتى اعتماد سياسة الموافقات والاعتماد القانوني (D-11).")).toBeVisible();
 });

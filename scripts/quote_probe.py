@@ -20,6 +20,9 @@ Checks:
   milestones       native Timetable: amount = % of total, total ≤ 100 % (also under concurrency), stale → 409,
                    bad input → 422, another rep → 404, amounts follow line changes, booked / invoiced /
                    collected reported apart (all zero for a draft), invoicing → 422 BLOCKED_BY_POLICY (D-06)
+  contracts        native draft contract from the opportunity, one per opportunity (also under concurrency),
+                   refusals create nothing, reads scoped, activation → 422 BLOCKED_BY_POLICY (D-11),
+                   handover of a draft → 422 CONTRACT_NOT_ACTIVE
   finalize         422 BLOCKED_BY_POLICY (D-06, D-11), quotation stays a draft
 Report: logs/quote-probe.json.
 """
@@ -31,7 +34,7 @@ import threading
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from api_smoke_test import ENV, OPP, ROOT, Client, axelor_password_hash, ok, rest_create  # noqa: E402
-from probe_fixtures import cleanup  # noqa: E402
+from probe_fixtures import CONTRACT, RESERVED_SEQUENCE, _delete_where, cleanup, delete_contract  # noqa: E402
 
 USER, GROUP, PERM = "com.axelor.auth.db.User", "com.axelor.auth.db.Group", "com.axelor.auth.db.Permission"
 PARTNER, PRODUCT, COMPANY = "com.axelor.apps.base.db.Partner", "com.axelor.apps.base.db.Product", "com.axelor.apps.base.db.Company"
@@ -44,7 +47,8 @@ TIMETABLE, INVOICE = "com.axelor.apps.supplychain.db.Timetable", "com.axelor.app
 MISSING = 987654322
 ROUNDS = int(os.environ.get("PROBE_QUOTE_ROUNDS", "5"))
 RESULTS = []
-CLEANUP_ORDER = {TIMETABLE: 0, SALE_ORDER_LINE: 0, SALE_ORDER: 1, OPP: 2, ACCOUNT_MANAGEMENT: 3, PRODUCT: 4, PARTNER: 5,
+SEQUENCE, SEQUENCE_VERSION = "com.axelor.apps.base.db.Sequence", "com.axelor.apps.base.db.SequenceVersion"
+CLEANUP_ORDER = {SEQUENCE_VERSION: 8, SEQUENCE: 8, TIMETABLE: 0, SALE_ORDER_LINE: 0, SALE_ORDER: 1, OPP: 2, ACCOUNT_MANAGEMENT: 3, PRODUCT: 4, PARTNER: 5,
                  ACCOUNT: 6, ACCOUNT_CONFIG: 7, STOCK_CONFIG: 7, STOCK_LOCATION: 8, USER: 9, GROUP: 10,
                  PERM: 11, COMPANY: 12}
 
@@ -100,6 +104,10 @@ def main():
         location = create(STOCK_LOCATION, {"name": f"Wave3 probe {tag}", "company": {"id": co["id"]}, "typeSelect": 1})
         create(STOCK_CONFIG, {"company": {"id": co["id"]}, "pickupDefaultStockLocation": {"id": location["id"]}})
         create(ACCOUNT_CONFIG, {"company": {"id": co["id"]}})
+        contract_sequence = create(SEQUENCE, {"company": {"id": co["id"]}, "name": f"TEST ONLY contracts {tag}",
+                                              "codeSelect": "customerContract", "padding": 4, "toBeAdded": 1,
+                                              "prefixe": f"T{tag[:3].upper()}",
+                                              "sequenceVersionList": [{"startDate": "2026-01-01", "nextNum": 1}]})
         ledger = create(ACCOUNT, {"name": f"TEST ONLY sales {tag}", "code": f"T{tag}", "company": {"id": co["id"]},
                                   "commonPosition": 0})
         product = create(PRODUCT, {"name": f"Wave3 audit day {tag}", "code": f"W3-{tag}", "sellable": True,
@@ -123,8 +131,10 @@ def main():
                           canCreate=True),
                      perm("tt", TIMETABLE, "self.saleOrder.salespersonUser = ?", canRead=True, canWrite=True,
                           canCreate=True, canRemove=True),
+                     perm("contract", CONTRACT, "self.opportunity.user = ?", canRead=True, canWrite=True, canCreate=True),
                      perm("product", PRODUCT, canRead=True), perm("partner", PARTNER, canRead=True)]
         ro_perms = [perm("ro.opp", OPP, canRead=True), perm("ro.so", SALE_ORDER, canRead=True),
+                    perm("ro.contract", CONTRACT, canRead=True),
                     perm("ro.product", PRODUCT, canRead=True), perm("ro.partner", PARTNER, canRead=True)]
         rep_group = create(GROUP, {"code": f"wave3-rep-{tag}", "name": f"Wave3 rep {tag}",
                                    "permissions": [{"id": p["id"]} for p in rep_perms]})
@@ -148,6 +158,7 @@ def main():
 
         opp_a, opp_b = opportunity("OA", "RepA"), opportunity("OB", "RepB")
         opp_no_account, opp_noco = opportunity("ONA", "RepA", with_account=False), opportunity("ONC", "NoCo")
+        opp_race = opportunity("ORC", "RepA")
 
         def version(model, rid):
             return fetch(model, rid, ["version"]).get("version")
@@ -341,7 +352,78 @@ def main():
         s, body = a.call("DELETE", f"/ws/ioeti/quotes/{qid}/milestones/{target}?version={version(SALE_ORDER, qid)}")
         check("owner removes an uninvoiced milestone", s == 200 and milestones_of() == 1, f"{s} {body.get('error')}")
 
-        # --- 7. finalize is policy-blocked -----------------------------------------------------------------
+        # --- 7. draft contracts (native axelor-contract) ----------------------------------------------------
+        def contracts_of(opp_id):
+            return len(search(CONTRACT, f"self.opportunity.id = {opp_id}"))
+
+        def new_contract(client, opp, **override):
+            return client.call("POST", "/ws/ioeti/contracts", {"opportunityId": opp["id"], "opportunityVersion": version(OPP, opp["id"]),
+                                                               "contractType": "BILLING", **override})
+
+        s, body = new_contract(noco, opp_noco)
+        check("contract: no company for the user → 422 SETUP_REQUIRED, nothing created",
+              s == 422 and body.get("error", {}).get("code") == "SETUP_REQUIRED" and contracts_of(opp_noco["id"]) == 0, s)
+        s, body = new_contract(a, opp_a, contractType="RENTAL")
+        s2, body2 = new_contract(a, opp_no_account)
+        s3, _ = new_contract(a, opp_a, opportunityVersion=version(OPP, opp_a["id"]) - 1)
+        check("contract: bad type → 422, no account → 422 ACCOUNT_REQUIRED, stale → 409; nothing created",
+              (s, (body.get("error", {}).get("fields") or [{}])[0].get("field"), s2,
+               (body2.get("error", {}).get("fields") or [{}])[0].get("code"), s3)
+              == (422, "contractType", 422, "ACCOUNT_REQUIRED", 409)
+              and contracts_of(opp_a["id"]) == contracts_of(opp_no_account["id"]) == 0, (s, s2, s3))
+        s_other, b_other = new_contract(a, opp_b)
+        s_missing, b_missing = a.call("POST", "/ws/ioeti/contracts", {"opportunityId": MISSING, "opportunityVersion": 0,
+                                                                      "contractType": "BILLING"})
+        s_ro, _ = new_contract(ro, opp_a)
+        check("contract: another rep's opportunity → same 404 as missing; read-only → 403; nothing created",
+              s_other == s_missing == 404 and b_other.get("error", {}).get("code") == b_missing.get("error", {}).get("code")
+              and s_ro == 403 and contracts_of(opp_b["id"]) == contracts_of(opp_a["id"]) == 0, (s_other, s_missing, s_ro))
+        s, body = new_contract(a, opp_a)
+        contract = body.get("object") or {}
+        check("draft contract created from the opportunity (native), activation policy-blocked",
+              s == 201 and contract.get("status") == "DRAFT" and contract.get("contractType") == "BILLING"
+              and (contract.get("reference") or "").startswith(f"T{tag[:3].upper()}")
+              and contract.get("opportunityId") == opp_a["id"] and contract.get("accountId") == account["id"]
+              and contract.get("activationStatus") == "BLOCKED_BY_POLICY", f"{s} {contract}")
+        stored = fetch(CONTRACT, contract.get("id"), ["statusSelect", "partner", "opportunity", "company", "targetTypeSelect",
+                                                      "contractTypeSelect"])
+        check("persisted natively: customer contract, draft, account, opportunity, company",
+              stored.get("statusSelect") == 1 and stored.get("targetTypeSelect") == 1 and stored.get("contractTypeSelect") == 1
+              and ref_id(stored.get("partner")) == account["id"] and ref_id(stored.get("opportunity")) == opp_a["id"]
+              and ref_id(stored.get("company")) == co["id"], stored)
+        s, body = new_contract(a, opp_a)
+        check("second contract for the same opportunity → 409 CONTRACT_EXISTS, still one",
+              s == 409 and body.get("error", {}).get("code") == "CONTRACT_EXISTS" and contracts_of(opp_a["id"]) == 1,
+              f"{s} {body.get('error')}")
+        current, gate, answers = version(OPP, opp_race["id"]), threading.Barrier(2), []
+
+        def contract_race(client):
+            gate.wait()
+            answers.append(client.call("POST", "/ws/ioeti/contracts", {"opportunityId": opp_race["id"], "opportunityVersion": current,
+                                                                       "contractType": "FRAMEWORK"})[0])
+
+        threads = [threading.Thread(target=contract_race, args=(c,)) for c in (a, a2)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+        check("concurrent contract creation: one 201 and one 409, exactly one contract",
+              sorted(answers) == [201, 409] and contracts_of(opp_race["id"]) == 1, f"{sorted(answers)} {contracts_of(opp_race['id'])}")
+        s_list, b_list = a.call("GET", f"/ws/ioeti/contracts?opportunityId={opp_a['id']}")
+        s_b_get, _ = b.call("GET", f"/ws/ioeti/contracts/{contract.get('id')}")
+        s_b_miss, _ = b.call("GET", f"/ws/ioeti/contracts/{MISSING}")
+        s_b_list, _ = b.call("GET", f"/ws/ioeti/contracts?opportunityId={opp_a['id']}")
+        check("contract reads: owner lists it; another rep gets the same 404 as a missing id",
+              s_list == 200 and [c["id"] for c in b_list.get("object") or []] == [contract.get("id")]
+              and s_b_get == s_b_miss == s_b_list == 404, (s_list, s_b_get, s_b_miss, s_b_list))
+        s, body = a.call("POST", f"/ws/ioeti/contracts/{contract.get('id')}/activate")
+        s2, body2 = a.call("POST", f"/ws/ioeti/contracts/{contract.get('id')}/handover")
+        check("activation → 422 BLOCKED_BY_POLICY (D-11); handover of a draft → 422 CONTRACT_NOT_ACTIVE; still draft",
+              s == 422 and body.get("error", {}).get("code") == "BLOCKED_BY_POLICY"
+              and s2 == 422 and body2.get("error", {}).get("code") == "CONTRACT_NOT_ACTIVE"
+              and fetch(CONTRACT, contract.get("id"), ["statusSelect"]).get("statusSelect") == 1, (s, s2))
+
+        # --- 8. finalize is policy-blocked -----------------------------------------------------------------
         s, body = a.call("POST", f"/ws/ioeti/quotes/{qid}/finalize")
         check("finalize → 422 BLOCKED_BY_POLICY (D-06, D-11); still a draft",
               s == 422 and body.get("error", {}).get("code") == "BLOCKED_BY_POLICY"
@@ -365,6 +447,15 @@ def main():
                 created.append((TIMETABLE, row["id"]))
             for row in search(SALE_ORDER_LINE, f"self.saleOrder.id in ({','.join(map(str, quote_ids))})"):
                 created.append((SALE_ORDER_LINE, row["id"]))
+        # contracts first (the generic API cannot delete them), then sequence reservations of the fixture
+        if opp_ids:
+            for row in search(CONTRACT, f"self.opportunity.id in ({','.join(map(str, opp_ids))})"):
+                delete_contract(admin, row["id"])
+        for model, rid in list(created):
+            if model == SEQUENCE:
+                _delete_where(admin, RESERVED_SEQUENCE, f"self.sequenceVersion.sequence.id = {rid}")
+                for row in search(SEQUENCE_VERSION, f"self.sequence.id = {rid}"):
+                    created.append((SEQUENCE_VERSION, row["id"]))
         complete, leftovers = cleanup(admin, created, CLEANUP_ORDER)
         if not complete:
             print(f"FAIL cleanup left {leftovers}")

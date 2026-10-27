@@ -56,3 +56,22 @@ def cleanup(admin, created, order):
         delete_record(admin, model, rid)
     leftovers = [(m.split(".")[-1], r) for m, r in created if exists(admin, m, r)]
     return not leftovers, leftovers
+
+
+CONTRACT, CONTRACT_VERSION = "com.axelor.apps.contract.db.Contract", "com.axelor.apps.contract.db.ContractVersion"
+
+
+def delete_contract(admin, rid):
+    """Deletes a test contract and its versions. The generic API cannot: Contract.currentContractVersion
+    is mandatory and Hibernate fails on the one-to-one cascade (AssertionFailure). This runs SQL in the
+    disposable PostgreSQL container (local/CI only) and deletes only this contract and the versions it
+    points to. Returns True when the contract is gone."""
+    from db_migrate import DATABASE, psql
+    rid = int(rid)
+    psql(DATABASE, f"""
+        WITH gone AS (DELETE FROM contract_contract WHERE id = {rid}
+                      RETURNING current_contract_version, next_version)
+        DELETE FROM contract_contract_version v USING gone
+         WHERE v.id IN (gone.current_contract_version, gone.next_version);
+        DELETE FROM contract_contract_version WHERE contract_history = {rid};""", single_transaction=True)
+    return not exists(admin, CONTRACT, rid)
