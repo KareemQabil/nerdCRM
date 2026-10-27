@@ -12,7 +12,8 @@
 }
 @media (max-width: 760px) {
   .data-table .table-scroll { overflow: visible; }
-  .data-table table, .data-table tbody, .data-table tr, .data-table td { display: block; width: 100%; }
+  .data-table table, .data-table tbody, .data-table tr, .data-table td { display: block; width: 100%; min-width: 0 !important; max-width: 100%; }
+  .data-table td > * { min-width: 0; max-width: 100%; }
   .data-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
   .data-table tbody tr {
     border: 1px solid var(--outline-variant); border-radius: 14px; padding: 10px 14px; margin: 0 0 10px; background: var(--surface);
