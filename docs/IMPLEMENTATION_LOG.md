@@ -645,3 +645,17 @@ Slice: `docs/slices/A2-daily-work.md`.
 - Probes: `scripts/daily_work_probe.py` 44/44 (backend CI), including the time-zone rule. The DTO allowlists in `api_contract_probe.py` and `opportunity_pilot_smoke.py` now include the account version and the opportunity's stage and estimate fields. Mocked UI tests: `tests/daily.spec.ts` 6/6. Real-browser walk-through: the whole journey, three themes, desktop and phone.
 - Found on the real backend: a fresh install has no lost reasons, so the dialog says so (reference lists are phase 5); date-times are wall-clock times and "already happened" is judged in the caller's time zone.
 - G-007 registry: 1033 fields, 0 problems.
+
+## 2026-10-24 · A3 · reference lists from the admin console
+
+Slice: `docs/slices/A3-reference-lists.md`.
+
+- `ioeti-admin`: `ReferenceLists` and `/ws/ioeti/admin/lists`.
+  - Covers lost reasons, lead sources and opportunity stages.
+  - Values in use are renamed, never deleted.
+  - Core stages are protected.
+  - Stages can be reordered, with won and lost last.
+  - Every change goes to the admin change log.
+- UI: the admin console's Lists tab, with inline add and rename, guarded delete, and drag reordering (`@dnd-kit` 6.3.1 / sortable 10.0.0, keyboard and touch, localized announcements).
+- Probe `scripts/reference_lists_probe.py` 15/15 (backend CI). The neighbouring probes still pass: daily work 44/44, admin 43/43, contract 31/31. Mocked UI tests `tests/lists.spec.ts` 2/2.
+- G-007 registry: 1042 fields, 0 problems.
