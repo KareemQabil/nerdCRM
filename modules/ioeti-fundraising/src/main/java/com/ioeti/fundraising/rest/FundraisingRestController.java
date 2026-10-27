@@ -1,5 +1,7 @@
 package com.ioeti.fundraising.rest;
 
+import com.axelor.apps.account.db.AnalyticAccount;
+import com.axelor.apps.account.db.repo.AnalyticAccountRepository;
 import com.axelor.apps.base.db.Currency;
 import com.axelor.apps.base.db.Partner;
 import com.axelor.apps.marketing.db.Campaign;
@@ -21,14 +23,17 @@ import com.ioeti.core.api.IoetiEndpoint;
 import com.ioeti.core.api.RecordAccess;
 import com.ioeti.core.web.OptimisticLockConflicts;
 import com.ioeti.fundraising.db.DonationCollection;
+import com.ioeti.fundraising.db.DonationReceipt;
 import com.ioeti.fundraising.db.DonorProfile;
 import com.ioeti.fundraising.db.DonorSensitiveProfile;
+import com.ioeti.fundraising.db.FundRestriction;
 import com.ioeti.fundraising.db.FundingCommitment;
 import com.ioeti.fundraising.db.FundingOpportunity;
 import com.ioeti.fundraising.db.GrantDeliverable;
 import com.ioeti.fundraising.db.PledgeInstallment;
 import com.ioeti.fundraising.db.StewardshipActivity;
 import com.ioeti.fundraising.db.repo.DonationCollectionRepository;
+import com.ioeti.fundraising.db.repo.DonationReceiptRepository;
 import com.ioeti.fundraising.db.repo.DonorProfileRepository;
 import com.ioeti.fundraising.db.repo.FundingOpportunityRepository;
 import com.ioeti.fundraising.db.repo.GrantDeliverableRepository;
@@ -59,8 +64,10 @@ import java.util.regex.Pattern;
 
 /**
  * Fundraising and partnerships (Wave 4E). Every list goes through the caller's read permissions;
- * restricted donor data and bank references are accepted but never returned. Commands that would
- * issue receipts, allocate restricted funds, invoice or post to accounting fail closed (D-05, D-06).
+ * restricted donor data and bank references are accepted but never returned. D-05 (signed 2026-10-25): finance (native
+ * rights on receipts and fund restrictions) issues donation receipts for recorded collections and maps restrictions to
+ * native analytic accounts; restricted collections record their analytic account. Posting collections and invoicing
+ * installments stay closed.
  */
 @Path("/ioeti/fundraising")
 @Produces(MediaType.APPLICATION_JSON)
@@ -73,6 +80,8 @@ public class FundraisingRestController {
   static final String[] DONOR_TYPES = {"INDIVIDUAL", "FOUNDATION", "CORPORATE", "GOVERNMENT", "MULTILATERAL"};
   static final String[] ACTIVITIES = {"THANK_YOU", "IMPACT_REPORT", "MEETING", "VISIT", "CALL"};
   static final String[] VOID_REASONS = {"DUPLICATE_ENTRY", "WRONG_AMOUNT", "PAYMENT_RETURNED"};
+  static final String[] RECEIPT_VOID_REASONS = {"WRONG_DONOR_DETAILS", "WRONG_AMOUNT", "COLLECTION_CORRECTED", "DUPLICATE"};
+  static final Pattern RESTRICTION_CODE = Pattern.compile("[A-Z0-9][A-Z0-9-]{1,29}");
   static final Map<String, Integer> MOVABLE = Map.of(
       "PROPOSAL", FundingOpportunityRepository.STAGE_PROPOSAL, "SUBMITTED", FundingOpportunityRepository.STAGE_SUBMITTED,
       "DECLINED", FundingOpportunityRepository.STAGE_DECLINED, "WITHDRAWN", FundingOpportunityRepository.STAGE_WITHDRAWN);
@@ -490,11 +499,56 @@ public class FundraisingRestController {
 
   @POST
   @Path("/collections/{id}/receipt")
-  @Operation(summary = "Issue a donation receipt: blocked until D-05", tags = {"IOETI fundraising"})
+  @Operation(summary = "Finance issues the donation receipt of a recorded collection (D-05): once, uniquely numbered", tags = {"IOETI fundraising"})
   @IoetiEndpoint
   public Response receipt(@PathParam("id") Long id) {
-    RecordAccess.writable(DonationCollection.class, id);
-    throw ApiException.policyBlocked("D-05");
+    new SecurityCheck().createAccess(DonationReceipt.class).check();
+    DonationCollection collection = RecordAccess.readable(DonationCollection.class, id);
+    DonationReceipt[] saved = new DonationReceipt[1];
+    write(() -> saved[0] = Beans.get(FundraisingService.class).issueReceipt(collection, LocalDate.now()));
+    return ResponseConstructor.build(Response.Status.CREATED, "Receipt issued", view(saved[0]));
+  }
+
+  @GET
+  @Path("/receipts")
+  @Operation(summary = "Donation receipts the caller may read, newest first; status ISSUED or VOIDED", tags = {"IOETI fundraising"})
+  @IoetiEndpoint
+  public Response receipts(@QueryParam("status") String status, @QueryParam("collectionId") Long collectionId) {
+    new SecurityCheck().readAccess(DonationReceipt.class).check();
+    List<String> conditions = new ArrayList<>();
+    List<Object> params = new ArrayList<>();
+    if (status != null && !status.isBlank()) {
+      conditions.add("self.statusSelect = ?");
+      params.add(select("status", status, "ISSUED", "VOIDED"));
+    }
+    if (collectionId != null) {
+      conditions.add("self.collection.id = ?");
+      params.add(collectionId);
+    }
+    Filter where = conditions.isEmpty() ? null : new JPQLFilter(String.join(" AND ", conditions), params.toArray());
+    List<ReceiptView> rows = readable(DonationReceipt.class, where).order("-id").fetch(500).stream()
+        .map(FundraisingRestController::view).toList();
+    return ResponseConstructor.build(Response.Status.OK, "Receipts", rows);
+  }
+
+  @GET
+  @Path("/receipts/{id}")
+  @Operation(summary = "One donation receipt, for printing", tags = {"IOETI fundraising"})
+  @IoetiEndpoint
+  public Response receiptRecord(@PathParam("id") Long id) {
+    return ResponseConstructor.build(Response.Status.OK, "Receipt", view(RecordAccess.readable(DonationReceipt.class, id)));
+  }
+
+  @POST
+  @Path("/receipts/{id}/void")
+  @Consumes(MediaType.APPLICATION_JSON)
+  @Operation(summary = "Void a receipt with a reason; it keeps its number and a reissue gets a new one", tags = {"IOETI fundraising"})
+  @IoetiEndpoint
+  public Response voidReceipt(@PathParam("id") Long id, VoidCollection command) {
+    DonationReceipt receipt = writable(DonationReceipt.class, id, command == null ? null : command.version());
+    int reason = select("reason", command.reason(), RECEIPT_VOID_REASONS);
+    write(() -> Beans.get(FundraisingService.class).voidReceipt(receipt, reason));
+    return ResponseConstructor.build(Response.Status.OK, "Receipt voided", view(receipt));
   }
 
   @POST
@@ -517,11 +571,141 @@ public class FundraisingRestController {
 
   @POST
   @Path("/commitments/{id}/allocate")
-  @Operation(summary = "Allocate restricted funds: blocked until D-05 and D-06", tags = {"IOETI fundraising"})
+  @Consumes(MediaType.APPLICATION_JSON)
+  @Operation(summary = "Finance allocates a restricted commitment to a restriction (its analytic account), once (D-05)", tags = {"IOETI fundraising"})
   @IoetiEndpoint
-  public Response allocate(@PathParam("id") Long id) {
-    RecordAccess.writable(FundingCommitment.class, id);
-    throw ApiException.policyBlocked("D-05 and D-06");
+  public Response allocate(@PathParam("id") Long id, Allocate command) {
+    new SecurityCheck().writeAccess(FundRestriction.class).check();
+    if (command == null || command.version() == null) throw ApiException.badRequest("Record version is required.");
+    FundingCommitment commitment = RecordAccess.readable(FundingCommitment.class, id);
+    ConflictChecker.checkVersion(commitment, command.version());
+    FundRestriction restriction = command.restrictionId() == null || command.restrictionId() <= 0 ? null
+        : JPA.find(FundRestriction.class, command.restrictionId());
+    if (restriction == null || !Beans.get(JpaSecurity.class).isPermitted(JpaSecurity.CAN_READ, FundRestriction.class, restriction.getId())) {
+      throw ApiException.invalidField("restrictionId", "UNAVAILABLE", "Choose a restriction you can see.");
+    }
+    write(() -> Beans.get(FundraisingService.class).allocate(commitment, restriction));
+    return ResponseConstructor.build(Response.Status.OK, "Commitment allocated", view(commitment));
+  }
+
+  // --- D-05: fund restrictions and their analytic accounts ------------------------------------------
+
+  @GET
+  @Path("/fund-restrictions")
+  @Operation(summary = "Donor restrictions and the analytic account each maps to", tags = {"IOETI fundraising"})
+  @IoetiEndpoint
+  public Response restrictions() {
+    new SecurityCheck().readAccess(FundRestriction.class).check();
+    List<RestrictionView> rows = readable(FundRestriction.class, null).order("code").fetch(500).stream()
+        .map(FundraisingRestController::view).toList();
+    return ResponseConstructor.build(Response.Status.OK, "Fund restrictions", rows);
+  }
+
+  @POST
+  @Path("/fund-restrictions")
+  @Consumes(MediaType.APPLICATION_JSON)
+  @Operation(summary = "Finance maps a donor restriction to an active native analytic account", tags = {"IOETI fundraising"})
+  @IoetiEndpoint
+  public Response createRestriction(SaveRestriction command) {
+    if (command == null) throw ApiException.badRequest("Restriction details are required.");
+    new SecurityCheck().createAccess(FundRestriction.class).check();
+    String code = command.code() == null ? "" : command.code().strip().toUpperCase();
+    if (!RESTRICTION_CODE.matcher(code).matches()) throw ApiException.invalidField("code", "FORMAT", "Use 2 to 30 letters, digits or dashes.");
+    if (Query.of(FundRestriction.class).filter("self.code = ?", code).count() > 0) {
+      throw ApiException.invalidField("code", "DUPLICATE", "Another restriction already uses this code.");
+    }
+    FundRestriction restriction = new FundRestriction();
+    restriction.setCode(code);
+    String name = checkedText("name", command.name(), 255, true);
+    AnalyticAccount account = analyticAccount(command.analyticAccountId(), true);
+    FundRestriction[] saved = new FundRestriction[1];
+    write(() -> saved[0] = Beans.get(FundraisingService.class).saveRestriction(restriction, name, account, true));
+    return ResponseConstructor.build(Response.Status.CREATED, "Restriction mapped", view(saved[0]));
+  }
+
+  @POST
+  @Path("/fund-restrictions/{id}")
+  @Consumes(MediaType.APPLICATION_JSON)
+  @Operation(summary = "Rename, remap (future allocations only) or deactivate a restriction", tags = {"IOETI fundraising"})
+  @IoetiEndpoint
+  public Response updateRestriction(@PathParam("id") Long id, SaveRestriction command) {
+    FundRestriction restriction = writable(FundRestriction.class, id, command == null ? null : command.version());
+    String name = checkedText("name", command.name(), 255, false);
+    AnalyticAccount account = analyticAccount(command.analyticAccountId(), false);
+    write(() -> Beans.get(FundraisingService.class).saveRestriction(restriction, name, account, command.active()));
+    return ResponseConstructor.build(Response.Status.OK, "Restriction updated", view(restriction));
+  }
+
+  @GET
+  @Path("/analytic-accounts")
+  @Operation(summary = "Active native analytic accounts the caller may read, to map restrictions to", tags = {"IOETI fundraising"})
+  @IoetiEndpoint
+  public Response analyticAccounts(@QueryParam("q") String q) {
+    new SecurityCheck().readAccess(AnalyticAccount.class).check();
+    String search = checkedText("q", q, 100, false);
+    List<String> conditions = new ArrayList<>(List.of("self.statusSelect = ?"));
+    List<Object> params = new ArrayList<>(List.of(AnalyticAccountRepository.STATUS_ACTIVE));
+    if (search != null) {
+      conditions.add("(LOWER(self.code) LIKE ? OR LOWER(self.name) LIKE ?)");
+      String like = "%" + search.toLowerCase().replace("%", "").replace("_", "") + "%";
+      params.add(like);
+      params.add(like);
+    }
+    List<AnalyticAccountView> rows = readable(AnalyticAccount.class, new JPQLFilter(String.join(" AND ", conditions), params.toArray()))
+        .order("code").fetch(200).stream().map(a -> new AnalyticAccountView(a.getId(), a.getCode(), a.getName())).toList();
+    return ResponseConstructor.build(Response.Status.OK, "Analytic accounts", rows);
+  }
+
+  @GET
+  @Path("/restricted-funds")
+  @Operation(summary = "Restricted funds per restriction and currency: committed and collected, with the analytic account; unallocated apart", tags = {"IOETI fundraising"})
+  @IoetiEndpoint
+  public Response restrictedFunds() {
+    new SecurityCheck().readAccess(FundRestriction.class).readAccess(FundingCommitment.class).readAccess(DonationCollection.class).check();
+    Map<String, BigDecimal[]> sums = new TreeMap<>();
+    Map<String, FundRestriction> byKey = new LinkedHashMap<>();
+    for (FundingCommitment c : readable(FundingCommitment.class, new JPQLFilter("self.restricted = true")).fetch(5000)) {
+      String key = key(c.getFundRestriction(), c.getOpportunity().getCurrency().getCodeISO());
+      byKey.putIfAbsent(key, c.getFundRestriction());
+      BigDecimal[] t = sums.computeIfAbsent(key, k -> new BigDecimal[] {BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO});
+      t[0] = t[0].add(c.getCommittedAmount());
+      t[2] = t[2].add(BigDecimal.ONE);
+    }
+    for (DonationCollection k : readable(DonationCollection.class, new JPQLFilter(
+        "self.statusSelect = ? AND self.installment.commitment.restricted = true", DonationCollectionRepository.STATUS_RECORDED)).fetch(20000)) {
+      // the restriction the collection was allocated to when it was recorded; unallocated ones are counted apart
+      FundRestriction r = k.getFundRestriction();
+      String key = key(r, k.getInstallment().getCommitment().getOpportunity().getCurrency().getCodeISO());
+      byKey.putIfAbsent(key, r);
+      BigDecimal[] t = sums.computeIfAbsent(key, x -> new BigDecimal[] {BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO});
+      t[1] = t[1].add(k.getAmount());
+    }
+    List<RestrictedFundView> rows = new ArrayList<>();
+    sums.forEach((key, t) -> {
+      FundRestriction r = byKey.get(key);
+      AnalyticAccount a = r == null ? null : r.getAnalyticAccount();
+      rows.add(new RestrictedFundView(r == null ? null : r.getId(), r == null ? null : r.getCode(), r == null ? null : r.getName(),
+          a == null ? null : a.getCode(), a == null ? null : a.getName(), key.substring(key.lastIndexOf('|') + 1), t[0], t[1],
+          t[2].longValue(), r != null));
+    });
+    return ResponseConstructor.build(Response.Status.OK, "Restricted funds", rows);
+  }
+
+  private static String key(FundRestriction r, String currency) {
+    return (r == null ? "~UNALLOCATED" : r.getCode()) + "|" + currency;
+  }
+
+  /** An analytic account the caller may read and that is active (native status). */
+  private static AnalyticAccount analyticAccount(Long id, boolean required) {
+    if (id == null && !required) return null;
+    AnalyticAccount account = id == null || id <= 0 ? null : JPA.find(AnalyticAccount.class, id);
+    if (account == null || !Beans.get(JpaSecurity.class).isPermitted(JpaSecurity.CAN_READ, AnalyticAccount.class, account.getId())) {
+      throw ApiException.invalidField("analyticAccountId", "UNAVAILABLE", "Choose an analytic account you can see.");
+    }
+    if (!Integer.valueOf(AnalyticAccountRepository.STATUS_ACTIVE).equals(account.getStatusSelect())) {
+      throw ApiException.invalidField("analyticAccountId", "INACTIVE", "Choose an active analytic account.");
+    }
+    return account;
   }
 
   // --- deliverables --------------------------------------------------------------------------------
@@ -738,11 +922,17 @@ public class FundraisingRestController {
     BigDecimal collected = FundraisingService.collected(c);
     long pending = Query.of(GrantDeliverable.class).filter("self.commitment = ?1 AND self.statusSelect < ?2", c,
         GrantDeliverableRepository.STATUS_ACCEPTED).count();
+    JpaSecurity security = Beans.get(JpaSecurity.class);
+    FundRestriction r = c.getFundRestriction();
+    boolean restricted = Boolean.TRUE.equals(c.getRestricted());
     return new CommitmentView(c.getId(), c.getVersion(), o.getId(), o.getReference(), o.getTitle(), donorName(o.getDonor()),
         o.getCurrency().getCodeISO(), c.getCommittedAmount(), scheduled, collected, c.getCommittedAmount().subtract(collected),
-        c.getCommittedAmount().subtract(scheduled), Boolean.TRUE.equals(c.getRestricted()), c.getRestrictionPurpose(),
-        c.getAgreementReference(), c.getApprovedOn(), c.getPeriodEnd(), pending, "BLOCKED_BY_POLICY", "BLOCKED_BY_POLICY",
-        managedByMe(o.getDonor()));
+        c.getCommittedAmount().subtract(scheduled), restricted, c.getRestrictionPurpose(),
+        c.getAgreementReference(), c.getApprovedOn(), c.getPeriodEnd(), pending,
+        !restricted ? "NOT_RESTRICTED" : r == null ? "PENDING_ALLOCATION" : "ALLOCATED",
+        r == null ? null : r.getId(), r == null ? null : r.getCode(), r == null ? null : r.getName(), analyticLabel(r == null ? null : r.getAnalyticAccount()),
+        "NOT_POSTED", restricted && r == null && security.isPermitted(JpaSecurity.CAN_WRITE, FundRestriction.class),
+        security.isPermitted(JpaSecurity.CAN_CREATE, DonationReceipt.class), managedByMe(o.getDonor()));
   }
 
   static InstallmentView view(PledgeInstallment i) {
@@ -752,9 +942,41 @@ public class FundraisingRestController {
   }
 
   static CollectionView view(DonationCollection k) {
-    return new CollectionView(k.getId(), k.getVersion(), k.getAmount(), k.getReceivedOn(),
-        k.getStatusSelect() == DonationCollectionRepository.STATUS_VOIDED ? "VOIDED" : "RECORDED",
-        name(k.getVoidReasonSelect(), VOID_REASONS), userName(k.getCreatedBy()), "BLOCKED_BY_POLICY");
+    JpaSecurity security = Beans.get(JpaSecurity.class);
+    boolean voided = k.getStatusSelect() == DonationCollectionRepository.STATUS_VOIDED;
+    DonationReceipt receipt = FundraisingService.receiptInForce(k);
+    boolean receiptReadable = receipt != null && security.isPermitted(JpaSecurity.CAN_READ, DonationReceipt.class, receipt.getId());
+    boolean restricted = Boolean.TRUE.equals(k.getInstallment().getCommitment().getRestricted());
+    return new CollectionView(k.getId(), k.getVersion(), k.getAmount(), k.getReceivedOn(), voided ? "VOIDED" : "RECORDED",
+        name(k.getVoidReasonSelect(), VOID_REASONS), userName(k.getCreatedBy()),
+        receipt != null ? "ISSUED" : voided ? "NOT_ALLOWED" : "NOT_ISSUED", receiptReadable ? receipt.getId() : null,
+        receiptReadable ? receipt.getNumber() : null, FundraisingService.voidedReceipts(k),
+        !voided && receipt == null && security.isPermitted(JpaSecurity.CAN_CREATE, DonationReceipt.class),
+        !restricted ? "NOT_RESTRICTED" : k.getFundRestriction() == null ? "PENDING_ALLOCATION" : "ALLOCATED",
+        analyticLabel(k.getAnalyticAccount()));
+  }
+
+  static String analyticLabel(AnalyticAccount a) {
+    return a == null ? null : a.getCode() + " - " + a.getName();
+  }
+
+  static ReceiptView view(DonationReceipt r) {
+    DonationCollection k = r.getCollection();
+    FundingCommitment c = k.getInstallment().getCommitment();
+    FundingOpportunity o = c.getOpportunity();
+    return new ReceiptView(r.getId(), r.getVersion(), r.getNumber(),
+        r.getStatusSelect() == DonationReceiptRepository.STATUS_VOIDED ? "VOIDED" : "ISSUED", k.getId(), o.getId(), o.getReference(),
+        o.getTitle(), r.getDonorName(), r.getAmount(), r.getCurrency().getCodeISO(), r.getReceivedOn(), r.getIssuedOn(),
+        userName(r.getIssuedBy()), Boolean.TRUE.equals(c.getRestricted()) ? c.getRestrictionPurpose() : null,
+        name(r.getVoidReasonSelect(), RECEIPT_VOID_REASONS), r.getVoidedAt(), r.getReplaces() == null ? null : r.getReplaces().getNumber(),
+        r.getStatusSelect() == DonationReceiptRepository.STATUS_ISSUED
+            && Beans.get(JpaSecurity.class).isPermitted(JpaSecurity.CAN_WRITE, DonationReceipt.class, r.getId()));
+  }
+
+  static RestrictionView view(FundRestriction r) {
+    AnalyticAccount a = r.getAnalyticAccount();
+    return new RestrictionView(r.getId(), r.getVersion(), r.getCode(), r.getName(), a.getId(), a.getCode(), a.getName(),
+        Boolean.TRUE.equals(r.getActive()));
   }
 
   static DeliverableView view(GrantDeliverable d) {
@@ -794,15 +1016,33 @@ public class FundraisingRestController {
       Long id, Integer version, Long opportunityId, String reference, String title, String donorName, String currency,
       BigDecimal committed, BigDecimal scheduled, BigDecimal collected, BigDecimal outstanding, BigDecimal unscheduled,
       boolean restricted, String restrictionPurpose, String agreementReference, LocalDate approvedOn, LocalDate periodEnd,
-      long pendingDeliverables, String receiptStatus, String accountingStatus, boolean managedByMe) {}
+      long pendingDeliverables, String allocationStatus, Long fundRestrictionId, String fundRestrictionCode,
+      String fundRestrictionName, String analyticAccount, String accountingStatus, boolean canAllocate, boolean canIssueReceipts,
+      boolean managedByMe) {}
   public record InstallmentView(
       Long id, Integer version, Integer sequence, LocalDate dueDate, BigDecimal amount, BigDecimal collected, String status) {}
   public record InstallmentStatusView(
       Long id, Long commitmentId, String reference, String donorName, Integer sequence, LocalDate dueDate, BigDecimal amount,
       BigDecimal collected, String currency, String status) {}
+  /** receiptStatus: ISSUED, NOT_ISSUED or NOT_ALLOWED (voided); allocationStatus: NOT_RESTRICTED, ALLOCATED or PENDING_ALLOCATION. */
   public record CollectionView(
       Long id, Integer version, BigDecimal amount, LocalDate receivedOn, String status, String voidReason, String recordedBy,
-      String receiptStatus) {}
+      String receiptStatus, Long receiptId, String receiptNumber, long voidedReceipts, boolean canIssueReceipt,
+      String allocationStatus, String analyticAccount) {}
+  public record ReceiptView(
+      Long id, Integer version, String number, String status, Long collectionId, Long opportunityId, String reference,
+      String title, String donorName, BigDecimal amount, String currency, LocalDate receivedOn, LocalDate issuedOn,
+      String issuedBy, String restrictedTo, String voidReason, LocalDateTime voidedAt, String replacesNumber, boolean canVoid) {}
+  public record Allocate(Integer version, Long restrictionId) {}
+  public record SaveRestriction(Integer version, String code, String name, Long analyticAccountId, Boolean active) {}
+  public record RestrictionView(
+      Long id, Integer version, String code, String name, Long analyticAccountId, String analyticAccountCode,
+      String analyticAccountName, boolean active) {}
+  public record AnalyticAccountView(Long id, String code, String name) {}
+  /** One restriction (null id: restricted funding not yet allocated) in one currency; spending is not tracked here. */
+  public record RestrictedFundView(
+      Long restrictionId, String code, String name, String analyticAccountCode, String analyticAccountName, String currency,
+      BigDecimal committed, BigDecimal collected, long commitments, boolean allocated) {}
   public record DeliverableView(Long id, Integer version, String title, LocalDate dueDate, String status, LocalDate submittedOn) {}
   public record DonorTimelineEvent(LocalDateTime at, String kind, String label, String actorName) {}
   public record OverviewView(

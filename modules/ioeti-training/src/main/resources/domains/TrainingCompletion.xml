@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<domain-models xmlns="http://axelor.com/xml/ns/domain-models"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://axelor.com/xml/ns/domain-models https://axelor.com/xml/ns/domain-models/domain-models_8.2.xsd">
+
+  <module name="ioeti" package="com.ioeti.training.db"/>
+
+  <!-- D-03 (signed 2026-10-25): certificates the coordinator issues to trainees who meet the course's criteria
+       (policy training.certificate). The wording facts are kept as issued: the trainee's and the course's names. -->
+  <entity name="TrainingCertificate" table="ioeti_training_certificate">
+    <string name="serial" title="Serial" required="true" unique="true" max="40"/>
+    <many-to-one name="enrollment" ref="TrainingEnrollment" title="Enrollment" required="true"/>
+    <date name="issueDate" title="Issue date" required="true"/>
+    <string name="traineeName" title="Trainee name" required="true"/>
+    <string name="courseTitle" title="Course title" required="true"/>
+    <string name="courseTitleAr" title="Arabic course title"/>
+    <decimal name="attendancePercent" title="Attendance %" precision="5" scale="2" required="true"/>
+    <decimal name="score" title="Assessment score" precision="5" scale="2" nullable="true"/>
+    <many-to-one name="policyVersion" ref="com.ioeti.core.db.PolicyVersion" title="Criteria policy version" required="true"/>
+    <many-to-one name="issuedBy" ref="com.axelor.auth.db.User" title="Issued by"/>
+    <integer name="statusSelect" title="Status" required="true" default="1"/>
+    <date name="revokedOn" title="Revoked on"/>
+    <many-to-one name="revokedBy" ref="com.axelor.auth.db.User" title="Revoked by"/>
+    <!-- free text about a person: stored, never returned by the API (G-007 RESTRICTED) -->
+    <string name="revokeReason" title="Reason for revoking" max="500"/>
+
+    <extra-code><![CDATA[
+      public static final int STATUS_ISSUED = 1;
+      public static final int STATUS_REVOKED = 2;
+    ]]></extra-code>
+  </entity>
+
+  <!-- D-03: a trainee's national ID, asked per course (policy training.national-id). A separate entity with its own
+       model permissions (AGENTS.md invariant 3): the API only ever says whether it was provided. -->
+  <entity name="TrainingNationalId" table="ioeti_training_national_id">
+    <many-to-one name="enrollment" ref="TrainingEnrollment" title="Enrollment" required="true"/>
+    <string name="idNumber" title="National ID" required="true" max="20"/>
+    <many-to-one name="recordedBy" ref="com.axelor.auth.db.User" title="Recorded by"/>
+    <datetime name="recordedAt" title="Recorded at" required="true"/>
+
+    <unique-constraint columns="enrollment"/>
+  </entity>
+
+  <!-- D-03 / D-06: the enrolment's fee on an issued customer invoice, linked by finance. One invoice may cover several
+       enrolments (a sponsoring client's group), each with its share including tax. -->
+  <entity name="TrainingFee" table="ioeti_training_fee">
+    <many-to-one name="enrollment" ref="TrainingEnrollment" title="Enrollment" required="true"/>
+    <many-to-one name="invoice" ref="com.axelor.apps.account.db.Invoice" title="Invoice" required="true"/>
+    <decimal name="amount" title="Amount including tax" precision="20" scale="2" required="true"/>
+    <many-to-one name="linkedBy" ref="com.axelor.auth.db.User" title="Linked by"/>
+    <datetime name="linkedAt" title="Linked at" required="true"/>
+
+    <unique-constraint columns="enrollment"/>
+  </entity>
+
+  <!-- D-03: a refund computed from the cancellation policy, decided by finance; money is refunded only through a credit
+       note issued in accounting (D-06), which the refund records. -->
+  <entity name="TrainingRefund" table="ioeti_training_refund">
+    <many-to-one name="enrollment" ref="TrainingEnrollment" title="Enrollment" required="true"/>
+    <many-to-one name="invoice" ref="com.axelor.apps.account.db.Invoice" title="Invoice" required="true"/>
+    <integer name="causeSelect" title="Cause" required="true"/>
+    <decimal name="paidAmount" title="Paid for the enrolment" precision="20" scale="2" required="true"/>
+    <integer name="daysBeforeStart" title="Days before the start" nullable="true"/>
+    <decimal name="refundPercent" title="Refund %" precision="5" scale="2" required="true"/>
+    <decimal name="amount" title="Refund" precision="20" scale="2" required="true"/>
+    <decimal name="creditPercent" title="Share of the invoice to credit" precision="5" scale="2" required="true"/>
+    <many-to-one name="policyVersion" ref="com.ioeti.core.db.PolicyVersion" title="Cancellation policy version" required="true"/>
+    <integer name="statusSelect" title="Status" required="true" default="1"/>
+    <many-to-one name="requestedBy" ref="com.axelor.auth.db.User" title="Requested by"/>
+    <datetime name="requestedAt" title="Requested at" required="true"/>
+    <many-to-one name="decidedBy" ref="com.axelor.auth.db.User" title="Decided by"/>
+    <datetime name="decidedAt" title="Decided at"/>
+    <string name="rejectReason" title="Reason for rejecting" max="500"/>
+    <many-to-one name="creditNote" ref="com.axelor.apps.account.db.Invoice" title="Credit note"/>
+    <decimal name="creditedAmount" title="Credited including tax" precision="20" scale="2" nullable="true"/>
+
+    <unique-constraint columns="enrollment"/>
+    <unique-constraint columns="creditNote"/>
+
+    <extra-code><![CDATA[
+      public static final int CAUSE_ENROLMENT_CANCELLED = 1;
+      public static final int CAUSE_COHORT_CANCELLED = 2;
+      public static final int STATUS_REQUESTED = 1;
+      public static final int STATUS_CREDITED = 2;
+      public static final int STATUS_REJECTED = 3;
+    ]]></extra-code>
+  </entity>
+
+</domain-models>

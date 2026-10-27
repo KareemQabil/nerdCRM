@@ -1,7 +1,10 @@
 import { ApiError, wrapped } from "./api";
 import { DEMO_MODE } from "./demo";
 
-/** Wave 4E: fundraising and partnerships (ioeti-fundraising). Sensitive donor data and bank references are write-only. */
+/**
+ * Wave 4E: fundraising and partnerships (ioeti-fundraising). Sensitive donor data and bank references are write-only.
+ * M1 (D-05): finance issues donation receipts on recorded collections and maps restrictions to analytic accounts.
+ */
 export type Money = string | number;
 export type DonorType = "INDIVIDUAL" | "FOUNDATION" | "CORPORATE" | "GOVERNMENT" | "MULTILATERAL";
 export type Donor = {
@@ -21,8 +24,11 @@ export type Commitment = {
   id: number; version: number; opportunityId: number; reference: string; title: string; donorName: string | null; currency: string;
   committed: Money; scheduled: Money; collected: Money; outstanding: Money; unscheduled: Money; restricted: boolean;
   restrictionPurpose: string | null; agreementReference: string | null; approvedOn: string; periodEnd: string | null;
-  pendingDeliverables: number; receiptStatus: string; accountingStatus: string; managedByMe: boolean;
+  pendingDeliverables: number; accountingStatus: string; managedByMe: boolean;
+  allocationStatus?: AllocationStatus; fundRestrictionId?: number | null; fundRestrictionCode?: string | null; fundRestrictionName?: string | null;
+  analyticAccount?: string | null; canAllocate?: boolean; canIssueReceipts?: boolean;
 };
+export type AllocationStatus = "NOT_RESTRICTED" | "ALLOCATED" | "PENDING_ALLOCATION";
 export type CollectionState = "DUE" | "PARTIAL" | "OVERDUE" | "COLLECTED" | "CANCELLED";
 export type Installment = { id: number; version: number; sequence: number; dueDate: string; amount: Money; collected: Money; status: CollectionState };
 export type InstallmentStatus = {
@@ -31,7 +37,24 @@ export type InstallmentStatus = {
 };
 export type CollectionRecord = {
   id: number; version: number; amount: Money; receivedOn: string; status: "RECORDED" | "VOIDED"; voidReason: string | null;
-  recordedBy: string | null; receiptStatus: string;
+  recordedBy: string | null; receiptStatus: "ISSUED" | "NOT_ISSUED" | "NOT_ALLOWED" | string;
+  receiptId?: number | null; receiptNumber?: string | null; voidedReceipts?: number; canIssueReceipt?: boolean;
+  allocationStatus?: AllocationStatus; analyticAccount?: string | null;
+};
+export type ReceiptVoidReason = "WRONG_DONOR_DETAILS" | "WRONG_AMOUNT" | "COLLECTION_CORRECTED" | "DUPLICATE";
+export type Receipt = {
+  id: number; version: number; number: string; status: "ISSUED" | "VOIDED"; collectionId: number; opportunityId: number; reference: string;
+  title: string; donorName: string | null; amount: Money; currency: string; receivedOn: string; issuedOn: string; issuedBy: string | null;
+  restrictedTo: string | null; voidReason: ReceiptVoidReason | null; voidedAt: string | null; replacesNumber: string | null; canVoid: boolean;
+};
+export type Restriction = {
+  id: number; version: number; code: string; name: string; analyticAccountId: number; analyticAccountCode: string;
+  analyticAccountName: string; active: boolean;
+};
+export type AnalyticAccountOption = { id: number; code: string; name: string };
+export type RestrictedFund = {
+  restrictionId: number | null; code: string | null; name: string | null; analyticAccountCode: string | null; analyticAccountName: string | null;
+  currency: string; committed: Money; collected: Money; commitments: number; allocated: boolean;
 };
 export type Deliverable = { id: number; version: number; title: string; dueDate: string; status: "PENDING" | "SUBMITTED" | "ACCEPTED"; submittedOn: string | null };
 export type TimelineEvent = { at: string; kind: string; label: string | null; actorName: string | null };
@@ -98,3 +121,16 @@ export const addDeliverable = (commitmentId: number, version: number, title: str
   send<Deliverable>("POST", `/commitments/${id(commitmentId)}/deliverables`, { version, title, dueDate });
 export const advanceDeliverable = (deliverableId: number, version: number, stage: "SUBMITTED" | "ACCEPTED") =>
   send<Deliverable>("POST", `/deliverables/${id(deliverableId)}/status`, { version, stage });
+export const issueReceipt = (collectionId: number) => send<Receipt>("POST", `/collections/${id(collectionId)}/receipt`);
+export const getReceipt = (receiptId: number) => wrapped<Receipt>(`${BASE}/receipts/${id(receiptId)}`);
+export const getReceipts = (filters: { status?: "ISSUED" | "VOIDED"; collectionId?: number } = {}) => list<Receipt>("/receipts" + query(filters));
+export const voidReceipt = (receiptId: number, version: number, reason: ReceiptVoidReason) =>
+  send<Receipt>("POST", `/receipts/${id(receiptId)}/void`, { version, reason });
+export const getRestrictions = () => list<Restriction>("/fund-restrictions");
+export const createRestriction = (body: { code: string; name: string; analyticAccountId: number }) => send<Restriction>("POST", "/fund-restrictions", body);
+export const updateRestriction = (restrictionId: number, version: number, body: { name?: string; analyticAccountId?: number; active?: boolean }) =>
+  send<Restriction>("POST", `/fund-restrictions/${id(restrictionId)}`, { version, ...body });
+export const getAnalyticAccounts = (q?: string) => list<AnalyticAccountOption>("/analytic-accounts" + query({ q }));
+export const getRestrictedFunds = () => list<RestrictedFund>("/restricted-funds");
+export const allocateCommitment = (commitmentId: number, version: number, restrictionId: number) =>
+  send<Commitment>("POST", `/commitments/${id(commitmentId)}/allocate`, { version, restrictionId });

@@ -1,7 +1,10 @@
 import { ApiError, wrapped } from "./api";
 import { DEMO_MODE } from "./demo";
 
-/** Wave 4D: recruitment for external clients (ioeti-recruitment). Restricted candidate data is write-only. */
+/**
+ * Wave 4D: recruitment for external clients (ioeti-recruitment). Restricted candidate data and the offered salary are
+ * write-only. M1 (D-04): placement fees, the guarantee and early exits follow the client agreement policy.
+ */
 export type JobOrderStatus = "OPEN" | "ON_HOLD" | "FILLED" | "CLOSED";
 export type JobOrder = {
   id: number; version: number; reference: string; clientId: number | null; clientName: string | null; title: string;
@@ -21,12 +24,29 @@ export type Stage = "SOURCED" | "SCREENED" | "SHORTLISTED" | "SUBMITTED" | "INTE
 export type Application = {
   id: number; version: number; jobOrderId: number; candidateId: number; candidateName: string; candidateHeadline: string | null;
   stage: Stage; submittedAt: string | null; offerDate: string | null; offerStatus: "PENDING" | "ACCEPTED" | "DECLINED" | null;
-  consentOnFile: boolean;
+  consentOnFile: boolean; offerTermsOnFile: boolean;
 };
 export type Interview = { id: number; version: number; round: number; scheduledAt: string; outcome: "PENDING" | "PASSED" | "FAILED" | "NO_SHOW" };
+/** Fee status: REQUESTED / CANCELLED / ISSUED once asked of finance; otherwise what it waits for. */
+export type FeeStatus = "REQUESTED" | "CANCELLED" | "ISSUED" | "POLICY_NOT_SET" | "NOT_DUE" | "OFFER_TERMS_MISSING" | "WAIVED_REPLACEMENT";
+export type GuaranteeStatus = "TERMS_PENDING" | "NOT_STARTED" | "ACTIVE" | "CLOSED" | "EARLY_EXIT" | "EXITED_AFTER";
+export type ReplacementRule = "REPLACE" | "PARTIAL_REFUND" | "NONE";
+export type ExitReason = "RESIGNED" | "DISMISSED" | "OTHER";
+export type ExitOutcome = "REPLACEMENT_OPENED" | "REFUND_REQUESTED" | "NO_REMEDY" | "OUTSIDE_GUARANTEE" | "NO_FEE_TO_REFUND";
 export type PlacementRecord = {
-  id: number; version: number; applicationId: number; candidateName: string; startDate: string; guaranteeStatus: string;
-  feeMilestones: ("OFFER_ACCEPTED" | "CANDIDATE_STARTED")[]; invoicingStatus: string;
+  id: number; version: number; applicationId: number; jobOrderId?: number; jobOrderReference?: string; clientName?: string | null;
+  candidateName: string; startDate: string; startedOn?: string | null; guaranteeStatus: GuaranteeStatus | string;
+  feeMilestones: ("OFFER_ACCEPTED" | "CANDIDATE_STARTED")[]; invoicingStatus: FeeStatus | string;
+  feeAmount?: string | number | null; feeCurrency?: string | null; feePercent?: string | number | null; invoiceOn?: "START_DATE" | "OFFER_ACCEPTED" | null;
+  feeRequestedAt?: string | null; guaranteeDays?: number | null; guaranteeEndsOn?: string | null; guaranteeDaysLeft?: number | null;
+  replacementRule?: ReplacementRule | null; refundPercent?: string | number | null; exitedOn?: string | null; exitReason?: ExitReason | null;
+  exitOutcome?: ExitOutcome | null; refundStatus?: string | null; refundAmount?: string | number | null; replacementOfId?: number | null;
+  feeWaived?: boolean; offerTermsOnFile?: boolean; canEdit?: boolean;
+};
+export type FeeRequest = {
+  id: number; version: number; kind: "FEE_INVOICE" | "REFUND_CREDIT"; status: "REQUESTED" | "CANCELLED" | "ISSUED"; placementId: number;
+  jobOrderReference: string; clientId: number | null; clientName: string | null; candidateName: string; amount: string | number;
+  currency: string; ratePercent: string | number; requestedBy: string | null; requestedAt: string; refundOfId: number | null;
 };
 
 const BASE = "/ws/ioeti/recruitment";
@@ -75,8 +95,11 @@ export const scheduleInterview = (appId: number, version: number, round: number,
   send<Interview>("POST", `/applications/${id(appId)}/interviews`, { version, round, scheduledAt });
 export const recordOutcome = (interviewId: number, version: number, outcome: "PASSED" | "FAILED" | "NO_SHOW") =>
   send<Interview>("POST", `/interviews/${id(interviewId)}/outcome`, { version, outcome });
-export const recordOffer = (appId: number, version: number, offerDate: string) =>
-  send<Application>("POST", `/applications/${id(appId)}/offer`, { version, offerDate });
+export const recordOffer = (appId: number, version: number, offerDate: string, terms?: { annualSalary: string; currencyCode: string }) =>
+  send<Application>("POST", `/applications/${id(appId)}/offer`, { version, offerDate, ...(terms ?? {}) });
+/** The offered annual salary is write-only: the server uses it for the fee and never returns it. */
+export const saveOfferTerms = (appId: number, version: number, annualSalary: string, currencyCode: string) =>
+  send<Application>("PUT", `/applications/${id(appId)}/offer-terms`, { version, annualSalary, currencyCode });
 export const answerOffer = (appId: number, version: number, accepted: boolean) =>
   send<Application>("POST", `/applications/${id(appId)}/offer-answer`, { version, accepted });
 export const confirmPlacement = (appId: number, version: number, startDate: string) =>
@@ -84,3 +107,8 @@ export const confirmPlacement = (appId: number, version: number, startDate: stri
 export const getPlacements = (orderId: number) => list<PlacementRecord>(`/job-orders/${id(orderId)}/placements`);
 export const recordStart = (placementId: number, startedOn: string) =>
   send<PlacementRecord>("POST", `/placements/${id(placementId)}/started`, { startedOn });
+export const getPlacement = (placementId: number) => wrapped<PlacementRecord>(`${BASE}/placements/${id(placementId)}`);
+export const requestFee = (placementId: number) => send<PlacementRecord>("POST", `/placements/${id(placementId)}/invoice`);
+export const recordExit = (placementId: number, version: number, exitedOn: string, reason: ExitReason) =>
+  send<PlacementRecord>("POST", `/placements/${id(placementId)}/early-exit`, { version, exitedOn, reason });
+export const getFeeRequests = (state?: "OPEN" | "ALL") => list<FeeRequest>("/fee-requests" + query({ state }));

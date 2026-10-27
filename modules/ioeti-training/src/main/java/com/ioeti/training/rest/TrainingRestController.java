@@ -26,6 +26,9 @@ import com.ioeti.training.db.TrainingEnrollment;
 import com.ioeti.training.db.repo.TrainingAttendanceRepository;
 import com.ioeti.training.db.repo.TrainingCohortRepository;
 import com.ioeti.training.db.repo.TrainingEnrollmentRepository;
+import com.ioeti.training.db.TrainingNationalId;
+import com.ioeti.training.service.CompletionService;
+import com.ioeti.training.service.RefundService;
 import com.ioeti.training.service.TrainingService;
 import io.swagger.v3.oas.annotations.Operation;
 import jakarta.ws.rs.Consumes;
@@ -49,8 +52,9 @@ import java.util.regex.Pattern;
  * partners as trainees, sessions and attendance. Every record goes through native permissions and
  * record filters; unknown and unreadable ids answer the same 404.
  *
- * <p>Fail closed until policy D-03 is signed: certificates, refunds and cohort cancellation (which
- * implies refund and rescheduling rules). National IDs are not modelled at all.
+ * <p>D-03 (signed 2026-10-25): a national ID is taken at enrolment where the course's policy asks for it (input only,
+ * kept in its own restricted entity); cancelling a paid enrolment or a cohort requests the refund the cancellation
+ * policy gives ({@link RefundService}). Certificates, assessments and refunds have their own controllers.
  */
 @Path("/ioeti/training")
 @Produces(MediaType.APPLICATION_JSON)
@@ -198,11 +202,16 @@ public class TrainingRestController {
 
   @POST
   @Path("/cohorts/{id}/cancel")
-  @Operation(summary = "Cancel a cohort: blocked until the cancellation and refund policy (D-03)", tags = {"IOETI training"})
+  @Consumes(MediaType.APPLICATION_JSON)
+  @Operation(summary = "Cancel a cohort: every trainee is cancelled and each paid enrolment gets the refund the cancellation policy gives (D-03)",
+      tags = {"IOETI training"})
   @IoetiEndpoint
-  public Response cancelCohort(@PathParam("id") Long id) {
-    RecordAccess.writable(TrainingCohort.class, id);
-    throw ApiException.policyBlocked("D-03");
+  public Response cancelCohort(@PathParam("id") Long id, VersionOnly command) {
+    TrainingCohort cohort = writable(TrainingCohort.class, id, command == null ? null : command.version());
+    new SecurityCheck().writeAccess(TrainingEnrollment.class).check();
+    LocalDate today = CompletionService.today();
+    write(() -> Beans.get(RefundService.class).cancelCohort(cohort, today));
+    return ResponseConstructor.build(Response.Status.OK, "Cohort cancelled", view(cohort));
   }
 
   // --- enrolments ----------------------------------------------------------------------------------
@@ -231,29 +240,25 @@ public class TrainingRestController {
     new SecurityCheck().createAccess(TrainingEnrollment.class).check();
     Partner trainee = readablePartner("traineeId", command.traineeId());
     Partner client = command.clientId() == null ? null : readablePartner("clientId", command.clientId());
+    // D-03: the course's rule says whether the national ID is refused, optional or required
+    String nationalId = Beans.get(CompletionService.class).checkedIdentity(cohort.getCourse(), command.nationalId(), CompletionService.today());
+    if (nationalId != null) new SecurityCheck().createAccess(TrainingNationalId.class).check();
     TrainingEnrollment[] saved = new TrainingEnrollment[1];
-    write(() -> saved[0] = Beans.get(TrainingService.class).enroll(cohort, trainee, client));
+    write(() -> saved[0] = Beans.get(TrainingService.class).enroll(cohort, trainee, client, nationalId));
     return ResponseConstructor.build(Response.Status.CREATED, "Enrolled", view(saved[0]));
   }
 
   @POST
   @Path("/enrollments/{id}/cancel")
   @Consumes(MediaType.APPLICATION_JSON)
-  @Operation(summary = "Cancel an enrolment; the first waitlisted trainee takes a freed seat", tags = {"IOETI training"})
+  @Operation(summary = "Cancel an enrolment; the first waitlisted trainee takes a freed seat, and a paid enrolment's refund is requested (D-03)",
+      tags = {"IOETI training"})
   @IoetiEndpoint
   public Response cancelEnrollment(@PathParam("id") Long id, VersionOnly command) {
     TrainingEnrollment enrollment = writable(TrainingEnrollment.class, id, command == null ? null : command.version());
-    write(() -> Beans.get(TrainingService.class).cancel(enrollment));
+    LocalDate today = CompletionService.today();
+    write(() -> Beans.get(RefundService.class).cancelEnrollment(enrollment, today));
     return ResponseConstructor.build(Response.Status.OK, "Enrolment cancelled", view(enrollment));
-  }
-
-  @POST
-  @Path("/enrollments/{id}/certificate")
-  @Operation(summary = "Issue a certificate: blocked until the training policy (D-03)", tags = {"IOETI training"})
-  @IoetiEndpoint
-  public Response certificate(@PathParam("id") Long id) {
-    RecordAccess.writable(TrainingEnrollment.class, id);
-    throw ApiException.policyBlocked("D-03");
   }
 
   // --- sessions and attendance ---------------------------------------------------------------------
@@ -337,13 +342,13 @@ public class TrainingRestController {
 
   // --- helpers -------------------------------------------------------------------------------------
 
-  private static <T extends Model> Query<T> readable(Class<T> type, Filter condition) {
+  static <T extends Model> Query<T> readable(Class<T> type, Filter condition) {
     Filter security = Beans.get(JpaSecurity.class).getFilter(JpaSecurity.CAN_READ, type);
     Filter combined = security == null ? condition : condition == null ? security : Filter.and(security, condition);
     return combined == null ? Query.of(type) : combined.build(type);
   }
 
-  private static <T extends AuditableModel> T writable(Class<T> type, Long id, Integer version) {
+  static <T extends AuditableModel> T writable(Class<T> type, Long id, Integer version) {
     if (version == null) throw ApiException.badRequest("Record version is required.");
     T record = RecordAccess.writable(type, id);
     ConflictChecker.checkVersion(record, version);
@@ -360,7 +365,7 @@ public class TrainingRestController {
   }
 
   /** Commits now; a concurrent commit on the same rows answers 409. */
-  private static void write(Runnable command) {
+  static void write(Runnable command) {
     OptimisticLockConflicts.translate(command::run);
   }
 
@@ -410,7 +415,7 @@ public class TrainingRestController {
     return new CohortView(cohort.getId(), cohort.getVersion(), cohort.getCode(),
         course == null ? null : course.getId(), course == null ? null : course.getName(),
         cohort.getStartDate(), cohort.getEndDate(), cohort.getCapacity(), cohort.getMinSeats(),
-        cohort.getLocation(), status(cohort.getStatusSelect(), "PLANNED", "OPEN", "CLOSED"),
+        cohort.getLocation(), status(cohort.getStatusSelect(), "PLANNED", "OPEN", "CLOSED", "CANCELLED"),
         confirmed, active.size() - confirmed, Math.max(0, cohort.getCapacity() - confirmed),
         cohort.getCoordinator() != null && cohort.getCoordinator().equals(AuthUtils.getUser()));
   }
@@ -426,7 +431,9 @@ public class TrainingRestController {
         status(enrollment.getStatusSelect(), "CONFIRMED", "WAITLISTED", "CANCELLED"),
         // Axelor stores integers as 0 by default: a position only means something on the waitlist
         Integer.valueOf(TrainingEnrollmentRepository.STATUS_WAITLISTED).equals(enrollment.getStatusSelect())
-            ? enrollment.getWaitlistPosition() : null);
+            ? enrollment.getWaitlistPosition() : null,
+        // D-03: whether a national ID is on file, never the number
+        CompletionService.identityProvided(enrollment));
   }
 
   static SessionView view(CohortSession session) {
@@ -444,7 +451,8 @@ public class TrainingRestController {
   public record CreateCohort(
       Long courseId, String code, String startDate, String endDate, Integer capacity, Integer minSeats,
       String location) {}
-  public record Enroll(Integer version, Long traineeId, Long clientId) {}
+  /** nationalId is input only (G-007 RESTRICTED): stored apart from the enrolment and never returned. */
+  public record Enroll(Integer version, Long traineeId, Long clientId, String nationalId) {}
   public record CreateSession(Integer version, String title, String startsAt, Integer durationMinutes) {}
   public record RecordAttendance(Integer version, Long enrollmentId, String status) {}
   public record CourseView(
@@ -455,7 +463,7 @@ public class TrainingRestController {
       long waitlisted, long seatsLeft, boolean coordinatedByMe) {}
   public record EnrollmentView(
       Long id, Integer version, Long traineeId, String traineeName, String clientName, String status,
-      Integer waitlistPosition) {}
+      Integer waitlistPosition, boolean identityProvided) {}
   public record SessionView(Long id, Integer version, String title, LocalDateTime startsAt, Integer durationMinutes) {}
   public record AttendanceView(Long id, Long enrollmentId, String status) {}
 }

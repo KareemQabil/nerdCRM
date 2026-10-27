@@ -31,6 +31,7 @@ public class Numbering {
   public static final String[][] KINDS = {
     {"partner", "Accounts"}, {"opportunity", "Opportunities"}, {"saleOrder", "Quotations"}, {"customerContract", "Contracts"},
     {"project", "Engagements"}, {"intervention", "Field visits"}, {"qualityImprovement", "Quality improvements"},
+    {"ioetiTrainingCertificate", "Training certificates"},
   };
   /**
    * Record types whose native numbering is looked up for the record's company only (no shared fallback):

@@ -1,15 +1,16 @@
 import { ApiError, wrapped } from "./api";
 import { DEMO_MODE } from "./demo";
 
-/** Wave 4b/4C: client ISO certification (ioeti-certification). Decisions and certificates wait for D-02. */
-export type CyclePhase = "STAGE1_PENDING" | "STAGE2_PENDING" | "FINDINGS_OPEN" | "READY_FOR_DECISION";
+/** Wave 4b/4C + M1 (D-02): client ISO certification (ioeti-certification): programme, decision, certificate. */
+export type CyclePhase = "STAGE1_PENDING" | "STAGE2_PENDING" | "FINDINGS_OPEN" | "READY_FOR_DECISION" | "CERTIFIED";
 export type DecisionBlocker = "STAGE1_NOT_COMPLETED" | "STAGE2_NOT_COMPLETED" | "OPEN_MAJOR_NONCONFORMITIES" | "POLICY_D02";
 export type CertificationCycle = {
   id: number; version: number; reference: string; clientId: number | null; clientName: string | null; standardCode: string;
   scope: string | null; siteCount: number | null; openMajors: number; readyForDecision: boolean; decisionStatus: string;
   managedByMe: boolean; phase: CyclePhase; decisionBlockers: DecisionBlocker[]; managerName: string | null;
+  certificateNumber?: string | null; certificateStatus?: CertificateStatus | null;
 };
-export type AuditType = "STAGE1" | "STAGE2";
+export type AuditType = "STAGE1" | "STAGE2" | "SURVEILLANCE" | "RECERTIFICATION";
 export type CertificationAudit = {
   id: number; version: number; type: AuditType; plannedDate: string; auditorId: number; auditorName: string;
   status: "PLANNED" | "COMPLETED" | "CANCELLED"; completedOn: string | null;
@@ -26,7 +27,34 @@ export type Qualification = {
 export type Person = { id: number; name: string };
 export type TimelineEvent = {
   at: string | null; label: string; actorName: string | null;
-  kind: "CYCLE_OPENED" | "AUDIT_PLANNED" | "AUDIT_COMPLETED" | "AUDIT_CANCELLED" | "NC_RAISED" | "NC_RESPONDED" | "NC_CLOSED";
+  kind: "CYCLE_OPENED" | "AUDIT_PLANNED" | "AUDIT_COMPLETED" | "AUDIT_CANCELLED" | "NC_RAISED" | "NC_RESPONDED" | "NC_CLOSED"
+    | "DECISION_VOTE" | "DECISION_GRANT" | "DECISION_REFUSE" | "CERTIFICATE_ISSUED" | "CERTIFICATE_SUSPENDED"
+    | "CERTIFICATE_RESTORED" | "CERTIFICATE_WITHDRAWN";
+};
+
+/** D-02: the cycle's decision, as the server computes it (mode, who may decide, votes, certificate). */
+export type DecisionStatus = "BLOCKED_BY_POLICY" | "NOT_READY" | "AWAITING_DECISION" | "GRANTED" | "REFUSED";
+export type DecisionMode = "INDEPENDENT_REVIEWER" | "COMMITTEE";
+export type Vote = "GRANT" | "REFUSE";
+export type CertificateStatus = "ACTIVE" | "SUSPENDED" | "WITHDRAWN" | "EXPIRED";
+export type CertificateAction = "suspend" | "restore" | "withdraw";
+export type DecisionVote = { voterId: number; voterName: string; vote: Vote | null; reason: string | null; castAt: string | null };
+export type DecisionRound = {
+  id: number; mode: DecisionMode; requiredVotes: number; status: "OPEN" | "DECIDED"; outcome: Vote | null; decidedAt: string | null;
+  votesCast: number; grantVotes: number | null; refuseVotes: number | null; votes: DecisionVote[];
+};
+export type IsoCertificate = {
+  id: number; version: number; number: string; standardCode: string; issuedOn: string; expiresOn: string; status: CertificateStatus;
+  surveillanceMonths: number; surveillance: { index: number; dueOn: string; done: boolean; overdue: boolean }[]; recertificationDueBy: string;
+  events: { action: "ISSUED" | "SUSPENDED" | "RESTORED" | "WITHDRAWN"; reason: string | null; actorName: string | null; at: string | null }[];
+};
+export type DecisionPanel = {
+  cycleId: number; cycleVersion: number; status: DecisionStatus; missingPolicies: ("cert.decision" | "cert.cycle")[];
+  mode: DecisionMode | null; requiredVotes: number | null; validityMonths: number | null; surveillanceMonths: number | null;
+  blockers: DecisionBlocker[]; canVote: boolean; canGrant: boolean;
+  cannotDecideReason: "NO_DECISION_RIGHT" | "AUDITED_CLIENT" | "ALREADY_VOTED" | null;
+  eligibleDeciders: Person[]; nobodyReason: "NO_ROLE_HOLDERS" | "ALL_AUDITED_CLIENT" | "NOT_ENOUGH_ELIGIBLE" | null;
+  openRound: DecisionRound | null; pastRounds: DecisionRound[]; certificate: IsoCertificate | null; canManageCertificate: boolean;
 };
 export type CycleFilters = { q?: string; standardCode?: string; phase?: CyclePhase | ""; mine?: boolean; limit?: number; offset?: number };
 
@@ -75,3 +103,8 @@ export const getQualifications = () => list<Qualification>("/qualifications");
 export const getAuditorCandidates = () => list<Person>("/qualifications/candidates");
 export const createQualification = (body: { auditorId: number; standardCode: string; validFrom: string; validUntil: string; evidenceReference?: string }) =>
   post<Qualification>("/qualifications", body);
+export const getDecision = (cycleId: number) => wrapped<DecisionPanel>(`${BASE}/cycles/${id(cycleId)}/decision`);
+export const recordDecision = (cycleId: number, version: number, vote: Vote, reason: string) =>
+  post<DecisionPanel>(`/cycles/${id(cycleId)}/decision`, { version, vote, reason });
+export const changeCertificate = (cycleId: number, action: CertificateAction, version: number, reason: string) =>
+  post<DecisionPanel>(`/cycles/${id(cycleId)}/certificate/${action}`, { version, reason });

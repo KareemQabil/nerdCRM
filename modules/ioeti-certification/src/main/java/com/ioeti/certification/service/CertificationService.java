@@ -4,6 +4,7 @@ import com.axelor.auth.db.User;
 import com.axelor.db.JPA;
 import com.axelor.db.Model;
 import com.axelor.db.Query;
+import com.axelor.inject.Beans;
 import com.google.inject.persist.Transactional;
 import com.ioeti.businessline.db.BusinessLine;
 import com.ioeti.certification.db.AuditorQualification;
@@ -20,15 +21,17 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 /**
- * Audit programme rules for client certification (Stage 1 and Stage 2 only).
+ * Audit programme rules for client certification.
  *
  * <ul>
  *   <li>The lead auditor must hold a qualification for the cycle's standard, valid on the planned date.
  *   <li>One active (not cancelled) audit of each stage per cycle; Stage 2 is completed only after Stage 1.
  *   <li>Nonconformities go open → responded (client correction and corrective action) → closed.
  *   <li>A cycle is ready for the certification decision once Stage 2 is completed and no major
- *       nonconformity is open. The decision itself, certificates, surveillance intervals and
- *       impartiality rules are policy D-02 and fail closed in the API.
+ *       nonconformity is open. The decision, certificates and surveillance follow policy D-02 (see
+ *       {@link CertificationDecisionService}) and fail closed while the scheme's policies are not set.
+ *   <li>Surveillance audits (one planned at a time) and the recertification audit (one per cycle)
+ *       follow a certificate in force.
  * </ul>
  *
  * <p>Changes to a cycle's audits lock the cycle row, and changes to an audit's nonconformities lock
@@ -60,7 +63,9 @@ public class CertificationService {
       throw ApiException.invalidField(
           "auditorId", "NOT_QUALIFIED", "Choose an auditor qualified for this standard on the planned date.");
     }
-    if (active(cycle).stream().anyMatch(a -> a.getTypeSelect() == type)) {
+    if (active(cycle).stream().anyMatch(a -> a.getTypeSelect() == type && (type != CertificationAuditRepository.TYPE_SURVEILLANCE
+        || a.getStatusSelect() == CertificationAuditRepository.STATUS_PLANNED))) {
+      // Stage 1, Stage 2 and recertification: one active per cycle; surveillance: one planned at a time
       throw new ApiException(409, "STAGE_EXISTS", "This stage is already planned for the cycle.", null);
     }
     CertificationAudit audit = new CertificationAudit();
@@ -83,7 +88,11 @@ public class CertificationService {
     }
     audit.setStatusSelect(CertificationAuditRepository.STATUS_COMPLETED);
     audit.setCompletedOn(completedOn);
-    return JPA.save(audit);
+    CertificationAudit saved = JPA.save(audit);
+    if (audit.getTypeSelect() == CertificationAuditRepository.TYPE_STAGE2) {
+      Beans.get(CertificationDecisionService.class).announceReady(cycle, CertificationDecisionService.today());
+    }
+    return saved;
   }
 
   @Transactional(rollbackOn = {Exception.class})
@@ -128,7 +137,12 @@ public class CertificationService {
     }
     nc.setStatusSelect(NonconformityRepository.STATUS_CLOSED);
     nc.setClosedAt(LocalDateTime.now());
-    return JPA.save(nc);
+    Nonconformity saved = JPA.save(nc);
+    if (nc.getGradeSelect() == NonconformityRepository.GRADE_MAJOR) {
+      JPA.flush();
+      Beans.get(CertificationDecisionService.class).announceReady(nc.getAudit().getCycle(), CertificationDecisionService.today());
+    }
+    return saved;
   }
 
   public static List<CertificationAudit> active(CertificationCycle cycle) {
@@ -145,14 +159,18 @@ public class CertificationService {
         .bind("closed", NonconformityRepository.STATUS_CLOSED).count();
   }
 
-  /** Stage 1 and Stage 2 completed and no open major nonconformity; the decision itself is D-02. */
+  /** Stage 1 and Stage 2 completed and no open major nonconformity (the audit side; the D-02 policies are separate). */
   public static boolean readyForDecision(CertificationCycle cycle) {
-    return decisionBlockers(cycle).equals(List.of(BLOCKER_POLICY));
+    return auditBlockers(cycle).isEmpty();
   }
 
-  /** Where the cycle stands in the Stage 1 → Stage 2 → findings → decision sequence. */
+  /** Where the cycle stands in the Stage 1 → Stage 2 → findings → decision → certificate sequence. */
   public static String phase(CertificationCycle cycle) {
-    List<String> blockers = decisionBlockers(cycle);
+    return phase(CertificationDecisionService.certificate(cycle), auditBlockers(cycle));
+  }
+
+  public static String phase(com.ioeti.certification.db.ClientCertificate certificate, List<String> blockers) {
+    if (certificate != null) return "CERTIFIED";
     if (blockers.contains(BLOCKER_STAGE1)) return "STAGE1_PENDING";
     if (blockers.contains(BLOCKER_STAGE2)) return "STAGE2_PENDING";
     if (blockers.contains(BLOCKER_MAJORS)) return "FINDINGS_OPEN";
@@ -162,13 +180,11 @@ public class CertificationService {
   public static final String BLOCKER_STAGE1 = "STAGE1_NOT_COMPLETED";
   public static final String BLOCKER_STAGE2 = "STAGE2_NOT_COMPLETED";
   public static final String BLOCKER_MAJORS = "OPEN_MAJOR_NONCONFORMITIES";
+  /** The scheme's D-02 policies (cert.decision, cert.cycle) are not both in force today. */
   public static final String BLOCKER_POLICY = "POLICY_D02";
 
-  /**
-   * Everything that stands between the cycle and a certification decision, in order. The policy
-   * blocker is always last and always present until D-02 is signed.
-   */
-  public static List<String> decisionBlockers(CertificationCycle cycle) {
+  /** What the audit programme still lacks before a GRANT: Stage 1, Stage 2, open majors (in that order). */
+  public static List<String> auditBlockers(CertificationCycle cycle) {
     List<CertificationAudit> audits = active(cycle);
     List<String> blockers = new java.util.ArrayList<>();
     if (audits.stream().noneMatch(a -> a.getTypeSelect() == CertificationAuditRepository.TYPE_STAGE1
@@ -180,7 +196,18 @@ public class CertificationService {
       blockers.add(BLOCKER_STAGE2);
     }
     if (openMajors(cycle) > 0) blockers.add(BLOCKER_MAJORS);
-    blockers.add(BLOCKER_POLICY);
+    return blockers;
+  }
+
+  /**
+   * Everything that stands between the cycle and a GRANT, in order: the audit blockers, then POLICY_D02 while the
+   * scheme's cert.decision or cert.cycle policy is not in force today.
+   */
+  public static List<String> decisionBlockers(CertificationCycle cycle) {
+    List<String> blockers = auditBlockers(cycle);
+    if (!Beans.get(CertificationDecisionService.class).missingPolicies(cycle, CertificationDecisionService.today()).isEmpty()) {
+      blockers.add(BLOCKER_POLICY);
+    }
     return blockers;
   }
 
