@@ -2,7 +2,7 @@ import { ApiError, wrapped } from "./api";
 import { DEMO_MODE } from "./demo";
 
 /** Wave 7a: documents filed on records (immutable revisions) and the bilingual knowledge base. */
-export type Subject = "LEAD" | "OPPORTUNITY" | "ACCOUNT" | "QUOTE" | "CONTRACT" | "ENGAGEMENT";
+export type Subject = "LEAD" | "OPPORTUNITY" | "ACCOUNT" | "QUOTE" | "CONTRACT" | "ENGAGEMENT" | "VISIT";
 export type DocumentKind = "PROPOSAL" | "CONTRACT" | "EVIDENCE" | "REPORT" | "CORRESPONDENCE" | "OTHER";
 export type DocumentLanguage = "AR" | "EN" | "BILINGUAL";
 export type Revision = {

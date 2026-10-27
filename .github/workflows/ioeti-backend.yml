@@ -142,6 +142,9 @@ jobs:
           # Field visits on the native intervention: numbering set by an administrator (none ships), planning
           # in the caller's time zone, native start/pause/finish rules, the visit log, the field person's agenda
           python3 scripts/visit_probe.py
+          # Visit checklists on the native intervention survey: questions from the visit type's ranges, answers on
+          # site only, conditional questions, photo/signature checked as images, the native finish refusing gaps
+          python3 scripts/visit_checklist_probe.py
           # Quality issues and corrective actions on the native quality improvement: the company's own set-up
           # (none shipped, fail closed), company numbering, plan, actions with progress, effectiveness, closing
           python3 scripts/quality_probe.py
@@ -202,6 +205,7 @@ jobs:
             logs/catalog-probe.json
             logs/campaign-probe.json
             logs/visit-probe.json
+            logs/visit-checklist-probe.json
             logs/quality-probe.json
             logs/finance-probe.json
           if-no-files-found: ignore

@@ -741,3 +741,30 @@ Slice: `docs/slices/A9-finance-invoicing-queue.md`.
 - Probe `scripts/finance_probe.py` 7/7 (backend CI). Orders are confirmed by SQL in the disposable database as a test-only stand-in, as in the workspace probe.
 - Mocked UI tests `tests/finance.spec.ts` 2/2 (mocked suite 90 + 2 live skipped, demo 27).
 - G-007 registry: 1288 fields, 0 problems.
+
+## 2026-10-24 · A10 · visit checklists, photos and signature
+
+Slice: `docs/slices/A10-visit-checklists.md`.
+
+- `ioeti-operations`: `VisitChecklistService` on the native intervention survey.
+  - Questions come from the visit type's native ranges. The native generator runs when a visit is created or planned, or on "prepare".
+  - Answers are saved through the native repository, which keeps "answered" and conditional questions up to date.
+  - Answers are given only while the visit is under way or paused. Only active, answerable items take answers, and every answer carries the item's version.
+- `VisitRestController`: `GET /visits/{id}/checklist`, `POST …/checklist/prepare`, `POST …/checklist/{questionId}` and `POST|GET …/checklist/{questionId}/file`.
+  - Photos and signatures pass the content check and must be PNG or JPEG.
+  - They are served back with nosniff, no-store and a sandboxing CSP.
+  - The native finish refuses unanswered required items (422 `CHECKLIST_INCOMPLETE`).
+- `ioeti-content`: the document subject `VISIT` (appended; subjects are stored by position).
+- UI: the checklist section on the visit page, with:
+  - list chips with non-conforming values marked;
+  - text, date, measure with its unit, and checkbox answers;
+  - a photo from the camera;
+  - a signature pad;
+  - a note on why the visit cannot finish yet;
+  - visit documents.
+
+  The system map marks checklists as working. Maps, routes and anything sent to the customer stay with D-10.
+- Checklist templates are set up in the native Axelor screens (answer types, questions, ranges, visit types). None are shipped.
+- Probe `scripts/visit_checklist_probe.py` 10/10 (backend CI).
+- Mocked UI tests `tests/visit-checklist.spec.ts` 2/2, with real pointer strokes on the signature pad (mocked suite 92 + 2 live skipped, demo 27). `tests/visits.spec.ts` now matches the visit log's "إضافة" exactly, since the page also has "إضافة مستند".
+- G-007 registry: 1331 fields, 0 problems.

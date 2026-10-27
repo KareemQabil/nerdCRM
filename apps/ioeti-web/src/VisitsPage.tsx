@@ -10,6 +10,8 @@ import {
   type Option, type Visit, type VisitCommand, type VisitNote,
 } from "./visitApi";
 import type { Language } from "./preferences";
+import { VisitChecklist } from "./VisitChecklist";
+import { DocumentsPanel } from "./DocumentsPanel";
 import "./daily.css";
 import "./visits.css";
 
@@ -22,6 +24,7 @@ const L = {
     actions: { start: "ابدأ الزيارة", resume: "كمّل الزيارة", suspend: "إيقاف مؤقت", finish: "إنهاء الزيارة", cancel: "إلغاء الزيارة", plan: "خطط / غيّر الموعد" },
     back: "الرجوع للزيارات", account: "العميل", when: "الموعد", who: "المسؤول", type: "النوع", purpose: "الغرض", spent: "الوقت في الموقع", none: "—",
     log: "سجل الزيارة", logHint: "اللي اتشاف، اللي اتفق عليه، واللي محتاج متابعة. السجل بيتضاف ومش بيتعدل.", write: "اكتب ملاحظة…", addNote: "إضافة", noNotes: "لسه مفيش ملاحظات.",
+    finishBlocked: (n: number) => n === 1 ? "فاضل سؤال مطلوب في قائمة التحقق قبل إنهاء الزيارة." : `فاضل ${n} أسئلة مطلوبة في قائمة التحقق قبل إنهاء الزيارة.`,
     you: "أنت", confirmCancel: "إلغاء الزيارة؟", confirmCancelText: "الزيارة هتتلغي وهيتشال الموعد والمسؤول. مفيش رسالة هتتبعت للعميل.", keep: "رجوع",
     newTitle: "زيارة جديدة", planTitle: "خطط الزيارة", accountLabel: "الحساب", accountSearch: "اكتب اسم الحساب…", purposeLabel: "الغرض من الزيارة",
     typeLabel: "نوع الزيارة", noType: "بدون نوع", person: "مين رايح", choose: "اختر…", start: "البداية", end: "النهاية (اختياري)", later: "حدد الموعد بعدين",
@@ -39,6 +42,7 @@ const L = {
     actions: { start: "Start visit", resume: "Resume visit", suspend: "Pause", finish: "Finish visit", cancel: "Cancel visit", plan: "Plan / reschedule" },
     back: "Back to visits", account: "Customer", when: "When", who: "Assigned to", type: "Type", purpose: "Purpose", spent: "Time on site", none: "—",
     log: "Visit log", logHint: "What was seen, what was agreed, what needs follow-up. The log is added to, never edited.", write: "Write a note…", addNote: "Add", noNotes: "No notes yet.",
+    finishBlocked: (n: number) => n === 1 ? "One required checklist question is left before the visit can finish." : `${n} required checklist questions are left before the visit can finish.`,
     you: "you", confirmCancel: "Cancel this visit?", confirmCancelText: "The visit is cancelled and its time and assignee are cleared. Nothing is sent to the customer.", keep: "Back",
     newTitle: "New visit", planTitle: "Plan the visit", accountLabel: "Account", accountSearch: "Type the account name…", purposeLabel: "Purpose of the visit",
     typeLabel: "Visit type", noType: "No type", person: "Who goes", choose: "Choose…", start: "Start", end: "End (optional)", later: "Set the time later",
@@ -130,6 +134,7 @@ function VisitRecord({ id, language }: { id: number; language: Language }) {
   const [busy, setBusy] = useState(false);
   const [text, setText] = useState("");
   const [dialog, setDialog] = useState<"plan" | "cancel" | null>(null);
+  const [requiredOpen, setRequiredOpen] = useState(0);
   const load = useCallback(() => getVisit(id).then(setData).catch(e => setError(problem(e, l))), [id, l]);
   useEffect(() => { void load(); }, [load]);
   const Back = ar ? ArrowRight : ArrowLeft;
@@ -170,12 +175,15 @@ function VisitRecord({ id, language }: { id: number; language: Language }) {
         </dl>
         {actions.length > 0 && <div className="visit-actions">
           {actions.includes("start") && <button type="button" className="btn btn-primary visit-big" disabled={busy} onClick={() => void act("start")}><Play size={18}/>{v.status === "SUSPENDED" ? l.actions.resume : l.actions.start}</button>}
-          {actions.includes("finish") && <button type="button" className="btn btn-primary visit-big is-finish" disabled={busy} onClick={() => void act("finish")}><CheckCircle2 size={18}/>{l.actions.finish}</button>}
+          {actions.includes("finish") && <button type="button" className="btn btn-primary visit-big is-finish" disabled={busy} onClick={() => void act("finish")}
+            aria-describedby={requiredOpen ? "visit-finish-blocked" : undefined}><CheckCircle2 size={18}/>{l.actions.finish}</button>}
           {actions.includes("suspend") && <button type="button" className="btn btn-secondary visit-big" disabled={busy} onClick={() => void act("suspend")}><Pause size={18}/>{l.actions.suspend}</button>}
           {actions.includes("plan") && <button type="button" className="btn btn-secondary" disabled={busy} onClick={() => setDialog("plan")}><CalendarClock size={16}/>{l.actions.plan}</button>}
           {actions.includes("cancel") && <button type="button" className="btn btn-secondary visit-cancel" disabled={busy} onClick={() => setDialog("cancel")}><XCircle size={16}/>{l.actions.cancel}</button>}
         </div>}
       </header>
+      {actions.includes("finish") && requiredOpen > 0 && <p id="visit-finish-blocked" className="daily-note visit-finish-blocked"><CircleAlert size={14}/>{l.finishBlocked(requiredOpen)}</p>}
+      <VisitChecklist visit={v} language={language} onChanged={c => setRequiredOpen(c.generated ? c.requiredOpen : 0)}/>
       <section className="record-content-card visit-log" aria-labelledby="visit-log-title">
         <h2 id="visit-log-title">{l.log}</h2><p className="daily-note">{l.logHint}</p>
         {v.status !== "CANCELLED" && <form className="visit-note-form" onSubmit={e => void note(e)}>
@@ -185,6 +193,7 @@ function VisitRecord({ id, language }: { id: number; language: Language }) {
         {data.log.length === 0 ? <p className="activity-empty">{l.noNotes}</p> :
           <ol className="visit-notes">{data.log.map(n => <li key={n.id}><p>{n.text}</p><small>{when(n.at)} · {n.mine ? l.you : n.authorName}</small></li>)}</ol>}
       </section>
+      <section className="record-content-card"><DocumentsPanel subject="VISIT" subjectId={v.id} language={language}/></section>
       {dialog === "plan" && <PlanDialog l={l} visit={v} onClose={() => setDialog(null)} onSaved={saved => { setDialog(null); setData(d => d ? { ...d, visit: saved } : d); }}/>}
       {dialog === "cancel" && <Dialog title={l.confirmCancel} description={l.confirmCancelText} kicker={v.accountName ?? ""} busy={busy} onClose={() => setDialog(null)}
         footer={<><button type="button" className="btn btn-secondary" disabled={busy} onClick={() => setDialog(null)}>{l.keep}</button>

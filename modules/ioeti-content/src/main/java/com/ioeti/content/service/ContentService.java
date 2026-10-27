@@ -4,6 +4,7 @@ import com.axelor.apps.base.db.Partner;
 import com.axelor.apps.contract.db.Contract;
 import com.axelor.apps.crm.db.Lead;
 import com.axelor.apps.crm.db.Opportunity;
+import com.axelor.apps.intervention.db.Intervention;
 import com.axelor.apps.project.db.Project;
 import com.axelor.apps.sale.db.SaleOrder;
 import com.axelor.auth.AuthUtils;
@@ -73,9 +74,10 @@ public class ContentService {
       "pptx", "application/vnd.openxmlformats-officedocument.presentationml.presentation",
       "png", "image/png", "jpg", "image/jpeg", "jpeg", "image/jpeg", "txt", "text/plain");
 
-  public static final String[] SUBJECTS = {"LEAD", "OPPORTUNITY", "ACCOUNT", "QUOTE", "CONTRACT", "ENGAGEMENT"};
+  /** Stored by position (subjectSelect = index + 1): new subjects are only ever appended. */
+  public static final String[] SUBJECTS = {"LEAD", "OPPORTUNITY", "ACCOUNT", "QUOTE", "CONTRACT", "ENGAGEMENT", "VISIT"};
   static final List<Class<? extends Model>> SUBJECT_TYPES =
-      List.of(Lead.class, Opportunity.class, Partner.class, SaleOrder.class, Contract.class, Project.class);
+      List.of(Lead.class, Opportunity.class, Partner.class, SaleOrder.class, Contract.class, Project.class, Intervention.class);
 
   public record Upload(String fileName, String extension, String contentType, byte[] bytes, String sha256) {}
 
