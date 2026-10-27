@@ -1,6 +1,7 @@
 import { useSyncExternalStore } from "react";
 import { ArrowLeft, ArrowRight, BarChart3, BriefcaseBusiness, CalendarClock, CheckCircle2, ChevronLeft, ChevronRight, GitBranch, ShieldAlert, Sparkles } from "lucide-react";
 import type { Language } from "./preferences";
+import { DemoGuidedJourneys } from "./DemoGuidedJourneys";
 import { DEMO_AREAS, demoBusinessStore, demoConfigs, type DemoArea } from "./demoBusiness";
 
 /** Summary of fictional in-memory scenarios only, not live revenue or activity. */
@@ -25,6 +26,7 @@ export default function DemoExecutiveOverview({language,onOpen}:{language:Langua
       <p>{rtl?"نظرة تشغيلية مترابطة بين الموديولات، بأرقام خيالية للتجربة فقط. لا توجد بيانات أو عمليات إنتاج حقيقية.":"Connected operating context with simulated data only. No real operations or production metrics."}</p></div>
       <span className="demo-isolation-chip"><ShieldAlert size={15}/>{rtl?"بيانات عامة خيالية":"Fictional public data"}</span>
    </div>
+   <DemoGuidedJourneys language={language} onOpen={onOpen}/>
    <div className="demo-exec-metrics">
      {[
        {icon:BriefcaseBusiness,v:rows.length,label:rtl?"ملفات تجريبية":"Fictional records"},

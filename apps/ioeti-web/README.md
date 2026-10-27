@@ -124,3 +124,15 @@ schedule jobs, publish templates or export customer data.
 Each operating demo register includes a theme-aware **List / Pipeline board** switch with stage grouping and shared search. Click a card to open the complete record workspace. Stages are *not* draggable and do not make backend writes; any transition remains a clearly labeled, confirmed in-memory simulation. Press `/` while on the register to focus search. Record detail tabs support Home/End and RTL-aware arrow keys. The Back-to-register control stays within the current module when arriving from a cross-domain relation.
 
 Production connectors must add authorized, versioned stage-command DTOs and negative-permission checks before enabling equivalent functionality for live customer data. `npm run test:demo` covers these interactions; it does not replace backend security validation.
+
+## Guided preview journeys (Vercel demo)
+
+The public fictional demo homepage now includes four bilingual, end-to-end walkthroughs:
+hotel ISO quote → contract → operations project → visit → certification → evidence;
+corporate training quote → contract → project → cohort → milestone;
+client recruitment quote → job order → milestone; and
+fundraising campaign → grant → collection report.
+
+Each step links to an **existing seeded fictional record** through the existing full-page route and uses current in-memory stage labels. The tours are visible only in `VITE_IOETI_DEMO=true`; they never trigger a real Axelor request, grant a permission, or represent an approved business workflow. The hero and global Sidebar are unchanged. Keyboard, English LTR, Arabic RTL and mobile are covered in `tests/demo.spec.ts`.
+
+Vercel previews are **UI demonstrations**, not authenticated staging or production. Real IOETI employees must use a separate private HTTPS Axelor staging deployment after server-side security and owner acceptance.
