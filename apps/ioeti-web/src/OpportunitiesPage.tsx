@@ -8,6 +8,9 @@ import { type Language } from "./preferences";
 import { OpportunityRecordWorkspace } from "./OpportunityRecordWorkspace";
 import { ErrorBanner, PageHeader } from "./ui";
 import { problem } from "./dailyApi";
+import { DataTable, tableLabels } from "./DataTable";
+import { amount, day, quantity } from "./format";
+import { stageLabel } from "./labels";
 
 type Labels = Record<string, string>;
 type Props = { language: Language; lines: BusinessLine[]; labels: Labels };
@@ -37,6 +40,7 @@ export function OpportunitiesPage({ language, labels }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
   const previousFocus = useRef<HTMLElement | null>(null);
   const isRTL = language === "ar";
+  const line = (item: Opportunity) => (isRTL ? item.businessLineNameAr : item.businessLineNameEn) || item.businessLineCode;
   const arrow = isRTL ? <ArrowLeft size={17} /> : <ArrowRight size={17}/>;
 
   const reload = useCallback(async () => {
@@ -215,16 +219,25 @@ export function OpportunitiesPage({ language, labels }: Props) {
     <ErrorBanner message={error} onRetry={() => void reload()} retryLabel={labels.retry}/>
     <div className="data-panel">
       <div className="data-panel-heading"><strong>{labels.opportunities}</strong><span>{visible.length} {labels.result}</span></div>
-      {loading ? <div className="empty-state" role="status">{labels.loading}</div> : visible.length === 0 ? <div className="empty-state">{labels.emptyOpportunities}</div> : <div className="table-scroll">
-        <table><thead><tr><th>{labels.opportunityName}</th><th>{labels.businessLines}</th><th>{labels.stage}</th><th>{labels.reference}</th><th>{labels.actions}</th></tr></thead>
-          <tbody>{visible.map(item => <tr key={item.id}>
-            <td><button type="button" className="record-name-link" onClick={event => void openRecord(item.id,event.currentTarget)}>{item.name}{arrow}</button></td>
-            <td>{isRTL ? item.businessLineNameAr || item.businessLineCode || labels.none : item.businessLineNameEn || item.businessLineCode || labels.none}</td>
-            <td>{item.stage || labels.none}</td><td><code dir="ltr">{item.reference || "—"}</code></td>
-            <td><div className="opportunity-row-actions"><button type="button" className="text-action" onClick={e => void openRecord(item.id,e.currentTarget)}>{labels.details}{arrow}</button><button type="button" className="text-action" onClick={e => openRename(e.currentTarget,item)}>{labels.editOpportunity}</button></div></td>
-          </tr>)}</tbody>
-        </table>
-      </div>}
+      {loading ? <div className="empty-state" role="status">{labels.loading}</div> : visible.length === 0 ? <div className="empty-state">{labels.emptyOpportunities}</div>
+        : <DataTable id="opportunities" caption={labels.opportunities} rows={visible} rowKey={item => item.id} labels={tableLabels(isRTL)}
+          onOpen={(item, from) => void openRecord(item.id, from.querySelector<HTMLButtonElement>(".record-name-link") ?? undefined)} columns={[
+          { key: "name", header: labels.opportunityName, sortValue: item => item.name,
+            cell: item => <button type="button" className="record-name-link" onClick={event => void openRecord(item.id,event.currentTarget)}>{item.name}{arrow}</button> },
+          { key: "line", header: labels.businessLines, sortValue: line,
+            cell: item => line(item) || labels.none },
+          { key: "stage", header: labels.stage, sortValue: item => item.stage ? stageLabel(item.stage, language) : null,
+            cell: item => item.stage ? <span className={"stage-chip kind-" + (item.stageKind ?? "OPEN").toLowerCase()}>{stageLabel(item.stage, language)}</span> : labels.none },
+          { key: "amount", header: isRTL ? "القيمة المتوقعة" : "Expected value", numeric: true, optional: true,
+            sortValue: item => Number(item.amount) > 0 ? Number(item.amount) : null, cell: item => Number(item.amount) > 0 ? amount(item.amount, item.currencyCode, true) : "—" },
+          { key: "probability", header: isRTL ? "الاحتمال" : "Probability", numeric: true, optional: true,
+            sortValue: item => Number(item.probability) > 0 ? Number(item.probability) : null, cell: item => Number(item.probability) > 0 ? quantity(item.probability) + "%" : "—" },
+          { key: "close", header: isRTL ? "الإغلاق المتوقع" : "Expected close", optional: true,
+            sortValue: item => item.expectedCloseDate ?? null, cell: item => day(item.expectedCloseDate, isRTL) },
+          { key: "reference", header: labels.reference, optional: true, sortValue: item => item.reference, cell: item => <code dir="ltr">{item.reference || "—"}</code> },
+          { key: "actions", header: labels.actions,
+            cell: item => <div className="opportunity-row-actions"><button type="button" className="text-action" onClick={e => void openRecord(item.id,e.currentTarget)}>{labels.details}{arrow}</button><button type="button" className="text-action" onClick={e => openRename(e.currentTarget,item)}>{labels.editOpportunity}</button></div> },
+        ]}/>}
     </div>
     {more && <div className="load-more"><button type="button" className="btn btn-secondary" disabled={loadingMore} onClick={() => void loadMore()}>{loadingMore ? labels.loading : labels.moreRecords}</button></div>}
     <p className="scope-note"><ShieldCheck size={16}/>{labels.permissionNotice}</p>
