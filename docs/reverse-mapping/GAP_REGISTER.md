@@ -111,7 +111,7 @@ This section is appended; the rows above are unchanged. Status reflects live Axe
 | G-009 | Engineering done | Platform PR: encrypted drill 10/10 plus restore boot test | Schedule, off-site copies, custody, RPO/RTO (D-08) |
 | G-010 | Ready for reviewer | Multi-user live probes for the whole lead → contract chain; UAT script `docs/runbooks/PILOT_UAT_SCRIPT.md`; fictional dataset `scripts/pilot_readiness.py` setup/check/teardown in backend CI | Reviewer UAT sign-off (D-09) |
 | G-011 | In progress | Private disclosure draft held outside the repository | Owner action (see the decisions file) |
-| G-012 | Policy-blocked | — | D-02 |
+| G-012 | Policy-blocked; engineering gate in place | `ioeti-certification` (Wave 4b): decision and certificate fail closed; auditor competence enforced on assignment | D-02 (impartiality: separation of auditor, reviewer and decision maker; certificate rules) |
 | G-013 | Training started | `ioeti-training` (Wave 4a): courses, cohorts, capacity and waitlist, enrolment, sessions, attendance; certificates and cohort cancellation fail closed (D-03); `scripts/training_probe.py` | Recruitment bounded context (D-04 for gated parts); training UI; invoicing of enrolments (D-06) |
 | G-014 | Partial | `.env` secrets outside git; template documents production settings | Production secret store (D-08) |
 
@@ -121,3 +121,4 @@ P1 progress (appended 2026-10-20):
 |---|---|---|---|
 | G-040 Lead lifecycle | Conversion (#18) and qualification done on native `LeadService`: open-stage moves, lose with reason and note, reopen, assign to me; `receivedAt` exposed | `scripts/lead_lifecycle_probe.py` 24/24, `docs/slices/W2-lead-qualification.md` | Response targets, escalation and routing (D-12); duplicate check, consent, campaign attribution |
 | G-029 Account 360 | Contacts and opportunities tabs (#18); quotations and contracts on the opportunity page (#19, #21–#23) | lead-conversion and quote probes | Invoices, projects and specialized domains as they are built |
+| G-050 Client ISO certification | Policy-independent part built | `ioeti-certification` (Wave 4b): cycles per client and standard, Stage 1/2 programme with qualified lead auditors, nonconformities with response and closure, "ready for decision"; `scripts/certification_probe.py` 18/18 | Decision, certificates, surveillance and recertification (D-02); multi-site sampling; link audits to native `Intervention` for field execution; UI |
