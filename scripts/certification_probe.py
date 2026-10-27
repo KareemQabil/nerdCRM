@@ -1,17 +1,31 @@
 #!/usr/bin/env python3
 """Wave 4b live probe: client certification (auditor competence, cycles, Stage 1/2 audits, nonconformities).
 
-Run against a RUNNING local/CI Axelor; never against production. Roles are TEST FIXTURES built from
-native permissions (policy D-07 defines the real ones): MgrA and MgrB manage their own cycles,
-ReadOnly reads everything, AudQ and AudU are auditors (AudU has no qualification). The client is fictional.
+Run against a RUNNING local/CI Axelor; never against production, and on a disposable database (the D-02 part appoints
+a policy owner, which only works while there is none). Roles are TEST FIXTURES built from native permissions (policy D-07
+defines the real ones): MgrA and MgrB manage their own cycles, ReadOnly reads everything, AudQ and AudU are auditors (AudU
+has no qualification), Dec1-3 hold the certification decision role (AudQ holds it too, but audited the client), Owner is
+the policy owner. The client and the two schemes (business lines CB…, CC…) are fictional.
 Checks, through /ws/ioeti/certification:
   qualification, cycle, audit and nonconformity validation refuse with field errors
   the lead auditor must be qualified for the standard on the planned date
-  one active audit per stage; Stage 2 completes only after Stage 1; surveillance → BLOCKED_BY_POLICY (D-02)
+  one active audit per stage; Stage 2 completes only after Stage 1; surveillance without the policy → POLICY_NOT_SET
   nonconformities open → responded → closed; an open major keeps the cycle from "ready for decision"
-  certification decision and certificate → 422 BLOCKED_BY_POLICY (D-02)
   another manager's cycle → the same 404 as a missing id; read-only → 403
   N concurrent Stage 1 plans on one cycle version → one 201 and one 409, exactly one audit
+D-02 (signed 2026-10-25), on fixture schemes:
+  fail closed: without cert.decision / cert.cycle for the scheme every decision → 422 POLICY_NOT_SET
+  who decides: no decision role → 403; an auditor of the client (any cycle) → 403 AUDITED_CLIENT; another manager's cycle →
+  404; stale cycle version → 409; GRANT with an open major → 422 NOT_READY
+  independent reviewer: one GRANT issues the certificate (number per scheme and year, expiry = issue + validityMonths,
+  surveillance every surveillanceMonths); a second decision → 409 ALREADY_CERTIFIED
+  committee of 3: votes hidden until the round is decided, one vote per person (409), majority decides and issues; a
+  committee of 2 that splits refuses (tie) and a new round can start
+  certificate: suspend / restore / withdraw (final) by eligible people only, with reasons, in its history
+  surveillance and recertification planning follow a certificate in force
+  public check /ws/public/ioeti/certificates/{number}: 404 while CERTIFICATE_CHECK is off (same as unknown), then only
+  number, standard, client, status and expiry; no listing
+  two decision makers granting one cycle at once → one 200, one 409, exactly one certificate
 Env: PROBE_CERT_ROUNDS (default 5). Report: logs/certification-probe.json.
 """
 import json
@@ -19,6 +33,7 @@ import os
 import secrets
 import sys
 import threading
+from datetime import date, timedelta
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from api_smoke_test import BL, ENV, ROOT, Client, axelor_password_hash, ok, rest_create  # noqa: E402
@@ -28,6 +43,12 @@ USER, GROUP, PERM = "com.axelor.auth.db.User", "com.axelor.auth.db.Group", "com.
 PARTNER = "com.axelor.apps.base.db.Partner"
 QUAL, CYCLE = "com.ioeti.certification.db.AuditorQualification", "com.ioeti.certification.db.CertificationCycle"
 AUDIT, NC = "com.ioeti.certification.db.CertificationAudit", "com.ioeti.certification.db.Nonconformity"
+DECISION, VOTE = "com.ioeti.certification.db.CertificationDecision", "com.ioeti.certification.db.CertificationVote"
+CERT, CEVENT = "com.ioeti.certification.db.ClientCertificate", "com.ioeti.certification.db.CertificateEvent"
+ROLE, VERSION = "com.axelor.auth.db.Role", "com.ioeti.core.db.PolicyVersion"
+ADMIN_AUDIT, NOTICE = "com.ioeti.admin.db.AdminAuditEvent", "com.ioeti.automation.db.InboxNotice"
+DECISION_ROLE, OWNER_ROLE = "ioeti-cert-decision-maker", "ioeti-policy-owner"
+POLICIES, PUBLIC = "/ws/ioeti/policies", "/ws/public/ioeti/certificates"
 BASE = "/ws/ioeti/certification"
 MISSING = 987654324
 ROUNDS = int(os.environ.get("PROBE_CERT_ROUNDS", "5"))
@@ -54,6 +75,14 @@ def field(body):
     return (error(body).get("fields") or [{}])[0].get("field")
 
 
+def add_months(day, months):
+    """Calendar months, clamped to the end of a shorter month (as java.time plusMonths)."""
+    import calendar
+    y, m = divmod(day.month - 1 + months, 12)
+    y, m = day.year + y, m + 1
+    return date(y, m, min(day.day, calendar.monthrange(y, m)[1]))
+
+
 def main():
     admin = admin_client()
     tag = secrets.token_hex(3).upper()
@@ -75,10 +104,13 @@ def main():
         _, body = admin.call("POST", f"/ws/rest/{model}/{rid}/fetch", {"fields": ["version"]})
         return (body.get("data") or [{}])[0].get("version")
 
+    if search(USER, f"EXISTS (SELECT r FROM Role r WHERE r.name = '{OWNER_ROLE}' AND r MEMBER OF self.roles)"):
+        raise SystemExit("this database already has policy owners; run the probe on a disposable database")
+    role_existed = bool(search(ROLE, f"self.name = '{DECISION_ROLE}'"))
     exit_code = 1
     users = {}
     try:
-        def perm(name, model, condition=None, **rights):
+        decision_role = (search(ROLE, f"self.name = '{DECISION_ROLE}'") or [None])[0] or create(ROLE, {"name": DECISION_ROLE})
             return create(PERM, {"name": f"wave4b.{name}.{tag}", "object": model, **rights,
                                  **({"condition": condition, "conditionParams": "__user__"} if condition else {})})
 
@@ -94,17 +126,18 @@ def main():
                                        "permissions": [{"id": p["id"]} for p in ro]})}
         sessions = {}
         for label, group in (("MgrA", "mgr"), ("MgrA2", None), ("MgrB", "mgr"), ("ReadOnly", "ro"),
-                             ("AudQ", "ro"), ("AudU", "ro")):
+                             ("AudQ", "ro"), ("AudU", "ro"), ("Dec1", "ro"), ("Dec2", "ro"), ("Dec3", "ro"), ("Owner", "ro")):
             if group is None:
                 sessions[label] = Client()
                 assert sessions[label].login(users["MgrA"]["code"], users["MgrA"]["_pw"]) == 200
                 continue
             password = "W4b!" + secrets.token_urlsafe(14)
+            roles = [{"id": decision_role["id"]}] if label in ("AudQ", "Dec1", "Dec2", "Dec3") else []
             users[label] = create(USER, {"code": f"wave4b.{label.lower()}.{tag}", "name": f"Wave4b {label}",
                                          "blocked": False, "language": "en", "group": {"id": groups[group]["id"]},
-                                         "password": axelor_password_hash(password)})
+                                         "roles": roles, "password": axelor_password_hash(password)})
             users[label]["_pw"] = password
-            if label in ("MgrA", "MgrB", "ReadOnly"):
+            if label in ("MgrA", "MgrB", "ReadOnly", "AudQ", "Dec1", "Dec2", "Dec3", "Owner"):
                 sessions[label] = Client()
                 assert sessions[label].login(users[label]["code"], password) == 200, label
         a, a2, b, ro_c = (sessions[k] for k in ("MgrA", "MgrA2", "MgrB", "ReadOnly"))
@@ -187,10 +220,10 @@ def main():
         s_dup, b_dup, _ = plan(a, cyc, "STAGE1", users["AudQ"]["id"])
         s_sur, b_sur, _ = plan(a, cyc, "SURVEILLANCE", users["AudQ"]["id"])
         s_bad, b_bad, _ = plan(a, cyc, "STAGE3", users["AudQ"]["id"])
-        check("second Stage 1 → 409 STAGE_EXISTS; surveillance → 422 BLOCKED_BY_POLICY (D-02); bad type → 422",
+        check("second Stage 1 → 409 STAGE_EXISTS; surveillance without the scheme's cert.cycle policy → 422 POLICY_NOT_SET; bad type → 422",
               s_dup == 409 and error(b_dup).get("code") == "STAGE_EXISTS" and s_sur == 422
-              and error(b_sur).get("code") == "BLOCKED_BY_POLICY" and "D-02" in error(b_sur).get("message", "")
-              and s_bad == 422 and field(b_bad) == "type", f"{s_dup} {s_sur} {s_bad}")
+              and error(b_sur).get("code") == "POLICY_NOT_SET" and "cert.cycle" in error(b_sur).get("message", "")
+              and s_bad == 422 and field(b_bad) == "type", f"{s_dup} {s_sur} {error(b_sur)} {s_bad}")
         s, body, stage2 = plan(a, cyc, "STAGE2", users["AudQ"]["id"], date="2026-12-01")
         s_early, b_early = call(a, "POST", f"/audits/{stage2['id']}/complete",
                                 {"version": version(AUDIT, stage2["id"]), "completedOn": "2026-12-01"})
@@ -263,11 +296,11 @@ def main():
               and all(set(p) == {"id", "name"} for p in b_dir_a.get("object") or []), f"{s_dir_ro} {s_dir_a}")
 
         # --- 5. policy, scope and states --------------------------------------------------------------
-        s_dec, b_dec = call(a, "POST", f"/cycles/{cyc['id']}/decision")
-        s_cert, b_cert = call(a, "POST", f"/cycles/{cyc['id']}/certificate")
-        check("certification decision and certificate → 422 BLOCKED_BY_POLICY (D-02)",
-              s_dec == s_cert == 422 and all(error(x).get("code") == "BLOCKED_BY_POLICY" and "D-02" in error(x).get("message", "")
-                                             for x in (b_dec, b_cert)), f"{s_dec} {s_cert}")
+        s_dec, b_dec = call(a, "POST", f"/cycles/{cyc['id']}/decision",
+                            {"version": version(CYCLE, cyc["id"]), "vote": "GRANT", "reason": "probe"})
+        s_cert, _ = call(a, "POST", f"/cycles/{cyc['id']}/certificate")
+        check("the programme manager without the decision right → 403 NO_DECISION_RIGHT; no certificate is issued on request (POST /certificate → 404/405)",
+              s_dec == 403 and error(b_dec).get("code") == "NO_DECISION_RIGHT" and s_cert in (404, 405), f"{s_dec} {error(b_dec)} {s_cert}")
         s_other, b_other = call(b, "GET", f"/cycles/{cyc['id']}")
         s_missing, b_missing = call(b, "GET", f"/cycles/{MISSING}")
         s_aud_b, _ = call(b, "GET", f"/cycles/{cyc['id']}/audits")
