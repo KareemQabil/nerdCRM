@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { WhenChips } from "./WhenChips";
 import { CalendarClock, CheckCircle2, CircleAlert, ClipboardList, NotebookPen, PhoneCall, Save, UsersRound } from "lucide-react";
 import { getActivities, localDateTime, logActivity, problem, wallClock, type Activity, type ActivityKind, type RecordType } from "./dailyApi";
 import type { Language } from "./preferences";
@@ -80,7 +81,8 @@ export function ActivityPanel({ record, recordId, version, language, onChanged }
       </div>}
       <div className="activity-fields">
         <label><span>{l.subject}</span><input value={subject} required maxLength={255} placeholder={l.placeholder[kind]} onChange={e => setSubject(e.target.value)}/></label>
-        {!note && <label><span>{l.at}</span><input type="datetime-local" value={at} required onChange={e => setAt(e.target.value)}/></label>}
+        {!note && <div className="when-field"><label><span>{l.at}</span><input type="datetime-local" value={at} required onChange={e => setAt(e.target.value)}/></label>
+          {planned && <WhenChips language={language} onPick={setAt}/>}</div>}
       </div>
       {!planned && <label className="activity-outcome"><span>{l.outcome}</span><textarea value={outcome} maxLength={4000} rows={2} onChange={e => setOutcome(e.target.value)}/>
         <small>{l.outcomeHint}</small></label>}

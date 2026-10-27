@@ -138,6 +138,11 @@ test("a rep logs a call on an account, adds a contact, and the outcome stays pri
   await panel.getByRole("button", { name: "اجتماع" }).click();
   await panel.getByRole("button", { name: "مخطط" }).click();
   await expect(panel.getByLabel("النتيجة (اختياري)")).toHaveCount(0);
+  // one-tap times: tomorrow morning is ten o'clock on a working day (never Friday or Saturday)
+  await panel.getByRole("button", { name: "بكرة الصبح" }).click();
+  const when = await panel.getByLabel("الوقت").inputValue();
+  expect(when).toMatch(/T10:00$/);
+  expect([5, 6]).not.toContain(new Date(when).getDay());
   await panel.getByLabel("الموضوع").fill("زيارة للمصنع");
   await panel.getByRole("button", { name: "تسجيل" }).click();
   await expect(panel.locator(".activity-item.is-planned")).toHaveCount(1);

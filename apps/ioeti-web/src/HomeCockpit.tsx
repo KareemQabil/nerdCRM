@@ -10,6 +10,7 @@ import type { Language } from "./preferences";
 import { amount } from "./format";
 import { PageHeader } from "./ui";
 import { OutcomeBar } from "./OutcomeBar";
+import { SetupReadiness } from "./SetupReadiness";
 
 /**
  * The live home page: the signed-in person's own work first, then the pipeline and activity they may
@@ -17,7 +18,7 @@ import { OutcomeBar } from "./OutcomeBar";
  * never shown as zero; a section that failed to load says so.
  */
 type Section<T> = { state: "loading" } | { state: "hidden" } | { state: "failed" } | { state: "ready"; value: T };
-type Props = { language: Language; name: string | null; unread: number; onNavigate: (page: string) => void };
+type Props = { language: Language; name: string | null; unread: number; administrator?: boolean; policyOwner?: boolean; onNavigate: (page: string) => void };
 
 const strings = {
   ar: {
@@ -52,12 +53,19 @@ const AREA_PAGE: Record<string, string> = {
   FIELD_VISITS: "visits", QUALITY_ISSUES: "quality",
 };
 
+/** A review names its quotation or contract by number; a draft without a number yet says what it is instead of an internal id. */
+function reviewTitle(r: Review, ar: boolean): string {
+  const what = r.contractId ? (ar ? "عقد" : "Contract") : (ar ? "عرض سعر" : "Quotation");
+  const ref = r.subjectReference;
+  return ref && !ref.startsWith("#") ? `${what} ${ref}` : `${what} ${ar ? "(مسودة)" : "(draft)"}`;
+}
+
 async function load<T>(call: () => Promise<T>): Promise<Section<T>> {
   try { return { state: "ready", value: await call() }; }
   catch (error) { return error instanceof ApiError && (error.statusCode === 403 || error.statusCode === 404) ? { state: "hidden" } : { state: "failed" }; }
 }
 
-export function HomeCockpit({ language, name, unread, onNavigate }: Props) {
+export function HomeCockpit({ language, name, unread, administrator, policyOwner, onNavigate }: Props) {
   const ar = language === "ar";
   const l = strings[language];
   const Forward = ar ? ArrowLeft : ArrowRight;
@@ -110,6 +118,7 @@ export function HomeCockpit({ language, name, unread, onNavigate }: Props) {
         <button type="button" className="btn btn-primary" onClick={() => onNavigate("leads")}><UserPlus size={16}/>{l.newLead}</button>
         <button type="button" className="btn btn-secondary" onClick={() => onNavigate("inbox")}><Inbox size={16}/>{l.openInbox}</button>
       </>}/>
+    {(administrator || policyOwner) && <SetupReadiness language={language} administrator={!!administrator} onNavigate={onNavigate}/>}
 
     <h2 className="cockpit-heading">{l.day}</h2>
     <div className="cockpit-tiles" role="list">
@@ -131,7 +140,7 @@ export function HomeCockpit({ language, name, unread, onNavigate }: Props) {
     {reviews.state === "ready" && reviews.value.length > 0 && <div className="data-panel cockpit-list">
       <div className="data-panel-heading"><strong>{l.reviews}</strong><span>{reviews.value.length}</span></div>
       {reviews.value.slice(0, 5).map(r => <a key={r.id} className="cockpit-row" href={r.opportunityId ? `#/opportunities/${r.opportunityId}` : "#/opportunities"}>
-        <span className="cockpit-row-main"><strong dir="auto">{r.subjectReference ?? "—"}</strong><small>{r.requestedBy ?? "—"}</small></span>
+        <span className="cockpit-row-main"><strong dir="auto">{reviewTitle(r, ar)}</strong><small>{r.requestedBy ?? "—"}</small></span>
         <span className="cockpit-row-meta" dir="ltr">{r.requestedAt ? new Intl.DateTimeFormat(ar ? "ar-EG" : "en-GB", { day: "numeric", month: "short" }).format(new Date(r.requestedAt)) : "—"}</span>
       </a>)}
     </div>}

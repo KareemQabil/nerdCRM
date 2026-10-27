@@ -112,7 +112,7 @@ export function DataTable<T>({ id, caption, columns, rows, rowKey, onOpen, label
           </th>;
         })}</tr></thead>
         <tbody>{sorted.map(row => <tr key={rowKey(row)} className={[rowClassName, onOpen ? "is-openable" : ""].filter(Boolean).join(" ") || undefined} onClick={e => open(e, row)}>
-          {shown.map(c => <td key={c.key} className={c.numeric ? "is-numeric" : undefined} dir={c.numeric ? "ltr" : undefined}>{c.cell(row)}</td>)}
+          {shown.map(c => <td key={c.key} className={c.numeric ? "is-numeric" : undefined} dir={c.numeric ? "ltr" : undefined} data-label={c.header}>{c.cell(row)}</td>)}
         </tr>)}</tbody>
       </table>
     </div>

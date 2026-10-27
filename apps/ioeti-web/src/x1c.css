@@ -1,0 +1,63 @@
+/* X1c: phone-first lists and filters. Desktop is unchanged; below 760px tables read as cards and filters fold away. */
+.phone-filters { margin: 0 0 12px; }
+.phone-filters > summary {
+  display: inline-flex; align-items: center; gap: 8px; min-height: 40px; padding: 8px 14px; border: 1px solid var(--outline-variant);
+  border-radius: 999px; background: var(--surface); color: var(--on-surface); font-weight: 600; cursor: pointer; list-style: none;
+}
+.phone-filters > summary::-webkit-details-marker { display: none; }
+.phone-filters[open] > summary { margin-bottom: 10px; }
+.phone-filters-count {
+  display: inline-grid; place-items: center; min-width: 20px; height: 20px; padding: 0 6px; border-radius: 999px;
+  background: var(--primary); color: var(--on-primary); font-size: 12px;
+}
+@media (max-width: 760px) {
+  .data-table .table-scroll { overflow: visible; }
+  .data-table table, .data-table tbody, .data-table tr, .data-table td { display: block; width: 100%; }
+  .data-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .data-table tbody tr {
+    border: 1px solid var(--outline-variant); border-radius: 14px; padding: 10px 14px; margin: 0 0 10px; background: var(--surface);
+    box-shadow: 0 1px 2px rgb(0 0 0 / 4%);
+  }
+  .data-table tbody tr.is-openable:active { background: var(--surface-variant); }
+  .data-table td, .data-table td.is-numeric {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 6px 0; border: 0; text-align: start;
+    white-space: normal; min-height: 0;
+  }
+  .data-table td::before { content: attr(data-label); flex: 0 0 auto; max-width: 45%; color: var(--on-surface-variant); font-size: 12px; font-weight: 500; }
+  .data-table td:first-child { padding-top: 2px; font-weight: 600; }
+  .data-table td:first-child::before { display: none; }
+  .data-table td:empty { display: none; }
+  .data-table-tools { position: sticky; top: 0; z-index: 2; background: var(--surface-sunken, var(--surface)); }
+  .mk-filters label, .mk-filters select { width: 100%; }
+}
+@media (max-width: 760px) {
+  .page-head { gap: 10px; margin-bottom: 10px; }
+  .page-title > p { display: none; }
+  .page-head-actions { width: 100%; }
+  .page-head-actions > .btn { flex: 1; justify-content: center; }
+  .list-toolbar { flex-wrap: nowrap; margin: 10px 0 12px; }
+  .list-toolbar .search-field { flex: 1; min-width: 0; }
+  .page-tabs { width: 100%; }
+  .page-tabs > button { flex: 1; justify-content: center; }
+  .data-panel-heading { padding: 10px 12px; }
+}
+.setup-readiness { border: 1px solid color-mix(in srgb, var(--primary) 35%, var(--outline-variant)); border-radius: 16px; padding: 16px 18px;
+  margin: 0 0 18px; background: color-mix(in srgb, var(--primary) 6%, var(--surface)); }
+.setup-readiness-head { display: flex; align-items: flex-start; gap: 12px; }
+.setup-readiness-head > svg { color: var(--primary); flex: 0 0 auto; margin-top: 2px; }
+.setup-readiness-head > div { flex: 1; min-width: 0; }
+.setup-readiness-head h2 { margin: 0 0 4px; font-size: 17px; }
+.setup-readiness-head p, .setup-readiness-next, .setup-readiness-missing { margin: 0; color: var(--on-surface-variant); font-size: 13.5px; }
+.setup-readiness-next { margin-top: 10px; }
+.setup-readiness-meter { height: 8px; border-radius: 999px; background: var(--surface-variant); overflow: hidden; margin: 14px 0 6px; }
+.setup-readiness-meter > span { display: block; height: 100%; background: var(--primary); border-radius: inherit; }
+.setup-readiness-count { margin: 0 0 4px; font-size: 13.5px; }
+.setup-readiness-missing { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+@media (max-width: 760px) { .setup-readiness-head { flex-wrap: wrap; } .setup-readiness-head > .btn { width: 100%; justify-content: center; } }
+.when-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0 0; }
+.when-chip { border: 1px solid var(--outline-variant); background: var(--surface); color: var(--on-surface); border-radius: 999px; padding: 5px 11px;
+  font-size: 12.5px; cursor: pointer; min-height: 30px; }
+.when-chip:hover { border-color: var(--primary); color: var(--primary); }
+.when-chip:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.when-field { display: flex; flex-direction: column; min-width: 0; }
+.when-field > label { display: flex; flex-direction: column; gap: 4px; }

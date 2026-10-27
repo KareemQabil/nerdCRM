@@ -73,8 +73,6 @@ export function OpportunityRecordWorkspace({record,language,onBack,onRename,onPr
     {label:c.line,value:line||c.unknown},
     {label:c.stage,value:record.stage?stageLabel(record.stage,language):c.unknown},
     {label:c.ref,value:record.reference||c.unknown},
-    {label:c.id,value:"#"+record.id},
-    {label:c.version,value:"v"+record.version},
   ];
   return <article className="record-workspace opportunity-record page-enter" aria-labelledby="opportunity-record-title">
     <div className="record-context-bar">

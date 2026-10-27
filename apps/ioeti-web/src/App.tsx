@@ -362,7 +362,7 @@ export function App() {
         {loadError && <div className="error-banner" role="alert"><CircleAlert size={18}/><span>{loadError === labels.unavailable ? loadError : `${labels.unavailable}: ${loadError}`}</span><button className="btn btn-secondary" type="button" onClick={() => void refresh()}>{labels.retry}</button></div>}
         {page === "businessLines" && selected && <BusinessLineWorkspace line={selected} labels={labels} onBack={backFromBusinessLine} />}
         {page === "home" && <section className="page-enter">
-          {!DEMO_MODE && <HomeCockpit language={prefs.language} name={identity?.name || identity?.code || null} unread={unread}
+          {!DEMO_MODE && <HomeCockpit language={prefs.language} name={identity?.name || identity?.code || null} unread={unread} administrator={!!identity?.administrator} policyOwner={!!identity?.policyOwner}
             onNavigate={next => navigate(next as Page)}/>}
           {DEMO_MODE && <Suspense fallback={<div role="status" className="empty-state">{labels.loading}</div>}><DemoExecutiveOverview language={prefs.language} onOpen={navigateDemo}/></Suspense>}
           {DEMO_MODE && <p className="scope-note"><ShieldCheck size={15}/>{isRTL ? "كل البيانات الظاهرة افتراضية ولا تمثل عملاء IOETI" : "All displayed business records are fictional"}</p>}

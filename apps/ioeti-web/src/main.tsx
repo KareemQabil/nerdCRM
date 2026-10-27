@@ -5,6 +5,7 @@ import { FeedbackCenter } from "./FeedbackCenter";
 import { UiErrorBoundary } from "./UiErrorBoundary";
 import { PreferencesProvider } from "./preferences";
 import "./styles.css";
+import "./x1c.css";
 
 const root = document.getElementById("root");
 if (!root) throw new Error("Missing #root");
