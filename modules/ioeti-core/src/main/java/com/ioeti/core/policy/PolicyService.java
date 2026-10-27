@@ -1,11 +1,14 @@
 package com.ioeti.core.policy;
 
+import com.axelor.apps.base.db.Source;
 import com.axelor.auth.AuthUtils;
 import com.axelor.auth.db.Role;
 import com.axelor.auth.db.User;
 import com.axelor.db.JPA;
 import com.axelor.db.Query;
+import com.axelor.team.db.Team;
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.inject.persist.Transactional;
 import com.ioeti.core.api.ApiException;
 import com.ioeti.core.db.PolicyVersion;
@@ -72,8 +75,25 @@ public class PolicyService {
     PolicyDefinition definition = PolicyCatalog.get(key);
     User me = requireOwner();
     String scope = PolicyValidator.scope(definition, rawScope);
-    String value = PolicyValidator.write(PolicyValidator.value(definition, rawValue));
+    ObjectNode checked = PolicyValidator.value(definition, rawValue);
+    references(key, checked);
+    String value = PolicyValidator.write(checked);
     return append(key, scope, value, false, effective(effectiveFrom, today), reason(reason), me);
+  }
+
+  /** Values that name records (teams, lead sources) must name existing ones. */
+  static void references(String key, JsonNode value) {
+    if (!"leads.routing".equals(key)) return;
+    int i = 0;
+    for (JsonNode rule : value.path("rules")) {
+      if (JPA.find(Team.class, rule.path("teamId").asLong()) == null) {
+        throw ApiException.invalidField("value.rules[" + i + "].teamId", "UNAVAILABLE", "Choose an existing team.");
+      }
+      if (rule.hasNonNull("sourceId") && JPA.find(Source.class, rule.path("sourceId").asLong()) == null) {
+        throw ApiException.invalidField("value.rules[" + i + "].sourceId", "UNAVAILABLE", "Choose an existing lead source.");
+      }
+      i++;
+    }
   }
 
   /** Unsets a policy from a date: from then on, workflows that need it are refused again. Policy owners only. */

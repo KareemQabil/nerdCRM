@@ -38,7 +38,7 @@ MISSING = 987654321
 ROUNDS = int(os.environ.get("PROBE_LIFECYCLE_ROUNDS", "5"))
 RESULTS = []
 SAFE_FIELDS = {"id", "version", "name", "organization", "stage", "converted", "businessLineCode", "accountId",
-               "opportunityId", "stageId", "stageKind", "lostReason", "assignedToMe", "receivedAt", "response"}
+               "opportunityId", "stageId", "stageKind", "lostReason", "assignedToMe", "receivedAt", "response", "governorate"}
 # D-12: where the lead stands against its response targets: statuses and times, never contact details
 RESPONSE_FIELDS = {"status", "missing", "dueAt", "contactedAt", "qualification", "qualifyDueAt", "qualifiedAt"}
 

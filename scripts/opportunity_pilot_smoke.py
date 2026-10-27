@@ -34,7 +34,7 @@ def main():
     for path, allowed in (
         ("/ws/ioeti/leads", {"id", "version", "name", "organization", "stage", "converted",
                              "businessLineCode", "accountId", "opportunityId", "stageId", "stageKind",
-                             "lostReason", "assignedToMe", "receivedAt", "response"}),
+                             "lostReason", "assignedToMe", "receivedAt", "response", "governorate"}),
         ("/ws/ioeti/accounts", {"id", "version", "name", "reference", "customer", "prospect"}),
     ):
         status, payload = client.call("GET", path)

@@ -209,3 +209,4 @@
 .admin-badge.is-restricted { color: color-mix(in srgb, var(--warning) 70%, var(--on-surface)); background: var(--warning-container); }
 .admin-rights-editor tr[aria-busy="true"] { opacity: .6; }
 .admin-saved { margin: 0 0 10px; padding: 8px 12px; border-radius: var(--radius-sm); background: var(--success-container); color: color-mix(in srgb, var(--success) 75%, var(--on-surface)); font-size: 13px; }
+.admin-away { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }

@@ -11,6 +11,8 @@
   <entity name="Lead">
     <many-to-one name="ioetiBusinessLine" ref="com.ioeti.businessline.db.BusinessLine"
       title="Business line"/>
+    <!-- D-12: the governorate the lead is in (one of Egypt's 27, PolicyCatalog.GOVERNORATES); routing rules may use it -->
+    <string name="ioetiGovernorate" title="Governorate" max="40"/>
   </entity>
 
 </domain-models>

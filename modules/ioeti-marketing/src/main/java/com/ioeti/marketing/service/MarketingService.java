@@ -14,16 +14,20 @@ import com.axelor.message.db.EmailAddress;
 import com.axelor.rpc.filter.Filter;
 import com.axelor.rpc.filter.JPQLFilter;
 import com.google.inject.persist.Transactional;
+import com.ioeti.businessline.service.LeadRouter;
 import com.ioeti.core.api.ApiException;
+import com.ioeti.core.policy.PolicyService.Applied;
 import com.ioeti.core.text.ArabicNormalizer;
 import com.ioeti.marketing.db.LeadConsentEvent;
 import com.ioeti.marketing.db.repo.LeadConsentEventRepository;
 import com.ioeti.marketing.db.repo.LeadSearchKeyListener;
 import jakarta.persistence.LockModeType;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 
 /**
@@ -80,19 +84,34 @@ public class MarketingService {
     return (security == null ? wanted : Filter.and(security, wanted)).build(Lead.class).order("-id").fetch(10);
   }
 
+  /**
+   * Records a new lead. D-12: when its line has routing rules, the lead is routed by them (the person who receives it is
+   * told in-app; when nobody can, it stays unassigned and the line's manager is told) unless the person recording it keeps
+   * it. Without rules, it is theirs, as before.
+   */
   @Transactional(rollbackOn = {Exception.class})
-  public Lead intake(Lead lead, String email, Campaign campaign) {
+  public Lead intake(Lead lead, String email, Campaign campaign, boolean keepMine, LocalDate today) {
     if (email != null) {
       EmailAddress address = new EmailAddress();
       address.setAddress(email);
       JPA.save(address);
       lead.setEmailAddress(address);
     }
-    lead.setUser(AuthUtils.getUser());
+    LeadRouter router = Beans.get(LeadRouter.class);
+    Optional<Applied> rules = keepMine ? Optional.empty() : router.rules(lead.getIoetiBusinessLine(), today);
+    lead.setUser(rules.isPresent() ? null : AuthUtils.getUser());
     lead.setIoetiSearchKey(LeadSearchKeyListener.key(lead));
     Lead saved = Beans.get(LeadRepository.class).save(lead);
     if (campaign != null) attribute(saved, campaign);
+    rules.ifPresent(applied -> router.apply(saved, applied, today));
     return saved;
+  }
+
+  /** Routes an unassigned lead by its line's rules (D-12); the lead is locked so two people cannot route it twice. */
+  @Transactional(rollbackOn = {Exception.class})
+  public LeadRouter.Routed route(Lead lead, LocalDate today) {
+    JPA.em().refresh(lead, LockModeType.PESSIMISTIC_WRITE);
+    return Beans.get(LeadRouter.class).route(lead, today);
   }
 
   /** Saves a changed lead; an e-mail given as empty removes the address, the search key follows the listener. */

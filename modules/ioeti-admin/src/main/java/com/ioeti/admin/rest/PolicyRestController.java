@@ -1,6 +1,9 @@
 package com.ioeti.admin.rest;
 
 import com.axelor.apps.base.service.app.AppBaseService;
+import com.axelor.db.Query;
+import com.axelor.team.db.Team;
+import com.axelor.apps.base.db.Source;
 import com.axelor.auth.AuthUtils;
 import com.axelor.auth.db.User;
 import com.axelor.db.JPA;
@@ -52,6 +55,19 @@ public class PolicyRestController {
         d.allowsDefault(), d.titleAr(), d.titleEn(), d.helpAr(), d.helpEn(), counts.getOrDefault(d.key(), 0L))).toList();
     return ResponseConstructor.build(Response.Status.OK, "Policies",
         new PolicyOverviewView(PolicyService.isOwner(me), PolicyService.owners().isEmpty(), rows));
+  }
+
+  @GET
+  @Path("/references")
+  @Operation(summary = "The teams and lead sources policy values can name, for the editor (administrators and policy owners)", tags = {"IOETI policies"})
+  @IoetiEndpoint
+  public Response references() {
+    reader();
+    List<PolicyReferenceView> teams = Query.of(Team.class).order("name").fetch(500).stream()
+        .map(t -> new PolicyReferenceView(t.getId(), t.getName())).toList();
+    List<PolicyReferenceView> sources = Query.of(Source.class).order("name").fetch(500).stream()
+        .map(o -> new PolicyReferenceView(o.getId(), o.getName())).toList();
+    return ResponseConstructor.build(Response.Status.OK, "Policy references", new PolicyReferencesView(teams, sources));
   }
 
   @GET
@@ -221,4 +237,8 @@ public class PolicyRestController {
       String helpAr, String helpEn, List<PolicyFieldView> fields, boolean canEdit, List<PolicyValueView> values, List<PolicyVersionView> versions) {}
 
   public record PolicyOwnerView(Long id, String name, boolean me) {}
+
+  public record PolicyReferenceView(Long id, String name) {}
+
+  public record PolicyReferencesView(List<PolicyReferenceView> teams, List<PolicyReferenceView> sources) {}
 }

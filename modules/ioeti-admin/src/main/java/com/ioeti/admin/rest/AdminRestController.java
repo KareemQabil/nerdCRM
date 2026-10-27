@@ -33,7 +33,9 @@ import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -132,6 +134,29 @@ public class AdminRestController {
     User user = versioned(id, command == null ? null : command.version());
     OptimisticLockConflicts.translate(() -> Beans.get(AdminService.class).setActive(user, false));
     return ResponseConstructor.build(Response.Status.OK, "Person deactivated", view(JPA.find(User.class, id)));
+  }
+
+  @POST
+  @Path("/users/{id}/away")
+  @Consumes(MediaType.APPLICATION_JSON)
+  @Operation(summary = "Set the dates a person is away (leave): no leads are routed to them then (D-12; administrators)", tags = {"IOETI admin"})
+  @IoetiEndpoint
+  public Response away(@PathParam("id") Long id, SetAway command) {
+    admin();
+    User user = versioned(id, command == null ? null : command.version());
+    LocalDate from = awayDate("from", command.from());
+    LocalDate until = awayDate("until", command.until());
+    OptimisticLockConflicts.translate(() -> Beans.get(AdminService.class).setAway(user, from, until));
+    return ResponseConstructor.build(Response.Status.OK, "Away dates saved", view(JPA.find(User.class, id)));
+  }
+
+  private static LocalDate awayDate(String field, String value) {
+    if (value == null || value.isBlank()) return null;
+    try {
+      return LocalDate.parse(value.strip());
+    } catch (DateTimeParseException e) {
+      throw ApiException.invalidField(field, "FORMAT", "Use a date like 2026-11-01.");
+    }
   }
 
   @POST
@@ -428,7 +453,8 @@ public class AdminRestController {
     Group g = u.getGroup();
     return new UserView(u.getId(), u.getVersion(), u.getCode(), u.getName(), u.getEmail() != null && !u.getEmail().isBlank(),
         u.getLanguage(), AuthUtils.isActive(u), Boolean.TRUE.equals(u.getForcePasswordChange()),
-        g == null ? null : g.getCode(), g == null ? null : g.getName(), AdminService.isAdminProfile(g), lines, teams, u.getCreatedOn());
+        g == null ? null : g.getCode(), g == null ? null : g.getName(), AdminService.isAdminProfile(g), lines, teams, u.getCreatedOn(),
+        u.getIoetiAwayFrom(), u.getIoetiAwayUntil());
   }
 
   static TeamView view(Team t) {
@@ -475,6 +501,8 @@ public class AdminRestController {
 
   public record VersionCommand(Integer version) {}
 
+  public record SetAway(Integer version, String from, String until) {}
+
   public record SetPassword(Integer version, String temporaryPassword) {}
 
   public record EditTeam(Integer version, String name, String code, List<Long> memberIds) {}
@@ -490,7 +518,7 @@ public class AdminRestController {
 
   public record UserView(Long id, Integer version, String code, String name, boolean contactOnFile, String language, boolean active,
       boolean mustChangePassword, String profileCode, String profileName, boolean administrator, List<String> businessLines,
-      List<TeamRef> teams, LocalDateTime createdOn) {}
+      List<TeamRef> teams, LocalDateTime createdOn, LocalDate awayFrom, LocalDate awayUntil) {}
 
   public record UserDetailView(UserView user, ProfileAccess access) {}
 

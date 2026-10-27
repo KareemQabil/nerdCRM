@@ -12,6 +12,7 @@ import com.ioeti.admin.db.AdminAuditEvent;
 import com.ioeti.businessline.db.BusinessLine;
 import com.ioeti.businessline.db.repo.BusinessLineRepository;
 import com.ioeti.core.api.ApiException;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -228,6 +229,24 @@ public class AdminService {
     if (changes.isEmpty()) return user;
     User saved = JPA.save(user);
     audit("USER_UPDATED", "USER", saved.getId(), saved.getCode(), changes);
+    return saved;
+  }
+
+  /**
+   * D-12: the dates a person is away (leave), inclusive; leads are not routed to them then. Both empty clears it; an end
+   * before the start is refused.
+   */
+  @Transactional(rollbackOn = {Exception.class})
+  public User setAway(User user, LocalDate from, LocalDate until) {
+    if (from != null && until != null && until.isBefore(from)) {
+      throw ApiException.invalidField("until", "BEFORE_START", "The last day cannot be before the first.");
+    }
+    if (Objects.equals(from, user.getIoetiAwayFrom()) && Objects.equals(until, user.getIoetiAwayUntil())) return user;
+    String before = user.getIoetiAwayFrom() + "→" + user.getIoetiAwayUntil();
+    user.setIoetiAwayFrom(from);
+    user.setIoetiAwayUntil(until);
+    User saved = JPA.save(user);
+    audit("USER_AWAY", "USER", saved.getId(), saved.getCode(), List.of("away: " + before + " ⇒ " + from + "→" + until));
     return saved;
   }
 

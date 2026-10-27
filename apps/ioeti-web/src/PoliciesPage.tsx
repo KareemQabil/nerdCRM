@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type FormEvent } from "react";
 import { CalendarClock, CircleAlert, CircleCheck, CircleDashed, History, Plus, Save, Scale, ShieldCheck, Trash2, UserRound, X } from "lucide-react";
 import { ApiError, getBusinessLines, type BusinessLine } from "./api";
 import { Dialog } from "./Dialog";
 import { getSources, type Option } from "./marketingApi";
+import { GOVERNORATES } from "./governorates";
 import {
-  appointOwner, dismissOwner, getPolicies, getPolicy, getPolicyOwners, getPolicyPeople, retirePolicy, setPolicy,
+  appointOwner, dismissOwner, getPolicies, getPolicyReferences, type PolicyReferences, getPolicy, getPolicyOwners, getPolicyPeople, retirePolicy, setPolicy,
   type Person, type PolicyDetail, type PolicyField, type PolicyOverview, type PolicySummary, type PolicyValue,
 } from "./policiesApi";
 import type { Language } from "./preferences";
@@ -13,6 +14,15 @@ import { ErrorBanner, PageHeader } from "./ui";
 
 const AREAS = ["FINANCE", "SALES", "LEADS", "CERTIFICATION", "TRAINING", "RECRUITMENT", "PRIVACY", "CHANNELS"] as const;
 const DATA_TYPES = ["LEADS", "CANDIDATES", "TRAINEES", "DONORS", "CONTACTS"];
+/** D-12: the routing rules name teams and lead sources by id; the editor offers and shows them by name. */
+const REFERENCES: Record<string, keyof PolicyReferences> = { teamId: "teams", sourceId: "sources" };
+const Refs = createContext<PolicyReferences>({ teams: [], sources: [] });
+const NEEDS_REFERENCES = new Set(["leads.routing"]);
+function useReferences(key: string) {
+  const [refs, setRefs] = useState<PolicyReferences>({ teams: [], sources: [] });
+  useEffect(() => { if (NEEDS_REFERENCES.has(key)) void getPolicyReferences().then(setRefs).catch(() => undefined); }, [key]);
+  return refs;
+}
 /** D-12: response targets are set per business line and, optionally, per lead source (scope "LINE/sourceId"). */
 const PER_SOURCE = new Set(["leads.response-target"]);
 const L = {
@@ -83,6 +93,7 @@ const OPTIONS: Record<string, [string, string]> = {
   CLIENT_PORTAL: ["بوابة العملاء", "Client portal"], COURSE_SIGNUP: ["التسجيل في الكورسات", "Course sign-up"], EMAIL: ["البريد", "E-mail"],
   WHATSAPP: ["واتساب", "WhatsApp"], E_SIGNATURE: ["التوقيع الإلكتروني", "E-signature"], PAYMENTS: ["الدفع أونلاين", "Online payments"],
 };
+for (const [code, ar, en] of GOVERNORATES) OPTIONS[code] = [ar, en];
 type Labels = typeof L.ar;
 const opt = (value: string, ar: boolean) => OPTIONS[value]?.[ar ? 0 : 1] ?? value;
 const today = () => new Date().toISOString().slice(0, 10);
@@ -141,6 +152,7 @@ function PolicyPanel({ policyKey, l, ar, onChanged }: { policyKey: string; l: La
   useEffect(() => { getPolicy(policyKey).then(setD).catch(e => setError(problem(e, l))); }, [policyKey, l]);
   const [sources, setSources] = useState<Option[]>([]);
   useEffect(() => { if (PER_SOURCE.has(policyKey)) void getSources().then(setSources).catch(() => setSources([])); }, [policyKey]);
+  const refs = useReferences(policyKey);
   // "ISO9001/12" reads as "ISO9001 · Website"
   const scopeName = (scope: string | null) => {
     if (scope === null) return l.defaultScope;
@@ -149,7 +161,7 @@ function PolicyPanel({ policyKey, l, ar, onChanged }: { policyKey: string; l: La
   };
   if (!d) return <section className="data-panel policies-panel" aria-busy="true">{error && <p className="admin-list-error" role="alert">{error}</p>}</section>;
   const saved = (next: PolicyDetail) => { setD(next); setEditing(null); setRetiring(null); onChanged(); };
-  return <section className="data-panel policies-panel" aria-labelledby="policy-title">
+  return <Refs.Provider value={refs}><section className="data-panel policies-panel" aria-labelledby="policy-title">
     <div className="policies-panel-head">
       <div><span className="policies-decision">{d.decision} · {l.scopes[d.scope]}</span><h2 id="policy-title"><Scale size={18}/>{ar ? d.titleAr : d.titleEn}</h2>
         <p>{ar ? d.helpAr : d.helpEn}</p></div>
@@ -175,7 +187,7 @@ function PolicyPanel({ policyKey, l, ar, onChanged }: { policyKey: string; l: La
       </li>)}</ol></details>}
     {editing && <EditDialog d={d} l={l} ar={ar} start={editing === "new" ? null : editing} onClose={() => setEditing(null)} onSaved={saved}/>}
     {retiring && <RetireDialog d={d} l={l} value={retiring} onClose={() => setRetiring(null)} onSaved={saved}/>}
-  </section>;
+  </section></Refs.Provider>;
 }
 
 function ValueSummary({ fields, value, ar }: { fields: PolicyField[]; value: Record<string, unknown>; ar: boolean }) {
@@ -184,6 +196,9 @@ function ValueSummary({ fields, value, ar }: { fields: PolicyField[]; value: Rec
 }
 
 function FieldValue({ field, value, ar }: { field: PolicyField; value: unknown; ar: boolean }) {
+  const refs = useContext(Refs);
+  const named = REFERENCES[field.name];
+  if (named && typeof value === "number") return <>{refs[named].find(o => o.id === value)?.name ?? `#${value}`}</>;
   if (field.kind === "LIST" && Array.isArray(value)) return <ol className="policies-items">{value.map((item, i) => <li key={i}>
     {field.items.filter(f => (item as Record<string, unknown>)[f.name] !== undefined).map(f =>
       <span key={f.name}>{ar ? f.titleAr : f.titleEn}: <FieldValue field={f} value={(item as Record<string, unknown>)[f.name]} ar={ar}/></span>)}</li>)}</ol>;
@@ -245,6 +260,12 @@ function EditDialog({ d, l, ar, start, onClose, onSaved }: {
 /** One field of a policy value, by its kind. */
 function FieldInput({ field, value, onChange, ar, l }: { field: PolicyField; value: unknown; onChange: (v: unknown) => void; ar: boolean; l: Labels }) {
   const title = (ar ? field.titleAr : field.titleEn) + (field.required ? "" : ar ? " (اختياري)" : " (optional)");
+  const refs = useContext(Refs);
+  const named = REFERENCES[field.name];
+  if (named && field.kind === "INTEGER") {
+    return <label><span>{title}</span><select value={value === undefined || value === null ? "" : String(value)} onChange={e => onChange(e.target.value === "" ? undefined : Number(e.target.value))}>
+      <option value="">{l.choose}</option>{refs[named].map(o => <option key={o.id} value={o.id}>{o.name}</option>)}</select></label>;
+  }
   switch (field.kind) {
     case "PERCENT": case "DECIMAL": case "INTEGER":
       return <label><span>{title}</span><span className="policies-number"><input type="number" inputMode="decimal" value={value === undefined || value === null ? "" : String(value)}

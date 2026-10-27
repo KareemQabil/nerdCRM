@@ -8,6 +8,8 @@ export type AdminUser = {
   id: number; version: number; code: string; name: string; contactOnFile: boolean; language: string | null; active: boolean;
   mustChangePassword: boolean; profileCode: string | null; profileName: string | null; administrator: boolean;
   businessLines: string[]; teams: TeamRef[]; createdOn: string | null;
+  /** D-12: the dates the person is away (leave), inclusive; no leads are routed to them then */
+  awayFrom?: string | null; awayUntil?: string | null;
 };
 export type Scope = "OWN" | "TEAM" | "LINE" | "ALL";
 /** `key` and `scope` name the right in D-07 terms; `managed` is true when the profile editor wrote it. */
@@ -65,6 +67,8 @@ export const getPerson = (id: number) => wrapped<AdminUserDetail>(`${BASE}/users
 export const addPerson = (input: NewPerson) => post<AdminUser>(`${BASE}/users`, input);
 export const changePerson = (id: number, input: PersonChange) => post<AdminUser>(`${BASE}/users/${enc(id)}`, input);
 export const deactivatePerson = (id: number, version: number) => post<AdminUser>(`${BASE}/users/${enc(id)}/deactivate`, { version });
+export const setAway = (id: number, version: number, from: string, until: string) =>
+  post<AdminUser>(`${BASE}/users/${enc(id)}/away`, { version, from, until });
 export const activatePerson = (id: number, version: number) => post<AdminUser>(`${BASE}/users/${enc(id)}/activate`, { version });
 export const setTemporaryPassword = (id: number, version: number, temporaryPassword: string) =>
   post<AdminUser>(`${BASE}/users/${enc(id)}/password`, { version, temporaryPassword });

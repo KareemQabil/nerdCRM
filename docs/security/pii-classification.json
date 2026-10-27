@@ -1652,6 +1652,24 @@
     "LeadResponseView.contactedAt": "BUSINESS",
     "LeadResponseView.qualification": "REFERENCE",
     "LeadResponseView.qualifyDueAt": "BUSINESS",
-    "LeadResponseView.qualifiedAt": "BUSINESS"
+    "LeadResponseView.qualifiedAt": "BUSINESS",
+    "EditLead.governorate": "PERSONAL",
+    "Intake.governorate": "PERSONAL",
+    "Intake.keepMine": "REFERENCE",
+    "LeadView.governorate": "PERSONAL",
+    "PolicyReferenceView.id": "REFERENCE",
+    "PolicyReferenceView.name": "BUSINESS",
+    "PolicyReferencesView.teams": "BUSINESS",
+    "PolicyReferencesView.sources": "BUSINESS",
+    "LeadRoutingView.outcome": "REFERENCE",
+    "LeadRoutingView.ruleIndex": "REFERENCE",
+    "LeadRoutingView.teamName": "BUSINESS",
+    "LeadRoutingView.assigneeName": "PERSONAL",
+    "LeadRoutingView.lead": "PERSONAL",
+    "SetAway.version": "REFERENCE",
+    "SetAway.from": "PERSONAL",
+    "SetAway.until": "PERSONAL",
+    "UserView.awayFrom": "PERSONAL",
+    "UserView.awayUntil": "PERSONAL"
   }
 }

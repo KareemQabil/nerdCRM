@@ -87,7 +87,14 @@ Signer: the project owner, answering a structured interview in the engineering s
   - The targets (per line and source, line, or default) and the working hours are policies; nothing is shipped.
   - Targets are read as they were when the lead arrived.
   - A missed target flags the lead overdue and sends the line's manager one in-app notice; nothing is reassigned.
-  - See `docs/slices/P5a-response-targets.md`. Routing rules and round robin are P5b.
+  - See `docs/slices/P5a-response-targets.md`.
+- **D-12 routing implemented (2026-10-27, P5b):**
+  - The line's rules (governorate and source → team) and the workload cap are a policy; nothing is shipped.
+  - Round robin runs inside the team and skips people on leave (dates set by an administrator), outside the line, or at the
+    cap.
+  - An unroutable lead stays unassigned and the line's manager is told.
+  - A lead that has an owner is never reassigned; manual reassignment stays closed until the owners say who may do it.
+  - See `docs/slices/P5b-lead-routing.md`.
 
 ## Related, owner-only actions (not engineering decisions)
 

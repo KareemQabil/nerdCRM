@@ -3,6 +3,7 @@ import { Building2, CircleAlert, LockKeyhole, Save } from "lucide-react";
 import { ApiError, getCreatableBusinessLines, type AccountSummary, type BusinessLine, type ContactSummary, type LeadSummary } from "./api";
 import { Dialog } from "./Dialog";
 import { addContact, createAccount, editAccount, editLead, problem, similarAccounts } from "./dailyApi";
+import { GovernorateOptions } from "./governorates";
 import type { Language } from "./preferences";
 import "./daily.css";
 
@@ -10,7 +11,7 @@ const L = {
   ar: {
     save: "حفظ", saving: "جاري الحفظ…", cancel: "إلغاء", confirm: "تأكيد أنه سجل مختلف",
     keep: "اتركه فاضي علشان يفضل زي ما هو. القيمة الحالية لا تُعرض حفاظًا على الخصوصية.",
-    editLead: "تعديل بيانات العميل المحتمل", leadKicker: "العملاء المحتملون", fullName: "الاسم بالكامل", organization: "الجهة",
+    editLead: "تعديل بيانات العميل المحتمل", governorate: "المحافظة", noGovernorate: "مش محددة", leadKicker: "العملاء المحتملون", fullName: "الاسم بالكامل", organization: "الجهة",
     phone: "هاتف جديد", email: "بريد إلكتروني جديد", line: "خط الأعمال", noLine: "بدون خط",
     newAccount: "حساب عميل جديد", editAccount: "تعديل الحساب", accountKicker: "حسابات العملاء", accountName: "اسم الشركة",
     website: "الموقع الإلكتروني", accountPhone: "هاتف الشركة", accountEmail: "بريد الشركة",
@@ -23,7 +24,7 @@ const L = {
   en: {
     save: "Save", saving: "Saving…", cancel: "Cancel", confirm: "Confirm this is a different record",
     keep: "Leave empty to keep it as it is. The current value is not shown, for privacy.",
-    editLead: "Edit lead details", leadKicker: "Leads", fullName: "Full name", organization: "Organization",
+    editLead: "Edit lead details", governorate: "Governorate", noGovernorate: "Not given", leadKicker: "Leads", fullName: "Full name", organization: "Organization",
     phone: "New phone", email: "New e-mail", line: "Business line", noLine: "No line",
     newAccount: "New client account", editAccount: "Edit account", accountKicker: "Accounts", accountName: "Company name",
     website: "Website", accountPhone: "Company phone", accountEmail: "Company e-mail",
@@ -47,6 +48,7 @@ export function EditLeadDialog({ lead, language, onClose, onSaved }: {
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [line, setLine] = useState(lead.businessLineCode ?? "");
+  const [governorate, setGovernorate] = useState(lead.governorate ?? "");
   const [lines, setLines] = useState<BusinessLine[]>([]);
   const [duplicate, setDuplicate] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
@@ -61,7 +63,8 @@ export function EditLeadDialog({ lead, language, onClose, onSaved }: {
       // one name field: the full name goes to the native last-name field and the first name is cleared
       const saved = await editLead(lead.id, lead.version, {
         firstName: "", name: name.trim(), organization: organization.trim(), phone: blank(phone), email: blank(email),
-        ...(line !== (lead.businessLineCode ?? "") ? { businessLineCode: line } : {}), confirmNotDuplicate: confirmed || undefined,
+        ...(line !== (lead.businessLineCode ?? "") ? { businessLineCode: line } : {}),
+        ...(governorate !== (lead.governorate ?? "") ? { governorate } : {}), confirmNotDuplicate: confirmed || undefined,
       });
       onSaved(saved);
     } catch (failure) {
@@ -80,6 +83,8 @@ export function EditLeadDialog({ lead, language, onClose, onSaved }: {
       <p className="daily-note daily-span"><LockKeyhole size={14}/>{l.keep}</p>
       {lines.length > 0 && <label className="daily-span"><span>{l.line}</span><select value={line} onChange={e => setLine(e.target.value)}>
         <option value="">{l.noLine}</option>{lines.map(x => <option key={x.code} value={x.code}>{ar ? x.nameAr || x.nameEn : x.nameEn || x.nameAr}</option>)}</select></label>}
+      <label className="daily-span"><span>{l.governorate}</span><select value={governorate} onChange={e => setGovernorate(e.target.value)}>
+        <GovernorateOptions ar={ar} none={l.noGovernorate}/></select></label>
       {duplicate && <label className="daily-confirm daily-span"><input type="checkbox" checked={confirmed} onChange={e => setConfirmed(e.target.checked)}/>{l.confirm}</label>}
       {error && <p className="daily-error daily-span" role="alert"><CircleAlert size={15}/>{duplicate ? l.duplicate : error}</p>}
     </form>

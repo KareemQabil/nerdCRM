@@ -7,6 +7,7 @@ import {
   type Attribution, type Channel, type ConsentMethod, type ConsentState, type FollowUp, type FollowUpType, type LeadIntake,
   type LeadQuery, type Option, type SavedView, type TimelineItem,
 } from "./marketingApi";
+import { GovernorateOptions } from "./governorates";
 import type { Language } from "./preferences";
 import "./marketing.css";
 
@@ -15,7 +16,7 @@ const strings = {
     stage:"المرحلة",source:"المصدر",line:"خط العمل",all:"الكل",mine:"المكلّفون بي فقط",views:"العروض المحفوظة",chooseView:"اختر عرضًا محفوظًا",
     saveView:"حفظ الفلتر",viewName:"اسم العرض",deleteView:"حذف العرض",save:"حفظ",cancel:"إلغاء",
     newLead:"عميل محتمل جديد",firstName:"الاسم الأول",name:"الاسم أو اسم العائلة",organization:"الجهة",email:"البريد الإلكتروني",phone:"الهاتف",
-    campaign:"الحملة",none:"بدون",record:"تسجيل",recording:"جار التسجيل...",
+    campaign:"الحملة",governorate:"المحافظة",keepMine:"أنا هتابعه بنفسي",keepMineHint:"من غير كده، لو خط الأعمال ليه قواعد توزيع، الـ lead بيتوزع على الفريق بالدور.",none:"بدون",record:"تسجيل",recording:"جار التسجيل...",
     duplicates:"عملاء محتملون مشابهون ضمن نطاقك",duplicatesHint:"راجعهم قبل التسجيل؛ المقارنة تشمل الاسم بكل طرق كتابته والبريد والهاتف.",
     open:"فتح",recordAnyway:"ليس تكرارًا، سجّل",
     followUps:"المتابعات",overdueOnly:"المتأخرة فقط",noFollowUps:"لا توجد متابعات مخططة",done:"تم",overdue:"متأخرة",
@@ -27,7 +28,7 @@ const strings = {
     attribution:"المصدر والحملات",noSource:"بدون مصدر",noCampaigns:"غير مرتبط بحملة",attribute:"ربط بحملة",
     plan:"تخطيط متابعة",subject:"الموضوع",when:"الموعد",timeline:"النشاط",noTimeline:"لا يوجد نشاط بعد",
     kinds:{CONSENT_GIVEN:"موافقة",OPTED_OUT:"رفض التواصل"},status:{PLANNED:"مخططة",DONE:"تمت",CANCELLED:"ملغاة"},
-    outbound:"لا يُرسل النظام أي رسالة. أهداف الاستجابة شغالة بساعات العمل (D-12) ومدير الخط بيوصله إشعار داخلي لو فاتت؛ التوزيع التلقائي لسه مقفول.",noSend:"هذه الصفحة تسجّل فقط؛ لا يُرسل منها أي بريد أو رسالة للعميل.",
+    outbound:"لا يُرسل النظام أي رسالة. التوزيع بقواعد خط الأعمال وبالدور جوه الفريق، وأهداف الاستجابة بساعات العمل (D-12)؛ مدير الخط بيوصله إشعار داخلي. الـ lead اللي ليه مسؤول عمره ما بيتنقل تلقائي.",noSend:"هذه الصفحة تسجّل فقط؛ لا يُرسل منها أي بريد أو رسالة للعميل.",
     loading:"جار التحميل...",
     errors:{POSSIBLE_DUPLICATE:"يوجد عملاء محتملون مشابهون.",ALREADY_ATTRIBUTED:"العميل مرتبط بهذه الحملة بالفعل.",FOLLOW_UP_STATE:"هذه المتابعة ليست مخططة.",BLOCKED_BY_POLICY:"متوقف حتى اعتماد السياسة.",
       email:"أدخل بريدًا إلكترونيًا صحيحًا.",phone:"أدخل رقم هاتف صحيحًا.",name:"الاسم مطلوب.",evidenceReference:"الموافقة تحتاج مرجع إثبات.",at:"اختر موعدًا صحيحًا.",subject:"الموضوع مطلوب.",
@@ -37,7 +38,7 @@ const strings = {
     stage:"Stage",source:"Source",line:"Business line",all:"All",mine:"Only mine",views:"Saved views",chooseView:"Choose a saved view",
     saveView:"Save filter",viewName:"View name",deleteView:"Delete view",save:"Save",cancel:"Cancel",
     newLead:"New lead",firstName:"First name",name:"Name or family name",organization:"Organization",email:"E-mail",phone:"Phone",
-    campaign:"Campaign",none:"None",record:"Record",recording:"Recording...",
+    campaign:"Campaign",governorate:"Governorate",keepMine:"I will follow it up myself",keepMineHint:"Otherwise, when the business line has routing rules, the lead goes to its team in turn.",none:"None",record:"Record",recording:"Recording...",
     duplicates:"Similar leads in your scope",duplicatesHint:"Review them first; names are compared however they are spelled, with e-mail and phone.",
     open:"Open",recordAnyway:"Not a duplicate, record",
     followUps:"Follow-ups",overdueOnly:"Overdue only",noFollowUps:"No planned follow-ups",done:"Done",overdue:"Overdue",
@@ -49,7 +50,7 @@ const strings = {
     attribution:"Source and campaigns",noSource:"No source",noCampaigns:"Not attributed to a campaign",attribute:"Attribute to campaign",
     plan:"Plan a follow-up",subject:"Subject",when:"When",timeline:"Activity",noTimeline:"No activity yet",
     kinds:{CONSENT_GIVEN:"Consent",OPTED_OUT:"Opt-out"},status:{PLANNED:"Planned",DONE:"Done",CANCELLED:"Cancelled"},
-    outbound:"Nothing is sent to anyone. Response targets run in working hours (D-12) and the line's manager gets an in-app notice when one is missed; automatic routing is still closed.",noSend:"This page only records; no e-mail or message is sent to the lead from here.",
+    outbound:"Nothing is sent to anyone. Leads are routed by the line's rules, in turn inside the team, and response targets run in working hours (D-12); the line's manager gets in-app notices. A lead that has an owner is never moved automatically.",noSend:"This page only records; no e-mail or message is sent to the lead from here.",
     loading:"Loading...",
     errors:{POSSIBLE_DUPLICATE:"Similar leads exist.",ALREADY_ATTRIBUTED:"The lead is already attributed to this campaign.",FOLLOW_UP_STATE:"This follow-up is not planned.",BLOCKED_BY_POLICY:"Blocked until the policy is signed.",
       email:"Enter a valid e-mail address.",phone:"Enter a valid phone number.",name:"The name is required.",evidenceReference:"Consent needs an evidence reference.",at:"Choose a valid date and time.",subject:"The subject is required.",
@@ -174,9 +175,12 @@ export function LeadIntakePanel({language,onRecorded,onClose}:{language:Language
           <option value="">{l.none}</option>{lines.map(line=><option key={line.code} value={line.code}>{lineName(line,ar)}</option>)}</select></label>
         <label><span>{l.source}</span><select value={form.sourceId??""} onChange={e=>setForm(f=>({...f,sourceId:e.target.value?Number(e.target.value):undefined}))}>
           <option value="">{l.none}</option>{sources.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</select></label>
+        <label><span>{l.governorate}</span><select value={form.governorate??""} onChange={field("governorate")}><GovernorateOptions ar={ar} none={l.none}/></select></label>
         {campaigns.length>0&&<label><span>{l.campaign}</span><select value={form.campaignId??""} onChange={e=>setForm(f=>({...f,campaignId:e.target.value?Number(e.target.value):undefined}))}>
           <option value="">{l.none}</option>{campaigns.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></label>}
       </div>
+      <label className="mk-keep"><input type="checkbox" checked={!!form.keepMine} onChange={e=>setForm(f=>({...f,keepMine:e.target.checked||undefined}))}/>
+        <span>{l.keepMine}<small>{l.keepMineHint}</small></span></label>
       {error&&<p className="mk-error" role="alert"><CircleAlert size={15}/>{error}</p>}
       {similar&&<div className="mk-duplicates" role="region" aria-label={l.duplicates}>
         <strong>{l.duplicates}</strong><p className="wf-muted">{l.duplicatesHint}</p>

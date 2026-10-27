@@ -6,6 +6,7 @@ type Person = {
   id: number; version: number; code: string; name: string; contactOnFile: boolean; language: string; active: boolean;
   mustChangePassword: boolean; profileCode: string | null; profileName: string | null; administrator: boolean;
   businessLines: string[]; teams: { id: number; name: string }[]; createdOn: string | null;
+  awayFrom?: string | null; awayUntil?: string | null;
 };
 
 const lines = [
@@ -59,10 +60,12 @@ async function mockAdmin(page: Page, options: { administrator?: boolean } = {}) 
       return person ? result({ user: person, access: { code: person.profileCode, name: person.profileName, administrator: person.administrator,
         rights: [{ object: "com.axelor.apps.crm.db.Lead", read: true, write: true, create: true, remove: false, conditional: true }] } }) : result(null, 404);
     }
-    const action = path.match(/^\/admin\/users\/(\d+)\/(deactivate|activate|password)$/);
+    const action = path.match(/^\/admin\/users\/(\d+)\/(deactivate|activate|password|away)$/);
     if (action && method === "POST") {
       const person = people.find(p => p.id === Number(action[1]))!;
-      posted.push({ path, body: route.request().postDataJSON() as Record<string, unknown> });
+      const body = route.request().postDataJSON() as Record<string, unknown>;
+      posted.push({ path, body });
+      if (action[2] === "away") { person.awayFrom = (body.from as string) || null; person.awayUntil = (body.until as string) || null; }
       if (action[2] === "deactivate") person.active = false;
       if (action[2] === "activate") person.active = true;
       if (action[2] === "password") person.mustChangePassword = true;
@@ -316,4 +319,26 @@ test("D-07: two-step sign-in is turned on from Settings with a code, recovery co
     ["/me/mfa/start", {}], ["/me/mfa/confirm", { code: "111111" }], ["/me/mfa/confirm", { code: "654321" }],
     ["/me/mfa/disable", { code: "AAAA-1111", recovery: true }],
   ]);
+});
+
+test("D-12: an administrator sets a person's leave; routing skips them then, and clearing it is one click", async ({ page }) => {
+  const posted = await mockAdmin(page);
+  await page.goto("/#/admin/people/9");
+  await expect(page.getByRole("heading", { name: "سارة منصور" })).toBeVisible();
+  await expect(page.getByText("مش في إجازة.")).toBeVisible();
+  await page.getByRole("button", { name: "تحديد الإجازة" }).click();
+  let dialog = page.getByRole("dialog");
+  await expect(dialog).toContainText("مفيش leads بتتوزع عليه");
+  await dialog.getByLabel("من يوم").fill("2026-11-01");
+  await dialog.getByLabel("لحد يوم").fill("2026-10-30");
+  await expect(dialog.getByRole("button", { name: "تحديد الإجازة" })).toBeDisabled(); // the end before the start
+  await dialog.getByLabel("لحد يوم").fill("2026-11-05");
+  await dialog.getByRole("button", { name: "تحديد الإجازة" }).click();
+  await expect(page.locator(".admin-away")).toContainText("2026-11-01 → 2026-11-05");
+  expect(posted.find(p => p.path === "/admin/users/9/away")?.body).toEqual({ version: 2, from: "2026-11-01", until: "2026-11-05" });
+  await page.getByRole("button", { name: "تحديد الإجازة" }).click();
+  dialog = page.getByRole("dialog");
+  await dialog.getByRole("button", { name: "إلغاء الإجازة" }).click();
+  await expect(page.getByText("مش في إجازة.")).toBeVisible();
+  expect(posted.filter(p => p.path === "/admin/users/9/away").at(-1)?.body).toEqual({ version: 3, from: "", until: "" });
 });
