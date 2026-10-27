@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import {
-  Activity, ArrowLeft, ArrowRight, BadgeCheck, BriefcaseBusiness, Building2,
+  Activity, Archive, ArrowLeft, ArrowRight, BadgeCheck, BriefcaseBusiness, Building2,
   Check, CircleAlert, CircleHelp, Crown, GraduationCap,
   HeartHandshake, House, Layers3, LockKeyhole, LogOut, Menu,
   Moon, Palette, RefreshCw, Search, Settings2,
@@ -22,6 +22,7 @@ import { HomeCockpit } from "./HomeCockpit";
 import { SettingsPage } from "./SettingsPage";
 import { AdminConsole } from "./AdminConsole";
 import { PoliciesPage } from "./PoliciesPage";
+import { RetentionPage } from "./RetentionPage";
 import { AgendaPage } from "./AgendaPage";
 import { CatalogPage } from "./CatalogPage";
 import { CampaignsPage } from "./CampaignsPage";
@@ -39,7 +40,7 @@ import { problem } from "./dailyApi";
 import { t } from "./labels";
 import { usePreferences, type Theme } from "./preferences";
 
-type Page = "home" | "agenda" | "policies" | "catalog" | "campaigns" | "visits" | "quality" | "finance" | "admin" | "businessLines" | "opportunities" | "leads" | "accounts" | "capabilities" | "design" | "demo" | "certification" | "training" | "recruitment" | "fundraising" | "operations" | "knowledge" | "inbox" | "reports" | "settings";
+type Page = "home" | "agenda" | "policies" | "retention" | "catalog" | "campaigns" | "visits" | "quality" | "finance" | "admin" | "businessLines" | "opportunities" | "leads" | "accounts" | "capabilities" | "design" | "demo" | "certification" | "training" | "recruitment" | "fundraising" | "operations" | "knowledge" | "inbox" | "reports" | "settings";
 type Session = "checking" | "login" | "authenticated";
 type LineFilter = "all" | "active" | "setup" | "suspended";
 type IconType = typeof House;
@@ -48,7 +49,7 @@ function getPageFromDemoArea(area: DemoArea): Page {
     : area === "recruiting" ? "recruitment" : area === "fundraising" ? "fundraising" : "demo";
 }
 
-const allPages: Page[] = ["home","agenda","policies","catalog","campaigns","visits","quality","finance","admin","businessLines","opportunities","leads","accounts","capabilities","design","demo","certification","training","recruitment","fundraising","operations","knowledge","inbox","reports","settings"];
+const allPages: Page[] = ["home","agenda","policies","retention","catalog","campaigns","visits","quality","finance","admin","businessLines","opportunities","leads","accounts","capabilities","design","demo","certification","training","recruitment","fundraising","operations","knowledge","inbox","reports","settings"];
 function getPageFromLocation(): Page {
   const segment = window.location.hash.match(/^#\/([^/]+)/)?.[1];
   if (!DEMO_MODE && segment === "demo") return "home";
@@ -274,6 +275,8 @@ export function App() {
       ...(!DEMO_MODE && identity?.administrator ? [{ id: "admin", label: isRTL ? "لوحة الإدارة" : "Admin console", icon: ShieldCheck }] : []),
       // business-rule policies: offered to administrators (read) and policy owners (change); the server checks both
       ...(!DEMO_MODE && (identity?.administrator || identity?.policyOwner) ? [{ id: "policies", label: isRTL ? "السياسات" : "Policies", icon: Scale }] : []),
+      // D-07 retention review: policy owners only (the queue reads every record); the server checks it
+      ...(!DEMO_MODE && identity?.policyOwner ? [{ id: "retention", label: isRTL ? "مراجعة الاحتفاظ" : "Retention review", icon: Archive }] : []),
       { id: "businessLines", label: labels.businessLines, icon: Layers3 },
       { id: "capabilities", label: labels.capabilityMap, icon: Workflow },
       { id: "design", label: labels.design, icon: Palette },
@@ -360,6 +363,7 @@ export function App() {
         {page === "visits" && !DEMO_MODE && <VisitsPage language={prefs.language} />}
         {page === "quality" && !DEMO_MODE && <QualityPage language={prefs.language} administrator={identity?.administrator} />}
         {page === "finance" && !DEMO_MODE && <FinancePage language={prefs.language} />}
+        {page === "retention" && !DEMO_MODE && <RetentionPage language={prefs.language} />}
         {page === "policies" && !DEMO_MODE && <PoliciesPage language={prefs.language} administrator={identity?.administrator} />}
         {page === "admin" && !DEMO_MODE && <AdminConsole language={prefs.language} routeHash={routeHash} myCode={identity?.code || null} />}
         {page === "capabilities" && !DEMO_MODE && <SystemMap language={prefs.language} />}

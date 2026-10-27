@@ -77,7 +77,11 @@ Signer: the project owner, answering a structured interview in the engineering s
   - See `docs/slices/P4a-role-templates.md`.
   - Optional MFA is P4b: the native Axelor TOTP, turned on by each person in Settings, with an administrator reset
     (`docs/slices/P4b-optional-mfa.md`).
-  - The retention review queue (P4c) follows.
+  - The retention review queue is P4c (`docs/slices/P4c-retention-review.md`):
+    - records past their period are listed for a policy owner, never changed on their own;
+    - a record is kept (with a reason, until a date) or, for leads and candidates, anonymized in place;
+    - shared partner records (trainees, donors, contacts) can only be kept until accounting's retention is decided;
+    - open points for the owners are listed in that document.
 
 ## Related, owner-only actions (not engineering decisions)
 
