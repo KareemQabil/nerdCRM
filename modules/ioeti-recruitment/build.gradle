@@ -1,0 +1,22 @@
+plugins {
+	id 'com.axelor.app'
+}
+
+apply from: new File(projectDir.canonicalFile, "../../gradle/ioeti-module.gradle")
+
+// IOETI agency recruitment (Wave 4D): client job orders, candidates with a write-only restricted
+// profile, per-job-order consent, the submission pipeline, client interviews, offers, placements
+// and fee events. Native Axelor Talent is the company's own hiring, so this is a new bounded
+// context. CV sharing, offer terms, guarantee terms and fee invoicing wait for D-04 (and D-06).
+axelor {
+	title "IOETI Recruitment"
+	description "IOETI agency recruitment: job orders, candidates, consent, pipeline, placements"
+}
+
+apply from: rootProject.file("modules/axelor-open-suite/libs.gradle")
+
+dependencies {
+	api project(":modules:ioeti-core")
+
+	implementation libs.swagger_jaxrs
+}
