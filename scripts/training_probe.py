@@ -463,8 +463,11 @@ def main():
               f"{s_nr} {s_rv} {s_c2} {cert2}")
 
         # money: an issued customer invoice of the sponsor (11 400 incl. tax, fully paid), as a SQL fixture
-        company = psql(DATABASE, "SELECT id FROM base_company ORDER BY id LIMIT 1;").strip()
         egp = psql(DATABASE, "SELECT id FROM base_currency WHERE codeiso = 'EGP' LIMIT 1;").strip()
+        company = psql(DATABASE, "SELECT id FROM base_company ORDER BY id LIMIT 1;").strip()
+        if not company:  # a fresh CI database has no company yet: a fixture one, removed afterwards
+            company = str(create("com.axelor.apps.base.db.Company", {"name": f"Training probe Co {tag}", "code": f"TP{tag}",
+                                                                     "currency": {"id": int(egp)}})["id"])
         inv = int(psql(DATABASE, f"""INSERT INTO account_invoice (id, version, archived, company, currency, partner, operation_type_select,
             operation_sub_type_select, status_select, ex_tax_total, in_tax_total, amount_paid, amount_remaining, invoice_id, invoice_date)
             VALUES (nextval('account_invoice_seq'), 0, false, {company}, {egp}, {sponsor['id']}, 3, 1, 3, 10000, 11400, 11400, 0,
