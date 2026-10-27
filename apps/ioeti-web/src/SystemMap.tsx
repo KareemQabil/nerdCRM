@@ -20,8 +20,9 @@ type Domain = {
 const DOMAINS: Domain[] = [
   { id: "leads", ar: "العملاء المحتملون", en: "Leads", status: "live", upstream: "axelor-crm", href: "#/leads", probe: "/ws/ioeti/leads?limit=1",
     works: [["التسجيل مع كشف التكرار، التعديل، التأهيل والمراحل، الخسارة وإعادة الفتح، التحويل لحساب وفرصة", "Intake with duplicate checks, edit, qualification and stages, lose/reopen, conversion to account and opportunity"],
-      ["الموافقات والمصدر والحملات، المتابعات والأنشطة، البحث والعروض المحفوظة", "Consent, source and campaign attribution, follow-ups and activities, search and saved views"]],
-    held: [["D-12", "التوزيع على الآخرين وأهداف زمن الاستجابة", "Routing to others and response-time targets"]], next: [] },
+      ["الموافقات والمصدر والحملات، المتابعات والأنشطة، البحث والعروض المحفوظة", "Consent, source and campaign attribution, follow-ups and activities, search and saved views"],
+      ["أهداف زمن الاستجابة بساعات العمل، علامة التأخير وإشعار مدير الخط", "Response targets in working hours, the overdue flag and the line manager's notice"]],
+    held: [["D-12", "التوزيع على الآخرين", "Routing to others"]], next: [] },
   { id: "accounts", ar: "حسابات العملاء", en: "Accounts & contacts", status: "live", upstream: "axelor-base", href: "#/accounts", probe: "/ws/ioeti/accounts?limit=1",
     works: [["إضافة حساب مع تنبيه التشابه، التعديل، جهات الاتصال، Account 360 والأنشطة", "Add with similar-name warning, edit, contacts, Account 360 and activities"]], held: [], next: [] },
   { id: "opportunities", ar: "الفرص التجارية", en: "Opportunities", status: "live", upstream: "axelor-crm", href: "#/opportunities", probe: "/ws/ioeti/opportunities?limit=1",

@@ -894,7 +894,8 @@ test("lead qualification: stage, lose, reopen and assign-to-me send the lead ver
   });
   await page.goto("/#/leads/207");
   await expect(page.getByText("غير مكلّف بك")).toBeVisible();
-  await expect(page.getByText(/D-12/)).toBeVisible();
+  // D-12: response targets are explained on the lead; nothing is reassigned on its own
+  await expect(page.getByText(/مفيش إعادة توزيع تلقائي/)).toBeVisible();
   const move = page.getByLabel("نقل للمرحلة");
   await expect(move.locator("option")).toHaveText(["—", "Qualified"]);
   await move.selectOption("2");

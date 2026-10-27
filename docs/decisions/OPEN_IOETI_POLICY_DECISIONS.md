@@ -83,6 +83,12 @@ Signer: the project owner, answering a structured interview in the engineering s
     - shared partner records (trainees, donors, contacts) can only be kept until accounting's retention is decided;
     - open points for the owners are listed in that document.
 
+- **D-12 response targets implemented (2026-10-27, P5a):**
+  - The targets (per line and source, line, or default) and the working hours are policies; nothing is shipped.
+  - Targets are read as they were when the lead arrived.
+  - A missed target flags the lead overdue and sends the line's manager one in-app notice; nothing is reassigned.
+  - See `docs/slices/P5a-response-targets.md`. Routing rules and round robin are P5b.
+
 ## Related, owner-only actions (not engineering decisions)
 
 - Send, or decide not to send, the private upstream report for the AOP thread-bound identity issue. The draft is held outside the repository; see PR #9.
