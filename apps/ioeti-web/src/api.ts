@@ -13,6 +13,13 @@ export type LeadSummary = {
   version?: number; converted?: boolean; businessLineCode?: string | null;
   accountId?: number | null; opportunityId?: number | null;
   stageId?: number | null; stageKind?: "OPEN" | "CONVERTED" | "LOST" | null; lostReason?: string | null; assignedToMe?: boolean | null; receivedAt?: string | null;
+  response?: LeadResponse | null;
+};
+/** D-12: where a lead stands against its response targets (computed by the server in working hours). */
+export type ResponseStatus = "NOT_SET" | "DUE" | "OVERDUE" | "MET" | "LATE" | "CLOSED";
+export type LeadResponse = {
+  status: ResponseStatus; missing: "CALENDAR" | "TARGET" | null; dueAt: string | null; contactedAt: string | null;
+  qualification: ResponseStatus | null; qualifyDueAt: string | null; qualifiedAt: string | null;
 };
 export type LeadStage = { id: number; name: string; kind: "OPEN" | "CONVERTED" | "LOST" };
 export type LostReason = { id: number; name: string };

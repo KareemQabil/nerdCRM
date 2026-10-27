@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react
 import { CalendarClock, CircleAlert, CircleCheck, CircleDashed, History, Plus, Save, Scale, ShieldCheck, Trash2, UserRound, X } from "lucide-react";
 import { ApiError, getBusinessLines, type BusinessLine } from "./api";
 import { Dialog } from "./Dialog";
+import { getSources, type Option } from "./marketingApi";
 import {
   appointOwner, dismissOwner, getPolicies, getPolicy, getPolicyOwners, getPolicyPeople, retirePolicy, setPolicy,
   type Person, type PolicyDetail, type PolicyField, type PolicyOverview, type PolicySummary, type PolicyValue,
@@ -12,6 +13,8 @@ import { ErrorBanner, PageHeader } from "./ui";
 
 const AREAS = ["FINANCE", "SALES", "LEADS", "CERTIFICATION", "TRAINING", "RECRUITMENT", "PRIVACY", "CHANNELS"] as const;
 const DATA_TYPES = ["LEADS", "CANDIDATES", "TRAINEES", "DONORS", "CONTACTS"];
+/** D-12: response targets are set per business line and, optionally, per lead source (scope "LINE/sourceId"). */
+const PER_SOURCE = new Set(["leads.response-target"]);
 const L = {
   ar: {
     eyebrow: "الإدارة", title: "السياسات وقواعد العمل",
@@ -25,7 +28,7 @@ const L = {
     history: "السجل", by: "بواسطة", reason: "السبب", unset: "اتلغت",
     edit: "تحديد قيمة", scope: "تنطبق على", scopeHint: { SCHEME: "اكتب المعيار، مثلًا ISO 9001:2015", COURSE: "رقم الكورس", CLIENT_AGREEMENT: "رقم حساب العميل",
       LEAD_SOURCE: "اسم المصدر" } as Record<string, string>,
-    allLines: "قيمة عامة (لكل الخطوط اللي مالهاش قيمة خاصة)", choose: "اختار…", effective: "سارية من", reasonLabel: "سبب التغيير",
+    allLines: "قيمة عامة (لكل الخطوط اللي مالهاش قيمة خاصة)", source: "مصدر الـ lead (اختياري)", anySource: "كل المصادر", choose: "اختار…", effective: "سارية من", reasonLabel: "سبب التغيير",
     save: "حفظ", saving: "جاري الحفظ…", cancel: "إلغاء", retire: "إلغاء القيمة", retireTitle: "إلغاء القيمة؟",
     retireText: "من التاريخ ده العمليات اللي محتاجة السياسة دي هترجع تترفض لحد ما قيمة جديدة تتحدد.",
     addRow: "إضافة", removeRow: "حذف", addDate: "إضافة تاريخ", yes: "نعم",
@@ -50,7 +53,7 @@ const L = {
     history: "History", by: "by", reason: "Reason", unset: "unset",
     edit: "Set a value", scope: "Applies to", scopeHint: { SCHEME: "Type the scheme, e.g. ISO 9001:2015", COURSE: "Course number", CLIENT_AGREEMENT: "Client account number",
       LEAD_SOURCE: "Source name" } as Record<string, string>,
-    allLines: "Default (every line without its own value)", choose: "Choose…", effective: "Effective from", reasonLabel: "Reason for the change",
+    allLines: "Default (every line without its own value)", source: "Lead source (optional)", anySource: "Every source", choose: "Choose…", effective: "Effective from", reasonLabel: "Reason for the change",
     save: "Save", saving: "Saving…", cancel: "Cancel", retire: "Unset", retireTitle: "Unset this value?",
     retireText: "From that date, anything that needs this policy is refused again until a new value is set.",
     addRow: "Add", removeRow: "Remove", addDate: "Add date", yes: "Yes",
@@ -136,6 +139,14 @@ function PolicyPanel({ policyKey, l, ar, onChanged }: { policyKey: string; l: La
   const [retiring, setRetiring] = useState<PolicyValue | null>(null);
   const [error, setError] = useState("");
   useEffect(() => { getPolicy(policyKey).then(setD).catch(e => setError(problem(e, l))); }, [policyKey, l]);
+  const [sources, setSources] = useState<Option[]>([]);
+  useEffect(() => { if (PER_SOURCE.has(policyKey)) void getSources().then(setSources).catch(() => setSources([])); }, [policyKey]);
+  // "ISO9001/12" reads as "ISO9001 · Website"
+  const scopeName = (scope: string | null) => {
+    if (scope === null) return l.defaultScope;
+    const [line, source] = scope.split("/");
+    return source ? `${line} · ${sources.find(o => String(o.id) === source)?.name ?? source}` : line;
+  };
   if (!d) return <section className="data-panel policies-panel" aria-busy="true">{error && <p className="admin-list-error" role="alert">{error}</p>}</section>;
   const saved = (next: PolicyDetail) => { setD(next); setEditing(null); setRetiring(null); onChanged(); };
   return <section className="data-panel policies-panel" aria-labelledby="policy-title">
@@ -147,10 +158,10 @@ function PolicyPanel({ policyKey, l, ar, onChanged }: { policyKey: string; l: La
     <h3>{l.values}</h3>
     {d.values.length === 0 ? <p className="activity-empty">{l.none}</p>
       : <ul className="policies-values">{d.values.map(v => <li key={v.scope ?? ""} className={v.value ? "is-set" : "is-unset"}>
-        <div className="policies-value-head"><strong>{v.scope ?? l.defaultScope}</strong>
+        <div className="policies-value-head"><strong>{scopeName(v.scope)}</strong>
           {d.canEdit && <span className="admin-list-actions">
             <button type="button" className="btn btn-small btn-secondary" onClick={() => setEditing(v)}>{l.edit}</button>
-            {v.value && <button type="button" className="icon-button" aria-label={`${l.retire}: ${v.scope ?? l.defaultScope}`} onClick={() => setRetiring(v)}><Trash2 size={15}/></button>}
+            {v.value && <button type="button" className="icon-button" aria-label={`${l.retire}: ${scopeName(v.scope)}`} onClick={() => setRetiring(v)}><Trash2 size={15}/></button>}
           </span>}</div>
         {v.value ? <><ValueSummary fields={d.fields} value={v.value} ar={ar}/><small><CalendarClock size={12}/>{l.since} {v.since}</small></> : <p className="activity-empty">{l.none}</p>}
         {v.nextFrom && <p className="policies-next"><CalendarClock size={13}/>{v.nextUnsets ? `${l.nextUnset} ${v.nextFrom}` : `${l.next} ${v.nextFrom}:`}
@@ -158,7 +169,7 @@ function PolicyPanel({ policyKey, l, ar, onChanged }: { policyKey: string; l: La
       </li>)}</ul>}
     {d.versions.length > 0 && <details className="policies-history"><summary><History size={15}/>{l.history} ({d.versions.length})</summary>
       <ol>{d.versions.map(v => <li key={v.id}>
-        <span><strong>{v.scope ?? l.defaultScope}</strong> · {l.since} {v.effectiveFrom}{v.retired && ` · ${l.unset}`}</span>
+        <span><strong>{scopeName(v.scope)}</strong> · {l.since} {v.effectiveFrom}{v.retired && ` · ${l.unset}`}</span>
         {v.value && <ValueSummary fields={d.fields} value={v.value} ar={ar}/>}
         <small>{l.by} {v.authorName} · {l.reason}: {v.reason}</small>
       </li>)}</ol></details>}
@@ -186,7 +197,11 @@ function FieldValue({ field, value, ar }: { field: PolicyField; value: unknown; 
 function EditDialog({ d, l, ar, start, onClose, onSaved }: {
   d: PolicyDetail; l: Labels; ar: boolean; start: PolicyValue | null; onClose: () => void; onSaved: (d: PolicyDetail) => void;
 }) {
-  const [scope, setScope] = useState(start?.scope ?? "");
+  const [scope, setScope] = useState(start?.scope?.split("/")[0] ?? "");
+  const [source, setSource] = useState(start?.scope?.split("/")[1] ?? "");
+  const [sources, setSources] = useState<Option[]>([]);
+  const perSource = PER_SOURCE.has(d.key);
+  useEffect(() => { if (perSource) void getSources().then(setSources).catch(() => setSources([])); }, [perSource]);
   const [value, setValue] = useState<Record<string, unknown>>(() => ({ ...(start?.value ?? {}) }));
   const [from, setFrom] = useState(today());
   const [reason, setReason] = useState("");
@@ -198,7 +213,8 @@ function EditDialog({ d, l, ar, start, onClose, onSaved }: {
   async function submit(e: FormEvent) {
     e.preventDefault();
     setBusy(true); setError("");
-    try { onSaved(await setPolicy(d.key, { scope: scope || undefined, value, effectiveFrom: from, reason: reason.trim() })); }
+    const scoped = scope && source ? `${scope}/${source}` : scope;
+    try { onSaved(await setPolicy(d.key, { scope: scoped || undefined, value, effectiveFrom: from, reason: reason.trim() })); }
     catch (failure) { setError(problem(failure, l)); }
     finally { setBusy(false); }
   }
@@ -214,6 +230,10 @@ function EditDialog({ d, l, ar, start, onClose, onSaved }: {
             {DATA_TYPES.map(t => <option key={t} value={t}>{opt(t, ar)}</option>)}</select>
           : <input value={scope} onChange={e => setScope(e.target.value)} placeholder={d.allowsDefault ? l.allLines : l.scopeHint[d.scope] ?? ""} disabled={!!start}/>}
       </label>}
+      {perSource && d.scope === "BUSINESS_LINE" && <label><span>{l.source}</span>
+        <select value={source} onChange={e => setSource(e.target.value)} disabled={!!start || !scope}>
+          <option value="">{l.anySource}</option>
+          {sources.map(o => <option key={o.id} value={String(o.id)}>{o.name}</option>)}</select></label>}
       {d.fields.map(f => <FieldInput key={f.name} field={f} ar={ar} l={l} value={value[f.name]} onChange={v => setValue(x => ({ ...x, [f.name]: v }))}/>)}
       <label><span>{l.effective}</span><input type="date" value={from} min={today()} required onChange={e => setFrom(e.target.value)}/></label>
       <label><span>{l.reasonLabel}</span><textarea value={reason} rows={2} maxLength={500} required onChange={e => setReason(e.target.value)}/></label>

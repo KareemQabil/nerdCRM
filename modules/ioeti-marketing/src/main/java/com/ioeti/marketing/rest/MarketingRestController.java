@@ -410,7 +410,7 @@ public class MarketingRestController {
 
   @POST
   @Path("/leads/{id}/route")
-  @Operation(summary = "Route the lead automatically: blocked until routing and response targets (D-12)", tags = {"IOETI marketing"})
+  @Operation(summary = "Route the lead automatically: blocked until the routing rules are wired (D-12; response targets already run)", tags = {"IOETI marketing"})
   @IoetiEndpoint
   public Response route(@PathParam("id") Long id) {
     RecordAccess.writable(Lead.class, id);

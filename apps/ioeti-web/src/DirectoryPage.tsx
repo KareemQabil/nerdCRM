@@ -12,6 +12,7 @@ import { AccountDialog } from "./RecordDialogs";
 import { PageHeader } from "./ui";
 import { problem } from "./dailyApi";
 import { DataTable, tableLabels } from "./DataTable";
+import { ResponseChip } from "./LeadResponse";
 import { day } from "./format";
 
 type Kind = "leads" | "accounts";
@@ -29,7 +30,7 @@ const strings = {
     demo:"هذه السجلات خيالية للمعاينة فقط",noPermission:"ليس لديك صلاحية قراءة هذا الموديول.",
     source:"المصدر", leadSource:"المبيعات", accountSource:"المبيعات",
     serverSearch:"ابحث بالاسم أو الجهة أو البريد أو الهاتف...",newLead:"عميل محتمل جديد",newAccount:"حساب جديد",list:"القائمة",followUps:"المتابعات",
-    next:"تأهيل العملاء المحتملين وتحويلهم من صفحة كل عميل محتمل؛ التوزيع على الآخرين وأهداف زمن الاستجابة بانتظار D-07 وD-12", nextAccounts:"Account 360: الفرص وجهات الاتصال داخل صفحة الحساب",
+    next:"تأهيل العملاء المحتملين وتحويلهم من صفحة كل عميل محتمل. زمن الاستجابة بيتحسب بساعات العمل من سياسات الشركة؛ التوزيع على الآخرين لسه مقفول", nextAccounts:"Account 360: الفرص وجهات الاتصال داخل صفحة الحساب",
   },
   en: {
     leads:"Lead inbox",accounts:"Account directory",
@@ -42,11 +43,14 @@ const strings = {
     demo:"All records are fictional and for visual review only",noPermission:"No permission to read this module.",
     source:"Source",leadSource:"Sales",accountSource:"Sales",
     serverSearch:"Search name, organization, e-mail or phone...",newLead:"New lead",newAccount:"New account",list:"List",followUps:"Follow-ups",
-    next:"Qualify and convert from each lead page; routing to others and response-time targets wait for D-07 and D-12", nextAccounts:"Account 360: opportunities and contacts on each account page",
+    next:"Qualify and convert from each lead page. Response times are counted in working hours from the company's policies; routing to others is still closed", nextAccounts:"Account 360: opportunities and contacts on each account page",
   },
 } as const;
 
 function isLead(item: Row): item is LeadSummary { return "organization" in item; }
+
+/** Sorting by response puts the leads that need attention first. */
+const RESPONSE_ORDER: Record<string, number> = { OVERDUE: 0, DUE: 1, LATE: 2, MET: 3, CLOSED: 4, NOT_SET: 5 };
 
 export function DirectoryPage({kind,language}: Props) {
   const ar = language === "ar";
@@ -209,6 +213,8 @@ export function DirectoryPage({kind,language}: Props) {
             cell:item=>isLead(item)?<span className={"stage-chip kind-"+((item.stageKind??"OPEN").toLowerCase())}>{stageLabel(item.stage,language)}</span>:"—"},
           {key:"line",header:ar?"خط الأعمال":"Business line",optional:true,sortValue:item=>isLead(item)?item.businessLineCode:null,
             cell:item=>isLead(item)&&item.businessLineCode?<code dir="ltr">{item.businessLineCode}</code>:"—"},
+          {key:"response",header:ar?"زمن الاستجابة":"Response",sortValue:item=>isLead(item)?RESPONSE_ORDER[item.response?.status??"NOT_SET"]:null,
+            cell:item=>isLead(item)?<ResponseChip response={item.response} ar={ar}/>:"—"},
           {key:"received",header:ar?"وصل في":"Received",optional:true,sortValue:item=>isLead(item)?item.receivedAt:null,
             cell:item=>isLead(item)?day(item.receivedAt,ar):"—"},
           {key:"open",header:ar?"إجراءات":"Actions",cell:openCell},

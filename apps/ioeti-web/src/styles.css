@@ -1488,3 +1488,9 @@ th[aria-sort="ascending"], th[aria-sort="descending"] { color: var(--on-surface)
 .side-section-caption { opacity: 1; }
 .stage-chip.kind-open { color: color-mix(in srgb, var(--area-sales) 72%, var(--on-surface)); }
 .login-check { display: flex !important; flex-direction: row !important; align-items: center; gap: 8px; font-size: 13px; }
+
+/* D-12 response targets on leads: the chip reads on its own (icon + words), colour only reinforces it */
+.response-chip { gap: 5px; }
+.stage-chip.kind-late { background: var(--warning-container); color: var(--on-surface); }
+.stage-chip.kind-none { background: var(--surface-variant); color: var(--on-surface-variant); }
+.response-missing { display: block; color: var(--on-surface-variant); font-size: 12px; margin-top: 3px; }

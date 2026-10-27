@@ -38,7 +38,9 @@ MISSING = 987654321
 ROUNDS = int(os.environ.get("PROBE_LIFECYCLE_ROUNDS", "5"))
 RESULTS = []
 SAFE_FIELDS = {"id", "version", "name", "organization", "stage", "converted", "businessLineCode", "accountId",
-               "opportunityId", "stageId", "stageKind", "lostReason", "assignedToMe", "receivedAt"}
+               "opportunityId", "stageId", "stageKind", "lostReason", "assignedToMe", "receivedAt", "response"}
+# D-12: where the lead stands against its response targets: statuses and times, never contact details
+RESPONSE_FIELDS = {"status", "missing", "dueAt", "contactedAt", "qualification", "qualifyDueAt", "qualifiedAt"}
 
 
 def check(name, condition, detail=""):
@@ -170,7 +172,7 @@ def main():
               s == 200 and v.get("stageId") == second and v.get("version") == state(l1)[0]
               and state(l1)[1] == second, f"{s} {v}")
         check("lead view: safe fields only, received time and assignment shown",
-              set(v) <= SAFE_FIELDS and v.get("receivedAt") and v.get("assignedToMe") is True, v)
+              set(v) <= SAFE_FIELDS and set(v.get("response") or {}) <= RESPONSE_FIELDS and v.get("receivedAt") and v.get("assignedToMe") is True, v)
         before = state(l1)
         refused = {}
         for label, target in (("converted", converted_id), ("lost", lost_id), ("unknown", MISSING)):

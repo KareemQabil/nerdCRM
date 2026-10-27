@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { ResponseDetails, responseNote } from "./LeadResponse";
 import { CircleAlert, Clock3, RotateCcw, UserCheck, XCircle } from "lucide-react";
 import {
   ApiError, assignLeadToMe, getLeadStages, getLostReasons, loseLead, moveLeadStage, reopenLead,
@@ -13,7 +14,7 @@ const strings = {
     owner:"المسؤول",mine:"مكلّف بك",notMine:"غير مكلّف بك",assign:"تكليف لي",
     lose:"تسجيل كخسارة",reason:"سبب الخسارة",noReason:"بدون سبب محدد",note:"ملاحظة داخلية (اختياري)",
     confirmLose:"تأكيد الخسارة",cancel:"إلغاء",lost:"خسارة",lostBecause:"سبب الخسارة",
-    reopen:"إعادة فتح العميل المحتمل",slaNote:"أهداف زمن الاستجابة والتصعيد وتوزيع العملاء على الآخرين متوقفة حتى اعتماد IOETI للسياسات D-12 وD-07.",
+    reopen:"إعادة فتح العميل المحتمل",
     loading:"جار التحميل...",changed:"تم تعديل السجل من مكان آخر؛ حدّث الصفحة وأعد المحاولة.",
     lostLocked:"أعد فتح العميل المحتمل أولًا لتغيير مرحلته.",rejected:"لا يمكن تنفيذ هذا الإجراء على العميل المحتمل في حالته الحالية.",
     noteTooLong:"الملاحظة بحد أقصى 500 حرف.",setup:"إعداد CRM غير مكتمل؛ اطلب من المسؤول استكماله.",
@@ -24,7 +25,7 @@ const strings = {
     owner:"Owner",mine:"Assigned to you",notMine:"Not assigned to you",assign:"Assign to me",
     lose:"Mark as lost",reason:"Lost reason",noReason:"No specific reason",note:"Internal note (optional)",
     confirmLose:"Confirm lost",cancel:"Cancel",lost:"Lost",lostBecause:"Lost reason",
-    reopen:"Reopen lead",slaNote:"Response-time targets, escalation and routing leads to other people wait for IOETI policies D-12 and D-07.",
+    reopen:"Reopen lead",
     loading:"Loading...",changed:"This lead changed elsewhere; refresh and try again.",
     lostLocked:"Reopen this lead before changing its stage.",rejected:"This action is not possible for the lead in its current state.",
     noteTooLong:"The note can have at most 500 characters.",setup:"CRM setup is incomplete; ask an administrator to complete it.",
@@ -84,6 +85,7 @@ export function LeadQualificationPanel({lead,language,onChanged}:{
       <div><dt>{l.stage}</dt><dd>{isLost?<span className="lead-lost-tag"><XCircle size={14}/>{l.lost}</span>:lead.stage||"—"}</dd></div>
       <div><dt>{l.received}</dt><dd><Clock3 size={14}/> {received}</dd></div>
       <div><dt>{l.owner}</dt><dd>{lead.assignedToMe?l.mine:l.notMine}</dd></div>
+      <ResponseDetails response={lead.response} ar={language==="ar"}/>
       {isLost&&lead.lostReason&&<div><dt>{l.lostBecause}</dt><dd>{lead.lostReason}</dd></div>}
     </dl>
     {error&&<div className="login-error" role="alert"><CircleAlert size={17}/>{error}</div>}
@@ -114,6 +116,6 @@ export function LeadQualificationPanel({lead,language,onChanged}:{
         </div>
       </form>}
     </>}
-    <p className="record-security-note"><Clock3 size={15}/>{l.slaNote}</p>
+    <p className="record-security-note"><Clock3 size={15}/>{responseNote(language==="ar")}</p>
   </div>;
 }

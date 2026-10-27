@@ -1643,6 +1643,15 @@
     "RetentionTypeView.due": "BUSINESS",
     "RetentionTypeView.canAnonymize": "REFERENCE",
     "RetentionOverviewView.today": "REFERENCE",
-    "RetentionOverviewView.types": "BUSINESS"
+    "RetentionOverviewView.types": "BUSINESS",
+    "LeadResponseCheckView.recorded": "BUSINESS",
+    "LeadView.response": "BUSINESS",
+    "LeadResponseView.status": "REFERENCE",
+    "LeadResponseView.missing": "REFERENCE",
+    "LeadResponseView.dueAt": "BUSINESS",
+    "LeadResponseView.contactedAt": "BUSINESS",
+    "LeadResponseView.qualification": "REFERENCE",
+    "LeadResponseView.qualifyDueAt": "BUSINESS",
+    "LeadResponseView.qualifiedAt": "BUSINESS"
   }
 }

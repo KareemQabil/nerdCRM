@@ -20,6 +20,7 @@ import com.axelor.utils.api.SecurityCheck;
 import com.ioeti.businessline.db.BusinessLine;
 import com.ioeti.businessline.service.LeadConversionService;
 import com.ioeti.businessline.service.LeadLifecycleService;
+import com.ioeti.businessline.service.LeadResponse;
 import com.ioeti.core.api.ApiException;
 import com.ioeti.core.api.IoetiEndpoint;
 import com.ioeti.core.api.NativeCommands;
@@ -45,9 +46,10 @@ import java.util.List;
  * details and sensitive notes.
  *
  * <p>Stage and lost-reason lists are the lead's own vocabulary (the stage name is already part of
- * every lead view), so they follow lead read access. Response-time targets, escalation and routing
- * of leads to other people are open decisions D-12 and D-07: the API exposes when a lead was
- * received, and reassignment to another user fails closed.
+ * every lead view), so they follow lead read access. D-12 (signed 2026-10-25): every lead view
+ * carries where it stands against its response targets ({@link LeadResponse}); an overdue lead is
+ * flagged and its line's manager notified, never reassigned. Reassignment to another user still
+ * fails closed until routing (D-12) and the role matrix (D-07) are wired.
  */
 @Path("/ioeti/leads")
 @Produces(MediaType.APPLICATION_JSON)
@@ -78,6 +80,31 @@ public class LeadRestController {
     // unknown and unreadable ids answer the same 404 (no existence oracle)
     Lead lead = RecordAccess.readable(Lead.class, id);
     return ResponseConstructor.build(Response.Status.OK, "Lead", project(lead));
+  }
+
+  @GET
+  @Path("/overdue")
+  @Operation(summary = "Readable open leads that missed their first-contact target (D-12), the longest overdue first", tags = {"IOETI leads"})
+  @IoetiEndpoint
+  public Response overdue() {
+    new SecurityCheck().readAccess(Lead.class).check();
+    Filter condition = Beans.get(JpaSecurity.class).getFilter(JpaSecurity.CAN_READ, Lead.class);
+    Filter open = new JPQLFilter("(self.isConverted IS NULL OR self.isConverted = false) AND EXISTS "
+        + "(SELECT m FROM LeadResponseMiss m WHERE m.lead = self AND m.target = 'FIRST_CONTACT')");
+    Query<Lead> query = (condition == null ? open : Filter.and(condition, open)).build(Lead.class);
+    List<LeadView> rows = query.order("createdOn").fetch(200).stream().map(LeadRestController::project)
+        .filter(v -> v.response() != null && "OVERDUE".equals(v.response().status())).toList();
+    return ResponseConstructor.build(Response.Status.OK, "Overdue leads", rows);
+  }
+
+  @POST
+  @Path("/response/check")
+  @Operation(summary = "Run the response-target check now (administrators; it also runs on a schedule)", tags = {"IOETI leads"})
+  @IoetiEndpoint
+  public Response checkResponse() {
+    if (!AuthUtils.isAdmin(AuthUtils.getUser())) throw ApiException.forbidden();
+    int recorded = Beans.get(LeadResponse.class).check(LocalDateTime.now());
+    return ResponseConstructor.build(Response.Status.OK, "Response targets checked", new LeadResponseCheckView(recorded));
   }
 
   @GET
@@ -301,7 +328,8 @@ public class LeadRestController {
       stageKind(lead.getLeadStatus()),
       lostReason == null ? null : lostReason.getName(),
       lead.getUser() == null ? null : lead.getUser().getId().equals(AuthUtils.getUser().getId()),
-      lead.getCreatedOn()
+      lead.getCreatedOn(),
+      LeadResponseView.of(Beans.get(LeadResponse.class).status(lead, LocalDateTime.now()))
     );
   }
 
@@ -327,7 +355,21 @@ public class LeadRestController {
   public record LeadView(
     Long id, Integer version, String name, String organization, String stage,
     boolean converted, String businessLineCode, Long accountId, Long opportunityId,
-    Long stageId, String stageKind, String lostReason, Boolean assignedToMe, LocalDateTime receivedAt) {}
+    Long stageId, String stageKind, String lostReason, Boolean assignedToMe, LocalDateTime receivedAt, LeadResponseView response) {}
+
+  /**
+   * Where a lead stands against its response targets (D-12). {@code status} and {@code qualification}: NOT_SET, DUE, OVERDUE,
+   * MET, LATE or CLOSED ({@code qualification} null when the line has no qualification target); {@code missing} names the
+   * policy that is not set (CALENDAR or TARGET).
+   */
+  public record LeadResponseView(String status, String missing, LocalDateTime dueAt, LocalDateTime contactedAt, String qualification,
+      LocalDateTime qualifyDueAt, LocalDateTime qualifiedAt) {
+    static LeadResponseView of(LeadResponse.Status s) {
+      return new LeadResponseView(s.status(), s.missing(), s.dueAt(), s.contactedAt(), s.qualification(), s.qualifyDueAt(), s.qualifiedAt());
+    }
+  }
+
+  public record LeadResponseCheckView(int recorded) {}
   public record StageView(Long id, String name, String kind) {}
   public record ReasonView(Long id, String name) {}
   public record MoveStage(Integer version, Long stageId) {}

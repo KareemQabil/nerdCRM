@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<domain-models xmlns="http://axelor.com/xml/ns/domain-models"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://axelor.com/xml/ns/domain-models https://axelor.com/xml/ns/domain-models/domain-models_8.2.xsd">
+
+  <module name="ioeti" package="com.ioeti.businessline.db"/>
+
+  <!-- D-12 (signed 2026-10-25): a lead that missed a response target (first contact, or qualification), recorded once
+       by the scheduled check with the targets in force when the lead arrived. The line's manager gets one in-app notice;
+       nothing is reassigned. The row stays when the lead is contacted later (it was late). -->
+  <entity name="LeadResponseMiss" table="ioeti_lead_response_miss">
+    <many-to-one name="lead" ref="com.axelor.apps.crm.db.Lead" title="Lead" required="true"/>
+    <!-- FIRST_CONTACT or QUALIFICATION -->
+    <string name="target" title="Target" required="true" max="20"/>
+    <datetime name="dueAt" title="Due at" required="true"/>
+    <many-to-one name="targetPolicy" ref="com.ioeti.core.db.PolicyVersion" title="Target policy version" required="true"/>
+    <many-to-one name="calendarPolicy" ref="com.ioeti.core.db.PolicyVersion" title="Working hours policy version" required="true"/>
+    <many-to-one name="notified" ref="com.axelor.auth.db.User" title="Manager notified"/>
+    <datetime name="detectedAt" title="Detected at" required="true"/>
+    <unique-constraint columns="lead,target"/>
+  </entity>
+
+</domain-models>

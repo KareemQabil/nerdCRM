@@ -4,7 +4,8 @@ import com.axelor.auth.db.User;
 
 /**
  * In-app notices to IOETI users about records they work on. Never outbound: nothing here sends an
- * e-mail, SMS or chat message (D-10), and nothing escalates on a timer (D-12).
+ * e-mail, SMS or chat message (D-10). The one timed notice is D-12's (signed 2026-10-25): a line's
+ * manager is told when a lead misses a response target; nothing is reassigned.
  *
  * <p>Workflow modules call it inside their own transaction. Without {@code ioeti-automation} the
  * default implementation does nothing; with it, the notice is stored in the recipient's inbox.
