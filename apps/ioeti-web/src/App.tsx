@@ -35,6 +35,7 @@ import { DEMO_MODE } from "./demo";
 import { DEMO_AREAS, type DemoArea } from "./demoAreas";
 const DemoBusinessWorkspace = lazy(() => import("./DemoBusinessWorkspace"));
 const DemoExecutiveOverview = lazy(() => import("./DemoExecutiveOverview"));
+import { problem } from "./dailyApi";
 import { t } from "./labels";
 import { usePreferences, type Theme } from "./preferences";
 
@@ -118,7 +119,7 @@ export function App() {
         setSession("login");
         setLines([]);
       } else {
-        setLoadError(error instanceof Error ? error.message : labels.unavailable);
+        setLoadError(problem(error, isRTL));
       }
     } finally {
       setBusy(false);
@@ -135,12 +136,12 @@ export function App() {
           if (error instanceof ApiError && error.statusCode === 401) { setSession("login"); return; }
           setLoadError(error instanceof ApiError && error.statusCode === 403
             ? (prefs.language === "ar" ? "حسابك لا يملك صلاحية قراءة خطوط الأعمال." : "No permission to read business lines.")
-            : (error instanceof Error ? error.message : "Could not load business lines"));
+            : problem(error, prefs.language === "ar"));
         }
       })
       .catch((error) => {
         if (!(error instanceof ApiError) || error.statusCode !== 401) {
-          setLoadError(error instanceof Error ? error.message : "Server unavailable");
+          setLoadError(problem(error, prefs.language === "ar"));
         }
         setSession("login");
       });
@@ -228,7 +229,7 @@ export function App() {
     setSession("authenticated");
     setLoadError("");
     try { setLines(await getBusinessLines()); }
-    catch (error) { setLoadError(error instanceof Error ? error.message : labels.unavailable); }
+    catch (error) { setLoadError(problem(error, isRTL)); }
   }} />;
 
   type NavItem = { id: Page | string; label: string; icon: IconType; disabled?: boolean; badge?: number };

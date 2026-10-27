@@ -8,12 +8,13 @@ import type { Language } from "./preferences";
 import { MilestonesPanel } from "./MilestonesPanel";
 import { QuoteWorkflow } from "./WorkflowPanels";
 import { QuoteAcceptance } from "./CommitmentPanels";
+import { amount, quantity as qty } from "./format";
 
 const strings = {
   ar: {
     title:"عروض الأسعار",desc:"عروض الأسعار لهذه الفرصة وإصداراتها ومراجعتها، ضمن صلاحياتك.",
     create:"عرض سعر جديد",creating:"جار الإنشاء...",empty:"لا توجد عروض أسعار لهذه الفرصة بعد",
-    loading:"جار التحميل...",draft:"مسودة",product:"المنتج أو الخدمة",chooseProduct:"اختر من الكتالوج",
+    loading:"جار التحميل...",draft:"مسودة",finalized:"نهائي",confirmed:"مؤكد",completed:"مكتمل",canceled:"ملغي",product:"المنتج أو الخدمة",chooseProduct:"اختر من الكتالوج",
     quantity:"الكمية",add:"إضافة بند",adding:"جار الإضافة...",unitPrice:"سعر الوحدة قبل الضريبة",
     lineTotal:"الإجمالي قبل الضريبة",total:"الإجمالي قبل الضريبة",noLines:"لا توجد بنود بعد",
     taxApplied:(name:string,rate:string,since:string)=>`الضريبة من سياسة المالية: ${name} ${rate}% سارية من ${since} (D-06).`,
@@ -44,7 +45,7 @@ const strings = {
   en: {
     title:"Quotations",desc:"Quotations for this opportunity, their versions and review, within your permissions.",
     create:"New quotation",creating:"Creating...",empty:"No quotations for this opportunity yet",
-    loading:"Loading...",draft:"Draft",product:"Product or service",chooseProduct:"Choose from catalog",
+    loading:"Loading...",draft:"Draft",finalized:"Finalized",confirmed:"Confirmed",completed:"Completed",canceled:"Canceled",product:"Product or service",chooseProduct:"Choose from catalog",
     quantity:"Quantity",add:"Add line",adding:"Adding...",unitPrice:"Unit price before tax",
     lineTotal:"Total before tax",total:"Total before tax",noLines:"No lines yet",
     taxApplied:(name:string,rate:string,since:string)=>`Tax from the finance policy: ${name} ${rate}%, in force from ${since} (D-06).`,
@@ -196,20 +197,20 @@ export function QuotesPanel({opportunityId,opportunityVersion,language,onOpportu
     {quotes===null?<div className="empty-state" role="status">{l.loading}</div>
     :!quote?<div className="record-related-empty"><FileText size={26}/><strong>{l.empty}</strong></div>
     :<div className="quote-body">
-      <div className="quote-head"><code dir="ltr">{quote.reference||"#"+quote.id}</code><span className="record-status-tag">{quote.status==="DRAFT"?l.draft:quote.status}</span>{quote.accountName&&<span>{quote.accountName}</span>}</div>
+      <div className="quote-head"><code dir="ltr">{quote.reference||"#"+quote.id}</code><span className="record-status-tag">{({DRAFT:l.draft,FINALIZED:l.finalized,CONFIRMED:l.confirmed,COMPLETED:l.completed,CANCELED:l.canceled} as Record<string,string>)[quote.status??""]??quote.status}</span>{quote.accountName&&<span>{quote.accountName}</span>}</div>
       <div className="table-scroll"><table className="quote-lines">
         <thead><tr><th>{l.product}</th><th>{l.quantity}</th><th>{l.unitPrice}</th><th>{l.discount}</th><th>{l.lineTotal}</th></tr></thead>
         <tbody>{quote.lines.length===0?<tr><td colSpan={5}>{l.noLines}</td></tr>:quote.lines.map(line=><tr key={line.id}>
           <td><strong>{line.name}</strong>{line.productCode&&<small className="quote-code" dir="ltr">{line.productCode}</small>}</td>
-          <td dir="ltr">{Number(line.quantity)}{line.unit?" "+line.unit:""}</td>
-          <td dir="ltr">{line.unitPriceBeforeTax} {quote.currency}</td>
+          <td dir="ltr">{qty(line.quantity)}{line.unit?" "+line.unit:""}</td>
+          <td dir="ltr">{amount(line.unitPriceBeforeTax,quote.currency)}</td>
           <td dir="ltr">{pct(line.discountPercent)}%</td>
-          <td dir="ltr">{line.totalBeforeTax} {quote.currency}</td>
+          <td dir="ltr">{amount(line.totalBeforeTax,quote.currency)}</td>
         </tr>)}</tbody>
-        <tfoot><tr><th colSpan={4}>{l.total}</th><th dir="ltr">{quote.totalBeforeTax} {quote.currency}</th></tr>
+        <tfoot><tr><th colSpan={4}>{l.total}</th><th dir="ltr">{amount(quote.totalBeforeTax,quote.currency)}</th></tr>
           {quote.taxStatus==="APPLIED"&&quote.tax&&<>
-            <tr className="quote-tax-row"><th colSpan={4}>{quote.tax.name} {Number(quote.tax.ratePercent)}%</th><th dir="ltr">{quote.taxTotal} {quote.currency}</th></tr>
-            <tr><th colSpan={4}>{l.totalWithTax}</th><th dir="ltr">{quote.totalWithTax} {quote.currency}</th></tr>
+            <tr className="quote-tax-row"><th colSpan={4}>{quote.tax.name} {qty(quote.tax.ratePercent)}%</th><th dir="ltr">{amount(quote.taxTotal,quote.currency)}</th></tr>
+            <tr><th colSpan={4}>{l.totalWithTax}</th><th dir="ltr">{amount(quote.totalWithTax,quote.currency)}</th></tr>
           </>}
         </tfoot>
       </table></div>
@@ -221,7 +222,7 @@ export function QuotesPanel({opportunityId,opportunityVersion,language,onOpportu
       {quote.status==="DRAFT"&&<form className="opportunity-form quote-line-form" onSubmit={addLine}>
         <label><span>{l.product}</span><select required value={productId} onChange={e=>setProductId(e.target.value)}>
           <option value="">{catalog.length?l.chooseProduct:l.catalogEmpty}</option>
-          {catalog.map(p=><option key={p.id} value={p.id}>{p.name}{p.salePrice?` · ${Number(p.salePrice)} ${p.currency||""}`:""}</option>)}
+          {catalog.map(p=><option key={p.id} value={p.id}>{p.name}{p.salePrice?` · ${amount(p.salePrice,p.currency)}`:""}</option>)}
         </select></label>
         <label><span>{l.quantity}</span><input type="number" min="0.0001" max="100000" step="any" required value={quantity} onChange={e=>setQuantity(e.target.value)}/></label>
         <button type="submit" className="btn btn-secondary" disabled={busy||!productId}><Plus size={16}/>{busy?l.adding:l.add}</button>

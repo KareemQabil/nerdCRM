@@ -4,6 +4,7 @@ import { ApiError, createContract, fillContractFromQuote, getContracts, getQuote
 import type { Language } from "./preferences";
 import { ContractWorkflow } from "./WorkflowPanels";
 import { ContractActivation } from "./CommitmentPanels";
+import { amount, quantity } from "./format";
 
 const strings = {
   ar: {
@@ -97,10 +98,10 @@ export function ContractPanel({opportunityId,opportunityVersion,language,onOppor
         <thead><tr><th>{l.product}</th><th>{l.quantity}</th><th>{l.unitPrice}</th><th>{l.lineTotal}</th></tr></thead>
         <tbody>{lines.map(line=><tr key={line.id}>
           <td><strong>{line.name}</strong>{line.productCode&&<small className="quote-code" dir="ltr">{line.productCode}</small>}</td>
-          <td dir="ltr">{Number(line.quantity)}</td><td dir="ltr">{line.unitPriceBeforeTax} {contract.currency}</td>
-          <td dir="ltr">{line.totalBeforeTax} {contract.currency}</td></tr>)}</tbody>
+          <td dir="ltr">{quantity(line.quantity)}</td><td dir="ltr">{amount(line.unitPriceBeforeTax,contract.currency)}</td>
+          <td dir="ltr">{amount(line.totalBeforeTax,contract.currency)}</td></tr>)}</tbody>
         <tfoot><tr><th colSpan={3}>{l.total}{contract.sourceQuoteId?` · ${l.fromQuote} #${contract.sourceQuoteId}`:""}</th>
-          <th dir="ltr">{contract.totalBeforeTax} {contract.currency}</th></tr></tfoot>
+          <th dir="ltr">{amount(contract.totalBeforeTax,contract.currency)}</th></tr></tfoot>
       </table></div>
       :contract.status==="DRAFT"&&<div><button type="button" className="btn btn-secondary" disabled={busy} onClick={()=>void fill(contract)}><Plus size={16}/>{busy?l.filling:l.fill}</button></div>}
       <ContractWorkflow contract={contract} language={language} onChanged={()=>void load().catch(()=>undefined)}/>
