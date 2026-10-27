@@ -19,7 +19,7 @@ export type LostReason = { id: number; name: string };
 export type ContactSummary = { id: number; name: string; jobTitle: string | null };
 export type LeadConversion = { leadId: number; accountId: number; contactId: number | null; opportunityId: number };
 export type ConvertLeadCommand = { version: number; opportunityName?: string; businessLineCode?: string; accountId?: number };
-export type AccountSummary = { id: number; name: string; reference: string | null; customer: boolean; prospect: boolean };
+export type AccountSummary = { id: number; name: string; reference: string | null; customer: boolean; prospect: boolean; version?: number };
 export type SessionIdentity = { code: string; name: string; language: string | null; administrator?: boolean };
 export type Opportunity = {
   id: number;
@@ -30,6 +30,9 @@ export type Opportunity = {
   businessLineNameAr: string | null;
   businessLineNameEn: string | null;
   stage: string | null;
+  // live API only (journeys plan, phase 2): the stage path and the salesperson's estimate
+  stageId?: number | null; stageKind?: "OPEN" | "WON" | "LOST" | null; amount?: string | number | null; currencyCode?: string | null;
+  expectedCloseDate?: string | null; probability?: string | number | null; lostReason?: string | null;
 };
 type Envelope<T> = {
   codeStatus?: number; messageStatus?: string; object?: T; status?: number;

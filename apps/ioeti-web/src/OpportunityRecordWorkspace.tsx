@@ -12,6 +12,8 @@ import { QuotesPanel } from "./QuotesPanel";
 import { ContractPanel } from "./ContractPanel";
 import { DocumentsPanel } from "./DocumentsPanel";
 import { MentionForm } from "./InboxPage";
+import { ActivityPanel } from "./ActivityPanel";
+import { OpportunityPlanCard, OpportunityStageRail } from "./OpportunityStageRail";
 
 type Props = {
   record: Opportunity; language: Language; onBack: () => void;
@@ -124,6 +126,13 @@ export function OpportunityRecordWorkspace({record,language,onBack,onRename,onPr
         </div>
       </section>}
     </div>
+    {!DEMO_MODE&&record.stageId!==undefined&&<section className="record-content-card opportunity-path">
+      <OpportunityStageRail record={record} language={language} onChanged={()=>onRecordChanged?.()}/>
+      <OpportunityPlanCard record={record} language={language} onChanged={()=>onRecordChanged?.()}/>
+    </section>}
+    {!DEMO_MODE&&<section className="record-content-card record-activities">
+      <ActivityPanel record="OPPORTUNITY" recordId={record.id} version={record.version} language={language} onChanged={()=>onRecordChanged?.()}/>
+    </section>}
     {!DEMO_MODE&&<QuotesPanel opportunityId={record.id} opportunityVersion={record.version} language={language} onOpportunityChanged={onRecordChanged}/>}
     {!DEMO_MODE&&<ContractPanel opportunityId={record.id} opportunityVersion={record.version} language={language} onOpportunityChanged={onRecordChanged}/>}
     {!DEMO_MODE&&<section className="record-content-card record-documents"><DocumentsPanel subject="OPPORTUNITY" subjectId={record.id} language={language}/>

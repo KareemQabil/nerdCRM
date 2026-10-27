@@ -35,7 +35,7 @@ def main():
         ("/ws/ioeti/leads", {"id", "version", "name", "organization", "stage", "converted",
                              "businessLineCode", "accountId", "opportunityId", "stageId", "stageKind",
                              "lostReason", "assignedToMe", "receivedAt"}),
-        ("/ws/ioeti/accounts", {"id", "name", "reference", "customer", "prospect"}),
+        ("/ws/ioeti/accounts", {"id", "version", "name", "reference", "customer", "prospect"}),
     ):
         status, payload = client.call("GET", path)
         records = payload.get("object")

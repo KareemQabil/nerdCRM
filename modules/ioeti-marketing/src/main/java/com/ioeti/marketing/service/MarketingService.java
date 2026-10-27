@@ -95,6 +95,24 @@ public class MarketingService {
     return saved;
   }
 
+  /** Saves a changed lead; an e-mail given as empty removes the address, the search key follows the listener. */
+  @Transactional(rollbackOn = {Exception.class})
+  public Lead edit(Lead lead, String email, boolean emailGiven) {
+    if (emailGiven) {
+      if (email == null) {
+        lead.setEmailAddress(null);
+      } else if (lead.getEmailAddress() == null) {
+        EmailAddress address = new EmailAddress();
+        address.setAddress(email);
+        lead.setEmailAddress(JPA.save(address));
+      } else {
+        lead.getEmailAddress().setAddress(email);
+      }
+    }
+    lead.setIoetiSearchKey(LeadSearchKeyListener.key(lead));
+    return Beans.get(LeadRepository.class).save(lead);
+  }
+
   @Transactional(rollbackOn = {Exception.class})
   public Campaign attribute(Lead lead, Campaign campaign) {
     // Attributions of different leads must not conflict: take the row lock first (a plain FOR UPDATE;
