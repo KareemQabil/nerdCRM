@@ -515,7 +515,7 @@ function Allocation({commitment,l,run,busy}:{commitment:Commitment;l:Labels;run:
   const [options,setOptions]=useState<Restriction[]>([]);const [pick,setPick]=useState("");
   useEffect(()=>{if(commitment.canAllocate)void getRestrictions().then(r=>setOptions(r.filter(x=>x.active))).catch(()=>setOptions([]));},[commitment.canAllocate]);
   const status=commitment.allocationStatus??"PENDING_ALLOCATION";
-  return <div className="fund-allocation" aria-label={l.restriction}>
+  return <div className="fund-allocation">
     <dl className="fund-alloc-terms">
       <div><dt>{l.restriction}</dt><dd>{commitment.fundRestrictionName?<>{commitment.fundRestrictionName} <span dir="ltr">({commitment.fundRestrictionCode})</span></>:l.allocation[status]}</dd></div>
       {commitment.analyticAccount&&<div><dt>{l.analytic}</dt><dd dir="ltr">{commitment.analyticAccount}</dd></div>}

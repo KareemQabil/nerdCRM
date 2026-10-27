@@ -77,3 +77,6 @@
   .training-certificate { position: fixed; inset: 0; margin: 0; border-radius: 0; box-shadow: none; justify-content: center; align-content: center;
     background: #fff; color: #000; }
 }
+
+/* the cohort list's monogram: the area colour on its soft tint is below 4.5:1 at this size */
+.training-cohort-row .line-monogram { color: var(--on-surface); }
