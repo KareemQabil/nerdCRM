@@ -36,8 +36,8 @@
   .page-title > p { display: none; }
   .page-head-actions { width: 100%; }
   .page-head-actions > .btn { flex: 1; justify-content: center; }
-  .list-toolbar { flex-wrap: nowrap; margin: 10px 0 12px; }
-  .list-toolbar .search-field { flex: 1; min-width: 0; }
+  .list-toolbar { flex-wrap: wrap; margin: 10px 0 12px; }
+  .list-toolbar .search-field { flex: 1 1 220px; min-width: 0; }
   .page-tabs { width: 100%; }
   .page-tabs > button { flex: 1; justify-content: center; }
   .data-panel-heading { padding: 10px 12px; }
