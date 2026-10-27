@@ -1,0 +1,60 @@
+{
+  "results": [
+    {
+      "check": "checklist per business line: admin adds items (201); duplicate \u2192 422; operations \u2192 403; unknown line \u2192 422",
+      "result": "PASS",
+      "detail": "[201, 201, 201, 422, 403, 422]"
+    },
+    {
+      "check": "request: draft contract \u2192 422 CONTRACT_NOT_ACTIVE; line without checklist \u2192 422 CHECKLIST_NOT_CONFIGURED; active \u2192 201 with the checklist copied; again \u2192 409 HANDOVER_EXISTS",
+      "result": "PASS",
+      "detail": "422 422 201 409 {'id': 9, 'version': 0, 'contractId': 42, 'contractReference': 'VEEB0003', 'contractName': 'Wave5 main EEBC6B', 'clientId': 1046, 'clientName': 'Wave5 Nile Foods EEBC6B', 'businessLine"
+    },
+    {
+      "check": "retiring a requirement does not rewrite a submitted handover (snapshot)",
+      "result": "PASS",
+      "detail": "{'id': 9, 'version': 0, 'contractId': 42, 'contractReference': 'VEEB0003', 'contractName': 'Wave5 main EEBC6B', 'clientId': 1046, 'clientName': 'Wave5 Nile Foods EEBC6B', 'businessLineCode': 'W5EEBC6B"
+    },
+    {
+      "check": "accept with required items open \u2192 422 CHECKLIST_INCOMPLETE; sales cannot accept (403); rework \u2192 REWORK_REQUESTED; accept during rework \u2192 422; items done; stale \u2192 409; resubmitted",
+      "result": "PASS",
+      "detail": "(422, 403, 200, 422, 200, 409, 200, 200)"
+    },
+    {
+      "check": "acceptance creates one native project linked to the handover (code ENG-H\u2026, client, lead, team); again \u2192 422; the decided checklist is frozen",
+      "result": "PASS",
+      "detail": "201 {'id': 7, 'version': 0, 'code': 'ENG-H9', 'name': 'Wave5 main EEBC6B', 'clientId': 1046, 'clientName': 'Wave5 Nile Foods EEBC6B', 'leadName': 'Wave5 Ops', 'teamName': 'Wave5 delivery EEBC6B', 'han"
+    },
+    {
+      "check": "tasks: added (201); the same version twice \u2192 409, one task; done; progress 50% with one overdue task",
+      "result": "PASS",
+      "detail": "201 409 201 200 422 {'id': 7, 'version': 3, 'code': 'ENG-H9', 'name': 'Wave5 main EEBC6B', 'clientId': 1046, 'clientName': 'Wave5 Nile Foods EEBC6B', 'leadName': 'Wave5 Ops', 'teamName': 'Wave5 delive"
+    },
+    {
+      "check": "ownership transfer recorded (from \u2192 to); same owner \u2192 422; trail lists every step with its actor and reason",
+      "result": "PASS",
+      "detail": "200 422 ['SUBMITTED', 'REWORK_REQUESTED', 'ITEM_DONE', 'RESUBMITTED', 'ITEM_DONE', 'ACCEPTED', 'ENGAGEMENT_CREATED', 'OWNER_CHANGED']"
+    },
+    {
+      "check": "the trail has no write path (PUT/DELETE \u2192 404/405)",
+      "result": "PASS",
+      "detail": "405 405"
+    },
+    {
+      "check": "rejected with a reason; a decided handover cannot be rejected again; a new request after rejection \u2192 201",
+      "result": "PASS",
+      "detail": "200 422 201"
+    },
+    {
+      "check": "another salesperson: handover and trail answer 404 like missing ids, cannot touch items; sales cannot read engagements or add tasks (403/404); operations lists the engagement; contract activation still BLOCKED_BY_POLICY (D-11)",
+      "result": "PASS",
+      "detail": "[404, 404, 404] 404 403 403 422"
+    },
+    {
+      "check": "concurrent acceptances of one handover: one 201 and one 409, exactly one engagement (5 rounds)",
+      "result": "PASS",
+      "detail": "[([201, 409], 1), ([201, 409], 1), ([201, 409], 1), ([201, 409], 1), ([201, 409], 1)]"
+    }
+  ],
+  "cleanup_complete": true
+}

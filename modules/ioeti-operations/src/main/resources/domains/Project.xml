@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<domain-models xmlns="http://axelor.com/xml/ns/domain-models"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://axelor.com/xml/ns/domain-models https://axelor.com/xml/ns/domain-models/domain-models_8.2.xsd">
+
+  <!-- Extension of the native AOS Project (no upstream file is modified): the accepted handover that
+       created the engagement. Unique, so one handover never creates two projects. -->
+  <module name="project" package="com.axelor.apps.project.db"/>
+
+  <entity name="Project">
+    <many-to-one name="ioetiHandover" ref="com.ioeti.operations.db.HandoverRequest" title="IOETI handover" unique="true"/>
+  </entity>
+
+</domain-models>

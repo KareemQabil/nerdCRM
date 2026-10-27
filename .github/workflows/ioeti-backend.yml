@@ -98,6 +98,9 @@ jobs:
           # Wave 4E: fundraising (money kept apart: pledge is not collected; no duplicate collections;
           # sensitive donor data write-only; receipts, posting, invoicing and allocation D-05/D-06 blocked)
           PROBE_FUND_ROUNDS=5 python3 scripts/fundraising_probe.py
+          # Wave 5: handover and engagement (checklist per line, one engagement per handover, append-only
+          # trail, concurrent acceptance; contract activation stays D-11 and is a SQL test fixture here)
+          PROBE_OPS_ROUNDS=5 python3 scripts/operations_probe.py
           # SEC-004: cookies, fixation, CSRF, logout, per-user login throttle (runs last: it
           # throttles one throw-away user)
           python3 scripts/session_security_probe.py
@@ -124,6 +127,7 @@ jobs:
             logs/certification-probe.json
             logs/recruitment-probe.json
             logs/fundraising-probe.json
+            logs/operations-probe.json
             logs/quote-probe.json
             logs/websocket-identity-probe.json
             logs/migration-verify.json

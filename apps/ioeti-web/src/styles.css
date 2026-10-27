@@ -128,7 +128,7 @@ h1 { font-size: clamp(25px, 3vw, 36px); line-height: 1.35; letter-spacing: -.018
 h2 { font-size: 21px; line-height: 1.4; }
 p { color: var(--on-surface-variant); }
 .app-frame { min-height: 100vh; background: radial-gradient(circle at 52% -16%, var(--glow), transparent 43%), var(--background); }
-.side-panel { width: var(--side-width); position: fixed; z-index: var(--z-nav); inset-block: 0; inset-inline-start: 0; display: flex; flex-direction: column; gap: 13px; padding: 24px 14px 15px; border-inline-end: 1px solid var(--outline-variant); background: var(--glass-strong); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); transition: width var(--duration-normal) ease; }
+.side-panel { width: var(--side-width); position: fixed; z-index: var(--z-nav); inset-block: 0; inset-inline-start: 0; display: flex; flex-direction: column; gap: 13px; padding: 24px 14px 15px; border-inline-end: 1px solid var(--outline-variant); background: var(--glass-strong); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); transition: width var(--duration-normal) ease; overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; scrollbar-width: thin; }
 .side-brand { display: flex; align-items: center; gap: 12px; padding: 4px 9px 20px; min-height: 72px; }
 .brand-emblem { flex: 0 0 auto; width: 47px; height: 47px; display: inline-grid; place-items: center; border-radius: 15px; color: var(--on-primary); background: linear-gradient(135deg, var(--primary), color-mix(in srgb, var(--primary) 72%, #0369a1)); box-shadow: 0 11px 25px var(--glow); }
 .brand-copy,.login-brand>span:last-child { display: grid; gap: 0; line-height: 1.3; }
