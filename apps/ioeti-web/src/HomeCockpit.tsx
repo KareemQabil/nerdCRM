@@ -9,6 +9,7 @@ import { stageLabel } from "./labels";
 import type { Language } from "./preferences";
 import { amount } from "./format";
 import { PageHeader } from "./ui";
+import { OutcomeBar } from "./OutcomeBar";
 
 /**
  * The live home page: the signed-in person's own work first, then the pipeline and activity they may
@@ -149,6 +150,8 @@ export function HomeCockpit({ language, name, unread, onNavigate }: Props) {
               <span className="cockpit-bar-count" dir="ltr">{s.count}</span>
               {s.money.size > 0 && <span className="cockpit-bar-money">{[...s.money.entries()].map(([c, v]) => money(v, c)).join(" · ")}</span>}
             </li>)}</ol>}
+          {funnel && <OutcomeBar captioned title={l.leads} outcomes={[{ key: "open", label: l.open, value: funnel.open },
+            { key: "converted", label: l.converted, value: funnel.converted }, { key: "lost", label: l.lost, value: funnel.lost }]}/>}
           {funnel && <dl className="cockpit-funnel">
             <div><dt>{l.leads} · {l.total}</dt><dd dir="ltr">{funnel.total}</dd></div>
             <div><dt>{l.open}</dt><dd dir="ltr">{funnel.open}</dd></div>
