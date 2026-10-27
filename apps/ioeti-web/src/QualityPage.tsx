@@ -14,6 +14,7 @@ import {
 import type { Language } from "./preferences";
 import "./daily.css";
 import "./quality.css";
+import { ErrorBanner, PageHeader } from "./ui";
 
 const L = {
   ar: {
@@ -150,10 +151,7 @@ function Register({ language, administrator }: { language: Language; administrat
   }, [rows]);
   const ready = options?.ready ?? false;
   return <section className="page-enter quality-page">
-    <div className="page-head">
-      <div className="page-title"><span className="eyebrow">{l.eyebrow}</span><h1>{l.title}</h1><p>{l.hint}</p></div>
-      <div className="page-head-actions"><button type="button" className="btn btn-primary" disabled={!ready} onClick={() => setRaising(true)}><Plus size={16}/>{l.raise}</button></div>
-    </div>
+    <PageHeader eyebrow={l.eyebrow} title={l.title} description={l.hint} actions={<><button type="button" className="btn btn-primary" disabled={!ready} onClick={() => setRaising(true)}><Plus size={16}/>{l.raise}</button></>}/>
     {options && !options.ready && <div className="quality-setup" role="note">
       <TriangleAlert size={18}/>
       <div><strong>{l.setupTitle}</strong><p>{l.setupText}</p><ul>{options.missing.map(m => <li key={m}>{l.missing[m]}</li>)}</ul>
@@ -171,7 +169,7 @@ function Register({ language, administrator }: { language: Language; administrat
       <div className={stats.overdue ? "is-alert" : ""}><dt>{l.stats.overdue}</dt><dd>{stats.overdue}</dd></div>
       {state !== "open" && <div className={stats.unchecked ? "is-warn" : ""}><dt>{l.stats.unchecked}</dt><dd>{stats.unchecked}</dd></div>}
     </dl>}
-    {error && <div className="error-banner" role="alert"><CircleAlert size={17}/><span>{error}</span></div>}
+    {error && <ErrorBanner message={error}/>}
     {rows === null ? <div className="empty-state" role="status">{l.loading}</div>
       : rows.length === 0 ? !error && <div className="empty-state"><ShieldCheck size={28}/><span>{l.empty}</span></div>
       : <ul className="quality-list">{rows.map(q => <li key={q.id}><IssueCard q={q} l={l} ar={ar}/></li>)}</ul>}
@@ -228,7 +226,7 @@ function IssueRecord({ id, language }: { id: number; language: Language }) {
   const openActions = data?.actions.filter(a => a.status === "OPEN").length ?? 0;
   return <article className="page-enter quality-record">
     <div className="record-context-bar"><a className="record-back" href="#/quality"><Back size={17}/>{l.back}</a></div>
-    {error && !dialog && <div className="error-banner" role="alert"><CircleAlert size={17}/><span>{error}</span></div>}
+    {error && !dialog && <ErrorBanner message={error}/>}
     {!q || !data ? (!error && <div className="empty-state" role="status">{l.loading}</div>) : <>
       <header className={"quality-hero is-" + (q.gravity ?? "minor").toLowerCase()}>
         <div className="quality-card-top">

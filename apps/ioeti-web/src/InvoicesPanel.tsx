@@ -4,6 +4,7 @@ import { ApiError } from "./api";
 import { Dialog } from "./Dialog";
 import { getInvoiceReadiness, getInvoices, issueCreditNote, recordPayment, type FinanceInvoice } from "./financeApi";
 import type { Language } from "./preferences";
+import { amount, day as dayOf } from "./format";
 
 const L = {
   ar: {
@@ -71,9 +72,8 @@ export function InvoicesPanel({ language, onChanged }: { language: Language; onC
   }), [state, l]);
   useEffect(() => { setRows(null); void load(); }, [load]);
   if (hidden) return null;
-  const money = (value: number | null, currency: string) => value == null ? "—"
-    : new Intl.NumberFormat(ar ? "ar-EG" : "en-GB", { maximumFractionDigits: 2 }).format(value) + " " + currency;
-  const day = (value: string | null) => value ? new Date(value + "T00:00:00").toLocaleDateString(ar ? "ar-EG" : "en-GB", { day: "numeric", month: "short", year: "numeric" }) : "—";
+  const money = (value: number | null, currency: string) => amount(value, currency);
+  const day = (value: string | null) => dayOf(value, ar);
   async function done(text: string) {
     setDialog(null); setMessage({ kind: "ok", text });
     await load(); onChanged?.();

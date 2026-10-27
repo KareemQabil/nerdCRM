@@ -155,6 +155,21 @@ test("unsafe requests send Axelor's CSRF token from its cookie; safe ones do not
   expect(seen.filter(r => r.method === "GET").every(r => r.token === null)).toBe(true);
 });
 
+test("a failed opportunity list says so in Arabic and its retry loads the list", async ({ page }) => {
+  await intercept(page);
+  let failures = 1;
+  await page.route(/\/ws\/ioeti\/opportunities(\?.*)?$/, route => {
+    if (route.request().method() === "GET" && failures-- > 0) return route.fulfill({ status: 500, body: "{}" });
+    return route.fallback();
+  });
+  await page.goto("/#/opportunities");
+  const banner = page.getByRole("alert").filter({ hasText: "الخادم مش قادر يكمّل الطلب" });
+  await expect(banner).toBeVisible();
+  await banner.getByRole("button", { name: "إعادة المحاولة" }).click();
+  await expect(page.getByRole("row").filter({ hasText: "Hotel certification" })).toBeVisible();
+  await expect(banner).toHaveCount(0);
+});
+
 test("sign out ends the server session and returns to the sign-in screen", async ({ page }) => {
   await intercept(page);
   let loggedOut = false;

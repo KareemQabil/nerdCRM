@@ -121,12 +121,12 @@ test("finance's queue: the D-06 note, real figures; without native invoice right
   await expect(page.getByRole("region", { name: "أسعار الصرف للجنيه" })).toHaveCount(0);
   const money = page.locator(".finance-money");
   await expect(money).toContainText("طلبات مؤكدة (قبل الضريبة)");
-  await expect(money).toContainText(/(30,000|٣٠٬٠٠٠) EGP/);
+  await expect(money).toContainText("30,000.00 EGP");
   // invoices the person may not read are not shown as zero
   await expect(money.locator("div").filter({ hasText: "فواتير صادرة" })).toContainText("مش ضمن صلاحياتك");
   const row = page.locator(".finance-row").filter({ hasText: "دفعة مقدمة" });
   await expect(row).toContainText("فات معاده");
-  await expect(row).toContainText(/(12,000|١٢٬٠٠٠) EGP/);
+  await expect(row).toContainText("12,000.00 EGP");
   await expect(row.getByRole("button", { name: "إصدار الفاتورة" })).toHaveCount(0);
   await row.getByRole("button", { name: "إلغاء الطلب: دفعة مقدمة" }).click();
   await expect(page.getByRole("alert")).toHaveText("مش مسموح لك بالإجراء ده.");
@@ -157,7 +157,7 @@ test("issuing: with everything in place finance issues the invoice; it shows its
   await page.getByRole("button", { name: "صدرت فواتيرها" }).click();
   const issued = page.locator(".finance-row").filter({ hasText: "دفعة مقدمة" });
   await expect(issued).toContainText("INV-00001");
-  await expect(issued).toContainText(/(13,680|١٣٬٦٨٠) EGP شامل الضريبة/);
+  await expect(issued).toContainText("13,680.00 EGP شامل الضريبة");
   await expect(issued).toContainText("صادرة");
   await page.screenshot({ path: "test-results/ioeti-finance-issued.png", fullPage: true });
   expect(posted).toEqual([{ path: "/workspace/invoice-requests/1/issue", body: { version: 0 } }]);
@@ -166,7 +166,7 @@ test("issuing: with everything in place finance issues the invoice; it shows its
 test("a milestone coming due is requested for invoicing with the order's version, then moves to the queue and can be cancelled", async ({ page }) => {
   const { posted } = await mockFinance(page, { invoicesPermitted: true });
   await page.goto("/#/finance");
-  await expect(page.locator(".finance-money div").filter({ hasText: "فواتير صادرة" })).toContainText(/^[^0-9٠-٩]*[0٠] EGP$/);
+  await expect(page.locator(".finance-money div").filter({ hasText: "فواتير صادرة" })).toContainText(/^[^0-9٠-٩]*0\.00 EGP$/);
   const upcoming = page.getByRole("region", { name: "أقساط جاي معادها" });
   await expect(upcoming.locator(".finance-row")).toContainText("بعد 10 يوم");
   await upcoming.getByRole("button", { name: "اطلب الفوترة" }).click();
@@ -209,10 +209,10 @@ test("exchange rates: the rate in use per currency, a stale one flagged, fetched
   await dialog.getByLabel("السبب").fill("سعر البنك");
   await dialog.getByRole("button", { name: "حفظ" }).click();
   await expect(page.getByRole("dialog")).toHaveCount(0);
-  await expect(panel.locator(".fx-row").filter({ hasText: "USD" })).toContainText(/(48\.5|٤٨٫٥) EGP/);
+  await expect(panel.locator(".fx-row").filter({ hasText: "USD" })).toContainText("48.5 EGP");
   await panel.getByText("آخر الأسعار المسجلة").click();
   await expect(panel.locator(".fx-history")).toContainText("سعر البنك");
-  await expect(page.locator(".finance-total")).toContainText(/(78,500|٧٨٬٥٠٠) EGP/);
+  await expect(page.locator(".finance-total")).toContainText("78,500.00 EGP");
   await page.screenshot({ path: "test-results/ioeti-finance-fx.png", fullPage: true });
   // phone width: nothing scrolls sideways
   await page.setViewportSize({ width: 390, height: 844 });
@@ -250,7 +250,7 @@ test("collection: finance records what the client paid with its reference, partl
   await dialog.getByRole("button", { name: "حفظ" }).click();
   await expect(page.getByRole("status").filter({ hasText: "اتسجلت الدفعة." })).toBeVisible();
   await expect(row).toContainText("مدفوعة جزئيًا");
-  await expect(row).toContainText(/(5,840|٥٬٨٤٠) EGP/);
+  await expect(row).toContainText("5,840.00 EGP");
   await row.getByRole("button", { name: "سجّل دفعة" }).click();
   dialog = page.getByRole("dialog");
   await expect(dialog.getByLabel("المبلغ (EGP)")).toHaveValue("5840");
@@ -292,7 +292,7 @@ test("collection: without the bank set-up nothing is recorded and finance is tol
   await dialog.getByLabel("السبب").fill("إلغاء نص الخدمة");
   await dialog.getByRole("button", { name: "حفظ" }).click();
   await expect(page.getByRole("status").filter({ hasText: "اتعمل الإشعار الدائن." })).toBeVisible();
-  await expect(row).toContainText(/إشعارات دائنة \(قبل الضريبة\)(3,000|٣٬٠٠٠) EGP/);
+  await expect(row).toContainText("إشعارات دائنة (قبل الضريبة)3,000.00 EGP");
   expect(posted.filter(p => p.path.includes("/credit-notes"))).toEqual([
     { path: "/finance/invoices/70/credit-notes", body: { version: 3, percent: 50, reason: "إلغاء نص الخدمة" } }]);
 });

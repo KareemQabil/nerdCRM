@@ -5,6 +5,7 @@ import { stageLabel } from "./labels";
 import { download, getAreasReport, getSalesReport, toCsv, type AreasReport, type SalesReport } from "./reportsApi";
 import type { Language } from "./preferences";
 import "./insights.css";
+import { amount } from "./format";
 
 const strings = {
   ar: {
@@ -40,7 +41,7 @@ function message(error: unknown, l: Labels): string {
   return l.errors.failed;
 }
 const num = (v: number) => v.toLocaleString("en-US");
-const money = (v: string | number) => Number(v).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const money = (v: string | number) => amount(v);
 const pct = (part: number, whole: number) => whole === 0 ? "—" : `${Math.round(part * 100 / whole)}%`;
 
 export function ReportsPage({language}:{language:Language}){

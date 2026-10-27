@@ -11,6 +11,7 @@ import { wallClock } from "./dailyApi";
 import type { Language } from "./preferences";
 import "./daily.css";
 import "./campaigns.css";
+import { ErrorBanner, PageHeader } from "./ui";
 
 const L = {
   ar: {
@@ -103,15 +104,12 @@ function CampaignBoard({ language }: { language: Language }) {
     if (campaign && to) void move(campaign, to);
   }
   return <section className="page-enter campaigns-page">
-    <div className="page-head">
-      <div className="page-title"><span className="eyebrow">{l.eyebrow}</span><h1>{l.title}</h1><p>{l.hint}</p></div>
-      <div className="page-head-actions"><button type="button" className="btn btn-primary" onClick={() => setAdding(true)}><Plus size={16}/>{l.add}</button></div>
-    </div>
+    <PageHeader eyebrow={l.eyebrow} title={l.title} description={l.hint} actions={<><button type="button" className="btn btn-primary" onClick={() => setAdding(true)}><Plus size={16}/>{l.add}</button></>}/>
     <div className="campaigns-toolbar">
       <label className="search-field"><Search size={18}/><span className="sr-only">{l.search}</span><input value={q} maxLength={100} placeholder={l.search} onChange={e => setQ(e.target.value)}/></label>
     </div>
     <p className="daily-note"><LockKeyhole size={14}/>{l.noSend}</p>
-    {error && <div className="error-banner" role="alert"><CircleAlert size={17}/><span>{error}</span></div>}
+    {error && <ErrorBanner message={error}/>}
     {notice && <p className="campaigns-notice" role="status">{notice}</p>}
     {rows === null ? <div className="empty-state" role="status">{l.loading}</div> :
       <DndContext sensors={sensors} onDragEnd={onDragEnd} accessibility={{ announcements: {
@@ -174,7 +172,7 @@ function CampaignRecord({ id, language }: { id: number; language: Language }) {
   }
   return <article className="page-enter campaign-record">
     <div className="record-context-bar"><a className="record-back" href="#/campaigns"><Back size={17}/>{l.back}</a></div>
-    {error && <div className="error-banner" role="alert"><CircleAlert size={17}/><span>{error}</span></div>}
+    {error && <ErrorBanner message={error}/>}
     {!c ? (!error && <div className="empty-state" role="status">{l.loading}</div>) : <>
       <header className="campaign-hero">
         <div className="campaign-hero-icon"><Megaphone size={28}/></div>

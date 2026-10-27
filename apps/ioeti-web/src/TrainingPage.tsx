@@ -8,6 +8,7 @@ import {
   type TrainingCourse, type TrainingEnrollment, type TrainingSession,
 } from "./api";
 import type { Language } from "./preferences";
+import { PageHeader } from "./ui";
 
 const strings = {
   ar: {
@@ -81,9 +82,7 @@ export function TrainingPage({language}:{language:Language}){
   }
   const status=(c:TrainingCohort)=>c.status==="OPEN"?l.open:c.status==="CLOSED"?l.closed:l.planned;
   return <section className="page-enter training-page">
-    <div className="directory-head"><div className="page-title">
-      <span className="eyebrow">{language==="ar"?"التنفيذ والخدمات":"Delivery & services"}</span><h1>{l.title}</h1><p>{l.desc}</p>
-    </div><div className="directory-head-symbol"><GraduationCap size={29}/></div></div>
+    <PageHeader className="directory-head" eyebrow={language==="ar"?"التنفيذ والخدمات":"Delivery & services"} title={l.title} description={l.desc}/>
     <div className="training-toolbar">
       <button type="button" className="btn btn-primary" onClick={()=>setForm(form==="cohort"?null:"cohort")}><Plus size={16}/>{l.newCohort}</button>
       <button type="button" className="btn btn-secondary" onClick={()=>setForm(form==="course"?null:"course")}><Plus size={16}/>{l.newCourse}</button>

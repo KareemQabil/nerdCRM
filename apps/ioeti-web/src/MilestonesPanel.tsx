@@ -3,6 +3,7 @@ import { CalendarClock, CircleAlert, LockKeyhole, Plus, Trash2 } from "lucide-re
 import { ApiError, addMilestone, getMilestones, removeMilestone, type MilestonePlan } from "./api";
 import type { Language } from "./preferences";
 import { InvoiceRequests } from "./WorkflowPanels";
+import { amount } from "./format";
 
 const strings = {
   ar: {
@@ -70,7 +71,7 @@ export function MilestonesPanel({quoteId,editable,language,onQuoteChanged}:{quot
     void run(()=>addMilestone(quoteId,plan.quoteVersion,title.trim(),percentage,dueDate)).then(ok=>{if(ok){setTitle("");setPercentage("");setDueDate("");}});
   };
   // Latin digits, as on the quotation lines, so amounts read the same in Arabic and English
-  const money=(value:string|null)=>value==null?"—":`${Number(value).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2})} ${plan?.currency||""}`;
+  const money=(value:string|null)=>amount(value,plan?.currency);
   return <div className="milestones" aria-labelledby="milestones-title">
     <div className="milestones-head"><CalendarClock size={18}/><div><h3 id="milestones-title">{l.title}</h3><p>{l.desc}</p></div></div>
     {error&&<div className="login-error" role="alert"><CircleAlert size={17}/>{error}</div>}

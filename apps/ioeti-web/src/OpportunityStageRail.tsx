@@ -9,6 +9,7 @@ import { wrapped } from "./api";
 import { stageLabel } from "./labels";
 import type { Language } from "./preferences";
 import "./daily.css";
+import { amount as formatAmount } from "./format";
 
 type Reason = { id: number; name: string };
 const L = {
@@ -138,7 +139,7 @@ export function OpportunityPlanCard({ record, language, onChanged }: {
   const [editing, setEditing] = useState(false);
   const amount = record.amount == null ? null : Number(record.amount);
   const probability = record.probability == null ? null : Number(record.probability);
-  const money = (value: number) => new Intl.NumberFormat(ar ? "ar-EG" : "en-GB", { maximumFractionDigits: 2 }).format(value) + (record.currencyCode ? " " + record.currencyCode : "");
+  const money = (value: number) => formatAmount(value, record.currencyCode);
   const date = wallClock(record.expectedCloseDate)?.toLocaleDateString(ar ? "ar-EG" : "en-GB", { dateStyle: "medium" }) ?? null;
   const facts: [string, string][] = [
     [l.amount, amount != null && amount > 0 ? money(amount) : l.notSet],

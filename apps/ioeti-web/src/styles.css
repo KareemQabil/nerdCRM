@@ -1410,3 +1410,23 @@ select, input, textarea { font-size: 14px; }
 .record-fact-strip dt{font-size:11px;color:var(--on-surface-variant);}
 .record-fact-strip dd{margin:0;font-size:14px;font-weight:700;overflow-wrap:anywhere;}
 @media(max-width:760px){.section-nav{margin-inline:-4px;}.record-fact-strip{gap:10px 18px;}}
+
+/* ==========================================================================
+   UX-2 refresh: calmer, denser enterprise surfaces. Tighter radii, a flat record header, figures that line up, and the
+   home tiles on one row at desktop width.
+   ========================================================================== */
+:root { --radius-lg: 14px; --radius-xl: 18px; }
+body { font-feature-settings: "tnum" 1; }
+td, dd, .finance-amount, .cockpit-tile-value, .metric-card strong, [dir="ltr"] { font-variant-numeric: tabular-nums; }
+h1, h2, h3 { letter-spacing: -.01em; }
+.record-hero { background: var(--surface); border-radius: var(--radius-xl); padding: clamp(20px, 2.6vw, 30px); }
+.record-hero-heading { margin-top: 12px; }
+.record-identity-icon { border-radius: 14px; }
+.record-content-card { border-radius: var(--radius-lg); }
+.cockpit-tiles { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
+.data-panel-heading strong { display: inline-flex; align-items: center; gap: 8px; }
+.error-banner { border-radius: var(--radius); }
+:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+/* the tile's arrow sits in the top corner, clear of a two-line label */
+.cockpit-tile-go { top: 14px; bottom: auto; }
+.cockpit-tile-label { padding-inline-end: 4px; line-height: 1.45; }

@@ -8,6 +8,7 @@ import {
 } from "./policiesApi";
 import type { Language } from "./preferences";
 import "./policies.css";
+import { ErrorBanner, PageHeader } from "./ui";
 
 const AREAS = ["FINANCE", "SALES", "LEADS", "CERTIFICATION", "TRAINING", "RECRUITMENT", "PRIVACY", "CHANNELS"] as const;
 const DATA_TYPES = ["LEADS", "CANDIDATES", "TRAINEES", "DONORS", "CONTACTS"];
@@ -104,8 +105,8 @@ export function PoliciesPage({ language, administrator }: { language: Language; 
   useEffect(() => { void load(); }, [load]);
   const grouped = useMemo(() => AREAS.map(area => ({ area, rows: (overview?.policies ?? []).filter(p => p.area === area) })).filter(g => g.rows.length), [overview]);
   return <section className="page-enter policies-page">
-    <div className="page-head"><div className="page-title"><span className="eyebrow">{l.eyebrow}</span><h1>{l.title}</h1><p>{l.intro}</p></div></div>
-    {error && <div className="error-banner" role="alert"><CircleAlert size={17}/><span>{error}</span></div>}
+    <PageHeader eyebrow={l.eyebrow} title={<>{l.title}</>} description={l.intro}/>
+    {error && <ErrorBanner message={error}/>}
     {overview && !overview.canEdit && !overview.noOwners && <p className="daily-note"><ShieldCheck size={15}/>{l.readOnly}</p>}
     <Owners l={l} administrator={!!administrator} overview={overview} onChanged={load}/>
     {overview && <div className="policies-layout">

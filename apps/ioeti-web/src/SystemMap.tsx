@@ -3,6 +3,7 @@ import { ArrowLeft, ArrowRight, CheckCircle2, CircleDashed, CircleSlash, Constru
 import { ApiError, wrapped } from "./api";
 import type { Language } from "./preferences";
 import "./systemmap.css";
+import { PageHeader } from "./ui";
 
 /**
  * The live system map (real mode): every business domain with what actually works in this build, what is
@@ -114,7 +115,7 @@ export function SystemMap({ language }: { language: Language }) {
   const count = (s: Status) => DOMAINS.filter(d => d.status === s).length;
   const Arrow = ar ? ArrowLeft : ArrowRight;
   return <section className="page-enter system-map">
-    <div className="page-head"><div className="page-title"><span className="eyebrow">{t.eyebrow}</span><h1>{t.title}</h1><p>{t.hint}</p></div></div>
+    <PageHeader eyebrow={t.eyebrow} title={<>{t.title}</>} description={t.hint}/>
     <div className="system-map-bar">
       <div className="system-map-meter" aria-label={t.counts(count("live"), count("partial"), count("missing"))}>
         {(["live", "partial", "missing"] as Status[]).map(s => <span key={s} className={"is-" + s} style={{ flexGrow: count(s) }}/>)}
