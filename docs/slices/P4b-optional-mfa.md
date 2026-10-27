@@ -1,7 +1,8 @@
 # P4b: optional two-step sign-in (D-07)
 
 Status: implemented and checked against the real backend.
-- `scripts/mfa_probe.py` passes 19/19 (backend CI) with complete cleanup.
+- `scripts/mfa_probe.py` passes 20/20 (backend CI) with complete cleanup.
+- The live UI suite passes 2/2, and its fixture teardown is complete.
 - These still pass: the admin probe (43/43), the session security probe (20/20) and the roles probe (22/22).
 - Mocked browser suites: 123 + 27.
 
@@ -53,6 +54,13 @@ An administrator resets the person's MFA:
   answered 404. The first probe run found this too.
 - The person then signs in with their password and can turn MFA on again.
 - Nobody else can reset it (`403`). Resetting what is off answers `422 MFA_NOT_ON`.
+
+## Reading writes nothing
+
+- **What happened:** the native `getRelatedMfa(user)` creates an empty MFA row when there is none. The first version read the
+  status that way, so a person who only opened Settings got an `auth_mfa` row, and that row then kept them from being deleted.
+- **How it was found:** the live UI fixture teardown left records behind.
+- **Now:** only "start" creates the row, and the probe checks that reading the status writes nothing.
 
 ## Audit
 
