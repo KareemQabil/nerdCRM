@@ -19,6 +19,7 @@ Legend: ✅ passed live · ➖ not applicable · ⬜ not tested yet
 | `POST /ws/ioeti/quotes/{id}/milestones/{milestoneId}/invoice` | ⬜ | ➖ | ✅ 404 | ➖ | ➖ | ➖ | ✅ 403 | ⬜ | ✅ 422 `BLOCKED_BY_POLICY` | quote |
 | `GET /ws/ioeti/contracts[?opportunityId][/{id}]` | ⬜ | ⬜ | ✅ 404 | ➖ | ➖ | ➖ | ✅ 403 | ⬜ | ✅ | quote |
 | `POST /ws/ioeti/contracts` | ⬜ | ✅ 403 | ✅ 404 | ✅ 403 | ✅ 409 | ✅ one 201 + one 409, one contract per opportunity | ✅ 403 | ⬜ | ✅ 400/409/422 | quote |
+| `POST /ws/ioeti/contracts/{id}/lines-from-quote` | ⬜ | ⬜ | ✅ 404 | ⬜ | ✅ 409 | ✅ one 201 + one 409, lines copied once | ✅ 403 | ⬜ | ✅ 409/422 | quote |
 | `POST /ws/ioeti/contracts/{id}/activate`, `/handover` | ⬜ | ➖ | ⬜ | ➖ | ➖ | ➖ | ✅ 403 | ⬜ | ✅ 422 `BLOCKED_BY_POLICY` / `CONTRACT_NOT_ACTIVE` | quote |
 | `POST /ws/ioeti/quotes/{id}/finalize` | ⬜ | ➖ | ✅ 404 | ➖ | ➖ | ➖ | ✅ 403 | ⬜ | ✅ 422 `BLOCKED_BY_POLICY` | quote |
 | `GET /ws/ioeti/accounts/{id}/contacts`, `/opportunities` | ⬜ | ➖ | ✅ 404 (non-client = missing) | ➖ | ➖ | ➖ | ✅ 403 | ⬜ | ✅ | lead-conversion |

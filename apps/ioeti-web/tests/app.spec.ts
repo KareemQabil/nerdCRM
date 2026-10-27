@@ -606,3 +606,30 @@ test("contract: draft created natively with the chosen type and opportunity vers
   await expect(page.getByRole("button", { name: "التسليم لفريق التنفيذ" })).toBeDisabled();
   await expect(page.getByText("التوقيع والتفعيل والتسليم للتنفيذ متوقفة حتى اعتماد سياسة الموافقات والاعتماد القانوني (D-11).")).toBeVisible();
 });
+
+test("contract: lines are copied once from the quotation with the contract version; total before tax and lineage shown", async ({page}) => {
+  await intercept(page);
+  const ok = (object: unknown, code = 200) => ({ status: code, contentType: "application/json", body: JSON.stringify({ codeStatus: code, messageStatus: "ok", object }) });
+  const draft = { id: 3, version: 2, reference: "CT0003", name: "Hotel certification", status: "DRAFT", contractType: "BILLING",
+    opportunityId: 101, accountId: 901, accountName: "Nile View Hotel", currency: "EGP", activationStatus: "BLOCKED_BY_POLICY",
+    sourceQuoteId: null, lines: [], totalBeforeTax: "0" };
+  const quote = { id: 7, version: 4, reference: "#7", status: "DRAFT", opportunityId: 101, accountId: 901, accountName: "Nile View Hotel",
+    currency: "EGP", totalBeforeTax: "3000.00", taxStatus: "BLOCKED_BY_POLICY",
+    lines: [{ id: 1, productCode: "ISO-AUD-DAY", name: "Audit day", quantity: "2", unit: "Day", unitPriceBeforeTax: "1500.00", totalBeforeTax: "3000.00" }] };
+  const posts: unknown[] = [];
+  await page.route(/\/axelor-erp\/ws\/ioeti\/contracts\?opportunityId=101$/, route => route.fulfill(ok([draft])));
+  await page.route(/\/axelor-erp\/ws\/ioeti\/quotes\?opportunityId=101$/, route => route.fulfill(ok([quote])));
+  await page.route(/\/axelor-erp\/ws\/ioeti\/quotes\/7\/milestones$/, route => route.fulfill(ok(emptyPlan(4))));
+  await page.route(/\/axelor-erp\/ws\/ioeti\/contracts\/3\/lines-from-quote$/, route => {
+    posts.push(route.request().postDataJSON());
+    return route.fulfill(ok({ ...draft, version: 3, sourceQuoteId: 7, totalBeforeTax: "3000.00",
+      lines: [{ id: 11, productCode: "ISO-AUD-DAY", name: "Audit day", quantity: "2.0000000000", unitPriceBeforeTax: "1500.00", totalBeforeTax: "3000.00" }] }, 201));
+  });
+  await page.goto("/#/opportunities/101");
+  await page.getByRole("button", { name: "نسخ البنود من عرض السعر" }).click();
+  await expect(page.locator(".contract-body table")).toContainText("Audit day");
+  await expect(page.locator(".contract-body tfoot")).toContainText("3000.00 EGP");
+  await expect(page.locator(".contract-body tfoot")).toContainText("منسوخة من عرض السعر #7");
+  expect(posts).toEqual([{ version: 2, quoteId: 7 }]);
+  await expect(page.getByRole("button", { name: "نسخ البنود من عرض السعر" })).toHaveCount(0);
+});

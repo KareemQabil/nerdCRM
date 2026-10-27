@@ -3,9 +3,12 @@ package com.ioeti.commercial.rest;
 import com.axelor.apps.base.db.Company;
 import com.axelor.apps.base.db.Partner;
 import com.axelor.apps.contract.db.Contract;
+import com.axelor.apps.contract.db.ContractLine;
 import com.axelor.apps.contract.db.repo.ContractRepository;
 import com.axelor.apps.crm.db.Opportunity;
+import com.axelor.apps.sale.db.SaleOrder;
 import com.axelor.auth.AuthUtils;
+import com.axelor.db.JPA;
 import com.axelor.db.JpaSecurity;
 import com.axelor.inject.Beans;
 import com.axelor.rpc.filter.Filter;
@@ -14,6 +17,7 @@ import com.axelor.utils.api.ConflictChecker;
 import com.axelor.utils.api.ResponseConstructor;
 import com.axelor.utils.api.SecurityCheck;
 import com.ioeti.commercial.service.ContractDraftService;
+import com.ioeti.commercial.service.ContractLinesService;
 import com.ioeti.commercial.service.QuoteService;
 import com.ioeti.core.api.ApiException;
 import com.ioeti.core.api.IoetiEndpoint;
@@ -28,6 +32,7 @@ import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
+import java.math.BigDecimal;
 import java.util.List;
 
 /**
@@ -90,6 +95,46 @@ public class ContractRestController {
   }
 
   @POST
+  @Path("/{id}/lines-from-quote")
+  @Consumes(MediaType.APPLICATION_JSON)
+  @Operation(summary = "Fill a draft contract with the lines of a quotation of the same opportunity", tags = {"IOETI contracts"})
+  @IoetiEndpoint
+  public Response linesFromQuote(@PathParam("id") Long id, FillFromQuote command) {
+    if (command == null || command.version() == null) {
+      throw ApiException.badRequest("Record version is required.");
+    }
+    new SecurityCheck().createAccess(ContractLine.class).check();
+    Contract contract = RecordAccess.writable(Contract.class, id);
+    ConflictChecker.checkVersion(contract, command.version());
+    if (!Integer.valueOf(ContractRepository.DRAFT_CONTRACT).equals(contract.getStatusSelect())) {
+      throw new ApiException(422, "CONTRACT_NOT_DRAFT", "Only a draft contract can be changed.", null);
+    }
+    SaleOrder quote = quoteOfSameOpportunity(contract, command.quoteId());
+    if (quote.getSaleOrderLineList() == null
+        || quote.getSaleOrderLineList().stream().noneMatch(l -> l.getProduct() != null)) {
+      throw ApiException.invalidField("quoteId", "QUOTE_EMPTY", "The quotation has no product lines.");
+    }
+    NativeCommands.run(
+        () -> Beans.get(ContractLinesService.class).fillFromQuote(contract, quote),
+        "CONTRACT_REJECTED", "The contract cannot be changed this way.");
+    return ResponseConstructor.build(Response.Status.CREATED, "Contract lines added", view(contract));
+  }
+
+  /** Unknown, unreadable and other opportunities' quotations are refused identically (no oracle). */
+  private static SaleOrder quoteOfSameOpportunity(Contract contract, Long quoteId) {
+    JpaSecurity security = Beans.get(JpaSecurity.class);
+    SaleOrder quote = quoteId == null || quoteId <= 0 ? null : JPA.find(SaleOrder.class, quoteId);
+    if (quote == null
+        || !security.isPermitted(JpaSecurity.CAN_READ, SaleOrder.class, quoteId)
+        || quote.getOpportunity() == null || contract.getOpportunity() == null
+        || !quote.getOpportunity().getId().equals(contract.getOpportunity().getId())) {
+      throw ApiException.invalidField(
+          "quoteId", "UNAVAILABLE", "Choose a quotation of this contract's opportunity.");
+    }
+    return quote;
+  }
+
+  @POST
   @Path("/{id}/activate")
   @Operation(summary = "Activate (sign) a contract: blocked until the approval and legal policy (D-11)", tags = {"IOETI contracts"})
   @IoetiEndpoint
@@ -134,6 +179,14 @@ public class ContractRestController {
     boolean canReadAccount = account != null
         && security.isPermitted(JpaSecurity.CAN_READ, Partner.class, account.getId());
     Integer type = contract.getContractTypeSelect();
+    List<ContractLine> source = contract.getCurrentContractVersion() == null
+        || contract.getCurrentContractVersion().getContractLineList() == null
+        ? List.of() : contract.getCurrentContractVersion().getContractLineList();
+    List<ContractLineView> lines = source.stream().map(l -> new ContractLineView(
+        l.getId(), l.getProduct() == null ? null : l.getProduct().getCode(), l.getProductName(),
+        l.getQty(), l.getPrice(), l.getExTaxTotal())).toList();
+    BigDecimal total = source.stream().map(ContractLine::getExTaxTotal)
+        .filter(java.util.Objects::nonNull).reduce(BigDecimal.ZERO, BigDecimal::add);
     return new ContractView(
         contract.getId(), contract.getVersion(), contract.getContractId(), contract.getName(),
         status(contract.getStatusSelect()),
@@ -143,11 +196,26 @@ public class ContractRestController {
         canReadAccount ? account.getId() : null,
         canReadAccount ? account.getName() : null,
         contract.getCurrency() == null ? null : contract.getCurrency().getCode(),
-        "BLOCKED_BY_POLICY");
+        "BLOCKED_BY_POLICY",
+        sourceQuote(contract, security),
+        lines,
+        total);
+  }
+
+  private static Long sourceQuote(Contract contract, JpaSecurity security) {
+    SaleOrder quote = contract.getIoetiSourceQuote();
+    return quote != null && security.isPermitted(JpaSecurity.CAN_READ, SaleOrder.class, quote.getId())
+        ? quote.getId() : null;
   }
 
   public record CreateContract(Long opportunityId, Integer opportunityVersion, String contractType) {}
+  public record FillFromQuote(Integer version, Long quoteId) {}
+  public record ContractLineView(
+      Long id, String productCode, String name, BigDecimal quantity, BigDecimal unitPriceBeforeTax,
+      BigDecimal totalBeforeTax) {}
+  /** Amounts are before tax: taxes are policy D-06. */
   public record ContractView(
       Long id, Integer version, String reference, String name, String status, String contractType,
-      Long opportunityId, Long accountId, String accountName, String currency, String activationStatus) {}
+      Long opportunityId, Long accountId, String accountName, String currency, String activationStatus,
+      Long sourceQuoteId, List<ContractLineView> lines, BigDecimal totalBeforeTax) {}
 }
