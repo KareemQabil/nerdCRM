@@ -211,13 +211,24 @@ export async function getOpportunity(id: number): Promise<Opportunity> {
   if (DEMO_MODE) return demoStore.get(id);
   return wrapped<Opportunity>(`/ws/ioeti/opportunities/${encodeURIComponent(id)}`);
 }
-export async function createOpportunity(name: string, businessLineCode: string): Promise<Opportunity> {
+/** The optional part of a new opportunity: the client account and the salesperson's estimate. */
+export type OpportunityExtras = { accountId?: number; amount?: string; currencyCode?: string; expectedCloseDate?: string; probability?: string };
+export async function createOpportunity(name: string, businessLineCode: string, extras: OpportunityExtras = {}): Promise<Opportunity> {
   if (DEMO_MODE) return demoStore.create(name, businessLineCode);
+  const given = Object.fromEntries(Object.entries(extras).filter(([, v]) => v !== undefined && v !== ""));
   return wrapped<Opportunity>("/ws/ioeti/opportunities", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ name, businessLineCode }),
+    body: JSON.stringify({ name, businessLineCode, ...given }),
   });
+}
+/** One card on the pipeline board: the opportunity, its account and owner as far as the caller may read them. */
+export type BoardCard = { opportunity: Opportunity; accountName: string | null; accountId: number | null; ownerName: string | null; mine: boolean };
+export async function getPipelineBoard(): Promise<BoardCard[]> {
+  if (DEMO_MODE) return (await demoStore.list(0, 200)).map(o => ({ opportunity: o, accountName: null, accountId: null, ownerName: null, mine: true }));
+  const values = await wrapped<BoardCard[]>("/ws/ioeti/opportunities/board");
+  if (!Array.isArray(values)) throw new ApiError(502, "Invalid board");
+  return values;
 }
 export async function renameOpportunity(id: number, name: string, version: number): Promise<Opportunity> {
   if (DEMO_MODE) return demoStore.rename(id, name, version);

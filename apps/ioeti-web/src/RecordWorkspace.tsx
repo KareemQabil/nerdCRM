@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import {
   ArrowLeft, ArrowRight, BadgeCheck, Building2, ChevronLeft, ChevronRight,
-  CircleDashed, FileClock, GitMerge, Layers3, LockKeyhole, MapPin, Network, Pencil, ShieldCheck, UserPlus, UserRound
+  CircleDashed, FileClock, GitMerge, Layers3, LockKeyhole, MapPin, Network, Pencil, Plus, ShieldCheck, UserPlus, UserRound
 } from "lucide-react";
 import { Account360 } from "./Account360";
 import { LeadQualificationPanel } from "./LeadQualificationPanel";
@@ -14,6 +14,7 @@ import { AccountDialog, ContactDialog, EditLeadDialog } from "./RecordDialogs";
 import { NewVisitDialog } from "./VisitsPage";
 import type { Language } from "./preferences";
 import { stageLabel } from "./labels";
+import { requestCreate } from "./createIntent";
 import { DEMO_MODE } from "./demo";
 
 type RecordItem = LeadSummary | AccountSummary;
@@ -132,6 +133,7 @@ export function RecordWorkspace({kind,language,record,onBack,onPrevious,onNext,o
       <div className="record-hero-actions">
         {(editableLead||liveAccount)&&<div className="record-quick-actions">
           {editableLead&&<button type="button" className="btn btn-secondary" onClick={()=>setDialog("lead")}><Pencil size={16}/>{l.editLead}</button>}
+          {liveAccount&&<button type="button" className="btn btn-primary" onClick={()=>requestCreate("opportunity","opportunities",{accountId:record.id,accountName:record.name})}><Plus size={16}/>{ar?"فرصة جديدة للحساب ده":"New opportunity for this account"}</button>}
           {liveAccount&&<button type="button" className="btn btn-secondary" onClick={()=>setDialog("account")}><Pencil size={16}/>{l.editAccount}</button>}
           {liveAccount&&<button type="button" className="btn btn-secondary" onClick={()=>setDialog("contact")}><UserPlus size={16}/>{l.addContact}</button>}
           {liveAccount&&<button type="button" className="btn btn-secondary" onClick={()=>setDialog("visit")}><MapPin size={16}/>{l.planVisit}</button>}

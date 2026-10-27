@@ -106,7 +106,10 @@ test("opportunity create and rename use typed application endpoints", async ({ p
   await page.getByRole("button", { name: "فرصة جديدة" }).click();
   await page.getByRole("textbox", { name: "اسم الفرصة" }).fill("New customer opportunity");
   await page.getByLabel("خطوط الأعمال").selectOption("ISO9001");
-  await page.getByRole("button", { name: "حفظ التغييرات" }).click();
+  await page.getByRole("button", { name: "إنشاء الفرصة" }).click();
+  // the new opportunity opens at once, ready for its next step; back to the list it is listed
+  await expect(page.locator(".opportunity-record h1")).toHaveText("New customer opportunity");
+  await page.goBack();
   await expect(page.getByText("New customer opportunity")).toBeVisible();
   const row = page.getByRole("row").filter({ hasText: "New customer opportunity" });
   await row.getByRole("button", { name: /تعديل اسم الفرصة/ }).click();
@@ -131,7 +134,7 @@ test("server validation errors are localized from the IOETI error contract, not 
   await page.getByRole("button", { name: "فرصة جديدة" }).click();
   await page.getByRole("textbox", { name: "اسم الفرصة" }).fill("Opportunity on a closed line");
   await page.getByLabel("خطوط الأعمال").selectOption("TRAINING");
-  await page.getByRole("button", { name: "حفظ التغييرات" }).click();
+  await page.getByRole("button", { name: "إنشاء الفرصة" }).click();
   await expect(page.getByText("خط الأعمال غير متاح لك أو غير نشط؛ اختر خطًا آخر")).toBeVisible();
   await expect(page.getByText("Choose an active business line you can access.")).toHaveCount(0);
 });
@@ -150,8 +153,8 @@ test("unsafe requests send Axelor's CSRF token from its cookie; safe ones do not
   await page.getByRole("button", { name: "فرصة جديدة" }).click();
   await page.getByRole("textbox", { name: "اسم الفرصة" }).fill("CSRF protected create");
   await page.getByLabel("خطوط الأعمال").selectOption("ISO9001");
-  await page.getByRole("button", { name: "حفظ التغييرات" }).click();
-  await expect(page.getByText("CSRF protected create")).toBeVisible();
+  await page.getByRole("button", { name: "إنشاء الفرصة" }).click();
+  await expect(page.getByRole("heading", { name: "CSRF protected create" })).toBeVisible();
   expect(seen.filter(r => r.method === "POST").map(r => r.token)).toEqual(["csrf-token-123"]);
   expect(seen.filter(r => r.method === "GET").every(r => r.token === null)).toBe(true);
 });
@@ -257,7 +260,7 @@ test("create form offers only lines the server allows; none assigned disables sa
   creatable = [];
   await page.getByRole("button", { name: "فرصة جديدة" }).click();
   await expect(page.getByText("لم يتم تعيينك على أي خط أعمال بعد؛ اطلب من المسؤول إضافتك")).toBeVisible();
-  await expect(page.getByRole("button", { name: "حفظ التغييرات" })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "إنشاء الفرصة" })).toBeDisabled();
 });
 
 test("lack of BusinessLine permissions is not treated as failed session login", async ({ page }) => {
@@ -474,11 +477,11 @@ test("Opportunity compact modal traps focus, escapes safely and restores origina
   const dialog=page.getByRole("dialog");
   await expect(dialog).toBeVisible();
   await expect(dialog.getByRole("textbox",{name:"اسم الفرصة"})).toBeFocused();
-  await dialog.getByRole("button",{name:"حفظ التغييرات"}).focus();
+  await dialog.getByRole("button",{name:"إنشاء الفرصة"}).focus();
   await page.keyboard.press("Tab");
   await expect(dialog.getByRole("button",{name:"رجوع"}).first()).toBeFocused();
   await page.keyboard.press("Shift+Tab");
-  await expect(dialog.getByRole("button",{name:"حفظ التغييرات"})).toBeFocused();
+  await expect(dialog.getByRole("button",{name:"إنشاء الفرصة"})).toBeFocused();
   await page.keyboard.press("Escape");
   await expect(dialog).toHaveCount(0);
   await expect(create).toBeFocused();
