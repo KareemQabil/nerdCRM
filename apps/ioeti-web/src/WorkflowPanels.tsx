@@ -3,8 +3,8 @@ import { CircleAlert, FileClock, History, LockKeyhole, Receipt, RefreshCcw, Rota
 import { ApiError, type Contract, type MilestonePlan, type Quote } from "./api";
 import {
   cancelInvoiceRequest, getAccountSummary, getInvoiceRequests, getQuoteVersions, getReviews, renewContract, requestInvoice,
-  requestReview, restoreQuoteVersion, saveQuoteVersion, withdrawReview,
-  type AccountSummary360, type InvoiceRequest, type QuoteVersion, type Review,
+  requestChanges, requestReview, restoreQuoteVersion, saveQuoteVersion, withdrawReview,
+  type AccountSummary360, type InvoiceRequest, type QuoteVersion, type Review, type ReviewReason,
 } from "./workspaceApi";
 import type { Language } from "./preferences";
 import "./workflow.css";
@@ -16,6 +16,7 @@ const strings = {
     status:{PENDING:"بانتظار المراجعة",CHANGES_REQUESTED:"مطلوب تعديل",WITHDRAWN:"مسحوب"},
     events:{REQUESTED:"طُلبت المراجعة",CHANGES_REQUESTED:"طُلب تعديل",WITHDRAWN:"سُحب الطلب"},
     reasons:{PRICING:"التسعير",SCOPE:"النطاق",TERMS:"الشروط",DOCUMENTS:"المستندات",OTHER:"سبب آخر"},
+    reviewerTitle:"مراجعتك",reviewerHint:"أعِده لصاحبه مع سبب واضح، وسيصله إشعار داخل النظام.",reasonLabel:"سبب الإعادة",sendBack:"إعادة للتعديل",
     approve:"اعتماد",reject:"رفض",decisionNote:"قرار الاعتماد أو الرفض متوقف حتى اعتماد مصفوفة الموافقات (D-11).",
     forVersion:"للإصدار",invoiceRequests:"طلبات الفوترة",requestInvoice:"طلب فاتورة",cancel:"إلغاء الطلب",issue:"إصدار الفاتورة",
     requested:"مطلوب",cancelled:"ملغى",noRequests:"لا توجد طلبات فوترة",
@@ -33,6 +34,7 @@ const strings = {
     status:{PENDING:"Awaiting review",CHANGES_REQUESTED:"Changes requested",WITHDRAWN:"Withdrawn"},
     events:{REQUESTED:"Review requested",CHANGES_REQUESTED:"Changes requested",WITHDRAWN:"Withdrawn"},
     reasons:{PRICING:"Pricing",SCOPE:"Scope",TERMS:"Terms",DOCUMENTS:"Documents",OTHER:"Other"},
+    reviewerTitle:"Your review",reviewerHint:"Send it back to its owner with a clear reason; they are told in the app.",reasonLabel:"Reason",sendBack:"Send back for changes",
     approve:"Approve",reject:"Reject",decisionNote:"Approving or rejecting waits for the approval matrix (D-11).",
     forVersion:"for version",invoiceRequests:"Invoice requests",requestInvoice:"Request invoice",cancel:"Cancel request",issue:"Issue invoice",
     requested:"Requested",cancelled:"Cancelled",noRequests:"No invoice requests",
@@ -90,8 +92,24 @@ function ReviewBox({ reviews, subject, version, editable, l, run, busy }: {
       <button type="button" className="btn btn-secondary" disabled aria-describedby="wf-decision-note">{l.approve}</button>
       <button type="button" className="btn btn-secondary" disabled aria-describedby="wf-decision-note">{l.reject}</button>
     </div>}
+    {latest?.status === "PENDING" && !latest.requestedByMe && <ReviewerActions review={latest} l={l} run={run} busy={busy}/>}
     <p className="record-security-note" id="wf-decision-note"><LockKeyhole size={15}/>{l.decisionNote}</p>
   </div>;
+}
+
+/** What a reviewer can do today: send the record back with a reason. Approval itself waits for D-11. */
+function ReviewerActions({ review, l, run, busy }: { review: Review; l: Labels; run: (a: () => Promise<unknown>) => Promise<void>; busy: boolean }) {
+  const [reason, setReason] = useState<ReviewReason>("PRICING");
+  return <form className="wf-reviewer" onSubmit={e => { e.preventDefault(); void run(() => requestChanges(review.id, review.version, reason)); }}>
+    <strong>{l.reviewerTitle}</strong><p className="wf-muted">{l.reviewerHint}</p>
+    <div className="lead-actions">
+      <label className="wf-inline-field">{l.reasonLabel}
+        <select value={reason} onChange={e => setReason(e.target.value as ReviewReason)}>
+          {(Object.keys(l.reasons) as ReviewReason[]).map(r => <option key={r} value={r}>{l.reasons[r]}</option>)}
+        </select></label>
+      <button type="submit" className="btn btn-primary" disabled={busy}><Undo2 size={15}/>{l.sendBack}</button>
+    </div>
+  </form>;
 }
 
 /** Versions and review of a quotation; the quotation reloads after every change. */

@@ -141,7 +141,7 @@ export function FundraisingPage({language}:{language:Language}){
   const tab=(["donors","pipeline","collections"] as const).find(t=>t===route[0])??"overview";
   return <section className="page-enter fund-page">
     <div className="directory-head"><div className="page-title">
-      <span className="eyebrow">IOETI · ioeti-fundraising</span><h1>{l.title}</h1><p>{l.desc}</p>
+      <span className="eyebrow">{language==="ar"?"التنفيذ والخدمات":"Delivery & services"}</span><h1>{l.title}</h1><p>{l.desc}</p>
     </div><div className="directory-head-symbol"><HeartHandshake size={29}/></div></div>
     <div className="demo-record-tabs fund-tabs" role="tablist" aria-label={l.title}>
       {(["overview","donors","pipeline","collections"] as const).map(t=><button key={t} type="button" role="tab" aria-selected={tab===t} className={tab===t?"active":""}

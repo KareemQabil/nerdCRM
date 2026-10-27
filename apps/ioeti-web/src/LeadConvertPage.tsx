@@ -118,7 +118,7 @@ export function LeadConvertPage({leadId,language}:Props){
     </div>
     <div className="record-hero">
       <div className="record-hero-main">
-        <span className="eyebrow"><span className="record-eyebrow-dot"/>Axelor CRM · Lead → Partner + Opportunity</span>
+        <span className="eyebrow"><span className="record-eyebrow-dot"/>{language==="ar"?"عميل محتمل ← حساب + فرصة تجارية":"Lead → account + opportunity"}</span>
         <div className="record-hero-heading">
           <div className="record-identity-icon"><GitMerge size={30}/></div>
           <div><h1 tabIndex={-1} ref={heading} id="lead-convert-title">{l.title}</h1>

@@ -35,7 +35,8 @@ def load_env():
 
 
 ENV = load_env()
-BASE = f"http://localhost:{ENV.get('IOETI_APP_PORT', '8080')}/axelor-erp"
+# IOETI_BASE_URL points the scripts at another server (the Railway container's own Tomcat, for example)
+BASE = os.environ.get("IOETI_BASE_URL") or f"http://localhost:{ENV.get('IOETI_APP_PORT', '8080')}/axelor-erp"
 BL = "com.ioeti.businessline.db.BusinessLine"
 OPP = "com.axelor.apps.crm.db.Opportunity"
 RESULTS = []
@@ -73,6 +74,13 @@ def axelor_password_hash(plain):
     The generic /ws/rest API stores the User.password value as given (it does not hash it), so a
     test user must be created with an already hashed password.
     """
+    jar_dir = os.environ.get("IOETI_JAR_DIR")  # a deployed WEB-INF/lib instead of the Gradle cache
+    if jar_dir:
+        names = ("shiro-", "bcprov", "bcpkix", "bcutil", "slf4j-api", "commons-lang3")
+        jars = [j for j in glob.glob(os.path.join(jar_dir, "*.jar")) if os.path.basename(j).startswith(names)]
+        out = subprocess.run(["java", "-cp", os.pathsep.join(jars), os.path.join(ROOT, "scripts", "support", "HashPassword.java"), plain],
+                             capture_output=True, text=True, check=True)
+        return [l for l in out.stdout.splitlines() if l.startswith("$shiro")][0]
     cache = os.path.expanduser("~/.gradle/caches/modules-2/files-2.1")
     groups = ["org.apache.shiro", "org.apache.shiro.crypto", "org.bouncycastle",
               "org.slf4j/slf4j-api", "org.apache.commons/commons-lang3"]

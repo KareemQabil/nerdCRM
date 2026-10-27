@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { Archive, BookOpen, CircleAlert, FilePenLine, History, LockKeyhole, Plus, Search, Send } from "lucide-react";
+import { Archive, CircleAlert, FilePenLine, History, LockKeyhole, Plus, Search, Send } from "lucide-react";
 import { ApiError, getBusinessLines, type BusinessLine } from "./api";
 import {
   addCategory, archiveArticle, createArticle, getArticle, getCategories, getDrafts, publishArticle, saveArticle, searchArticles,
@@ -109,7 +109,7 @@ export function KnowledgePage({language}:{language:Language}){
       <button type="button" className="btn btn-secondary" onClick={()=>setDraft(null)}>{l.cancel}</button></div>
   </form>;
   return <section className="page-enter ct-knowledge">
-    <div className="page-title"><span className="eyebrow"><BookOpen size={14}/> IOETI</span><h1>{l.title}</h1><p>{l.sub}</p></div>
+    <div className="page-title"><span className="eyebrow">{language==="ar"?"مساحة العمل":"Workspace"}</span><h1>{l.title}</h1><p>{l.sub}</p></div>
     {canEdit&&<div className="mk-tabs" role="group">
       <button type="button" className="btn btn-secondary" aria-pressed={tab==="read"} onClick={()=>{setTab("read");setOpen(null);setDraft(null);}}>{l.articles}</button>
       <button type="button" className="btn btn-secondary" aria-pressed={tab==="edit"} onClick={()=>{setTab("edit");setOpen(null);setDraft(null);}}><FilePenLine size={15}/>{l.editing}</button>

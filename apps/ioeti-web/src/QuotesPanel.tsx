@@ -7,7 +7,7 @@ import { QuoteWorkflow } from "./WorkflowPanels";
 
 const strings = {
   ar: {
-    title:"عروض الأسعار",desc:"عروض أسعار Axelor (SaleOrder) لهذه الفرصة، ضمن صلاحياتك.",
+    title:"عروض الأسعار",desc:"عروض الأسعار لهذه الفرصة وإصداراتها ومراجعتها، ضمن صلاحياتك.",
     create:"عرض سعر جديد",creating:"جار الإنشاء...",empty:"لا توجد عروض أسعار لهذه الفرصة بعد",
     loading:"جار التحميل...",draft:"مسودة",product:"المنتج أو الخدمة",chooseProduct:"اختر من الكتالوج",
     quantity:"الكمية",add:"إضافة بند",adding:"جار الإضافة...",unitPrice:"سعر الوحدة قبل الضريبة",
@@ -22,7 +22,7 @@ const strings = {
     catalogEmpty:"الكتالوج فارغ أو غير متاح لك",
   },
   en: {
-    title:"Quotations",desc:"Axelor quotations (SaleOrder) for this opportunity, within your permissions.",
+    title:"Quotations",desc:"Quotations for this opportunity, their versions and review, within your permissions.",
     create:"New quotation",creating:"Creating...",empty:"No quotations for this opportunity yet",
     loading:"Loading...",draft:"Draft",product:"Product or service",chooseProduct:"Choose from catalog",
     quantity:"Quantity",add:"Add line",adding:"Adding...",unitPrice:"Unit price before tax",
