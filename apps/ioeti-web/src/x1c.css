@@ -62,3 +62,5 @@
 .when-chip:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
 .when-field { display: flex; flex-direction: column; min-width: 0; }
 .when-field > label { display: flex; flex-direction: column; gap: 4px; }
+.rp-presets { margin: 4px 0 10px; }
+.when-chip[aria-pressed="true"] { background: var(--primary); border-color: var(--primary); color: var(--on-primary); }
