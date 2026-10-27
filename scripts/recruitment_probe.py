@@ -400,12 +400,14 @@ def main():
             submit(a, ap)
             to_accepted(a, ap, salary="180000")
             s_p, _, pp = place(a, ap, start=past(start_days))
-            call(a, "POST", f"/placements/{pp.get('id')}/started", {"startedOn": past(start_days)})
-            partial.append((s_p, pp))
-        (s_p3, p3), (s_p4, p4) = partial
-        check("OFFER_ACCEPTED agreement: the fee request exists right after the placement (20% of 180000 = 36000)",
-              s_p3 == s_p4 == 201 and p3.get("invoicingStatus") == "REQUESTED" and float(p3.get("feeAmount") or 0) == 36000,
-              f"{s_p3} {p3}")
+            s_start, _ = call(a, "POST", f"/placements/{pp.get('id')}/started", {"startedOn": past(start_days)})
+            partial.append((s_p, pp, s_start))
+        (s_p3, p3, s_st3), (s_p4, p4, s_st4) = partial
+        check("OFFER_ACCEPTED agreement: the fee request exists right after the placement (20% of 180000 = 36000); "
+              "recording the start afterwards keeps that one request (200)",
+              s_p3 == s_p4 == 201 and p3.get("invoicingStatus") == "REQUESTED" and float(p3.get("feeAmount") or 0) == 36000
+              and s_st3 == s_st4 == 200 and len(search(FEE_REQ, f"self.placement.id = {p3.get('id') or 0}")) == 1,
+              f"{s_p3} {s_p4} {s_st3} {s_st4} {p3}")
         s_r, b_r = call(a, "POST", f"/placements/{p3['id']}/early-exit", {"version": version(PLACEMENT, p3["id"]), "exitedOn": past(0), "reason": "DISMISSED"})
         s_o, b_o = call(a, "POST", f"/placements/{p4['id']}/early-exit", {"version": version(PLACEMENT, p4["id"]), "exitedOn": past(1), "reason": "RESIGNED"})
         credits = search(FEE_REQ, f"self.placement.id = {p3['id']} AND self.kindSelect = 2", ("amountBeforeTax",))

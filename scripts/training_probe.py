@@ -59,7 +59,7 @@ BASE = "/ws/ioeti/training"
 MISSING = 987654323
 ROUNDS = int(os.environ.get("PROBE_TRAINING_ROUNDS", "5"))
 RESULTS = []
-ENROLLMENT_FIELDS = {"id", "version", "traineeId", "traineeName", "clientName", "status", "waitlistPosition"}
+ENROLLMENT_FIELDS = {"id", "version", "traineeId", "traineeName", "clientName", "status", "waitlistPosition", "identityProvided"}
 
 
 def check(name, condition, detail=""):
@@ -76,6 +76,11 @@ def admin_client():
 
 def error(body):
     return (body.get("error") or {}) if isinstance(body, dict) else {}
+
+
+def num(value):
+    """Decimals come back as strings ("100.00"): compare them as numbers."""
+    return None if value is None else float(value)
 
 
 def field(body):
@@ -401,8 +406,8 @@ def main():
 
         st = standing()
         check("eligibility: attendance from recorded sessions, the reason named (SCORE_MISSING, ATTENDANCE_BELOW)",
-              (st.get(d1["id"], {}).get("attendancePercent"), st.get(d1["id"], {}).get("reason")) == (100, "SCORE_MISSING")
-              and (st.get(d2["id"], {}).get("attendancePercent"), st.get(d2["id"], {}).get("reason")) == (0, "ATTENDANCE_BELOW"), st)
+              (num(st.get(d1["id"], {}).get("attendancePercent")), st.get(d1["id"], {}).get("reason")) == (100, "SCORE_MISSING")
+              and (num(st.get(d2["id"], {}).get("attendancePercent")), st.get(d2["id"], {}).get("reason")) == (0, "ATTENDANCE_BELOW"), st)
 
         def assess(client, enrollment_id, score, v=None):
             return call(client, "POST", f"/enrollments/{enrollment_id}/assessment",
@@ -476,7 +481,7 @@ def main():
         fees = search(FEE, f"self.invoice.id = {inv}", ("amount",))
         check("invoice link: the coordinator cannot (403); finance sees the invoice, links shares (above the invoice refused, twice 409)",
               s_coord == 403 and inv in [c["id"] for c in obj(choices) or []] and s_big == 422 and field(b_big) == "amount"
-              and s_l2 == 201 and (obj(b_l2) or {}).get("paid") == 5700 and s_dup == 409 and s_l1 == 201
+              and s_l2 == 201 and num((obj(b_l2) or {}).get("paid")) == 5700 and s_dup == 409 and s_l1 == 201
               and sorted(float(f["amount"]) for f in fees) == [5700.0, 5700.0], f"{s_coord} {s_big} {s_l2} {b_l2} {s_dup} {s_l1} {fees}")
 
         has_cancellation = search(VERSION, "self.policyKey = 'training.cancellation'")
@@ -495,7 +500,7 @@ def main():
         s_cx, _ = call(a, "POST", f"/enrollments/{d2['id']}/cancel", {"version": version(ENROLLMENT, d2["id"])})
         rf = search(REFUND, f"self.enrollment.id = {d2['id']}", ("amount", "paidAmount", "refundPercent", "creditPercent", "statusSelect", "daysBeforeStart"))
         check("cancelling 10 days before the start: preview then refund requested = 50% of the 5 700 paid (2 850), 25% of the invoice",
-              (prev.get("outcome"), prev.get("daysBeforeStart"), prev.get("refundPercent"), prev.get("refundAmount")) == ("REFUND", 10, 50, 2850)
+              (prev.get("outcome"), prev.get("daysBeforeStart"), num(prev.get("refundPercent")), num(prev.get("refundAmount"))) == ("REFUND", 10, 50, 2850)
               and s_cx == 200 and len(rf) == 1 and float(rf[0]["amount"]) == 2850 and float(rf[0]["paidAmount"]) == 5700
               and float(rf[0]["creditPercent"]) == 25 and rf[0]["statusSelect"] == 1 and rf[0]["daysBeforeStart"] == 10, f"{prev} {s_cx} {rf}")
         refund1 = rf[0] if rf else {"id": 0}
@@ -524,8 +529,8 @@ def main():
         check("approve: the coordinator cannot (403); a non-matching credit note → 422; stale → 409; then CREDITED with the credit note;"
               " deciding again → REFUND_STATE",
               s_ca == 403 and s_mm == 422 and field(b_mm) == "creditInvoiceId" and s_st == 409 and s_ap == 200
-              and (done.get("status"), done.get("creditId"), done.get("creditedAmount")) == ("CREDITED", credit, 2850)
-              and s_ag == 422 and error(b_ag).get("code") == "REFUND_STATE", f"{s_ca} {s_mm} {s_st} {s_ap} {done} {s_ag}")
+              and (done.get("status"), done.get("creditId"), num(done.get("creditedAmount"))) == ("CREDITED", credit, 2850)
+              and s_ag == 422 and error(b_ag).get("code") == "REFUND_STATE", f"{s_ca} {s_mm} {s_st} {s_ap} {done} {s_ag} {b_ag}")
 
         # an unlinked enrolment cancelled: no refund; asking for one → INVOICE_REQUIRED; NOT_ASKED refuses a national ID
         s3, b3 = enroll(a, k2, more[2]["id"], nationalId="29001011234575")
@@ -550,7 +555,7 @@ def main():
         active = search(ENROLLMENT, f"self.cohort.id = {k2['id']} AND self.statusSelect <> 3")
         check("cohort cancel: CERTIFICATES_ISSUED first; preview 1 refund of 5 700; stale 409; then CANCELLED, nobody active,"
               " the paid trainee refunded 100% for a cancellation by us",
-              s_ci == 422 and error(b_ci).get("code") == "CERTIFICATES_ISSUED" and (cprev.get("refunds"), cprev.get("refundTotal")) == (1, 5700)
+              s_ci == 422 and error(b_ci).get("code") == "CERTIFICATES_ISSUED" and (cprev.get("refunds"), num(cprev.get("refundTotal"))) == (1, 5700)
               and s_cs == 409 and s_cc == 200 and (obj(b_cc) or {}).get("status") == "CANCELLED" and not active
               and len(rf2) == 1 and float(rf2[0]["amount"]) == 5700 and rf2[0]["causeSelect"] == 2, f"{s_ci} {cprev} {s_cs} {s_cc} {rf2} {active}")
         refund2 = rf2[0] if rf2 else {"id": 0}

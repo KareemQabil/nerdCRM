@@ -314,7 +314,8 @@ public class RecruitmentService {
   @Transactional(rollbackOn = {Exception.class})
   public void settle(Placement placement, LocalDate today) {
     applyTerms(placement, today);
-    if (feeBlocker(placement) == null) {
+    // feeBlocker is also null once the request exists: create it only when there is none yet (one per placement)
+    if (feeRequest(placement, RecruitmentFeeRequestRepository.KIND_FEE_INVOICE) == null && feeBlocker(placement) == null) {
       OfferPrivateTerms terms = offerTerms(placement.getApplication());
       BigDecimal amount = PlacementTerms.fee(terms.getAnnualSalary(), placement.getFeePercent());
       RecruitmentFeeRequest request = request(placement, RecruitmentFeeRequestRepository.KIND_FEE_INVOICE, amount,
