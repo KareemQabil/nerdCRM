@@ -1,0 +1,68 @@
+PASS RepA: list shows exactly its scope
+PASS RepA: GET O1 in scope
+PASS RepA: GET O2 out of scope
+PASS RepA: GET O3 out of scope
+PASS RepB: list shows exactly its scope
+PASS RepB: GET O1 out of scope
+PASS RepB: GET O2 in scope
+PASS RepB: GET O3 out of scope
+PASS Manager: list shows exactly its scope
+PASS Manager: GET O1 in scope
+PASS Manager: GET O2 out of scope
+PASS Manager: GET O3 in scope
+PASS LineIso: list shows exactly its scope
+PASS LineIso: GET O1 in scope
+PASS LineIso: GET O2 out of scope
+PASS LineIso: GET O3 out of scope
+PASS LineNone: list shows exactly its scope
+PASS LineNone: GET O1 out of scope
+PASS LineNone: GET O2 out of scope
+PASS LineNone: GET O3 out of scope
+PASS All: list shows exactly its scope
+PASS All: GET O1 in scope
+PASS All: GET O2 in scope
+PASS All: GET O3 in scope
+PASS ReadOnly: opportunities model denied (403)
+PASS ReadOnly: GET O1 out of scope
+PASS ReadOnly: GET O2 out of scope
+PASS ReadOnly: GET O3 out of scope
+PASS RepA: PUT O1 -> 200
+PASS RepA: PUT O2 -> 404
+PASS RepA: PUT O3 -> 404
+PASS RepB: PUT O1 -> 404
+PASS RepB: PUT O2 -> 200
+PASS RepB: PUT O3 -> 404
+PASS Manager: PUT O1 -> 200
+PASS Manager: PUT O2 -> 404
+PASS Manager: PUT O3 -> 200
+PASS LineIso: PUT O1 -> 200
+PASS LineIso: PUT O2 -> 404
+PASS LineIso: PUT O3 -> 404
+PASS LineNone: PUT O1 -> 404
+PASS LineNone: PUT O2 -> 404
+PASS LineNone: PUT O3 -> 404
+PASS All: PUT O1 -> 200
+PASS All: PUT O2 -> 200
+PASS All: PUT O3 -> 200
+PASS O1: name never changed by any write
+PASS O2: name never changed by any write
+PASS O3: name never changed by any write
+PASS RepA: generic /ws/rest refused
+PASS RepB: generic /ws/rest refused
+PASS Manager: generic /ws/rest refused
+PASS LineIso: generic /ws/rest refused
+PASS LineNone: generic /ws/rest refused
+PASS All: generic /ws/rest refused
+PASS ReadOnly: generic /ws/rest refused
+PASS LineIso: create in ISO9001 -> 201
+PASS LineIso: create in TRAINING -> 422
+PASS RepA: create in ISO9001 -> 422
+PASS LineNone: create in ISO9001 -> 422
+PASS LineIso: creatable lines = its memberships
+PASS RepA (no membership): no creatable lines
+PASS membership removed by admin
+PASS LineIso: revoked membership hides O1 on the next request (404)
+PASS LineIso: revoked membership refuses create (422)
+
+65/65 checks passed
+CLEANUP complete 24

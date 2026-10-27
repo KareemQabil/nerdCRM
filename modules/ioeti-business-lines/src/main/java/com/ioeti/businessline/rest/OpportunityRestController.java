@@ -12,6 +12,7 @@ import com.axelor.utils.api.ResponseConstructor;
 import com.axelor.utils.api.SecurityCheck;
 import com.ioeti.businessline.db.BusinessLine;
 import com.ioeti.businessline.db.repo.BusinessLineRepository;
+import com.ioeti.businessline.security.BusinessLineEligibility;
 import com.ioeti.core.api.ApiException;
 import com.ioeti.core.api.IoetiEndpoint;
 import com.ioeti.core.api.RecordAccess;
@@ -120,7 +121,9 @@ public class OpportunityRestController {
       .filter("self.code = :code").bind("code", code).fetchOne();
     if (line == null
       || !Beans.get(JpaSecurity.class).isPermitted(JpaSecurity.CAN_READ, BusinessLine.class, line.getId())
-      || !Integer.valueOf(BusinessLineRepository.STATUS_ACTIVE).equals(line.getStatusSelect())) {
+      || !Integer.valueOf(BusinessLineRepository.STATUS_ACTIVE).equals(line.getStatusSelect())
+      // SEC-003: reading a line does not allow selling in it (fail-closed until D-07)
+      || !BusinessLineEligibility.canCreateIn(AuthUtils.getUser(), line)) {
       throw unavailable;
     }
     return line;
