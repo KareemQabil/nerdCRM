@@ -2,7 +2,7 @@
 """D-07 optional two-step sign-in (native Axelor TOTP): live probe against a RUNNING local/CI Axelor; never against production.
 Principals are TEST FIXTURES: one person, and the administrator. Every record is removed afterwards.
 Checks:
-  set-up: off at first; confirming before starting is refused; start returns a key and a QR image; a wrong code leaves it
+  set-up: off at first, and reading it writes nothing; confirming before starting is refused; start returns a key and a QR image; a wrong code leaves it
   off; the right code turns it on and returns recovery codes once; starting again is refused
   sign-in: with it on, the password alone gives no session (the callback asks for the code); a wrong code gives no session;
   the app's code does (second step on the native MfaClient); a recovery code does once, and not twice
@@ -99,6 +99,9 @@ def main():
         # --- set-up -----------------------------------------------------------------------------------------------
         s, b = me.call("GET", ME)
         check("set-up: off at first", s == 200 and obj(b).get("enabled") is False, (s, b))
+        me.call("GET", ME)
+        check("set-up: reading the status writes nothing (no MFA row until the person starts)",
+              search(MFA, f"self.owner.id = {person['id']}") == [], search(MFA, f"self.owner.id = {person['id']}"))
         s, b = me.call("POST", ME + "/confirm", {"code": "123456"})
         check("set-up: confirming before starting is refused", s == 422 and err(b)[0] == "MFA_NOT_STARTED", (s, err(b)))
         s, b = me.call("POST", ME + "/start", {})

@@ -60,7 +60,7 @@ public class MfaRestController {
     MFA mfa = service.getRelatedMfa(me, true);
     if (Boolean.TRUE.equals(mfa.getEnabled())) throw new ApiException(422, "MFA_ALREADY_ON", "Multi-factor sign-in is already on.", null);
     byte[] png = service.configureTOTP(mfa);
-    MFA saved = service.getRelatedMfa(me);
+    MFA saved = service.getRelatedMfa(me, false);
     return ResponseConstructor.build(Response.Status.OK, "MFA set-up", new MfaSetup(saved.getTotpSecret(),
         "data:image/png;base64," + Base64.getEncoder().encodeToString(png)));
   }
@@ -73,7 +73,7 @@ public class MfaRestController {
   public Response confirm(MfaCode command) {
     User me = me();
     MFAService service = Beans.get(MFAService.class);
-    MFA mfa = service.getRelatedMfa(me);
+    MFA mfa = service.getRelatedMfa(me, false);
     if (mfa == null || mfa.getTotpSecret() == null) throw new ApiException(422, "MFA_NOT_STARTED", "Start the set-up first.", null);
     if (Boolean.TRUE.equals(mfa.getEnabled())) throw new ApiException(422, "MFA_ALREADY_ON", "Multi-factor sign-in is already on.", null);
     String code = code(command);
@@ -82,13 +82,13 @@ public class MfaRestController {
     } catch (RuntimeException e) {
       throw ApiException.invalidField("code", "INVALID", "The code does not match. Use the current code from the app.");
     }
-    MFA current = service.getRelatedMfa(me);
+    MFA current = service.getRelatedMfa(me, false);
     if (!Boolean.TRUE.equals(current.getIsTotpValidated())) {
       throw ApiException.invalidField("code", "INVALID", "The code does not match. Use the current code from the app.");
     }
     service.setDefaultMethod(current, MFAMethod.TOTP);
-    service.enableMFA(service.getRelatedMfa(me));
-    List<String> codes = service.generateRecoveryCodes(service.getRelatedMfa(me));
+    service.enableMFA(service.getRelatedMfa(me, false));
+    List<String> codes = service.generateRecoveryCodes(service.getRelatedMfa(me, false));
     audit("MFA_ENABLED", me, List.of("method=TOTP"));
     return ResponseConstructor.build(Response.Status.OK, "MFA on", new MfaEnabled(view(me), codes));
   }
@@ -138,7 +138,7 @@ public class MfaRestController {
   }
 
   static MFA enabled(User user) {
-    MFA mfa = Beans.get(MFAService.class).getRelatedMfa(user);
+    MFA mfa = Beans.get(MFAService.class).getRelatedMfa(user, false);
     if (mfa == null || !Boolean.TRUE.equals(mfa.getEnabled())) throw new ApiException(422, "MFA_NOT_ON", "Multi-factor sign-in is not on.", null);
     return mfa;
   }
@@ -155,15 +155,19 @@ public class MfaRestController {
   /** Resets a person's MFA (lost device); called by the administrators' API, which checks the caller. */
   static MfaView reset(User user) {
     MFAService service = Beans.get(MFAService.class);
-    MFA mfa = service.getRelatedMfa(user);
+    MFA mfa = service.getRelatedMfa(user, false);
     if (mfa == null || !Boolean.TRUE.equals(mfa.getEnabled())) throw new ApiException(422, "MFA_NOT_ON", "Multi-factor sign-in is not on for this person.", null);
     service.disableMFA(mfa);
     audit("MFA_RESET", user, List.of("by=administrator"));
     return view(user);
   }
 
+  /**
+   * Reading never creates: the native {@code getRelatedMfa(user)} creates an empty MFA row when there is none, which would
+   * write on every visit to Settings and keep the person from being deleted. Only {@link #start()} creates one.
+   */
   static MfaView view(User user) {
-    MFA mfa = Beans.get(MFAService.class).getRelatedMfa(user);
+    MFA mfa = Beans.get(MFAService.class).getRelatedMfa(user, false);
     boolean on = mfa != null && Boolean.TRUE.equals(mfa.getEnabled());
     return new MfaView(on, on ? "TOTP" : null);
   }
