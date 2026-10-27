@@ -109,7 +109,7 @@ This section is appended; the rows above are unchanged. Status reflects live Axe
 | G-007 | Engineering controls done | Field registry for all 145 REST record fields, CI gate with negative controls (`scripts/pii_dto_audit.py`), log masking of native messages (`PiiMasker`), write-only lost-lead note; `docs/security/PII_CLASSIFICATION.md` | Production log pipeline masking and retention (D-08); field-level role matrix and retention periods (D-07); recruitment/training data (D-03, D-04) |
 | G-008 | Engineering done | Platform PR: versioned migrations, verified chain, CI gate | Production run per runbook (D-08) |
 | G-009 | Engineering done | Platform PR: encrypted drill 10/10 plus restore boot test | Schedule, off-site copies, custody, RPO/RTO (D-08) |
-| G-010 | Partial | Multi-user live probes for leads, opportunities and quotations | Reviewer UAT sign-off |
+| G-010 | Ready for reviewer | Multi-user live probes for the whole lead → contract chain; UAT script `docs/runbooks/PILOT_UAT_SCRIPT.md`; fictional dataset `scripts/pilot_readiness.py` setup/check/teardown in backend CI | Reviewer UAT sign-off (D-09) |
 | G-011 | In progress | Private disclosure draft held outside the repository | Owner action (see the decisions file) |
 | G-012 | Policy-blocked | — | D-02 |
 | G-013 | Not started | — | Training/recruitment bounded contexts (D-03/D-04 for gated parts) |

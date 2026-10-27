@@ -444,3 +444,23 @@ Full description: `docs/security/PII_CLASSIFICATION.md`.
 
 ### Not closed
 Production log-pipeline masking and retention (D-08), field-level role matrix (D-07), domain data for recruitment and training (D-03/D-04).
+
+## 2026-10-20 · G-010 · pilot readiness
+
+### Change
+- `docs/runbooks/PILOT_UAT_SCRIPT.md`: 13 reviewer steps (outsider, two reps, viewer; Arabic, English, phone width) with a record table and sign-off.
+- `scripts/pilot_readiness.py`:
+  - `setup` creates 4 users with test-only roles, 3 fictional leads, a catalog product and the company setup; every name starts with `PILOT-TEST`. Passwords go to `.local/pilot-users.txt` (git-ignored, mode 600) and are never printed.
+  - `check` is read-only: each user sees and is refused what the script expects.
+  - `teardown` removes the dataset and what reviewers created with it (opportunities, accounts, quotations, contracts).
+  - It refuses `IOETI_ENV=production`.
+- Backend CI runs setup → check → teardown.
+- `docs/PILOT_PLAN.md`: gate evidence table; G6 ready for the reviewer.
+
+### Evidence (local)
+| Check | Result |
+|---|---|
+| setup | PASS, 36 records, 4 users |
+| check | 11/11 |
+| reviewer simulation through the API | assign → convert → quotation 3000.00 → milestone → contract → lines 3000.00 |
+| teardown | leftovers: none; database count of pilot leads, users, partners, opportunities and companies = 0 |
