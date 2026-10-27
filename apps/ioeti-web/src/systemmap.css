@@ -32,3 +32,5 @@
 .system-map-access.is-yes { color: var(--success); }
 .system-map-access.is-no { color: var(--on-surface-variant); }
 @media (max-width: 720px) { .system-map-meter { flex-basis: 100%; } }
+/* small text on the warning tint keeps 4.5:1 in every theme */
+.system-map-decision, .system-map-status.is-partial { color: color-mix(in srgb, var(--warning) 70%, var(--on-surface)); }

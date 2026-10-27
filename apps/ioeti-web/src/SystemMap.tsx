@@ -117,7 +117,7 @@ export function SystemMap({ language }: { language: Language }) {
   return <section className="page-enter system-map">
     <PageHeader eyebrow={t.eyebrow} title={<>{t.title}</>} description={t.hint}/>
     <div className="system-map-bar">
-      <div className="system-map-meter" aria-label={t.counts(count("live"), count("partial"), count("missing"))}>
+      <div className="system-map-meter" aria-hidden="true">
         {(["live", "partial", "missing"] as Status[]).map(s => <span key={s} className={"is-" + s} style={{ flexGrow: count(s) }}/>)}
       </div>
       <span className="system-map-counts">{t.counts(count("live"), count("partial"), count("missing"))}</span>
