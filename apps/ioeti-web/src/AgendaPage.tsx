@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  CalendarDays, ChevronLeft, ChevronRight, CircleAlert, ClipboardList, GraduationCap, NotebookPen, PhoneCall, RefreshCw,
+  CalendarDays, ChevronLeft, ChevronRight, CircleAlert, ClipboardList, GraduationCap, MapPin, NotebookPen, PhoneCall, RefreshCw,
   ShieldCheck, UserRoundSearch, UsersRound,
 } from "lucide-react";
 import { getAgenda, localDate, problem, recordHref, wallClock, type AgendaItem } from "./dailyApi";
@@ -9,20 +9,20 @@ import "./daily.css";
 
 const L = {
   ar: {
-    eyebrow: "مساحة العمل", title: "أجندتي", hint: "كل اللي عليك في مكان واحد: المتابعات والاجتماعات، الجلسات التدريبية اللي بتنسقها، زيارات التدقيق، ومقابلات التوظيف.",
+    eyebrow: "مساحة العمل", title: "أجندتي", hint: "كل اللي عليك في مكان واحد: المتابعات والاجتماعات، الزيارات الميدانية، الجلسات التدريبية اللي بتنسقها، زيارات التدقيق، ومقابلات التوظيف.",
     today: "اليوم", week: "أسبوع", twoWeeks: "أسبوعين", previous: "السابق", next: "التالي", refresh: "تحديث",
     empty: "مفيش حاجة في الفترة دي.", emptyHint: "خطط لمتابعة من صفحة أي عميل محتمل أو حساب أو فرصة وهتظهر هنا.",
     loading: "جاري التحميل…", open: "فتح", allDay: "طوال اليوم",
-    types: { ACTIVITY: "نشاط", SESSION: "جلسة تدريب", AUDIT: "زيارة تدقيق", INTERVIEW: "مقابلة توظيف" },
+    types: { ACTIVITY: "نشاط", SESSION: "جلسة تدريب", AUDIT: "زيارة تدقيق", INTERVIEW: "مقابلة توظيف", VISIT: "زيارة ميدانية" },
     kinds: { CALL: "مكالمة", MEETING: "اجتماع", TASK: "مهمة", NOTE: "ملاحظة" },
     audit: "تدقيق مخطط", done: "تم", overdue: "متأخر", total: "عنصر",
   },
   en: {
-    eyebrow: "Workspace", title: "My agenda", hint: "Everything on your plate in one place: follow-ups and meetings, training sessions you coordinate, audit visits and recruitment interviews.",
+    eyebrow: "Workspace", title: "My agenda", hint: "Everything on your plate in one place: follow-ups and meetings, field visits, training sessions you coordinate, audit visits and recruitment interviews.",
     today: "Today", week: "Week", twoWeeks: "Two weeks", previous: "Previous", next: "Next", refresh: "Refresh",
     empty: "Nothing in this period.", emptyHint: "Plan a follow-up from any lead, account or opportunity and it shows up here.",
     loading: "Loading…", open: "Open", allDay: "All day",
-    types: { ACTIVITY: "Activity", SESSION: "Training session", AUDIT: "Audit visit", INTERVIEW: "Interview" },
+    types: { ACTIVITY: "Activity", SESSION: "Training session", AUDIT: "Audit visit", INTERVIEW: "Interview", VISIT: "Field visit" },
     kinds: { CALL: "Call", MEETING: "Meeting", TASK: "Task", NOTE: "Note" },
     audit: "Planned audit", done: "Done", overdue: "Overdue", total: "items",
   },
@@ -32,6 +32,7 @@ function icon(item: AgendaItem) {
   if (item.type === "SESSION") return GraduationCap;
   if (item.type === "AUDIT") return ShieldCheck;
   if (item.type === "INTERVIEW") return UserRoundSearch;
+  if (item.type === "VISIT") return MapPin;
   return item.kind === "CALL" ? PhoneCall : item.kind === "MEETING" ? UsersRound : item.kind === "TASK" ? ClipboardList : NotebookPen;
 }
 const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());

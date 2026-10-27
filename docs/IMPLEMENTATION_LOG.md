@@ -688,3 +688,24 @@ Slice: `docs/slices/A6-campaigns.md`.
 - UI: the Campaigns board (drag between stages with mouse or touch, a "move to" picker for keyboard and phones, localized announcements) and the campaign page with its results funnel. The system map now shows marketing as live.
 - Probe `scripts/campaign_probe.py` 11/11 (backend CI); mocked UI tests `tests/campaigns.spec.ts` 2/2 (mocked suite 80, demo 27).
 - G-007 registry: 1099 fields, 0 problems. The view record is named `MarketingCampaignView`, because fundraising already has a `CampaignView`.
+
+## 2026-10-24 · A7 · field visits · record numbering
+
+Slice: `docs/slices/A7-field-visits.md`.
+
+- `ioeti-operations` (now on `axelor-intervention`): `VisitService` and `/ws/ioeti/visits`, on the native `Intervention`.
+  - Plan and reschedule in the caller's time zone.
+  - Start, pause, finish and cancel through the native service (checklist rule kept).
+  - An append-only visit log (`VisitNote`, migration V017/U017).
+  - The person's agenda now shows their planned and running visits.
+- `ioeti-admin`: `Numbering` and `/ws/ioeti/admin/numbering`, how the records the platform creates are numbered.
+  - Visits have no sequence on a fresh database, so saving answers 422 `NUMBERING_REQUIRED` until an administrator sets a prefix.
+  - No format is chosen for the company.
+- UI:
+  - the Field visits page (grouped list, mine/all, the visit page with on-site actions and the log, plan and new-visit dialogs);
+  - "Plan a visit" from an account;
+  - visit items in the agenda;
+  - the admin console's Numbering tab;
+  - the system map shows field visits as live (D-10 holds sending to the client).
+- Probe `scripts/visit_probe.py` (backend CI); mocked UI tests `tests/visits.spec.ts` 4/4. The live system-map test now expects field visits to be live.
+- G-007 registry: 1156 fields, 0 problems. Visit notes and the account name are personal data.

@@ -112,3 +112,9 @@ export const renameListValue = (kind: ListKind, id: number, version: number, nam
 export const deleteListValue = (kind: ListKind, id: number, version: number) =>
   post<ListValue[]>(`${BASE}/lists/${kind}/${enc(id)}/delete`, { version });
 export const orderStages = (ids: number[]) => post<ListValue[]>(`${BASE}/lists/opportunity-stages/order`, { ids });
+
+/** How the records the platform creates are numbered; field visits need an administrator to set it up. */
+export type NumberingRow = { code: string; name: string; configured: boolean; version: number | null; prefix: string | null; digits: number | null; nextNumber: number | null; example: string | null };
+export const getNumbering = () => list<NumberingRow>(`${BASE}/numbering`);
+export const setNumbering = (code: string, version: number | null, prefix: string, digits: number) =>
+  post<NumberingRow>(`${BASE}/numbering/${enc(code)}`, { version: version ?? undefined, prefix, digits });

@@ -162,3 +162,7 @@
   .admin-list-name { flex-basis: calc(100% - 140px); }
   .admin-list-meta { order: 3; flex-basis: 100%; justify-content: flex-start; padding-inline-start: 54px; }
 }
+.admin-list-row.is-missing { border-color: color-mix(in srgb, var(--warning) 50%, transparent); background: color-mix(in srgb, var(--warning-container) 35%, var(--surface)); }
+.admin-numbering-example { padding: 2px 8px; border-radius: 6px; background: var(--surface-variant); font-size: 12.5px; }
+.admin-numbering-preview { margin: 0; font-size: 13px; color: var(--on-surface-variant); }
+.admin-numbering-preview code { font-size: 15px; color: var(--on-surface); font-weight: 700; }

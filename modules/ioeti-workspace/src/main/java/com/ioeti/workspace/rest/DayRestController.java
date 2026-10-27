@@ -6,6 +6,7 @@ import com.axelor.apps.crm.db.Event;
 import com.axelor.apps.crm.db.Lead;
 import com.axelor.apps.crm.db.Opportunity;
 import com.axelor.apps.crm.db.repo.EventRepository;
+import com.axelor.apps.intervention.db.Intervention;
 import com.axelor.auth.AuthUtils;
 import com.axelor.auth.db.AuditableModel;
 import com.axelor.auth.db.User;
@@ -24,6 +25,7 @@ import com.ioeti.core.api.IoetiEndpoint;
 import com.ioeti.core.api.RecordAccess;
 import com.ioeti.core.text.ArabicNormalizer;
 import com.ioeti.core.web.OptimisticLockConflicts;
+import com.ioeti.operations.service.VisitService;
 import com.ioeti.recruitment.db.ClientInterview;
 import com.ioeti.training.db.CohortSession;
 import com.ioeti.workspace.service.ActivityService;
@@ -133,7 +135,7 @@ public class DayRestController {
 
   @GET
   @Path("/agenda")
-  @Operation(summary = "The caller's own agenda across domains: follow-ups and activities, sessions they coordinate, audits they lead or manage, interviews for their job orders", tags = {"IOETI workspace"})
+  @Operation(summary = "The caller's own agenda across domains: follow-ups and activities, sessions they coordinate, audits they lead or manage, interviews for their job orders, field visits assigned to them", tags = {"IOETI workspace"})
   @IoetiEndpoint
   public Response agenda(@QueryParam("from") String from, @QueryParam("to") String to) {
     LocalDate start, end;
@@ -170,6 +172,14 @@ public class DayRestController {
       readable(ClientInterview.class, new JPQLFilter("self.application.jobOrder.recruiter = ? AND self.scheduledAt >= ? AND self.scheduledAt < ? AND self.outcomeSelect = 1",
           me, a, b)).order("scheduledAt").fetch(200).forEach(i -> items.add(new AgendaItem("INTERVIEW", i.getId(),
               i.getApplication().getJobOrder().getTitle(), i.getScheduledAt(), null, null, null, "JOB_ORDER", i.getApplication().getJobOrder().getId())));
+    }
+    if (security.isPermitted(JpaSecurity.CAN_READ, Intervention.class)) {
+      // field visits assigned to me that are planned, under way or paused
+      readable(Intervention.class, new JPQLFilter("self.assignedTo = ? AND self.planifStartDateTime >= ? AND self.planifStartDateTime < ? AND self.statusSelect IN (?, ?, ?)",
+          me, a, b, VisitService.PLANNED, VisitService.STARTED, VisitService.SUSPENDED)).order("planifStartDateTime").fetch(200).forEach(v -> items.add(new AgendaItem("VISIT", v.getId(),
+              v.getDeliveredPartner() == null || !security.isPermitted(JpaSecurity.CAN_READ, Partner.class, v.getDeliveredPartner().getId())
+                  ? v.getSequence() : v.getDeliveredPartner().getName(),
+              v.getPlanifStartDateTime(), v.getPlanifEndDateTime(), null, VisitService.status(v), "VISIT", v.getId())));
     }
     items.sort(Comparator.comparing(AgendaItem::at, Comparator.nullsLast(Comparator.naturalOrder())));
     return ResponseConstructor.build(Response.Status.OK, "Agenda", items);

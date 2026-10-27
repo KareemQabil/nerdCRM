@@ -80,4 +80,13 @@
     ]]></extra-code>
   </entity>
 
+  <!-- Field visits (capability map): the visit itself is the native Intervention; its notes are kept here
+       because native intervention notes belong to the customer, not to one visit. Append-only. -->
+  <entity name="VisitNote" table="ioeti_ops_visit_note">
+    <many-to-one name="visit" ref="com.axelor.apps.intervention.db.Intervention" title="Visit" required="true"/>
+    <many-to-one name="author" ref="com.axelor.auth.db.User" title="Author"/>
+    <string name="body" title="Note" large="true" required="true"/>
+    <datetime name="writtenAt" title="Written at" required="true"/>
+  </entity>
+
 </domain-models>
