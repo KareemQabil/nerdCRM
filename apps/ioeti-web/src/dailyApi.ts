@@ -109,6 +109,8 @@ export function wallClock(value: string | null | undefined): Date | null {
 /** Field and conflict errors in the caller's language. */
 export function problem(error: unknown, ar: boolean): string {
   if (!(error instanceof ApiError)) return error instanceof Error ? error.message : String(error);
+  if (error.statusCode === 0) return ar ? "تعذّر الوصول للخادم. تأكد من الاتصال وحاول تاني." : "The server cannot be reached. Check the connection and try again.";
+  if (error.statusCode === 401) return ar ? "انتهت الجلسة. سجّل الدخول تاني." : "Your session ended. Sign in again.";
   if (error.statusCode === 409 && error.code === "POSSIBLE_DUPLICATE") return ar ? "يوجد سجل مشابه. راجعه أو أكّد أنه مختلف." : "A similar record exists. Check it or confirm this one is different.";
   if (error.statusCode === 409) return ar ? "السجل اتغير من شخص تاني. حدّث الصفحة وحاول تاني." : "Someone else changed this record. Refresh and try again.";
   if (error.statusCode === 403) return ar ? "ليس لديك صلاحية لهذا الإجراء." : "You do not have permission for this.";
@@ -134,5 +136,6 @@ export function problem(error: unknown, ar: boolean): string {
     const c = codes[field.code]?.[ar ? 0 : 1] ?? field.code;
     return `${n}: ${c}`;
   }
+  if (error.statusCode >= 500) return ar ? "الخادم مش قادر يكمّل الطلب دلوقتي. حاول تاني بعد شوية." : "The server could not complete the request. Try again shortly.";
   return error.message;
 }

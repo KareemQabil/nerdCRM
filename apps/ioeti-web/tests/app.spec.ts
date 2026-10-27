@@ -320,6 +320,30 @@ test("Opportunity direct deep link refetches the authorized record and rename st
   await expect(page).toHaveURL(/#\/opportunities$/);
 });
 
+test("Opportunity record: the section bar jumps to each section and the facts sit in the header",async ({page})=>{
+  await intercept(page);
+  await page.goto("/#/opportunities/101");
+  const facts=page.locator(".record-fact-strip");
+  await expect(facts).toContainText("أيزو 9001");
+  await expect(facts).toContainText("OP-101");
+  const nav=page.getByRole("navigation",{name:"أقسام الفرصة"});
+  await expect(nav.getByRole("link")).toHaveText(["الأنشطة","عروض الأسعار","العقد","المستندات"]);
+  await nav.getByRole("link",{name:"المستندات"}).click();
+  await expect(page.locator("#opportunity-documents")).toBeInViewport();
+  await expect(nav.getByRole("link",{name:"المستندات"})).toHaveAttribute("aria-current","location");
+  // the hash route is kept: jumping inside the record is not navigation
+  await expect(page).toHaveURL(/#\/opportunities\/101$/);
+  const box=await nav.boundingBox();
+  expect(box!.y).toBeGreaterThanOrEqual(60);
+});
+
+test("an unreachable server is reported in the reader's language on the sign-in screen",async ({page})=>{
+  await page.route("**/axelor-erp/ws/ioeti/session", route => route.abort("connectionrefused"));
+  await page.goto("/");
+  await expect(page.getByRole("alert")).toHaveText("تعذّر الوصول للخادم. تأكد من الاتصال وحاول تاني.");
+  await expect(page.getByText("Backend is unreachable")).toHaveCount(0);
+});
+
 test("Opportunity record workspace remains a full page on mobile",async ({page})=>{
   await page.setViewportSize({width:390,height:844});
   await intercept(page);
@@ -524,7 +548,7 @@ test("quotations: opportunity page creates a draft from the catalog, no tax unti
   await page.getByLabel("المنتج أو الخدمة").selectOption("31");
   await page.getByLabel("الكمية").fill("2");
   await page.getByRole("button", { name: "إضافة بند" }).click();
-  await expect(page.locator(".quote-lines tfoot")).toContainText("3000.00 EGP");
+  await expect(page.locator(".quote-lines tfoot")).toContainText("3,000.00 EGP");
   expect(posts).toEqual([
     { path: "/axelor-erp/ws/ioeti/quotes", body: { opportunityId: 101, opportunityVersion: 1 } },
     { path: "/axelor-erp/ws/ioeti/quotes/7/lines", body: { version: 0, productId: 31, quantity: 2 } },
@@ -557,12 +581,12 @@ test("quotations: the tax comes from the owners' policy; when it changes the dra
   const foot = page.locator(".quote-lines tfoot");
   await expect(foot).toContainText("ضريبة القيمة المضافة 14%");
   await expect(foot).toContainText("420.00 EGP");
-  await expect(foot).toContainText("3420.00 EGP");
+  await expect(foot).toContainText("3,420.00 EGP");
   await expect(page.getByText("الضريبة من سياسة المالية: ضريبة القيمة المضافة 14% سارية من 2026-10-25 (D-06).")).toBeVisible();
   await expect(page.getByRole("status").filter({ hasText: "تغيّرت سياسة الضريبة منذ آخر حساب لهذا العرض." })).toBeVisible();
   await page.getByRole("button", { name: "طبّق الضريبة الحالية" }).click();
   await expect(foot).toContainText("ضريبة القيمة المضافة 10%");
-  await expect(foot).toContainText("3300.00 EGP");
+  await expect(foot).toContainText("3,300.00 EGP");
   await expect(page.getByRole("button", { name: "طبّق الضريبة الحالية" })).toHaveCount(0);
   expect(posts).toEqual([{ path: "/axelor-erp/ws/ioeti/quotes/7/tax", body: { version: 3 } }]);
 });
@@ -681,7 +705,7 @@ test("contract: lines are copied once from the quotation with the contract versi
   await page.goto("/#/opportunities/101");
   await page.getByRole("button", { name: "نسخ البنود من عرض السعر" }).click();
   await expect(page.locator(".contract-body table")).toContainText("Audit day");
-  await expect(page.locator(".contract-body tfoot")).toContainText("3000.00 EGP");
+  await expect(page.locator(".contract-body tfoot")).toContainText("3,000.00 EGP");
   await expect(page.locator(".contract-body tfoot")).toContainText("منسوخة من عرض السعر #7");
   expect(posts).toEqual([{ version: 2, quoteId: 7 }]);
   await expect(page.getByRole("button", { name: "نسخ البنود من عرض السعر" })).toHaveCount(0);
@@ -781,7 +805,7 @@ test("quote acceptance (D-11): a purchase order needs its number; recording it o
   await form.getByRole("button", { name: "سجّل القبول" }).click();
   await expect(box).toContainText("العميل قبل (أمر شراء) في 2026-10-24، سجّله Sara Sales. · أمر شراء رقم PO-4411");
   expect(posts).toEqual([{ version: 6, kind: "PURCHASE_ORDER", reference: "PO-4411", acceptedOn: "2026-10-24", documentId: 77 }]);
-  await expect(page.locator(".quote-head")).toContainText("CONFIRMED");
+  await expect(page.locator(".quote-head")).toContainText("مؤكد");
 });
 
 test("lead qualification: stage, lose, reopen and assign-to-me send the lead version; refusals localized", async ({page}) => {

@@ -14,6 +14,7 @@ import { DocumentsPanel } from "./DocumentsPanel";
 import { MentionForm } from "./InboxPage";
 import { ActivityPanel } from "./ActivityPanel";
 import { OpportunityPlanCard, OpportunityStageRail } from "./OpportunityStageRail";
+import { SectionNav } from "./SectionNav";
 
 type Props = {
   record: Opportunity; language: Language; onBack: () => void;
@@ -36,6 +37,7 @@ const copy = {
     timeline: "الأنشطة والمتابعة", timelineNote: "سيظهر سجل الأنشطة بعد ربط Event API مع قواعد وصول مستقلة.",
     quote: "عروض الأسعار", quoteNote: "لا توجد عروض أسعار بعد.",
     contract: "العقود", contractNote: "لم يتم ربط Contract بهذا السجل بعد.",
+    sections: "أقسام الفرصة", path: "المسار والتقدير", activities: "الأنشطة", quotes: "عروض الأسعار", contractTab: "العقد", documents: "المستندات",
   },
   en: {
     back: "Back to opportunities", eyebrow: "Opportunity workspace", sample: "Fictional demo data",
@@ -52,6 +54,7 @@ const copy = {
     timeline: "Activities & follow-ups", timelineNote: "Activity history awaits a separately authorized Event API.",
     quote: "Quotations", quoteNote: "No quotations yet.",
     contract: "Contracts", contractNote: "No authorized Contract linkage has been connected yet.",
+    sections: "Opportunity sections", path: "Path & estimate", activities: "Activities", quotes: "Quotations", contractTab: "Contract", documents: "Documents",
   },
 } as const;
 
@@ -91,7 +94,8 @@ export function OpportunityRecordWorkspace({record,language,onBack,onRename,onPr
             </div>
           </div>
         </div>
-        <p className="record-hero-description">{c.permission}</p>
+        {DEMO_MODE?<p className="record-hero-description">{c.permission}</p>
+          :<dl className="record-fact-strip">{[...facts.filter(f=>f.label!==c.stage),{label:c.source,value:ar?"المبيعات · الفرص التجارية":"Sales · Opportunities"}].map(f=><div key={f.label}><dt>{f.label}</dt><dd dir="auto">{f.value}</dd></div>)}</dl>}
       </div>
       <div className="record-hero-actions">
         <span className="record-readonly-pill"><ShieldCheck size={15}/>{c.read}</span>
@@ -102,8 +106,13 @@ export function OpportunityRecordWorkspace({record,language,onBack,onRename,onPr
         </div>
       </div>
     </div>
+    {!DEMO_MODE&&<SectionNav label={c.sections} sections={[
+      ...(record.stageId!==undefined?[{id:"opportunity-path",label:c.path}]:[]),
+      {id:"opportunity-activities",label:c.activities},{id:"opportunity-quotes",label:c.quotes},
+      {id:"opportunity-contract",label:c.contractTab},{id:"opportunity-documents",label:c.documents}]}/>}
+    {DEMO_MODE&&<>
     <div className="record-section-label"><strong className="record-label-active">{c.overview}</strong><span>{c.source}: {ar ? "المبيعات · الفرص التجارية" : "Sales · Opportunities"}</span></div>
-    <div className={"record-content-grid"+(DEMO_MODE?"":" is-single")}>
+    <div className="record-content-grid">
       <section className="record-content-card" aria-labelledby="opportunity-facts-title">
         <div className="record-section-header"><div className="record-section-icon"><Layers3 size={20}/></div><div>
           <h2 id="opportunity-facts-title">{c.context}</h2><p>{c.real}</p>
@@ -111,7 +120,7 @@ export function OpportunityRecordWorkspace({record,language,onBack,onRename,onPr
         <dl className="record-properties">{facts.map(f=><div key={f.label}><dt>{f.label}</dt><dd>{f.value}</dd></div>)}</dl>
         <p className="record-security-note"><LockKeyhole size={15}/>{c.permission}</p>
       </section>
-      {DEMO_MODE&&<section className="record-content-card" aria-labelledby="opportunity-related-title">
+      <section className="record-content-card" aria-labelledby="opportunity-related-title">
         <div className="record-section-header"><div className="record-section-icon"><Network size={20}/></div><div>
           <h2 id="opportunity-related-title">{c.linked}</h2><p>{c.linkedDesc}</p>
         </div></div>
@@ -124,18 +133,19 @@ export function OpportunityRecordWorkspace({record,language,onBack,onRename,onPr
             <Icon size={19}/><div><strong>{section.name}</strong><p>{section.detail}</p></div><span className="opportunity-link-pending" aria-label={c.missing}>—</span>
           </div>})}
         </div>
-      </section>}
+      </section>
     </div>
-    {!DEMO_MODE&&record.stageId!==undefined&&<section className="record-content-card opportunity-path">
+    </>}
+    {!DEMO_MODE&&record.stageId!==undefined&&<section id="opportunity-path" className="record-content-card opportunity-path record-anchor">
       <OpportunityStageRail record={record} language={language} onChanged={()=>onRecordChanged?.()}/>
       <OpportunityPlanCard record={record} language={language} onChanged={()=>onRecordChanged?.()}/>
     </section>}
-    {!DEMO_MODE&&<section className="record-content-card record-activities">
+    {!DEMO_MODE&&<section id="opportunity-activities" className="record-content-card record-activities record-anchor">
       <ActivityPanel record="OPPORTUNITY" recordId={record.id} version={record.version} language={language} onChanged={()=>onRecordChanged?.()}/>
     </section>}
-    {!DEMO_MODE&&<QuotesPanel opportunityId={record.id} opportunityVersion={record.version} language={language} onOpportunityChanged={onRecordChanged}/>}
-    {!DEMO_MODE&&<ContractPanel opportunityId={record.id} opportunityVersion={record.version} language={language} onOpportunityChanged={onRecordChanged}/>}
-    {!DEMO_MODE&&<section className="record-content-card record-documents"><DocumentsPanel subject="OPPORTUNITY" subjectId={record.id} language={language}/>
+    {!DEMO_MODE&&<div id="opportunity-quotes" className="record-anchor"><QuotesPanel opportunityId={record.id} opportunityVersion={record.version} language={language} onOpportunityChanged={onRecordChanged}/></div>}
+    {!DEMO_MODE&&<div id="opportunity-contract" className="record-anchor"><ContractPanel opportunityId={record.id} opportunityVersion={record.version} language={language} onOpportunityChanged={onRecordChanged}/></div>}
+    {!DEMO_MODE&&<section id="opportunity-documents" className="record-content-card record-documents record-anchor"><DocumentsPanel subject="OPPORTUNITY" subjectId={record.id} language={language}/>
       <MentionForm subject="OPPORTUNITY" subjectId={record.id} language={language}/></section>}
     {DEMO_MODE&&<section className="record-flow-card" aria-labelledby="opportunity-journey-title">
       <div className="record-flow-title"><div className="record-section-icon"><Workflow size={20}/></div><div>
