@@ -198,3 +198,41 @@ Full report: `docs/security/SEC-003-scopes.md`.
 - Delegation.
 - Lead and Partner line scope.
 - A versioned migration for the new join table (G-008).
+
+## 2026-10-19 · Wave 2 part 1 · Lead → Account (+ Contact) + Opportunity, Account 360
+
+Full report: `docs/slices/W2-lead-conversion-account360.md`.
+
+### Change
+- `POST /ws/ioeti/leads/{id}/convert` converts in one transaction through the native `ConvertLeadWizardService`, via `PersistingConvertLeadWizardService`, an unbound subclass that saves the account and contact it builds. The opportunity is then created through `OpportunityService`.
+- New fields: `Lead.ioetiBusinessLine` and `Opportunity.ioetiOriginLead` (lineage).
+- Shared line rule `LineSelection`, used by opportunity create and by conversion.
+- The Lead DTO gains version, converted state and readable links.
+- Account 360 endpoints for contacts and opportunities.
+- UI: lead page action, full-page wizard `#/leads/{id}/convert`, Account 360 tabs. The fictional demo is unchanged.
+- `probe_fixtures` also removes a test user's sequence reservations and logged errors.
+
+### Evidence (local; CI on the PR)
+| Check | Result |
+|---|---|
+| Lead conversion probe (20 concurrent rounds) | 28/28 |
+| Pilot | PASS |
+| Two-writer | 13/13 |
+| Contract | 31/31 |
+| Smoke | 16/16 |
+| Identity | 0/324,655 |
+| Scopes | 65/65 |
+| Session | 20/20 |
+| JUnit | 50/50 |
+| Web mocked | 24/24 |
+| Web demo | 14/14 |
+| Build | pass |
+
+No JUnit test covers conversion: the HSQLDB test context has no AppCrm or sequence configuration, so the live probe on PostgreSQL is the test of record.
+
+### Not done
+- Lead capture, qualification and activities UI.
+- Duplicate-account matching (policy).
+- PII on contacts (G-007).
+- Versioned migration (G-008).
+- `crmProcessOnPartner` mode, which answers 422 `CONVERSION_UNSUPPORTED`.

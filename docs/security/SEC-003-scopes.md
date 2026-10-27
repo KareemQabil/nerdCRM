@@ -80,6 +80,6 @@ Regression on this branch:
 | Production roles: Admin, GM, Marketing, Sales, Sales Manager, Ops, Auditor/Trainer, Finance, Fundraising, Reviewer, Read-only | D-07 |
 | Nested teams | AOP teams are flat |
 | Delegation with expiry, offboarding workflow | needs an admin UI and D-07 |
-| Lead and Partner line scope | they have no line field yet; Wave 2 |
+| Lead and Partner line scope | `Lead.ioetiBusinessLine` added in Wave 2 (`docs/slices/W2-lead-conversion-account360.md`); production lead rules are D-07; Partner has no line (an account can span lines) |
 | Field-level scope, export/print/attachment parity | — |
 | Versioned production migration for the new join table | G-008: dev uses `ddl=update`; a migration tool is not in place yet |

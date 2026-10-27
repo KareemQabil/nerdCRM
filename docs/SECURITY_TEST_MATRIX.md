@@ -10,6 +10,8 @@ Legend: ✅ passed live · ➖ not applicable · ⬜ not tested yet
 | `GET /ws/ioeti/business-lines[/{code}]` | ✅ 401 | ⬜ | ✅ 404 | ➖ | ➖ | ➖ | ✅ 403 | ✅ | ✅ | contract, smoke, identity |
 | `GET /ws/ioeti/leads[/{id}]` | ✅ 401 | ⬜ | ✅ 404 | ➖ | ➖ | ➖ | ✅ 403 | ⬜ | ✅ | contract, pilot |
 | `GET /ws/ioeti/accounts[/{id}]` | ✅ 401 | ⬜ | ✅ 404 | ➖ | ➖ | ➖ | ✅ 403 | ⬜ | ✅ | contract, pilot |
+| `POST /ws/ioeti/leads/{id}/convert` | ⬜ | ✅ 403 (no write) | ✅ 404 | ✅ 403 | ✅ 409 | ✅ one 201 + one 409, no duplicates | ✅ 403 | ⬜ | ✅ 400/409/422 | lead-conversion |
+| `GET /ws/ioeti/accounts/{id}/contacts`, `/opportunities` | ⬜ | ➖ | ✅ 404 (non-client = missing) | ➖ | ➖ | ➖ | ✅ 403 | ⬜ | ✅ | lead-conversion |
 | `GET /ws/ioeti/opportunities[/{id}]` | ✅ 401 | ✅ 403 | ✅ 404 | ➖ | ➖ | ➖ | ✅ 403 | ✅ | ✅ | contract, identity, two-writer |
 | `POST /ws/ioeti/opportunities` | ✅ 401 | ⬜ | ➖ | ➖ | ➖ | ⬜ duplicate submit | ➖ | ⬜ | ✅ 400/415/422 | contract |
 | `PUT /ws/ioeti/opportunities/{id}` | ✅ 401 | ✅ 403 | ✅ 404 | ✅ 403 | ✅ 409 | ✅ 409, no lost update | ✅ 403 | ✅ | ✅ 400/409 | contract, two-writer, identity |
@@ -42,6 +44,13 @@ Record scopes (SEC-003, `scripts/scope_matrix_probe.py`, test-only role fixtures
 | Business Line (LineIso; LineNone with no lines) | ✅ | ✅ | ✅ | ✅ 403 | ✅ member line only; revocation effective next request |
 | All | ✅ | ✅ | ✅ | ✅ 403 | ➖ |
 | Read-only (no opportunity permission) | ✅ 403 | ✅ 403 | ➖ | ✅ 403 | ➖ |
+
+Lead conversion (Wave 2, `scripts/lead_conversion_probe.py`, test-only role fixtures): every refusal is verified to persist nothing:
+- no opportunity or partner is created;
+- the lead stays unconverted;
+- a non-member line and a non-client or unknown `accountId` each answer one identical 422;
+- the native lost-lead rule answers 422 `CONVERSION_REJECTED` with a fixed message;
+- Account 360 opportunities follow the caller's own scope.
 
 Not yet covered (blocking for the multi-user pilot, see GAP register):
 - Production role matrix (D-07); scopes on leads, accounts and future domains.

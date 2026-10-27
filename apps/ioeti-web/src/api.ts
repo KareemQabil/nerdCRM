@@ -6,7 +6,15 @@ export type BusinessLine = {
   id: number; code: string; nameAr: string; nameEn: string;
   status: number; sequence: number | null; responsibleTeam: string | null;
 };
-export type LeadSummary = { id: number; name: string; organization: string | null; stage: string | null };
+export type LeadSummary = {
+  id: number; name: string; organization: string | null; stage: string | null;
+  // live API only (absent in the fictional preview)
+  version?: number; converted?: boolean; businessLineCode?: string | null;
+  accountId?: number | null; opportunityId?: number | null;
+};
+export type ContactSummary = { id: number; name: string; jobTitle: string | null };
+export type LeadConversion = { leadId: number; accountId: number; contactId: number | null; opportunityId: number };
+export type ConvertLeadCommand = { version: number; opportunityName?: string; businessLineCode?: string; accountId?: number };
 export type AccountSummary = { id: number; name: string; reference: string | null; customer: boolean; prospect: boolean };
 export type SessionIdentity = { code: string; name: string; language: string | null };
 export type Opportunity = {
@@ -179,4 +187,27 @@ export async function getAccounts(offset = 0, limit = 25): Promise<AccountSummar
 export async function getAccount(id: number): Promise<AccountSummary> {
   if (DEMO_MODE) return demoStore.account(id);
   return wrapped<AccountSummary>(`/ws/ioeti/accounts/${id}`);
+}
+
+/** Lead → Account (+ Contact) + Opportunity in one server transaction; the preview never converts. */
+export async function convertLead(id: number, command: ConvertLeadCommand): Promise<LeadConversion> {
+  if (DEMO_MODE) throw new ApiError(403, "Preview mode is read-only");
+  return wrapped<LeadConversion>(`/ws/ioeti/leads/${encodeURIComponent(id)}/convert`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(command),
+  });
+}
+/** Account 360: contacts and opportunities, each filtered by the caller's own permissions. */
+export async function getAccountContacts(id: number): Promise<ContactSummary[]> {
+  if (DEMO_MODE) return [];
+  const values = await wrapped<ContactSummary[]>(`/ws/ioeti/accounts/${encodeURIComponent(id)}/contacts`);
+  if (!Array.isArray(values)) throw new ApiError(502, "Invalid contacts response");
+  return values;
+}
+export async function getAccountOpportunities(id: number): Promise<Opportunity[]> {
+  if (DEMO_MODE) return [];
+  const values = await wrapped<Opportunity[]>(`/ws/ioeti/accounts/${encodeURIComponent(id)}/opportunities`);
+  if (!Array.isArray(values)) throw new ApiError(502, "Invalid opportunities response");
+  return values;
 }

@@ -8,6 +8,8 @@ USER = "com.axelor.auth.db.User"
 MAIL_MESSAGE = "com.axelor.mail.db.MailMessage"
 MAIL_FOLLOWER = "com.axelor.mail.db.MailFollower"
 META_MENU = "com.axelor.meta.db.MetaMenu"
+RESERVED_SEQUENCE = "com.axelor.apps.base.db.ReservedSequence"
+TRACE_BACK = "com.axelor.apps.base.db.TraceBack"
 
 
 def _delete_where(admin, model, domain):
@@ -18,8 +20,9 @@ def _delete_where(admin, model, domain):
 
 def delete_record(admin, model, rid):
     """Deletes a fixture. A test user is freed from what Axelor generated for it (change-tracking
-    messages, follower rows incl. archived ones, personal menus); one that still cannot be deleted
-    is blocked and stripped of its group, and reported as left over."""
+    messages, follower rows incl. archived ones, personal menus, sequence reservations, logged
+    errors); one that still cannot be deleted is blocked and stripped of its group, and reported
+    as left over."""
     if ok(admin.call("DELETE", f"/ws/rest/{model}/{rid}")[1]):
         return True
     if model != USER:
@@ -29,6 +32,9 @@ def delete_record(admin, model, rid):
         _delete_where(admin, MAIL_MESSAGE, f"self.author.id = {int(rid)}")
         _delete_where(admin, MAIL_FOLLOWER, f"self.user.id = {int(rid)}")
         _delete_where(admin, META_MENU, f"self.user.id = {int(rid)}")  # personal menus (team membership)
+        # numbers reserved for records the test user created (e.g. partner references); test data only
+        _delete_where(admin, RESERVED_SEQUENCE, f"self.createdBy.id = {int(rid)} OR self.updatedBy.id = {int(rid)}")
+        _delete_where(admin, TRACE_BACK, f"self.createdBy.id = {int(rid)}")  # errors logged during its requests
         if ok(admin.call("DELETE", f"/ws/rest/{model}/{rid}")[1]):
             return True
         time.sleep(1 + attempt)
