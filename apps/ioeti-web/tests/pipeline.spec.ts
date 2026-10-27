@@ -11,7 +11,7 @@ const opp = (id: number, name: string, stageId: number, amount: string, extra: R
     stage: stage.name, stageId, stageKind: stage.kind, amount, currencyCode: "EGP", expectedCloseDate: "2026-12-15", probability: 40, lostReason: null, ...extra };
 };
 
-async function mock(page: Page) {
+async function mock(page: Page, extra = 0) {
   const posted: Posted[] = [];
   const board = [
     { opportunity: opp(40, "توريد أنظمة جودة", 1, "120000"), accountName: "شركة الأمل للتجارة", accountId: 31, ownerName: "سارة منصور", mine: true },
@@ -19,6 +19,7 @@ async function mock(page: Page) {
     { opportunity: opp(42, "شهادة أيزو 14001", 2, "80000"), accountName: null, accountId: null, ownerName: "كريم فؤاد", mine: false },
     { opportunity: opp(43, "شهادة سلامة الغذاء", 4, "50000"), accountName: "مطاعم الدلتا", accountId: 33, ownerName: "سارة منصور", mine: true },
   ];
+  for (let i = 0; i < extra; i++) board.push({ opportunity: opp(1000 + i, "فرصة " + i, 1, "1000"), accountName: null, accountId: null, ownerName: "كريم فؤاد", mine: false });
   await page.route("**/axelor-erp/ws/ioeti/**", async (route: Route) => {
     const url = new URL(route.request().url());
     const path = url.pathname.replace(/^.*\/ws\/ioeti/, "");
@@ -118,4 +119,17 @@ test("an account starts its own opportunity: the form opens with the account fil
   await dialog.getByRole("textbox", { name: "اسم الفرصة" }).fill("تجديد الشهادة");
   await dialog.getByRole("button", { name: "إنشاء الفرصة" }).click();
   await expect.poll(() => posted.find(p => p.path === "/opportunities")?.body).toMatchObject({ accountId: 31, name: "تجديد الشهادة" });
+});
+
+test("a board at the server's cap says its totals cover the shown cards only and points to the sales report", async ({ page }) => {
+  await mock(page);
+  await page.goto("/#/opportunities");
+  await page.getByRole("button", { name: "لوحة", exact: true }).click();
+  await expect(page.locator(".pipeline-column")).toHaveCount(5);
+  await expect(page.getByText("الإجماليات للي ظاهر بس")).toHaveCount(0);
+  await page.unrouteAll({ behavior: "ignoreErrors" });
+  await mock(page, 496);
+  await page.reload();
+  await page.getByRole("button", { name: "لوحة", exact: true }).click();
+  await expect(page.getByRole("status").filter({ hasText: "اللوحة بتعرض أول 500 فرصة" })).toBeVisible();
 });

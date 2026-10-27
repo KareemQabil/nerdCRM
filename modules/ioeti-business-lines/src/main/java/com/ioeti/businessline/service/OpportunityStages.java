@@ -13,6 +13,8 @@ import com.google.inject.persist.Transactional;
 import com.ioeti.core.api.ApiException;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Opportunity stages on the native pipeline (journeys plan, phase 2).
@@ -46,6 +48,18 @@ public class OpportunityStages {
       // a CRM app without closed stages configured: every stage is open
     }
     return "OPEN";
+  }
+
+  /** The configured won and lost stages (none when the CRM app has no closed stages). */
+  public List<OpportunityStatus> closed() {
+    List<OpportunityStatus> out = new ArrayList<>();
+    try {
+      if (appCrm.getClosedWinOpportunityStatus() != null) out.add(appCrm.getClosedWinOpportunityStatus());
+      if (appCrm.getClosedLostOpportunityStatus() != null) out.add(appCrm.getClosedLostOpportunityStatus());
+    } catch (AxelorException e) {
+      // a CRM app without closed stages configured: every stage is open
+    }
+    return out;
   }
 
   @Transactional(rollbackOn = {Exception.class})

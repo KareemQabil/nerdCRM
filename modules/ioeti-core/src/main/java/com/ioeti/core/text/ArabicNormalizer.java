@@ -15,6 +15,25 @@ public final class ArabicNormalizer {
   private static final Pattern DIACRITICS = Pattern.compile("[\\u064B-\\u065F\\u0670\\u06D6-\\u06ED\\u0640]");
   private static final Pattern NON_WORD = Pattern.compile("[^\\p{L}\\p{N}@+]+");
 
+  /**
+   * The same folding for SQL's translate(text, FOLD_FROM, FOLD_TO) after lower(): each letter in FOLD_FROM becomes the
+   * letter at its position in FOLD_TO, and the letters past the end of FOLD_TO (tatweel and diacritics) are dropped.
+   * Punctuation is not folded, so a match in SQL on each word is a superset of {@link #normalize} matching.
+   */
+  public static final String FOLD_FROM;
+  public static final String FOLD_TO = "ااااهييو" + "0123456789" + "0123456789";
+
+  static {
+    StringBuilder from = new StringBuilder("أإآٱةىئؤ");
+    for (char c = '٠'; c <= '٩'; c++) from.append(c);
+    for (char c = '۰'; c <= '۹'; c++) from.append(c);
+    for (char c = '\u064B'; c <= '\u065F'; c++) from.append(c);
+    from.append('\u0670');
+    for (char c = '\u06D6'; c <= '\u06ED'; c++) from.append(c);
+    from.append('\u0640');
+    FOLD_FROM = from.toString();
+  }
+
   private ArabicNormalizer() {}
 
   public static String normalize(String text) {

@@ -202,6 +202,9 @@ jobs:
           python3 scripts/scenario_quote_to_cash_probe.py
           # S6: a busy morning: routing rush with leave and cap, approval and calendar races, rules changed mid-flight
           python3 scripts/scenario_busy_day_probe.py
+          # S8: a company with history: 1,000 closed opportunities and 1,050 accounts; board, report, list and search
+          # agree with the records for each caller, through a drag race, a lost card and scope changes
+          python3 scripts/scenario_pipeline_numbers_probe.py
           python3 scripts/scale_load_probe.py
           # S7: the real web app (Vite dev proxy) against this server: sign in, intake, Arabic duplicate,
           # conversion, account; pages at 390 px with real data. The fixture user is removed afterwards.
@@ -246,6 +249,7 @@ jobs:
             logs/scenario-services.json
             logs/scenario-quote-to-cash.json
             logs/scenario-busy-day.json
+            logs/scenario-pipeline-numbers.json
             logs/scale-load.json
             logs/admin-probe.json
             logs/daily-work-probe.json
