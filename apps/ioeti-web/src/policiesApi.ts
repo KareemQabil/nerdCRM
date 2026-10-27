@@ -51,3 +51,12 @@ export const getPolicyOwners = () => list<Person>(`${BASE}/owners`);
 export const getPolicyPeople = () => list<Person>(`${BASE}/people`);
 export const appointOwner = (userId: number) => wrapped<Person[]>(`${BASE}/owners`, json({ userId }));
 export const dismissOwner = (userId: number) => wrapped<Person[]>(`${BASE}/owners/${enc(userId)}/dismiss`, json({}));
+/** R1: a recommended starting value per policy, why, and what is in force now; a policy owner applies the ones they accept. */
+export type Recommendation = {
+  id: string; key: string; decision: string; area: string; titleAr: string; titleEn: string; scope: string | null; scopeLabel: string | null;
+  value: Record<string, unknown>; basis: "FACT" | "PRACTICE"; whyAr: string; whyEn: string; current: Record<string, unknown> | null; fields: PolicyField[];
+};
+export type Recommendations = { canApply: boolean; recommendations: Recommendation[] };
+export const getRecommendations = () => wrapped<Recommendations>(`${BASE}/recommended`);
+export const applyRecommendations = (ids: string[], effectiveFrom?: string) =>
+  wrapped<{ applied: string[] }>(`${BASE}/recommended/apply`, json({ ids, effectiveFrom }));

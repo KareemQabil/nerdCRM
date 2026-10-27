@@ -1,11 +1,11 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type FormEvent } from "react";
-import { CalendarClock, CircleAlert, CircleCheck, CircleDashed, History, Plus, Save, Scale, ShieldCheck, Trash2, UserRound, X } from "lucide-react";
+import { BookCheck, CalendarClock, CircleAlert, CircleCheck, CircleDashed, History, Lightbulb, Plus, Save, Scale, ShieldCheck, Trash2, UserRound, X } from "lucide-react";
 import { ApiError, getBusinessLines, type BusinessLine } from "./api";
 import { Dialog } from "./Dialog";
 import { getSources, type Option } from "./marketingApi";
 import { GOVERNORATES } from "./governorates";
 import {
-  appointOwner, dismissOwner, getPolicies, getPolicyReferences, type PolicyReferences, getPolicy, getPolicyOwners, getPolicyPeople, retirePolicy, setPolicy,
+  applyRecommendations, appointOwner, dismissOwner, getPolicies, getRecommendations, type Recommendation, type Recommendations, getPolicyReferences, type PolicyReferences, getPolicy, getPolicyOwners, getPolicyPeople, retirePolicy, setPolicy,
   type Person, type PolicyDetail, type PolicyField, type PolicyOverview, type PolicySummary, type PolicyValue,
 } from "./policiesApi";
 import type { Language } from "./preferences";
@@ -50,6 +50,13 @@ const L = {
       ORDER: "رتّب المستويات من أصغر خصم لأكبر خصم.", PAST: "التغيير ما ينفعش يسري من تاريخ فات.", BEFORE_START: "النهاية لازم تكون بعد البداية.",
       UNAVAILABLE: "اختيار غير متاح.", TOO_LONG: "النص طويل.", TOO_MANY: "عدد كبير زيادة.", LAST_OWNER: "لازم يفضل مالك سياسات واحد على الأقل.",
       forbidden: "التعديل لمالكي السياسات بس.", failed: "تعذّر تنفيذ الطلب." } as Record<string, string>,
+    rec: {
+      title: "قيم مقترحة جاهزة", lead: (open: number, all: number) => open === 0 ? "كل القيم المقترحة متحددة أو ليها قيمة منكم." : `${open} من ${all} قاعدة لسه مالهاش قيمة. فيه قيمة مقترحة لكل واحدة، بسببها، تقدر تطبّقها بخطوة واحدة وتعدّلها بعدين.`,
+      review: "راجع القيم المقترحة", dialog: "القيم المقترحة", intro: "اختار اللي موافق عليه. كل قيمة بتتسجل كإصدار عادي باسمك، بتاريخ سريان وسبب، وتقدر تغيّرها أو تلغيها في أي وقت. القيم اللي انتم حددتوها قبل كده ما بتتغيرش.",
+      fact: "مبني على قانون أو معيار", practice: "ممارسة شائعة", current: "مضبوطة بالفعل:", unlocks: "بيشغّل:", all: "اختار الكل", none: "ولا حاجة",
+      from: "سارية من", apply: (n: number) => n === 1 ? "تطبيق قيمة واحدة" : `تطبيق ${n} قيم`, applying: "جاري التطبيق…", applied: (n: number) => `اتطبّقت ${n} ${n === 1 ? "قيمة" : "قيم"}.`,
+      ownerOnly: "التطبيق لمالكي السياسات بس. عيّن مالك سياسات الأول.", scope: "على", allScopes: "عام",
+    },
   },
   en: {
     eyebrow: "Administration", title: "Policies & business rules",
@@ -75,6 +82,13 @@ const L = {
       ORDER: "List the tiers from the smallest discount to the largest.", PAST: "A change cannot take effect in the past.", BEFORE_START: "The end must be after the start.",
       UNAVAILABLE: "This choice is not available.", TOO_LONG: "The text is too long.", TOO_MANY: "Too many items.", LAST_OWNER: "At least one policy owner must remain.",
       forbidden: "Only policy owners can change this.", failed: "The request failed." } as Record<string, string>,
+    rec: {
+      title: "Recommended starting values", lead: (open: number, all: number) => open === 0 ? "Every recommended rule already has a value." : `${open} of ${all} rules have no value yet. Each has a recommended value with its reason; apply them in one step and change them later.`,
+      review: "Review the recommendations", dialog: "Recommended values", intro: "Choose the ones you accept. Each becomes an ordinary version in your name, with an effective date and a reason, and can be changed or unset any time. Values you already set are never replaced.",
+      fact: "Based on a law or standard", practice: "Common practice", current: "Already set:", unlocks: "Unlocks:", all: "Select all", none: "None",
+      from: "Effective from", apply: (n: number) => n === 1 ? "Apply 1 value" : `Apply ${n} values`, applying: "Applying…", applied: (n: number) => `${n} ${n === 1 ? "value" : "values"} applied.`,
+      ownerOnly: "Only policy owners can apply them. Appoint a policy owner first.", scope: "for", allScopes: "default",
+    },
   },
 };
 /** Readable names for the options policies offer. */
@@ -123,6 +137,7 @@ export function PoliciesPage({ language, administrator }: { language: Language; 
     {error && <ErrorBanner message={error}/>}
     {overview && !overview.canEdit && !overview.noOwners && <p className="daily-note"><ShieldCheck size={15}/>{l.readOnly}</p>}
     <Owners l={l} administrator={!!administrator} overview={overview} onChanged={load}/>
+    {overview && <RecommendedPanel l={l} ar={ar} overview={overview} onApplied={load}/>}
     {overview && <div className="policies-layout">
       <nav className="policies-list" aria-label={l.title}>
         {grouped.map(g => <div key={g.area} className="policies-group">
@@ -354,4 +369,90 @@ function Owners({ l, administrator, overview, onChanged }: { l: Labels; administ
     </form>}
     {error && <p className="admin-list-error" role="alert"><CircleAlert size={15}/>{error}</p>}
   </section>;
+}
+
+/** What each rule unlocks once it has a value, so the owners see why it matters. */
+const UNLOCKS: Record<string, [string, string]> = {
+  "finance.tax": ["ضريبة عروض الأسعار والفواتير", "tax on quotations and invoices"], "finance.fx": ["تحويل العملات للجنيه", "conversion to EGP"],
+  "finance.payment-terms": ["ميعاد استحقاق الفواتير", "invoice due dates"], "sales.quote-approval": ["اعتماد عروض الأسعار", "finalizing quotations"],
+  "sales.quote-validity": ["صلاحية العروض", "quotation validity"], "sales.contract-signatory": ["تفعيل العقود", "contract activation"],
+  "sales.won-evidence": ["تسجيل الفرصة مكسوبة", "marking opportunities won"], "privacy.retention": ["مراجعة الاحتفاظ بالبيانات", "the retention review"],
+  "leads.routing": ["توزيع الـ leads تلقائيًا", "automatic lead routing"], "leads.response-target": ["مواعيد الرد والتنبيه بالتأخير", "response targets and overdue alerts"],
+  "work.calendar": ["حساب ساعات العمل", "working-hour calculations"], "cert.decision": ["قرار منح الشهادة", "the certification decision"],
+  "cert.cycle": ["صلاحية الشهادة وتدقيقات المراقبة", "certificate validity and surveillance"], "training.certificate": ["إصدار شهادات التدريب", "training certificates"],
+  "training.national-id": ["جمع الرقم القومي", "national ID collection"], "training.cancellation": ["الإلغاء والاسترداد", "cancellations and refunds"],
+  "recruitment.agreement": ["فواتير أتعاب التوظيف والضمان", "placement fees and guarantees"], "channels.enabled": ["القنوات الخارجية", "external channels"],
+};
+
+/** R1: the recommended starting values, reviewed and applied by a policy owner in one step. */
+function RecommendedPanel({ l, ar, overview, onApplied }: { l: Labels; ar: boolean; overview: PolicyOverview; onApplied: () => void }) {
+  const [data, setData] = useState<Recommendations | null>(null);
+  const [open, setOpen] = useState(false);
+  const [notice, setNotice] = useState("");
+  const load = useCallback(() => getRecommendations().then(setData).catch(() => setData(null)), []);
+  useEffect(() => { void load(); }, [load, overview]);
+  if (!data || data.recommendations.length === 0) return null;
+  const unset = data.recommendations.filter(r => !r.current);
+  return <section className="data-panel policies-recommended" aria-labelledby="policy-recommended">
+    <div><h2 id="policy-recommended"><Lightbulb size={17}/>{l.rec.title}</h2>
+      <p>{l.rec.lead(unset.length, data.recommendations.length)}</p>
+      {notice && <p className="daily-note" role="status"><CircleCheck size={15}/>{notice}</p>}
+      {!data.canApply && unset.length > 0 && <p className="daily-note"><ShieldCheck size={15}/>{l.rec.ownerOnly}</p>}</div>
+    <button type="button" className={"btn " + (unset.length && data.canApply ? "btn-primary" : "btn-secondary")} onClick={() => setOpen(true)}><BookCheck size={16}/>{l.rec.review}</button>
+    {open && <RecommendedDialog l={l} ar={ar} data={data} onClose={() => setOpen(false)}
+      onApplied={n => { setOpen(false); setNotice(l.rec.applied(n)); void load(); onApplied(); }}/>}
+  </section>;
+}
+
+function RecommendedDialog({ l, ar, data, onClose, onApplied }: { l: Labels; ar: boolean; data: Recommendations; onClose: () => void; onApplied: (n: number) => void }) {
+  const unset = data.recommendations.filter(r => !r.current);
+  const [chosen, setChosen] = useState<Set<string>>(() => new Set(unset.map(r => r.id)));
+  const [from, setFrom] = useState(today());
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [refs, setRefs] = useState<PolicyReferences>({ teams: [], sources: [] });
+  useEffect(() => { void getPolicyReferences().then(setRefs).catch(() => undefined); }, []);
+  const groups = AREAS.map(area => ({ area, rows: data.recommendations.filter(r => r.area === area) })).filter(g => g.rows.length);
+  const toggle = (id: string) => setChosen(c => { const n = new Set(c); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+  async function apply(e: FormEvent) {
+    e.preventDefault();
+    setBusy(true); setError("");
+    try { const r = await applyRecommendations([...chosen], from); onApplied(r.applied.length); }
+    catch (err) { setError(problem(err, l)); } finally { setBusy(false); }
+  }
+  return <Dialog title={l.rec.dialog} description={l.rec.intro} wide busy={busy} onClose={onClose}
+    footer={<>{data.canApply && <>
+      <label className="policies-rec-from"><span>{l.rec.from}</span><input type="date" value={from} min={today()} onChange={e => setFrom(e.target.value)}/></label>
+      <button type="submit" form="policy-recommended-form" className="btn btn-primary" disabled={busy || chosen.size === 0}><CircleCheck size={16}/>{busy ? l.rec.applying : l.rec.apply(chosen.size)}</button></>}
+      <button type="button" className="btn btn-secondary" disabled={busy} onClick={onClose}>{l.cancel}</button></>}>
+    <Refs.Provider value={refs}>
+    <form id="policy-recommended-form" onSubmit={e => void apply(e)}>
+      {data.canApply && unset.length > 0 && <div className="policies-rec-bulk">
+        <button type="button" className="text-action" onClick={() => setChosen(new Set(unset.map(r => r.id)))}>{l.rec.all}</button>
+        <button type="button" className="text-action" onClick={() => setChosen(new Set())}>{l.rec.none}</button></div>}
+      {groups.map(g => <fieldset key={g.area} className="policies-rec-group"><legend>{l.areas[g.area] ?? g.area}</legend>
+        <ul>{g.rows.map(r => <RecommendationRow key={r.id} r={r} l={l} ar={ar} chosen={chosen.has(r.id)} canApply={data.canApply} onToggle={() => toggle(r.id)}/>)}</ul>
+      </fieldset>)}
+      {error && <p className="daily-error" role="alert"><CircleAlert size={15}/>{error}</p>}
+    </form>
+    </Refs.Provider>
+  </Dialog>;
+}
+
+function RecommendationRow({ r, l, ar, chosen, canApply, onToggle }: { r: Recommendation; l: Labels; ar: boolean; chosen: boolean; canApply: boolean; onToggle: () => void }) {
+  const title = (ar ? r.titleAr : r.titleEn) + (r.scope ? ` · ${opt(r.scopeLabel ?? r.scope, ar)}` : "");
+  const unlocks = UNLOCKS[r.key];
+  return <li className={"policies-rec" + (r.current ? " is-set" : "")}>
+    <label className="policies-rec-head">
+      {canApply && !r.current && <input type="checkbox" checked={chosen} onChange={onToggle}/>}
+      {r.current && <CircleCheck size={17} className="policies-rec-done" aria-hidden="true"/>}
+      <strong>{title}</strong>
+      <span className={"policies-rec-basis is-" + r.basis.toLowerCase()}>{r.basis === "FACT" ? l.rec.fact : l.rec.practice}</span>
+      <small className="policies-rec-decision">{r.decision}</small>
+    </label>
+    {r.current ? <div className="policies-rec-current"><span>{l.rec.current}</span><ValueSummary fields={r.fields} value={r.current} ar={ar}/></div>
+      : <ValueSummary fields={r.fields} value={r.value} ar={ar}/>}
+    <p>{ar ? r.whyAr : r.whyEn}</p>
+    {unlocks && !r.current && <small className="policies-rec-unlocks">{l.rec.unlocks} {unlocks[ar ? 0 : 1]}</small>}
+  </li>;
 }

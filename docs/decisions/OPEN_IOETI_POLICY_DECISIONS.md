@@ -96,6 +96,17 @@ Signer: the project owner, answering a structured interview in the engineering s
   - A lead that has an owner is never reassigned; manual reassignment stays closed until the owners say who may do it.
   - See `docs/slices/P5b-lead-routing.md`.
 
+- **Recommended starting values (2026-10-27, R1):**
+  - **Owner instruction:** "even the decisions use a recommended decision and we can modify it later".
+  - **What exists:** every policy has a recommended value, with its reason. Each one is marked as resting either on a
+    law or standard, or on common practice.
+  - **How it is applied:**
+    - Nothing is applied automatically.
+    - A policy owner reviews the list under Policies and applies the ones they accept, in one step.
+    - Each applied value becomes an ordinary version in the owner's name, with its date and reason.
+    - A value already set is never replaced.
+  - The values and their reasons are listed in `docs/slices/R1-recommended-values.md`.
+
 ## Related, owner-only actions (not engineering decisions)
 
 - Send, or decide not to send, the private upstream report for the AOP thread-bound identity issue. The draft is held outside the repository; see PR #9.

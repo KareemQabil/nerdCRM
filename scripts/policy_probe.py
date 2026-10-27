@@ -12,6 +12,7 @@ Checks:
   dates: a value applies from its date; a change scheduled for tomorrow shows as the next value; history keeps
   who, when and why; the admin change log has every change
   unset: a retired value stops being in force; the last policy owner cannot be removed
+  R1: recommended values with their reasons; only a policy owner applies them, never over a value already set
 Report: logs/policy-probe.json.
 """
 import json
@@ -146,6 +147,35 @@ def main():
         s2, b2 = p1.call("POST", P + "/sales.won-evidence/retire", {"scope": f"PROBE{tag}", "reason": "again"})
         check("a retired value stops being in force; retiring what is not set → 422",
               s == 200 and scoped and scoped[0].get("value") is None and (s2, err(b2)[0]) == (422, "POLICY_NOT_SET"), (s, scoped, s2, err(b2)))
+
+        # --- R1: recommended starting values, applied by a policy owner -----------------------------------
+        s_a, b_a = admin.call("GET", P + "/recommended")
+        recs = {r["id"]: r for r in obj(b_a).get("recommendations", [])}
+        s_x, _ = admin.call("POST", P + "/recommended/apply", {"ids": ["finance.payment-terms|"]})
+        s_u2, _ = u.call("GET", P + "/recommended")
+        check("R1: an administrator reads the recommendations (each with its reason and basis) but cannot apply them (403); an ordinary user cannot read them (403)",
+              s_a == 200 and obj(b_a).get("canApply") is False and s_x == 403 and s_u2 == 403
+              and recs.get("finance.tax|", {}).get("basis") == "FACT" and (recs.get("finance.tax|", {}).get("current") or {}).get("ratePercent") == 14
+              and recs.get("cert.cycle|", {}).get("value") == {"validityMonths": 36, "surveillanceMonths": 12}
+              and {"privacy.retention|LEADS", "privacy.retention|DONORS", "channels.enabled|"} <= set(recs) and all(r.get("whyAr") and r.get("whyEn") for r in recs.values()),
+              (s_a, s_x, s_u2, sorted(recs)[:6]))
+        s, body = p1.call("POST", P + "/recommended/apply", {"ids": ["finance.tax|", "finance.payment-terms|", "privacy.retention|LEADS", "cert.cycle|"]})
+        applied = obj(body).get("applied")
+        terms = obj(p1.call("GET", P + "/finance.payment-terms")[1])
+        cycle = obj(p1.call("GET", P + "/cert.cycle")[1])
+        tax_now = next((v for v in obj(p1.call("GET", P + "/finance.tax")[1]).get("values", []) if v["scope"] is None), {})
+        check("R1: a policy owner applies the chosen recommendations in one step; what is already set is left alone; each becomes an ordinary version in their name",
+              s == 200 and applied == ["finance.payment-terms|", "privacy.retention|LEADS", "cert.cycle|"]
+              and (terms.get("values") or [{}])[0].get("value") == {"dueDays": 30} and terms["versions"][0]["authorName"] == f"Policy P1 {tag}"
+              and terms["versions"][0]["reason"].startswith("Recommended starting value (R1)")
+              and (cycle.get("values") or [{}])[0].get("scope") is None and (tax_now.get("value") or {}).get("ratePercent") == 14, (s, applied, terms.get("values"), tax_now))
+        s1, b1 = p1.call("POST", P + "/recommended/apply", {"ids": ["made.up|"]})
+        s2, b2 = p1.call("POST", P + "/recommended/apply", {"ids": []})
+        s3, b3 = p1.call("POST", P + "/recommended/apply", {"ids": ["finance.payment-terms|"]})
+        log = search(AUDIT, f"self.actor.id = {users['P1']['id']} AND self.action = 'POLICY_RECOMMENDED_APPLIED'", ("action", "changes"))
+        check("R1: an unknown or empty choice → 422; applying again changes nothing; the admin change log has each step",
+              (s1, err(b1)[2], s2, err(b2)[2], s3, obj(b3).get("applied")) == (422, "UNAVAILABLE", 422, "REQUIRED", 200, []) and len(log) == 2,
+              (s1, err(b1), s2, err(b2), s3, obj(b3), log))
 
         # --- owners ------------------------------------------------------------------------------------------
         s_a, _ = p1.call("POST", P + "/owners", {"userId": users["P2"]["id"]})
