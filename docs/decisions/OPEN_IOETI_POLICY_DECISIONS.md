@@ -75,7 +75,9 @@ Signer: the project owner, answering a structured interview in the engineering s
   - Profiles are created from the nine job templates with **no rights** and granted per record type and scope.
   - The policy owner stays an appointment by owners under Policies.
   - See `docs/slices/P4a-role-templates.md`.
-  - Optional MFA (P4b) and the retention review queue (P4c) follow.
+  - Optional MFA is P4b: the native Axelor TOTP, turned on by each person in Settings, with an administrator reset
+    (`docs/slices/P4b-optional-mfa.md`).
+  - The retention review queue (P4c) follows.
 
 ## Related, owner-only actions (not engineering decisions)
 

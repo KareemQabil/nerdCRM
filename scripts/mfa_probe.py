@@ -5,7 +5,7 @@ Checks:
   set-up: off at first; confirming before starting is refused; start returns a key and a QR image; a wrong code leaves it
   off; the right code turns it on and returns recovery codes once; starting again is refused
   sign-in: with it on, the password alone gives no session (the callback asks for the code); a wrong code gives no session;
-  the app's code does; a recovery code does once, and not twice
+  the app's code does (second step on the native MfaClient); a recovery code does once, and not twice
   turning off and new recovery codes need a current code; an administrator resets it for a lost device, someone else
   cannot (403); after a reset the password alone signs in again
   audit: MFA_ENABLED, MFA_RECOVERY_CODES, MFA_DISABLED and MFA_RESET are in the admin change log; no secret or code is
@@ -27,6 +27,7 @@ from probe_fixtures import cleanup  # noqa: E402
 
 USER, MFA, AUDIT = "com.axelor.auth.db.User", "com.axelor.auth.db.MFA", "com.ioeti.admin.db.AdminAuditEvent"
 ME = "/ws/ioeti/me/mfa"
+STEP2 = "/callback?client_name=MfaClient"  # the native MFA client takes the second step
 RESULTS = []
 
 
@@ -122,17 +123,17 @@ def main():
         route = (b.get("route") or {}) if isinstance(b, dict) else {}
         check("sign-in: the password alone gives no session; the callback asks for the code",
               route.get("path") == "/mfa" and not signed_in(c), (s, route))
-        s, b = c.call("POST", "/callback", {"username": person["code"], "mfaCode": wrong, "mfaMethod": "TOTP"})
+        s, b = c.call("POST", STEP2, {"username": person["code"], "mfaCode": wrong, "mfaMethod": "TOTP"})
         check("sign-in: a wrong code gives no session", not signed_in(c), (s, b))
-        s, b = c.call("POST", "/callback", {"username": person["code"], "mfaCode": fresh_code(secret, used), "mfaMethod": "TOTP"})
+        s, b = c.call("POST", STEP2, {"username": person["code"], "mfaCode": fresh_code(secret, used), "mfaMethod": "TOTP"})
         check("sign-in: the app's code signs in", signed_in(c), (s, b))
         r = Client()
         r.call("POST", "/callback", {"username": person["code"], "password": password})
-        r.call("POST", "/callback", {"username": person["code"], "mfaCode": recovery[0], "mfaMethod": "RECOVERY"})
+        r.call("POST", STEP2, {"username": person["code"], "mfaCode": recovery[0], "mfaMethod": "RECOVERY"})
         first = signed_in(r)
         again = Client()
         again.call("POST", "/callback", {"username": person["code"], "password": password})
-        again.call("POST", "/callback", {"username": person["code"], "mfaCode": recovery[0], "mfaMethod": "RECOVERY"})
+        again.call("POST", STEP2, {"username": person["code"], "mfaCode": recovery[0], "mfaMethod": "RECOVERY"})
         check("sign-in: a recovery code signs in once, not twice", first and not signed_in(again), (first,))
 
         # --- recovery codes and turning off -------------------------------------------------------------------------

@@ -28,7 +28,10 @@ authentication itself is re-implemented. The platform adds a self-service API fo
 | Step | Request | Answer |
 |---|---|---|
 | 1 | `POST /callback {username, password}` | No session; the callback answers with the `/mfa` route |
-| 2 | `POST /callback {username, mfaCode, mfaMethod: TOTP or RECOVERY}` | A session, or the code step again for a wrong code |
+| 2 | `POST /callback?client_name=MfaClient {username, mfaCode, mfaMethod: TOTP or RECOVERY}` | A session, or the code step again for a wrong code |
+
+The second step must name the native MFA client: pac4j picks the client by `client_name`. Without it, the code is posted to the
+form client and refused. The first probe run found this.
 
 The sign-in screen:
 - asks for the code;
@@ -41,6 +44,8 @@ A recovery code works once.
 
 An administrator resets the person's MFA:
 - `POST /ws/ioeti/admin/users/{id}/mfa/reset`, audited as `MFA_RESET`.
+- The endpoint lives in the administrators' controller: JAX-RS routes `/ioeti/admin/...` there, so a method declared elsewhere
+  answered 404. The first probe run found this too.
 - The person then signs in with their password and can turn MFA on again.
 - Nobody else can reset it (`403`). Resetting what is off answers `422 MFA_NOT_ON`.
 

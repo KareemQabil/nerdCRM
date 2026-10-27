@@ -156,7 +156,8 @@ export async function signIn(username: string, password: string, newPassword?: s
 /** The second step of a two-step sign-in: a code from the authenticator app, or a recovery code. */
 export async function signInWithCode(username: string, code: string, recovery: boolean): Promise<SessionIdentity> {
   if (DEMO_MODE) throw new ApiError(403, "Preview mode does not accept credentials");
-  const response = await request("/callback", {
+  // the native MFA client takes the second step (pac4j picks the client by name)
+  const response = await request("/callback?client_name=MfaClient", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ username, mfaCode: code.trim(), mfaMethod: recovery ? "RECOVERY" : "TOTP" }),

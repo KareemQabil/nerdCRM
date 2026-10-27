@@ -5,7 +5,6 @@ import com.axelor.auth.MFAService;
 import com.axelor.auth.db.MFA;
 import com.axelor.auth.db.MFAMethod;
 import com.axelor.auth.db.User;
-import com.axelor.db.JPA;
 import com.axelor.inject.Beans;
 import com.axelor.utils.api.ResponseConstructor;
 import com.ioeti.admin.service.AdminService;
@@ -16,7 +15,6 @@ import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
-import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
@@ -34,8 +32,8 @@ import java.util.List;
  *   <li>Turning it on: start (a secret and its QR code), then confirm with a code from the app; only then is MFA enabled and
  *       recovery codes are shown, once.
  *   <li>Turning it off, or new recovery codes: a current code (from the app, or a recovery code) is required.
- *   <li>An administrator may reset a person's MFA (lost phone); it is audited and the person signs in with their password and
- *       may turn MFA on again.
+ *   <li>An administrator may reset a person's MFA (lost phone) through {@code POST /ws/ioeti/admin/users/{id}/mfa/reset}; it is
+ *       audited and the person signs in with their password and may turn MFA on again.
  * </ul>
  */
 @Path("/ioeti")
@@ -124,23 +122,6 @@ public class MfaRestController {
     return ResponseConstructor.build(Response.Status.OK, "Recovery codes", new MfaEnabled(view(me), codes));
   }
 
-  @POST
-  @Path("/admin/users/{id}/mfa/reset")
-  @Operation(summary = "Reset a person's multi-factor sign-in (lost device); they sign in with their password (administrators)", tags = {"IOETI admin"})
-  @IoetiEndpoint
-  public Response reset(@PathParam("id") Long id) {
-    User me = AuthUtils.getUser();
-    if (me == null || !AuthUtils.isAdmin(me)) throw ApiException.forbidden();
-    User user = id == null ? null : JPA.find(User.class, id);
-    if (user == null || Boolean.TRUE.equals(user.getArchived())) throw ApiException.notFound();
-    MFAService service = Beans.get(MFAService.class);
-    MFA mfa = service.getRelatedMfa(user);
-    if (mfa == null || !Boolean.TRUE.equals(mfa.getEnabled())) throw new ApiException(422, "MFA_NOT_ON", "Multi-factor sign-in is not on for this person.", null);
-    service.disableMFA(mfa);
-    audit("MFA_RESET", user, List.of("by=administrator"));
-    return ResponseConstructor.build(Response.Status.OK, "MFA reset", view(user));
-  }
-
   // --- helpers -----------------------------------------------------------------------------------------------
 
   static User me() {
@@ -169,6 +150,16 @@ public class MfaRestController {
     if (!Beans.get(MFAService.class).verifyCode(user, code, method)) {
       throw ApiException.invalidField("code", "INVALID", "The code does not match.");
     }
+  }
+
+  /** Resets a person's MFA (lost device); called by the administrators' API, which checks the caller. */
+  static MfaView reset(User user) {
+    MFAService service = Beans.get(MFAService.class);
+    MFA mfa = service.getRelatedMfa(user);
+    if (mfa == null || !Boolean.TRUE.equals(mfa.getEnabled())) throw new ApiException(422, "MFA_NOT_ON", "Multi-factor sign-in is not on for this person.", null);
+    service.disableMFA(mfa);
+    audit("MFA_RESET", user, List.of("by=administrator"));
+    return view(user);
   }
 
   static MfaView view(User user) {

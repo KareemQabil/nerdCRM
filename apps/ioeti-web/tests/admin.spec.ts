@@ -230,9 +230,9 @@ test("D-07: a profile starts from a template with no rights; each right saves at
 test("D-07: with two-step sign-in on, the password alone opens nothing; a wrong code is explained, the right code or a recovery code signs in", async ({ page }) => {
   let signedIn = false;
   const callbacks: Record<string, unknown>[] = [];
-  await page.route("**/axelor-erp/callback", async route => {
+  await page.route("**/axelor-erp/callback*", async route => {
     const body = route.request().postDataJSON() as Record<string, unknown>;
-    callbacks.push(body);
+    callbacks.push({ ...body, client: new URL(route.request().url()).searchParams.get("client_name") });
     const askAgain = () => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ route: { path: "/mfa", state: {} } }) });
     if (body.password) return askAgain();
     if (body.mfaCode === "123456" || body.mfaCode === "ABCD-EFGH") { signedIn = true; return route.fulfill({ status: 200, contentType: "application/json", body: "{}" }); }
@@ -260,9 +260,9 @@ test("D-07: with two-step sign-in on, the password alone opens nothing; a wrong 
   await page.getByRole("button", { name: "تأكيد والدخول" }).click();
   await expect(page.getByRole("heading", { name: /^مرحبًا/ })).toBeVisible();
   expect(callbacks).toEqual([
-    { username: "hoda.samir", password: "Hoda-Own-Pass-2026" },
-    { username: "hoda.samir", mfaCode: "000000", mfaMethod: "TOTP" },
-    { username: "hoda.samir", mfaCode: "ABCD-EFGH", mfaMethod: "RECOVERY" },
+    { username: "hoda.samir", password: "Hoda-Own-Pass-2026", client: null },
+    { username: "hoda.samir", mfaCode: "000000", mfaMethod: "TOTP", client: "MfaClient" },
+    { username: "hoda.samir", mfaCode: "ABCD-EFGH", mfaMethod: "RECOVERY", client: "MfaClient" },
   ]);
 });
 
