@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { CircleAlert, ClipboardCheck, LockKeyhole, Plus } from "lucide-react";
 import { ApiError, createContract, fillContractFromQuote, getContracts, getQuotes, type Contract } from "./api";
 import type { Language } from "./preferences";
+import { ContractWorkflow } from "./WorkflowPanels";
 
 const strings = {
   ar: {
@@ -105,6 +106,7 @@ export function ContractPanel({opportunityId,opportunityVersion,language,onOppor
           <th dir="ltr">{contract.totalBeforeTax} {contract.currency}</th></tr></tfoot>
       </table></div>
       :contract.status==="DRAFT"&&<div><button type="button" className="btn btn-secondary" disabled={busy} onClick={()=>void fill(contract)}><Plus size={16}/>{busy?l.filling:l.fill}</button></div>}
+      <ContractWorkflow contract={contract} language={language} onChanged={()=>void load().catch(()=>undefined)}/>
       <div className="quote-finalize">
         <button type="button" className="btn btn-primary" disabled aria-describedby="contract-blocked">{l.activate}</button>
         <button type="button" className="btn btn-secondary" disabled aria-describedby="contract-blocked">{l.handover}</button>

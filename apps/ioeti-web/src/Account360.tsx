@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { CircleAlert, CircleDashed } from "lucide-react";
 import { getAccountContacts, getAccountOpportunities, type ContactSummary, type Opportunity } from "./api";
 import type { Language } from "./preferences";
+import { AccountSummary } from "./WorkflowPanels";
 
 const strings = {
   ar: {
@@ -39,6 +40,7 @@ export function Account360({accountId,language}:{accountId:number;language:Langu
     :(opportunities||[]).map(o=>({id:o.id,title:o.name,detail:[o.reference,o.businessLineCode,o.stage].filter(Boolean).join(" · ")||"—",href:"#/opportunities/"+o.id}));
   const loading=contacts===null&&!error;
   return <div className="account-360">
+    <AccountSummary accountId={accountId} language={language}/>
     <div className="demo-record-tabs" role="tablist" aria-label={l.tabs}>
       {(["opportunities","contacts"] as const).map(key=><button key={key} type="button" role="tab" id={"account-tab-"+key}
         aria-controls="account-related-panel" aria-selected={tab===key} tabIndex={tab===key?0:-1}

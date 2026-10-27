@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<domain-models xmlns="http://axelor.com/xml/ns/domain-models"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://axelor.com/xml/ns/domain-models https://axelor.com/xml/ns/domain-models/domain-models_8.2.xsd">
+
+  <module name="ioeti" package="com.ioeti.workspace.db"/>
+
+  <!-- Wave 5b: commercial review requests, invoice requests and renewals across the native chain.
+       Explicit ioeti_ table names keep every object under the migration gate (G-008). -->
+
+  <!-- A request to review a draft quotation or contract. Who may approve, at which value, is D-11:
+       the approval and rejection decisions fail closed; reviewers can only send it back for changes. -->
+  <entity name="ReviewRequest" table="ioeti_ws_review">
+    <many-to-one name="quote" ref="com.axelor.apps.sale.db.SaleOrder" title="Quotation"/>
+    <many-to-one name="contract" ref="com.axelor.apps.contract.db.Contract" title="Contract"/>
+    <integer name="subjectVersionNumber" title="Quotation version"/>
+    <integer name="statusSelect" title="Status" required="true"/>
+    <many-to-one name="requestedBy" ref="com.axelor.auth.db.User" title="Requested by"/>
+    <datetime name="requestedAt" title="Requested at"/>
+    <many-to-one name="reviewedBy" ref="com.axelor.auth.db.User" title="Reviewed by"/>
+    <integer name="reasonSelect" title="Reason"/>
+
+    <extra-code><![CDATA[
+      public static final int STATUS_PENDING = 1;
+      public static final int STATUS_CHANGES_REQUESTED = 2;
+      public static final int STATUS_WITHDRAWN = 3;
+      public static final int REASON_PRICING = 1;
+      public static final int REASON_SCOPE = 2;
+      public static final int REASON_TERMS = 3;
+      public static final int REASON_DOCUMENTS = 4;
+      public static final int REASON_OTHER = 5;
+    ]]></extra-code>
+  </entity>
+
+  <!-- Append-only history of review requests (the contract and quotation review history). -->
+  <entity name="ReviewEvent" table="ioeti_ws_review_event">
+    <many-to-one name="review" ref="ReviewRequest" title="Review" required="true"/>
+    <integer name="kindSelect" title="Event" required="true"/>
+    <integer name="reasonSelect" title="Reason"/>
+    <many-to-one name="actor" ref="com.axelor.auth.db.User" title="By"/>
+    <datetime name="occurredAt" title="At" required="true"/>
+
+    <extra-code><![CDATA[
+      public static final int KIND_REQUESTED = 1;
+      public static final int KIND_CHANGES_REQUESTED = 2;
+      public static final int KIND_WITHDRAWN = 3;
+    ]]></extra-code>
+  </entity>
+
+  <!-- A request to invoice one payment milestone of a confirmed order. Issuing the invoice (tax,
+       numbering, e-invoicing) is D-06 and fails closed; the request records the need only. -->
+  <entity name="InvoiceRequest" table="ioeti_ws_invoice_request">
+    <many-to-one name="quote" ref="com.axelor.apps.sale.db.SaleOrder" title="Order" required="true"/>
+    <many-to-one name="milestone" ref="com.axelor.apps.supplychain.db.Timetable" title="Milestone" required="true"/>
+    <decimal name="amountBeforeTax" title="Amount before tax" precision="20" scale="3"/>
+    <integer name="statusSelect" title="Status" required="true"/>
+    <many-to-one name="requestedBy" ref="com.axelor.auth.db.User" title="Requested by"/>
+    <datetime name="requestedAt" title="Requested at"/>
+    <datetime name="cancelledAt" title="Cancelled at"/>
+
+    <extra-code><![CDATA[
+      public static final int STATUS_REQUESTED = 1;
+      public static final int STATUS_CANCELLED = 2;
+    ]]></extra-code>
+  </entity>
+
+</domain-models>
