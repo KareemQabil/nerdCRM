@@ -91,7 +91,7 @@ test("live: the same pages fit a 390 px phone with real data", async ({ page }) 
     expect(await documentFits(page), `${route} scrolls sideways at 390 px`).toBe(true);
   }
   await page.goto("/#/accounts");
-  await page.locator("article", { hasText: fixture!.tag }).getByRole("button", { name: "عرض التفاصيل" }).click();
+  await page.locator(".directory-item", { hasText: fixture!.tag }).getByRole("button", { name: "عرض التفاصيل" }).click();
   await expect(page.locator(".record-workspace h1")).toContainText(fixture!.tag);
   await page.waitForLoadState("networkidle");
   expect(await documentFits(page), "account record scrolls sideways at 390 px").toBe(true);
