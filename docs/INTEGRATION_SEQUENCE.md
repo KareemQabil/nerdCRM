@@ -64,6 +64,7 @@ Draft PRs, each stacked on the previous one:
 - 1: #15;
 - 2: #16;
 - 3: #17;
-- 4, part 1 (conversion and Account 360): branch `claude/ioeti-wave2-lead-conversion`.
+- 4, part 1 (conversion and Account 360): #18;
+- 5, part 1 (catalog and draft quotations): branch `claude/ioeti-wave3-quotes`.
 
 Policy-dependent steps follow `docs/decisions/OPEN_IOETI_POLICY_DECISIONS.md`.

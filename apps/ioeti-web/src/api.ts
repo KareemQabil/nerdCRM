@@ -211,3 +211,39 @@ export async function getAccountOpportunities(id: number): Promise<Opportunity[]
   if (!Array.isArray(values)) throw new ApiError(502, "Invalid opportunities response");
   return values;
 }
+
+/** Wave 3: catalog and draft quotations (native AOS SaleOrder). Amounts are before tax (D-06). */
+export type CatalogProduct = { id: number; code: string | null; name: string; unit: string | null; salePrice: string | null; currency: string | null };
+export type QuoteLine = { id: number; productCode: string | null; name: string; quantity: string; unit: string | null; unitPriceBeforeTax: string | null; totalBeforeTax: string | null };
+export type Quote = {
+  id: number; version: number; reference: string | null; status: string | null; opportunityId: number | null;
+  accountId: number | null; accountName: string | null; currency: string | null; totalBeforeTax: string | null;
+  taxStatus: string; lines: QuoteLine[];
+};
+export async function getCatalog(search = ""): Promise<CatalogProduct[]> {
+  if (DEMO_MODE) return [];
+  const query = search.trim() ? `&q=${encodeURIComponent(search.trim())}` : "";
+  const values = await wrapped<CatalogProduct[]>(`/ws/ioeti/catalog/products?limit=50${query}`);
+  if (!Array.isArray(values)) throw new ApiError(502, "Invalid catalog response");
+  return values;
+}
+export async function getQuotes(opportunityId: number): Promise<Quote[]> {
+  if (DEMO_MODE) return [];
+  const values = await wrapped<Quote[]>(`/ws/ioeti/quotes?opportunityId=${encodeURIComponent(opportunityId)}`);
+  if (!Array.isArray(values)) throw new ApiError(502, "Invalid quotations response");
+  return values;
+}
+export async function createQuote(opportunityId: number, opportunityVersion: number): Promise<Quote> {
+  if (DEMO_MODE) throw new ApiError(403, "Preview mode is read-only");
+  return wrapped<Quote>("/ws/ioeti/quotes", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ opportunityId, opportunityVersion }),
+  });
+}
+export async function addQuoteLine(id: number, version: number, productId: number, quantity: string): Promise<Quote> {
+  if (DEMO_MODE) throw new ApiError(403, "Preview mode is read-only");
+  return wrapped<Quote>(`/ws/ioeti/quotes/${encodeURIComponent(id)}/lines`, {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ version, productId, quantity: Number(quantity) }),
+  });
+}

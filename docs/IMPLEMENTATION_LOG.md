@@ -236,3 +236,36 @@ No JUnit test covers conversion: the HSQLDB test context has no AppCrm or sequen
 - PII on contacts (G-007).
 - Versioned migration (G-008).
 - `crmProcessOnPartner` mode, which answers 422 `CONVERSION_UNSUPPORTED`.
+
+## 2026-10-19 · Wave 3 part 1 · Catalog and draft quotations
+
+Full report: `docs/slices/W3-catalog-and-draft-quotes.md`.
+
+### Change
+- New module `ioeti-commercial`, depending on `ioeti-core` and `axelor-sale` only, and registered in `scripts/ioeti.sh` and `scripts/ioeti.ps1`.
+- Catalog endpoint.
+- Quotations created through the native `OpportunitySaleOrderService` and lines through the native `SaleOrderLineGeneratorService`, with version checks and concurrent-write 409s.
+- Totals before tax only, with `taxStatus=BLOCKED_BY_POLICY` (D-06). Finalize answers 422 `BLOCKED_BY_POLICY` (D-06, D-11).
+- Native AOS refusals are logged with the correlation id and answered with `SETUP_REQUIRED` or `QUOTE_REJECTED`. This includes `ObserverBaseException`, which previously produced a 500.
+- New open decision D-11 (commercial approvals and quotation terms).
+- UI: quotations section on the opportunity page.
+
+### Finding for the owner
+With the installed apps (`contract` brings in `supplychain`, `stock` and `account`), quoting needs per-company stock and account configuration and a sales ledger account per product. This is real IOETI setup under D-06 and is not invented.
+
+### Evidence (local; CI on the PR)
+| Check | Result |
+|---|---|
+| Quote probe (10 concurrent rounds) | 24/24 |
+| Lead conversion | 28/28 |
+| Pilot | PASS |
+| Two-writer | 13/13 |
+| Contract | 31/31 |
+| Smoke | 16/16 |
+| Identity | 0/321,448 |
+| Scopes | 65/65 |
+| Session | 20/20 |
+| JUnit | 53/53 (+3 `QuoteRulesTest`) |
+| Web mocked | 26/26 |
+| Web demo | 14/14 |
+| Build | pass |

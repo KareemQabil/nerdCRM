@@ -749,3 +749,16 @@ td code { display: inline-block; font: 11px Inter,monospace; color: var(--on-sur
 .opportunity-form .convert-choice{display:flex;align-items:center;gap:10px;font-weight:500;}
 .opportunity-form .convert-choice input{width:auto;min-height:0;}
 .account-360 .directory-item{padding-inline:4px;}
+/* Wave 3: quotations on the opportunity page */
+.quotes-panel{margin-top:20px;}
+.quotes-panel .record-section-header{flex-wrap:wrap;}
+.quotes-create{margin-inline-start:auto;}
+.quote-body{display:grid;gap:16px;}
+.quote-head{display:flex;flex-wrap:wrap;align-items:center;gap:10px;font-size:12px;}
+.quote-lines{min-width:520px;}
+.quote-lines tfoot th{font-weight:800;}
+.quote-line-form{grid-template-columns:minmax(0,2fr) minmax(0,1fr) auto;align-items:end;margin-top:0;}
+.quote-finalize{display:flex;flex-wrap:wrap;align-items:center;gap:12px;}
+.quote-finalize small{font-size:11px;color:var(--on-surface-variant);max-width:420px;}
+@media(max-width:640px){.quote-line-form{grid-template-columns:1fr;}}
+.quote-code{display:block;font-size:10px;color:var(--on-surface-variant);}

@@ -34,6 +34,8 @@ async function intercept(page: Page, config: { businessLineDenied?: boolean } = 
       { id: 902, name: "Delta Foods", reference: "AC-902", customer: true, prospect: false },
     ]);
     if (path.endsWith("/accounts/901") && method === "GET") return result({ id: 901, name: "Nile View Hotel", reference: "AC-901", customer: false, prospect: true });
+    if (path.endsWith("/quotes") && method === "GET") return result([]);
+    if (path.endsWith("/catalog/products") && method === "GET") return result([]);
     if (/\/opportunities\/\d+$/.test(path) && method === "GET") {
       const id = Number(path.split("/").at(-1));
       const record = records.find(item => item.id === id);
@@ -469,4 +471,58 @@ test("lead conversion: server refusals are localized, never shown raw, and nothi
   await expect(page.getByRole("alert")).toHaveText(/تم تحويل هذا العميل المحتمل من قبل/);
   await expect(page.getByRole("heading", { name: "تم التحويل" })).toHaveCount(0);
   await expect(page.locator("body")).not.toContainText("c0ffee00");
+});
+
+test("quotations: opportunity page creates a draft from the catalog, before tax only, finalize blocked by policy", async ({page}) => {
+  await intercept(page);
+  const ok = (object: unknown, code = 200) => ({ status: code, contentType: "application/json", body: JSON.stringify({ codeStatus: code, messageStatus: "ok", object }) });
+  let quote = { id: 7, version: 0, reference: "#7", status: "DRAFT", opportunityId: 101, accountId: 901, accountName: "Nile View Hotel",
+    currency: "EGP", totalBeforeTax: "0", taxStatus: "BLOCKED_BY_POLICY", lines: [] as unknown[] };
+  const posts: { path: string; body: unknown }[] = [];
+  await page.route(/\/axelor-erp\/ws\/ioeti\/catalog\/products/, route => route.fulfill(ok([
+    { id: 31, code: "ISO-AUD-DAY", name: "Audit day", unit: "Day", salePrice: "1500.0000", currency: "EGP" }])));
+  await page.route(/\/axelor-erp\/ws\/ioeti\/quotes(\/.*|\?.*)?$/, route => {
+    const url = new URL(route.request().url());
+    if (route.request().method() === "GET") return route.fulfill(ok([]));
+    posts.push({ path: url.pathname, body: route.request().postDataJSON() });
+    if (url.pathname.endsWith("/quotes")) return route.fulfill(ok(quote, 201));
+    quote = { ...quote, version: 1, totalBeforeTax: "3000.00", lines: [{ id: 1, productCode: "ISO-AUD-DAY", name: "Audit day",
+      quantity: "2.0000000000", unit: "Day", unitPriceBeforeTax: "1500.00", totalBeforeTax: "3000.00" }] };
+    return route.fulfill(ok(quote, 201));
+  });
+  await page.goto("/#/opportunities/101");
+  await expect(page.getByRole("heading", { name: "عروض الأسعار" })).toBeVisible();
+  await page.getByRole("button", { name: "عرض سعر جديد" }).click();
+  await expect(page.locator(".quote-head")).toContainText("#7");
+  await page.getByLabel("المنتج أو الخدمة").selectOption("31");
+  await page.getByLabel("الكمية").fill("2");
+  await page.getByRole("button", { name: "إضافة بند" }).click();
+  await expect(page.locator(".quote-lines tfoot")).toContainText("3000.00 EGP");
+  expect(posts).toEqual([
+    { path: "/axelor-erp/ws/ioeti/quotes", body: { opportunityId: 101, opportunityVersion: 1 } },
+    { path: "/axelor-erp/ws/ioeti/quotes/7/lines", body: { version: 0, productId: 31, quantity: 2 } },
+  ]);
+  await expect(page.getByText("لا تُحسب الضرائب هنا حتى تعتمد IOETI سياسة الضرائب والفوترة (D-06).")).toBeVisible();
+  await expect(page.getByRole("button", { name: "اعتماد وإرسال العرض" })).toBeDisabled();
+  await page.screenshot({ path: "test-results/ioeti-quote-draft.png", fullPage: true });
+});
+
+test("quotations: setup and account refusals are localized, never raw", async ({page}) => {
+  await intercept(page);
+  const answers = [
+    { status: 422, error: { code: "VALIDATION_FAILED", message: "x", correlationId: "deadbeef1", fields: [{ field: "opportunityId", code: "ACCOUNT_REQUIRED", message: "x" }] } },
+    { status: 422, error: { code: "SETUP_REQUIRED", message: "Sales setup internal", correlationId: "deadbeef2", fields: [] } },
+  ];
+  await page.route(/\/axelor-erp\/ws\/ioeti\/quotes$/, route => {
+    const next = answers.shift()!;
+    return route.fulfill({ status: next.status, contentType: "application/json", body: JSON.stringify({ codeStatus: next.status, messageStatus: "x", error: next.error }) });
+  });
+  await page.goto("/#/opportunities/101");
+  const create = page.getByRole("button", { name: "عرض سعر جديد" });
+  await create.click();
+  await expect(page.getByRole("alert")).toHaveText(/اربط الفرصة بحساب عميل أولًا/);
+  await create.click();
+  await expect(page.getByRole("alert")).toHaveText(/إعداد المبيعات لهذه الشركة أو لهذا المنتج غير مكتمل/);
+  await expect(page.locator("body")).not.toContainText("deadbeef");
+  await expect(page.locator("body")).not.toContainText("Sales setup internal");
 });

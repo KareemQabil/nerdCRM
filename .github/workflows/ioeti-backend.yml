@@ -69,6 +69,8 @@ jobs:
           python3 scripts/scope_matrix_probe.py
           # Wave 2: Lead → Account (+ Contact) + Opportunity conversion and Account 360
           PROBE_CONVERT_ROUNDS=10 python3 scripts/lead_conversion_probe.py
+          # Wave 3: catalog and draft quotations on native AOS SaleOrder (fictional fixtures, no taxes)
+          PROBE_QUOTE_ROUNDS=10 python3 scripts/quote_probe.py
           # SEC-004: cookies, fixation, CSRF, logout, per-user login throttle (runs last: it
           # throttles one throw-away user)
           python3 scripts/session_security_probe.py
@@ -84,6 +86,7 @@ jobs:
             logs/session-security-probe.json
             logs/scope-matrix-probe.json
             logs/lead-conversion-probe.json
+            logs/quote-probe.json
           if-no-files-found: ignore
       - name: Attach Axelor integration logs
         if: failure()

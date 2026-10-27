@@ -11,6 +11,11 @@ Legend: ✅ passed live · ➖ not applicable · ⬜ not tested yet
 | `GET /ws/ioeti/leads[/{id}]` | ✅ 401 | ⬜ | ✅ 404 | ➖ | ➖ | ➖ | ✅ 403 | ⬜ | ✅ | contract, pilot |
 | `GET /ws/ioeti/accounts[/{id}]` | ✅ 401 | ⬜ | ✅ 404 | ➖ | ➖ | ➖ | ✅ 403 | ⬜ | ✅ | contract, pilot |
 | `POST /ws/ioeti/leads/{id}/convert` | ⬜ | ✅ 403 (no write) | ✅ 404 | ✅ 403 | ✅ 409 | ✅ one 201 + one 409, no duplicates | ✅ 403 | ⬜ | ✅ 400/409/422 | lead-conversion |
+| `GET /ws/ioeti/catalog/products` | ⬜ | ⬜ | ➖ | ➖ | ➖ | ➖ | ✅ 403 | ⬜ | ✅ 422 search | quote |
+| `GET /ws/ioeti/quotes[?opportunityId][/{id}]` | ⬜ | ⬜ | ✅ 404 | ➖ | ➖ | ➖ | ✅ 403 | ⬜ | ✅ | quote |
+| `POST /ws/ioeti/quotes` | ⬜ | ✅ 403 | ✅ 404 | ✅ 403 | ✅ 409 | ⬜ | ✅ 403 | ⬜ | ✅ 400/409/422 | quote |
+| `POST /ws/ioeti/quotes/{id}/lines` | ⬜ | ⬜ | ✅ 404 | ⬜ | ✅ 409 | ✅ one 201 + one 409, one line | ✅ 403 | ⬜ | ✅ 409/422 | quote |
+| `POST /ws/ioeti/quotes/{id}/finalize` | ⬜ | ➖ | ✅ 404 | ➖ | ➖ | ➖ | ✅ 403 | ⬜ | ✅ 422 `BLOCKED_BY_POLICY` | quote |
 | `GET /ws/ioeti/accounts/{id}/contacts`, `/opportunities` | ⬜ | ➖ | ✅ 404 (non-client = missing) | ➖ | ➖ | ➖ | ✅ 403 | ⬜ | ✅ | lead-conversion |
 | `GET /ws/ioeti/opportunities[/{id}]` | ✅ 401 | ✅ 403 | ✅ 404 | ➖ | ➖ | ➖ | ✅ 403 | ✅ | ✅ | contract, identity, two-writer |
 | `POST /ws/ioeti/opportunities` | ✅ 401 | ⬜ | ➖ | ➖ | ➖ | ⬜ duplicate submit | ➖ | ⬜ | ✅ 400/415/422 | contract |
