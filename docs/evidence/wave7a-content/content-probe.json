@@ -1,0 +1,80 @@
+{
+  "results": [
+    {
+      "check": "documents: filed on the owner's lead as revision 1; the file name loses its path; checksum kept",
+      "result": "PASS",
+      "detail": "201 {'codeStatus': 201, 'messageStatus': 'Document filed', 'object': {'id': 3, 'version': 1, 'title': 'Technical proposal', 'kind': 'PROPOSAL', 'subject': 'LEAD', 'subjectId': 856, 'language': 'BILING"
+    },
+    {
+      "check": "documents: download is the exact bytes, as an attachment with nosniff and no caching",
+      "result": "PASS",
+      "detail": "200 {'cache-control': 'private, no-store', 'content-disposition': 'attachment; filename=\"Proposal v1.pdf\"; filename*=UTF-8\\'\\'Proposal%20v1.pdf', 'content-security-policy': \"default-src 'none'; sandbo"
+    },
+    {
+      "check": "documents: a reader of the record lists and downloads, but cannot file or revise (403)",
+      "result": "PASS",
+      "detail": "200 200 403 403"
+    },
+    {
+      "check": "documents: someone who cannot read the record gets 404 everywhere; anonymous \u2192 login redirect (302) or 401, never the file",
+      "result": "PASS",
+      "detail": "404 404 404 404 302 http://localhost:8080/axelor-erp/ 401"
+    },
+    {
+      "check": "documents: spoofed PDF, HTML as text, SVG, over 10 MiB, bad base64 and unknown subjects \u2192 422",
+      "result": "PASS",
+      "detail": "{'exe as pdf': (422, 'TYPE_MISMATCH'), 'html as txt': (422, 'TYPE_MISMATCH'), 'svg': (422, 'TYPE_NOT_ALLOWED'), 'oversized': (422, 'TOO_LARGE'), 'bad base64': (422, 'FORMAT'), 'unknown subject': (422,"
+    },
+    {
+      "check": "documents: accounts must be customers or prospects (a supplier answers 404)",
+      "result": "PASS",
+      "detail": "404 200"
+    },
+    {
+      "check": "revisions: revision 2 added; identical content \u2192 422 UNCHANGED; stale \u2192 409; revision 1 still downloads the original",
+      "result": "PASS",
+      "detail": "201 422 {'codeStatus': 422, 'messageStatus': 'This file is the same as the current revision.', 'error': {'code': 'UNCHANGED', 'message': 'This file is the same as the current revision.', 'correlationI"
+    },
+    {
+      "check": "revisions concurrency (5 rounds of 2 uploads on one version): one 201 + one 409; numbers without gaps",
+      "result": "PASS",
+      "detail": "True [7, 6, 5, 4, 3, 2, 1]"
+    },
+    {
+      "check": "archive: hidden from the default list, listed with archived=true, no new revisions (422), history still downloadable",
+      "result": "PASS",
+      "detail": "200 [] 422 200"
+    },
+    {
+      "check": "knowledge: categories by editors only (reader 403); codes upper-cased and unique (422)",
+      "result": "PASS",
+      "detail": "403 201 422"
+    },
+    {
+      "check": "knowledge: a draft is invisible to readers (not listed, 404); readers cannot create (403)",
+      "result": "PASS",
+      "detail": "201 403 [] 404"
+    },
+    {
+      "check": "knowledge: published as revision 1; readers find it with Arabic spelling variants and see no working copy",
+      "result": "PASS",
+      "detail": "200 [5] {'id': 5, 'version': 2, 'status': 'PUBLISHED', 'categoryId': 3, 'businessLineCode': 'W7LE5C703', 'canEdit': False, 'published': {'revision': 1, 'titleEn': 'Audit day preparation E5C703', 'titl"
+    },
+    {
+      "check": "knowledge: edits stay private until published (reader keeps revision 1); revision 2 then visible; unchanged \u2192 422; reader cannot edit",
+      "result": "PASS",
+      "detail": "200 200 422 403 {'revision': 1, 'titleEn': 'Audit day preparation E5C703', 'titleAr': '\u0627\u0644\u062a\u062d\u0636\u064a\u0631 \u0644\u064a\u0648\u0645 \u0627\u0644\u0645\u0631\u0627\u062c\u0639\u0629 E5C703', 'bodyEn': 'Bring the quality manual.', 'bodyAr': '\u0625\u062d\u0636\u0627\u0631 \u062f\u0644\u064a\u0644 \u0627\u0644\u062c\u0648\u062f\u0629 \u0627\u0644\u0645\u0639\u062a\u0645\u062f.', 'pu"
+    },
+    {
+      "check": "knowledge: an article for a business line the reader cannot see is neither listed nor readable (404)",
+      "result": "PASS",
+      "detail": "[5] 404"
+    },
+    {
+      "check": "knowledge: archived \u2192 hidden from readers (404); editors keep it in their list; readers have no drafts list (403)",
+      "result": "PASS",
+      "detail": "200 404 403"
+    }
+  ],
+  "cleanup_complete": true
+}

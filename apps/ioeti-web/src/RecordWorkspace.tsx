@@ -6,6 +6,7 @@ import {
 import { Account360 } from "./Account360";
 import { LeadQualificationPanel } from "./LeadQualificationPanel";
 import { LeadEngagementPanel } from "./LeadTools";
+import { DocumentsPanel } from "./DocumentsPanel";
 import type { AccountSummary, LeadSummary } from "./api";
 import type { Language } from "./preferences";
 import { DEMO_MODE } from "./demo";
@@ -141,6 +142,9 @@ export function RecordWorkspace({kind,language,record,onBack,onPrevious,onNext,o
     </div>
     {lead&&!DEMO_MODE&&record.version!=null&&<section className="record-content-card record-engagement">
       <LeadEngagementPanel lead={record} language={language} onLeadChanged={updated=>onRecordChanged?.(updated)}/>
+    </section>}
+    {!DEMO_MODE&&<section className="record-content-card record-documents">
+      <DocumentsPanel subject={lead?"LEAD":"ACCOUNT"} subjectId={record.id} language={language}/>
     </section>}
     <section className="record-flow-card" aria-labelledby="record-flow-heading">
       <div className="record-flow-title"><div className="record-section-icon"><FileClock size={20}/></div><div><h2 id="record-flow-heading">{lead?l.leadJourney:l.accountJourney}</h2><p>{l.connectionDesc}</p></div></div>

@@ -9,6 +9,7 @@ import { DEMO_MODE } from "./demo";
 import type { Language } from "./preferences";
 import { QuotesPanel } from "./QuotesPanel";
 import { ContractPanel } from "./ContractPanel";
+import { DocumentsPanel } from "./DocumentsPanel";
 
 type Props = {
   record: Opportunity; language: Language; onBack: () => void;
@@ -123,6 +124,7 @@ export function OpportunityRecordWorkspace({record,language,onBack,onRename,onPr
     </div>
     {!DEMO_MODE&&<QuotesPanel opportunityId={record.id} opportunityVersion={record.version} language={language} onOpportunityChanged={onRecordChanged}/>}
     {!DEMO_MODE&&<ContractPanel opportunityId={record.id} opportunityVersion={record.version} language={language} onOpportunityChanged={onRecordChanged}/>}
+    {!DEMO_MODE&&<section className="record-content-card record-documents"><DocumentsPanel subject="OPPORTUNITY" subjectId={record.id} language={language}/></section>}
     <section className="record-flow-card" aria-labelledby="opportunity-journey-title">
       <div className="record-flow-title"><div className="record-section-icon"><Workflow size={20}/></div><div>
         <h2 id="opportunity-journey-title">{c.stepsTitle}</h2><p>{c.stepsDesc}</p>
