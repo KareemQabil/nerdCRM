@@ -34,6 +34,11 @@ async function intercept(page: Page, config: { businessLineDenied?: boolean } = 
       { id: 902, name: "Delta Foods", reference: "AC-902", customer: true, prospect: false },
     ]);
     if (path.endsWith("/accounts/901") && method === "GET") return result({ id: 901, name: "Nile View Hotel", reference: "AC-901", customer: false, prospect: true });
+    if (/\/opportunities\/\d+$/.test(path) && method === "GET") {
+      const id = Number(path.split("/").at(-1));
+      const record = records.find(item => item.id === id);
+      return record ? result(record) : result(null,404);
+    }
     if (path.endsWith("/opportunities") && method === "GET") return result(records);
     if (path.endsWith("/opportunities") && method === "POST") {
       const body = route.request().postDataJSON() as { name: string; businessLineCode: string };
@@ -179,4 +184,133 @@ test("record page on mobile is never rendered as side drawer", async ({page})=>{
   await expect(page.locator(".record-workspace")).toBeVisible();
   await expect(page.locator(".record-drawer")).toHaveCount(0);
   await page.screenshot({path:"test-results/ioeti-account-record-page-mobile.png",fullPage:true});
+});
+
+test("Opportunity view details opens a full record page, supports browser history and safe context",async ({page})=>{
+  await intercept(page);
+  await page.goto("/");
+  await page.getByRole("button",{name:"المبيعات"}).click();
+  const row=page.getByRole("row").filter({hasText:"Hotel certification"});
+  await row.getByRole("button",{name:"التفاصيل"}).click();
+  await expect(page).toHaveURL(/#\/opportunities\/101$/);
+  await expect(page.locator(".opportunity-record h1")).toHaveText("Hotel certification");
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(page.locator(".opportunity-record")).toContainText("OP-101");
+  await expect(page.locator(".opportunity-record")).toContainText("Axelor CRM");
+  await expect(page.locator(".opportunity-record")).toContainText("لم يتم ربط");
+  await page.goBack();
+  await expect(page).toHaveURL(/#\/opportunities$/);
+  await expect(page.getByRole("row").filter({hasText:"Hotel certification"})).toBeVisible();
+});
+
+test("Opportunity direct deep link refetches the authorized record and rename stays a small modal",async ({page})=>{
+  await intercept(page);
+  await page.goto("/#/opportunities/101");
+  await expect(page.locator(".opportunity-record h1")).toHaveText("Hotel certification");
+  await page.locator(".opportunity-record").getByRole("button",{name:"تعديل اسم الفرصة"}).click();
+  await expect(page.getByRole("dialog")).toBeVisible();
+  await page.getByRole("textbox",{name:"اسم الفرصة"}).fill("Hotel certification v2");
+  await page.getByRole("button",{name:"حفظ التغييرات"}).click();
+  await expect(page.locator(".opportunity-record h1")).toHaveText("Hotel certification v2");
+  await expect(page.locator(".opportunity-record")).toContainText("v2");
+  await page.getByRole("button",{name:"الرجوع إلى الفرص"}).click();
+  await expect(page).toHaveURL(/#\/opportunities$/);
+});
+
+test("Opportunity record workspace remains a full page on mobile",async ({page})=>{
+  await page.setViewportSize({width:390,height:844});
+  await intercept(page);
+  await page.goto("/#/opportunities/101");
+  await expect(page.locator(".opportunity-record")).toBeVisible();
+  await expect(page.locator(".record-drawer")).toHaveCount(0);
+  await page.screenshot({path:"test-results/ioeti-opportunity-record-mobile.png",fullPage:true});
+});
+
+test("source-driven capability journey is interactive but does not perform unsupported actions",async ({page})=>{
+  let unplannedCalls=0;
+  await intercept(page);
+  page.on("request",request=>{
+    if(request.url().includes("/axelor-erp/ws/ioeti/certification/"))unplannedCalls++;
+  });
+  await page.goto("/");
+  await page.getByRole("button",{name:"خريطة النظام"}).click();
+  await page.getByRole("button",{name:/إدارة شهادات ISO/}).click();
+  const journey=page.getByRole("region",{name:"رحلة العمل المقترحة"});
+  await expect(journey).toBeVisible();
+  await expect(journey.getByRole("tab")).toHaveCount(5);
+  await journey.getByRole("tab",{name:/Stage 1 وStage 2/}).click();
+  await expect(journey.getByRole("tabpanel")).toContainText("Intervention");
+  await expect(journey.getByRole("tabpanel")).toContainText("/ws/ioeti/certification/audits/{id}/submit");
+  await expect(journey).toContainText("لا يتم إرسال أي طلبات");
+  expect(unplannedCalls).toBe(0);
+  await page.screenshot({path:"test-results/ioeti-iso-workflow-map.png",fullPage:true});
+});
+
+test("external training and agency recruitment journeys clearly distinguish native HR from new customer models",async ({page})=>{
+  await intercept(page);
+  await page.goto("/");
+  await page.getByRole("button",{name:"خريطة النظام"}).click();
+  await page.getByRole("button",{name:/التدريب الخارجي/}).click();
+  const region=page.getByRole("region",{name:"رحلة العمل المقترحة"});
+  await region.getByRole("tab",{name:/تسجيل المتدربين/}).click();
+  await expect(region.getByRole("tabpanel")).toContainText("NEW: Trainee");
+  await expect(region.getByRole("tabpanel")).toContainText("غير موصل");
+  await page.getByRole("button",{name:/التوظيف للعملاء/}).click();
+  await expect(region.getByRole("tab")).toHaveCount(4);
+  await region.getByRole("tab",{name:/مشاركة الملفات والمقابلات/}).click();
+  await expect(region.getByRole("tabpanel")).toContainText("CandidateSubmission");
+  await expect(region.getByRole("tabpanel")).toContainText("CandidateConsent");
+});
+
+test("capability flow on mobile remains within current navigation and supports English",async ({page})=>{
+  await page.setViewportSize({width:390,height:844});
+  await intercept(page);
+  await page.goto("/");
+  await page.getByRole("button",{name:"التنقل"}).click();
+  await page.getByRole("button",{name:"خريطة النظام"}).click();
+  await page.getByRole("button",{name:/تنمية الموارد/}).click();
+  await expect(page.getByRole("region",{name:"رحلة العمل المقترحة"})).toBeVisible();
+  await page.getByRole("button",{name:"اللغة"}).click();
+  const journey=page.getByRole("region",{name:"Planned business journey"});
+  await expect(journey).toBeVisible();
+  await journey.getByRole("tab",{name:/Grant application/}).click();
+  await expect(journey.getByRole("tabpanel")).toContainText("Grant");
+});
+
+test("Opportunity compact modal traps focus, escapes safely and restores originating button focus",async ({page})=>{
+  await intercept(page);
+  await page.goto("/");
+  await page.getByRole("button",{name:"المبيعات"}).click();
+  const create=page.getByRole("button",{name:"فرصة جديدة"});
+  await create.focus();
+  await create.click();
+  const dialog=page.getByRole("dialog");
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByRole("textbox",{name:"اسم الفرصة"})).toBeFocused();
+  await dialog.getByRole("button",{name:"حفظ التغييرات"}).focus();
+  await page.keyboard.press("Tab");
+  await expect(dialog.getByRole("button",{name:"رجوع"}).first()).toBeFocused();
+  await page.keyboard.press("Shift+Tab");
+  await expect(dialog.getByRole("button",{name:"حفظ التغييرات"})).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(dialog).toHaveCount(0);
+  await expect(create).toBeFocused();
+});
+
+test("real authenticated mode never mounts fictional operating workspaces",async ({page})=>{
+  await intercept(page);
+  await page.goto("/#/demo/quotes");
+  await expect(page.locator(".demo-business")).toHaveCount(0);
+  await expect(page.getByRole("heading",{name:"أهلًا بك في IOETI"})).toBeVisible();
+  await expect(page.getByRole("button",{name:"الشهادات"})).toBeDisabled();
+});
+
+test("real mode never downloads multi-domain demo workspace chunks or fixtures",async ({page})=>{
+  const fetched:string[]=[];
+  page.on("request",request=>fetched.push(request.url()));
+  await intercept(page);
+  await page.goto("/");
+  await page.getByRole("button",{name:"خريطة النظام"}).click();
+  await expect(page.getByRole("button",{name:"الشهادات"})).toBeDisabled();
+  expect(fetched.filter(url=>/DemoBusinessWorkspace|DemoExecutiveOverview|DemoDomainWorkbench|demoBusiness\.(ts|js)/.test(url))).toEqual([]);
 });
