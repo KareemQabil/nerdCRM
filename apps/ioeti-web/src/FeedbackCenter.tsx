@@ -41,7 +41,8 @@ export function FeedbackCenter() {
         <div className="ioeti-feedback-body">
           <strong>{language === "ar" ? item.kind === "success" ? "تم بنجاح" : item.kind === "error" ? "تعذر إتمام الإجراء" : "معلومة" : item.kind === "success" ? "Success" : item.kind === "error" ? "Action not completed" : "Information"}</strong>
           <p>{language === "ar" ? item.ar : item.en}</p>
-          <code dir="ltr">{item.code}{item.status && item.status !== 0 ? " · HTTP " + item.status : ""}</code>
+          {/* a reference for support on a failure only; a success needs no code */}
+          {item.kind === "error" && item.code && <small className="ioeti-feedback-ref">{language === "ar" ? "مرجع للدعم: " : "Support reference: "}<code dir="ltr">{item.code}</code></small>}
         </div>
         <button type="button" className="ioeti-feedback-close"
           aria-label={language === "ar" ? "إغلاق التنبيه" : "Dismiss notification"}

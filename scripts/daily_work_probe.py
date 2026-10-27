@@ -16,6 +16,7 @@ Checks:
   text is never returned; another rep cannot read them; read-only cannot log
   agenda: the caller's planned items only, other reps' items excluded, range limit
   search: Arabic-normalised, only readable records, minimum length, anonymous refused
+  menu: the session lists only the pages whose records the person may read
 Report: logs/daily-work-probe.json.
 """
 import json
@@ -287,6 +288,14 @@ def main():
               and not any(i.get("title") == "مكالمة لسارة" for i in items), [(i["type"], i.get("title")) for i in items])
         s, _ = a.call("GET", f"{WS}/agenda?from=2026-01-01&to=2026-06-30")
         check("an agenda range over 62 days → 400", s == 400, s)
+
+        # --- the menu: the session lists the pages whose records the person may read ----------------------
+        _, me_a = a.call("GET", "/ws/ioeti/session")
+        _, me_v = v.call("GET", "/ws/ioeti/session")
+        pages_a, pages_v = set(me_a.get("pages") or []), set(me_v.get("pages") or [])
+        check("the session lists the pages a person may read: a rep gets leads, accounts and opportunities but not certification or recruitment",
+              {"leads", "accounts", "opportunities"} <= pages_a and not pages_a & {"certification", "recruitment", "fundraising", "finance"}
+              and {"leads", "accounts", "opportunities"} <= pages_v and me_a.get("administrator") is False, (sorted(pages_a), sorted(pages_v)))
 
         # --- search ----------------------------------------------------------------------------------------
         s, body = a.call("GET", f"{WS}/search?q=" + quote("احمد المعدل"))

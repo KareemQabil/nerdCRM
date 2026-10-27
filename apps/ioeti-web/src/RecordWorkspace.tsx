@@ -13,6 +13,7 @@ import { ActivityPanel } from "./ActivityPanel";
 import { AccountDialog, ContactDialog, EditLeadDialog } from "./RecordDialogs";
 import { NewVisitDialog } from "./VisitsPage";
 import type { Language } from "./preferences";
+import { stageLabel } from "./labels";
 import { DEMO_MODE } from "./demo";
 
 type RecordItem = LeadSummary | AccountSummary;
@@ -99,10 +100,10 @@ export function RecordWorkspace({kind,language,record,onBack,onPrevious,onNext,o
   const editableLead=lead&&!DEMO_MODE&&record.version!=null&&!record.converted;
   const liveAccount=!lead&&!DEMO_MODE&&record.version!=null;
   const typeLabel=kind==="leads"?l.lead:l.account;
-  const status=lead?(record.stage||l.empty):classification(record,l);
+  const status=lead?(record.stage?stageLabel(record.stage,language):l.empty):classification(record,l);
   const summary=lead?[
     [l.organization,record.organization||l.empty],
-    [l.stage,record.stage||l.empty],
+    [l.stage,record.stage?stageLabel(record.stage,language):l.empty],
     [l.record,"#"+record.id],
   ]:[
     [l.reference,record.reference||l.empty],

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, ArrowRight, BellRing, Building2, CircleAlert, Layers3, LockKeyhole, RefreshCw, Search, UserPlus, UserRound } from "lucide-react";
-import { ApiError, getAccount, getAccounts, getLead, getLeads, type AccountSummary, type LeadSummary } from "./api";
+import { useCreateIntent } from "./createIntent";
+import { ApiError, getAccount, getAccounts, getBusinessLines, getLead, getLeads, type AccountSummary, type BusinessLine, type LeadSummary } from "./api";
 import { DEMO_MODE } from "./demo";
 import { stageLabel } from "./labels";
 import type { Language } from "./preferences";
@@ -70,6 +71,11 @@ export function DirectoryPage({kind,language}: Props) {
   const [tab,setTab]=useState<"list"|"followUps">("list");
   const [intake,setIntake]=useState(false);
   const [addingAccount,setAddingAccount]=useState(false);
+  useCreateIntent(kind==="leads"?"lead":"account",()=>{if(kind==="leads"){if(liveLeads)setIntake(true);}else if(!DEMO_MODE)setAddingAccount(true);});
+  // business lines by code, so the list shows "أيزو 9001" rather than a code
+  const [lines,setLines]=useState<Record<string,BusinessLine>>({});
+  useEffect(()=>{if(kind==="leads")void getBusinessLines().then(ls=>setLines(Object.fromEntries(ls.map(x=>[x.code,x])))).catch(()=>undefined);},[kind]);
+  const lineName=(code:string)=>lines[code]?(ar?lines[code].nameAr:lines[code].nameEn):code;
   useEffect(()=>{
     if(!liveLeads)return;
     const timer=window.setTimeout(()=>setQuery(current=>(current.q??"")===filter?current:{...current,q:filter}),300);
@@ -211,8 +217,8 @@ export function DirectoryPage({kind,language}: Props) {
             <span className="directory-record"><strong>{item.name}</strong><small>{isLead(item)?item.organization||"—":"—"}</small></span></div>},
           {key:"stage",header:ar?"المرحلة":"Stage",sortValue:item=>isLead(item)?stageLabel(item.stage,language):null,
             cell:item=>isLead(item)?<span className={"stage-chip kind-"+((item.stageKind??"OPEN").toLowerCase())}>{stageLabel(item.stage,language)}</span>:"—"},
-          {key:"line",header:ar?"خط الأعمال":"Business line",optional:true,sortValue:item=>isLead(item)?item.businessLineCode:null,
-            cell:item=>isLead(item)&&item.businessLineCode?<code dir="ltr">{item.businessLineCode}</code>:"—"},
+          {key:"line",header:ar?"خط الأعمال":"Business line",optional:true,sortValue:item=>isLead(item)&&item.businessLineCode?lineName(item.businessLineCode):null,
+            cell:item=>isLead(item)&&item.businessLineCode?<span title={item.businessLineCode}>{lineName(item.businessLineCode)}</span>:"—"},
           {key:"response",header:ar?"زمن الاستجابة":"Response",sortValue:item=>isLead(item)?RESPONSE_ORDER[item.response?.status??"NOT_SET"]:null,
             cell:item=>isLead(item)?<ResponseChip response={item.response} ar={ar}/>:"—"},
           {key:"received",header:ar?"وصل في":"Received",optional:true,sortValue:item=>isLead(item)?item.receivedAt:null,

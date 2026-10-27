@@ -1701,6 +1701,7 @@
     "RecommendationsView.canApply": "REFERENCE",
     "RecommendationsView.recommendations": "BUSINESS",
     "AppliedView.applied": "REFERENCE",
-    "RecommendationView.fields": "BUSINESS"
+    "RecommendationView.fields": "BUSINESS",
+    "SessionIdentity.pages": "REFERENCE"
   }
 }

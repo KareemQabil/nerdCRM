@@ -31,6 +31,7 @@ import { QualityPage } from "./QualityPage";
 import { FinancePage } from "./FinancePage";
 import { SystemMap } from "./SystemMap";
 import { CommandPalette } from "./CommandPalette";
+import { QuickCreate } from "./QuickCreate";
 import { getUnreadCount } from "./automationApi";
 import { DEMO_MODE } from "./demo";
 import { DEMO_AREAS, type DemoArea } from "./demoAreas";
@@ -135,6 +136,19 @@ export function App() {
       setBusy(false);
     }
   }
+  // a request answered 401 means the session ended (expired, or signed out elsewhere): back to sign-in, saying why
+  useEffect(() => {
+    const expired = () => {
+      setSession(current => {
+        if (current !== "authenticated") return current;
+        setIdentity(null); setLines([]);
+        setLoadError(prefs.language === "ar" ? "انتهت الجلسة. سجّل الدخول تاني عشان تكمل." : "Your session ended. Sign in again to continue.");
+        return "login";
+      });
+    };
+    window.addEventListener("ioeti:session-expired", expired);
+    return () => window.removeEventListener("ioeti:session-expired", expired);
+  }, [prefs.language]);
   useEffect(() => {
     // Identity and per-module permissions are independent concepts.
     void getSession()
@@ -283,6 +297,14 @@ export function App() {
       { id: "settings", label: labels.settings, icon: Settings2 },
     ] },
   ];
+  // offer only the pages whose records this person may read (the session says which); the server checks every call again.
+  // Without the list (an older server), every page is offered as before.
+  const GATED = new Set(["leads", "accounts", "opportunities", "catalog", "campaigns", "operations", "visits", "quality", "finance",
+    "certification", "training", "recruitment", "fundraising", "knowledge"]);
+  const ADMIN_ONLY = new Set(["capabilities", "design"]);
+  const offered = (id: string) => DEMO_MODE || ((!GATED.has(id) || !identity?.pages || identity.pages.includes(id))
+    && (!ADMIN_ONLY.has(id) || identity?.pages === undefined || identity?.administrator === true));
+  for (const group of navGroups) group.items = group.items.filter(item => offered(String(item.id)));
   const areaOf = (id: string) => navGroups.find(group => group.items.some(item => item.id === id))?.id || "workspace";
   // one table of the pages this person can open: the side menu, the breadcrumb and the command palette read it
   const pages = navGroups.flatMap(group => group.items.filter(item => !item.disabled).map(item => ({ id: item.id, label: item.label, group: group.label })));
@@ -323,6 +345,7 @@ export function App() {
           <div className="breadcrumb"><span>{current?.group ?? labels.workspace}</span><span className="crumb-separator">/</span><strong>{pageName}</strong></div>
         </div>
         <div className="top-actions">
+          {!DEMO_MODE && <QuickCreate ar={isRTL} canOpen={id => offered(id) && (id !== "agenda" && id !== "visits" || pages.some(p => p.id === id))}/>}
           {!DEMO_MODE && <button type="button" className="palette-trigger" onClick={() => setPalette(true)} aria-label={isRTL ? "بحث سريع" : "Quick search"}>
             <Search size={16}/><span>{isRTL ? "بحث سريع" : "Quick search"}</span><kbd dir="ltr">Ctrl K</kbd></button>}
           <span className="server-status"><span className="live-pulse"/>{DEMO_MODE ? (isRTL ? "بيانات افتراضية" : "Sample data") : labels.connected}</span>
@@ -336,7 +359,7 @@ export function App() {
       </header>
 
       <main id="main-content" className="main-content">
-        {loadError && <div className="error-banner" role="alert"><CircleAlert size={18}/><span>{labels.unavailable}: {loadError}</span><button className="btn btn-secondary" type="button" onClick={() => void refresh()}>{labels.retry}</button></div>}
+        {loadError && <div className="error-banner" role="alert"><CircleAlert size={18}/><span>{loadError === labels.unavailable ? loadError : `${labels.unavailable}: ${loadError}`}</span><button className="btn btn-secondary" type="button" onClick={() => void refresh()}>{labels.retry}</button></div>}
         {page === "businessLines" && selected && <BusinessLineWorkspace line={selected} labels={labels} onBack={backFromBusinessLine} />}
         {page === "home" && <section className="page-enter">
           {!DEMO_MODE && <HomeCockpit language={prefs.language} name={identity?.name || identity?.code || null} unread={unread}
