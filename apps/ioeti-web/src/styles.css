@@ -1483,3 +1483,7 @@ th[aria-sort="ascending"], th[aria-sort="descending"] { color: var(--on-surface)
 .cockpit-grid { align-items: start; }
 .outcome-bar.is-captioned { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--outline-variant); }
 .outcome-title { font-size: 13px; font-weight: 700; color: var(--on-surface); }
+
+/* UX-6 contrast fixes found by the axe gate (WCAG 2.1 AA, 4.5:1 for small text) */
+.side-section-caption { opacity: 1; }
+.stage-chip.kind-open { color: color-mix(in srgb, var(--area-sales) 72%, var(--on-surface)); }

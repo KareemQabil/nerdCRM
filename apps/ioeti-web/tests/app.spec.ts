@@ -1,3 +1,4 @@
+import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page, type Route } from "@playwright/test";
 
 const lines = [
@@ -2386,6 +2387,27 @@ test("settings: administrators see installed modules, applied migrations and ope
   await expect(system).toContainText("V015");
   await expect(system).toContainText("D-10");
   await expect(system).toContainText("مفتوح");
+});
+
+test("accessibility gate: every live-mode page passes axe's WCAG 2.1 A and AA rules in light and dark", async ({page}) => {
+  test.setTimeout(120_000);
+  // measured at rest: the page fade-in would otherwise be caught half transparent
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await insightsMocks(page, { admin: true });
+  const routes = ["#/", "#/leads", "#/leads/207", "#/accounts", "#/opportunities", "#/operations", "#/knowledge", "#/reports", "#/inbox", "#/settings",
+    "#/training", "#/certification", "#/recruitment", "#/fundraising", "#/businessLines", "#/capabilities"];
+  const found: Record<string, string[]> = {};
+  for (const theme of ["light", "dark"]) {
+    await page.addInitScript(t => localStorage.setItem("ioeti.ui.preferences.v1", JSON.stringify({ theme: t, language: "ar", density: "comfortable", navigation: "expanded" })), theme);
+    for (const route of routes) {
+      await page.goto("/" + route);
+      await page.waitForLoadState("networkidle");
+      const result = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze();
+      const issues = result.violations.map(v => `${v.id} (${v.impact}): ${v.nodes.slice(0, 5).map(n => n.target.join(" ")).join(" | ")}`);
+      if (issues.length) found[`${theme} ${route}`] = issues;
+    }
+  }
+  expect(found).toEqual({});
 });
 
 test("mobile gate: every live-mode page fits a 390 px screen without horizontal scrolling", async ({page}) => {
