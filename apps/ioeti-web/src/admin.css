@@ -177,3 +177,22 @@
 .admin-quality-kind.is-open, .admin-quality-kind.is-internal { background: var(--primary-container); color: var(--on-primary-container); }
 .admin-quality-kind.is-closed { background: var(--success-container); color: var(--success); }
 .admin-quality-kind.is-customer, .admin-quality-kind.is-supplier { background: var(--warning-container); color: var(--warning); }
+
+/* quality set-up: two groups of lists, and a method's branches under its row */
+.admin-quality-groups { display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: flex-end; }
+.admin-quality-group { display: grid; gap: 4px; min-width: 0; }
+.admin-quality-group-label { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 700; color: var(--on-surface-variant); }
+.admin-quality-row-main { display: contents; }
+.admin-quality-method .admin-quality-row-main { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; width: 100%; min-width: 0; }
+.admin-quality-method { flex-direction: column; align-items: stretch; padding-block: 10px; }
+.admin-quality-branches { display: grid; gap: 8px; padding: 10px 12px; border-radius: var(--radius); background: var(--surface-sunken, var(--surface-variant)); }
+.admin-quality-branches ul { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+.admin-quality-branch { display: inline-flex; align-items: center; gap: 6px; padding: 3px 4px 3px 10px; border-radius: 999px; border: 1px solid var(--outline-variant);
+  background: var(--surface); font-size: 13px; }
+.admin-quality-branch small { color: var(--on-surface-variant); font-size: 11.5px; }
+.admin-quality-branch .icon-button { width: 26px; height: 26px; min-height: 26px; }
+.admin-quality-branch-empty { margin: 0; font-size: 12.5px; color: var(--on-surface-variant); }
+.admin-quality-branch-add { display: flex; gap: 6px; flex-wrap: wrap; }
+.admin-quality-branch-add input { flex: 1 1 160px; min-width: 0; min-height: 34px; padding: 6px 10px; border: 1px solid var(--outline); border-radius: var(--radius);
+  background: var(--surface); color: var(--on-surface); font: inherit; }
+.admin-list-add select optgroup { font-weight: 700; }

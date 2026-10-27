@@ -119,12 +119,24 @@ export const getNumbering = () => list<NumberingRow>(`${BASE}/numbering`);
 export const setNumbering = (code: string, version: number | null, prefix: string, digits: number) =>
   post<NumberingRow>(`${BASE}/numbering/${enc(code)}`, { version: version ?? undefined, prefix, digits });
 
-/** The company's quality set-up: statuses (with their kind), where issues are found (with origin), issue and action types. */
-export type QualityList = "statuses" | "detections" | "issue-types" | "action-types";
-export type QualityValue = { id: number; version: number; name: string; code: string | null; kind: string | null; sequence: number | null; uses: number };
+/**
+ * The company's quality set-up: statuses (with their kind), where issues are found (with origin), issue and action types,
+ * and for root-cause analysis the analysis methods (with their branches), the causes under each branch and the processes (with their owner).
+ */
+export type QualityList = "statuses" | "detections" | "issue-types" | "action-types" | "methods" | "causes" | "processes";
+export type QualityBranch = { id: number; name: string; causes: number };
+export type QualityValue = {
+  id: number; version: number; name: string; code: string | null; kind: string | null; sequence: number | null; uses: number;
+  branches?: QualityBranch[] | null; branchId?: number | null; branchName?: string | null; ownerId?: number | null; ownerName?: string | null;
+};
+export type QualityExtra = { kind?: string; branchId?: number; ownerId?: number };
 export const getQualityValues = (which: QualityList) => list<QualityValue>(`${BASE}/quality/${which}`);
-export const addQualityValue = (which: QualityList, name: string, kind?: string) => post<QualityValue>(`${BASE}/quality/${which}`, { name, kind });
-export const changeQualityValue = (which: QualityList, id: number, version: number, name: string, kind?: string) =>
-  post<QualityValue>(`${BASE}/quality/${which}/${enc(id)}`, { version, name, kind });
+export const addQualityValue = (which: QualityList, name: string, extra: QualityExtra = {}) => post<QualityValue>(`${BASE}/quality/${which}`, { name, ...extra });
+export const changeQualityValue = (which: QualityList, id: number, version: number, name: string, extra: QualityExtra = {}) =>
+  post<QualityValue>(`${BASE}/quality/${which}/${enc(id)}`, { version, name, ...extra });
 export const deleteQualityValue = (which: QualityList, id: number, version: number) =>
   post<QualityValue[]>(`${BASE}/quality/${which}/${enc(id)}/delete`, { version });
+export const addMethodBranch = (method: QualityValue, name: string) =>
+  post<QualityValue>(`${BASE}/quality/methods/${enc(method.id)}/branches`, { version: method.version, name });
+export const deleteMethodBranch = (method: QualityValue, branchId: number) =>
+  post<QualityValue>(`${BASE}/quality/methods/${enc(method.id)}/branches/${enc(branchId)}/delete`, { version: method.version });

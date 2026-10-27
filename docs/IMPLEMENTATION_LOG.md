@@ -768,3 +768,29 @@ Slice: `docs/slices/A10-visit-checklists.md`.
 - Probe `scripts/visit_checklist_probe.py` 10/10 (backend CI).
 - Mocked UI tests `tests/visit-checklist.spec.ts` 2/2, with real pointer strokes on the signature pad (mocked suite 92 + 2 live skipped, demo 27). `tests/visits.spec.ts` now matches the visit log's "إضافة" exactly, since the page also has "إضافة مستند".
 - G-007 registry: 1331 fields, 0 problems.
+
+## 2026-10-24 · A11 · root-cause analysis and evidence on quality issues
+
+Slice: `docs/slices/A11-quality-root-cause-evidence.md`.
+
+- `ioeti-admin` `QualitySetup` gains three administrator-managed lists, all native, none shipped:
+  - analysis methods with their branches (`QIAnalysisMethod`/`QIAnalysisMethodItem`);
+  - causes, each under a branch (`QICause.branch` is required natively);
+  - processes, each with an owner (`QIProcess.manager` is required natively).
+
+  Branches are added or removed with the method's version, and a branch with causes cannot be removed. Values in use answer 409. Every change is audited.
+- `ioeti-operations` quality: the issue's analysis method is chosen before causes, and is fixed once causes exist. Causes are recorded on the native analysis (`QIAnalysisCause`), linked to the issue's defect line, with:
+  - a process;
+  - an attribution: the organisation (the company's party record, never a named person), the client or the supplier;
+  - what was found.
+
+  The issue's version moves. The options report `analysisReady`/`analysisMissing` (METHODS, PROCESSES, COMPANY_PARTY).
+- `ioeti-content`: the document subject `QUALITY_ISSUE` (appended), for evidence on the issue.
+- UI:
+  - the issue page's root-cause section (method chips; the branches side by side with their causes; an add-cause dialog) and its evidence documents;
+  - the admin quality set-up in two groups, with branches managed inline;
+  - change-log labels;
+  - the system map lists root-cause analysis and evidence as working.
+- Probe `scripts/quality_rca_probe.py` 14/14 (backend CI). `quality_probe.py` 18/18 and `content_probe.py` 15/15 unchanged.
+- Mocked UI tests `tests/quality.spec.ts` 7/7, three of them new (mocked suite 95 + 2 live skipped, demo 27).
+- G-007 registry: 1370 fields, 0 problems.

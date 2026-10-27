@@ -6,6 +6,7 @@ import com.axelor.apps.crm.db.Lead;
 import com.axelor.apps.crm.db.Opportunity;
 import com.axelor.apps.intervention.db.Intervention;
 import com.axelor.apps.project.db.Project;
+import com.axelor.apps.quality.db.QualityImprovement;
 import com.axelor.apps.sale.db.SaleOrder;
 import com.axelor.auth.AuthUtils;
 import com.axelor.common.MimeTypesUtils;
@@ -75,9 +76,10 @@ public class ContentService {
       "png", "image/png", "jpg", "image/jpeg", "jpeg", "image/jpeg", "txt", "text/plain");
 
   /** Stored by position (subjectSelect = index + 1): new subjects are only ever appended. */
-  public static final String[] SUBJECTS = {"LEAD", "OPPORTUNITY", "ACCOUNT", "QUOTE", "CONTRACT", "ENGAGEMENT", "VISIT"};
+  public static final String[] SUBJECTS = {"LEAD", "OPPORTUNITY", "ACCOUNT", "QUOTE", "CONTRACT", "ENGAGEMENT", "VISIT", "QUALITY_ISSUE"};
   static final List<Class<? extends Model>> SUBJECT_TYPES =
-      List.of(Lead.class, Opportunity.class, Partner.class, SaleOrder.class, Contract.class, Project.class, Intervention.class);
+      List.of(Lead.class, Opportunity.class, Partner.class, SaleOrder.class, Contract.class, Project.class, Intervention.class,
+          QualityImprovement.class);
 
   public record Upload(String fileName, String extension, String contentType, byte[] bytes, String sha256) {}
 

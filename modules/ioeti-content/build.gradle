@@ -24,6 +24,8 @@ dependencies {
 	api project(":modules:axelor-project")
 	// documents can be filed on a field visit (native intervention)
 	api project(":modules:axelor-intervention")
+	// and as evidence on a quality issue (native quality improvement)
+	api project(":modules:axelor-quality")
 
 	implementation libs.swagger_jaxrs
 }
