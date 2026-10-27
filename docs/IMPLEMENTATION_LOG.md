@@ -388,3 +388,23 @@ Full report: `docs/slices/W3-draft-contracts.md` §5.
 | Web mocked | 29/29 |
 | Web demo | 14/14 |
 | Build | pass |
+
+## 2026-10-20 · SEC-001 residual (issue #10) · WebSocket, scheduled jobs, expiry
+
+Full report: `docs/security/SEC-001-identity-isolation.md` §8.
+
+### Change
+- `scripts/websocket_identity_probe.py` with a dependency-free RFC 6455 client (`scripts/ws_client.py`): per-user fingerprints over the native `tags` channel, under load.
+- **Finding, fixed.** An already-open WebSocket kept answering after the user logged out over HTTP. `WebSocketSessionGuard` (a Guice interceptor on `WebSocketEndpoint` `@OnMessage`, in `ioeti-core`) closes the socket when the server-side Shiro session has ended. No upstream file is modified.
+- `JobIdentityProbe`, a diagnostic Quartz job, admin-readable through the identity-boundary endpoint.
+- CI changes:
+  - the main job runs Axelor with the scheduler enabled and the probe in strict job mode;
+  - the expiry job adds `--expiry`.
+- `ioeti-core` adds compile-only `jakarta.websocket` API 2.1.1 (provided by Tomcat 10.1 at runtime).
+
+### Evidence (local; CI on the PR)
+| Check | Result |
+|---|---|
+| WebSocket / job probe | 7/7: 0 mismatches in 5,516 WebSocket messages with 18,541 concurrent HTTP requests and a metadata reload; 28 job runs, 0 with a user; logout closes the open socket |
+| Expiry mode | 2/2 |
+| JUnit | +2 `WebSocketSessionGuardTest` |

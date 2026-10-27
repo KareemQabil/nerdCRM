@@ -13,4 +13,10 @@ axelor {
 
 dependencies {
 	api project(":modules:axelor-base")
+	// WebSocket API (2.1, Tomcat 10.1) for WebSocketSessionGuard; provided at runtime by the container
+	// (Session, CloseReason and OnMessage are in the client API since WebSocket 2.1)
+	compileOnly "jakarta.websocket:jakarta.websocket-api:2.1.1"
+	compileOnly "jakarta.websocket:jakarta.websocket-client-api:2.1.1"
+	testImplementation "jakarta.websocket:jakarta.websocket-api:2.1.1"
+	testImplementation "jakarta.websocket:jakarta.websocket-client-api:2.1.1"
 }
