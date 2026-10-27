@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<domain-models xmlns="http://axelor.com/xml/ns/domain-models"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://axelor.com/xml/ns/domain-models https://axelor.com/xml/ns/domain-models/domain-models_8.2.xsd">
+
+  <module name="ioeti" package="com.ioeti.workspace.db"/>
+
+  <!-- D-07 (signed 2026-10-25): retention periods are policies per data type (privacy.retention); when a period runs out
+       the record is listed for review and never removed automatically. One row is one reviewer's decision on one record:
+       kept (with a reason, until a date) or anonymized. Rows are never changed or deleted. The record's name is not
+       copied here, so an anonymized person does not survive in the decision log. -->
+  <entity name="RetentionDecision" table="ioeti_privacy_decision">
+    <string name="dataType" title="Data type" required="true" max="20"/>
+    <long name="recordId" title="Record" required="true"/>
+    <!-- KEEP or ANONYMIZED -->
+    <string name="decision" title="Decision" required="true" max="20"/>
+    <string name="reason" title="Reason" required="true" max="500"/>
+    <date name="reviewAgainOn" title="Review again on"/>
+    <date name="lastActivityOn" title="Last activity" required="true"/>
+    <many-to-one name="policyVersion" ref="com.ioeti.core.db.PolicyVersion" title="Policy version" required="true"/>
+    <many-to-one name="decidedBy" ref="com.axelor.auth.db.User" title="Decided by" required="true"/>
+    <datetime name="decidedAt" title="Decided at" required="true"/>
+    <index columns="dataType,recordId"/>
+  </entity>
+
+</domain-models>
