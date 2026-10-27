@@ -103,7 +103,7 @@ export function makeTemporaryPassword(length = 16): string {
 }
 
 /** Reference lists (lost reasons, lead sources, opportunity stages) managed by administrators. */
-export type ListKind = "lost-reasons" | "sources" | "opportunity-stages";
+export type ListKind = "lost-reasons" | "sources" | "opportunity-stages" | "campaign-types";
 export type ListValue = { id: number; version: number; name: string; sequence: number | null; role: "WON" | "LOST" | "DEFAULT" | "PROPOSITION" | null; uses: number };
 export const getListValues = (kind: ListKind) => list<ListValue>(`${BASE}/lists/${kind}`);
 export const addListValue = (kind: ListKind, name: string) => post<ListValue>(`${BASE}/lists/${kind}`, { name });

@@ -675,3 +675,16 @@ Slices: `docs/slices/A4-service-catalogue.md`, `docs/slices/A5-live-system-map.m
 - Probes: `scripts/catalog_probe.py` 7/7 (backend CI); `quote_probe.py` 50/50. `probe_fixtures` clean-up also removes files a test user generated.
 - Tests: `tests/catalog.spec.ts` 3/3 and 2 system-map tests (mocked suite 78); the 3 schematic journey tests moved to the demo suite (27).
 - G-007 registry: 1072 fields, 0 problems.
+
+## 2026-10-24 · A6 · campaigns from the platform
+
+Slice: `docs/slices/A6-campaigns.md`.
+
+- `ioeti-marketing`: `CampaignService` and `/ws/ioeti/campaigns`.
+  - The board, the record, add and change, and stage moves with the allowed transitions only.
+  - Results within the caller's read scope; no cost, revenue or ROI is invented.
+  - Sending stays D-10.
+- `ioeti-admin`: campaign types as a fifth reference list (needs `axelor-marketing`).
+- UI: the Campaigns board (drag between stages with mouse or touch, a "move to" picker for keyboard and phones, localized announcements) and the campaign page with its results funnel. The system map now shows marketing as live.
+- Probe `scripts/campaign_probe.py` 11/11 (backend CI); mocked UI tests `tests/campaigns.spec.ts` 2/2 (mocked suite 80, demo 27).
+- G-007 registry: 1099 fields, 0 problems. The view record is named `MarketingCampaignView`, because fundraising already has a `CampaignView`.

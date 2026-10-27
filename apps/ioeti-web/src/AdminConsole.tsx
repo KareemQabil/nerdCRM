@@ -54,7 +54,7 @@ const L = {
       LOST_REASON_ADDED: "إضافة سبب خسارة", LOST_REASON_RENAMED: "تسمية سبب خسارة", LOST_REASON_DELETED: "حذف سبب خسارة",
       SOURCE_ADDED: "إضافة مصدر", SOURCE_RENAMED: "تسمية مصدر", SOURCE_DELETED: "حذف مصدر",
       OPPORTUNITY_STAGE_ADDED: "إضافة مرحلة", OPPORTUNITY_STAGE_RENAMED: "تسمية مرحلة", OPPORTUNITY_STAGE_DELETED: "حذف مرحلة",
-      OPPORTUNITY_STAGE_ORDERED: "ترتيب المراحل",
+      OPPORTUNITY_STAGE_ORDERED: "ترتيب المراحل", CAMPAIGN_TYPE_ADDED: "إضافة نوع حملة", CAMPAIGN_TYPE_RENAMED: "تسمية نوع حملة", CAMPAIGN_TYPE_DELETED: "حذف نوع حملة",
     } as Record<string, string>,
   },
   en: {
@@ -93,7 +93,7 @@ const L = {
       LOST_REASON_ADDED: "Lost reason added", LOST_REASON_RENAMED: "Lost reason renamed", LOST_REASON_DELETED: "Lost reason deleted",
       SOURCE_ADDED: "Source added", SOURCE_RENAMED: "Source renamed", SOURCE_DELETED: "Source deleted",
       OPPORTUNITY_STAGE_ADDED: "Stage added", OPPORTUNITY_STAGE_RENAMED: "Stage renamed", OPPORTUNITY_STAGE_DELETED: "Stage deleted",
-      OPPORTUNITY_STAGE_ORDERED: "Stages reordered",
+      OPPORTUNITY_STAGE_ORDERED: "Stages reordered", CAMPAIGN_TYPE_ADDED: "Campaign type added", CAMPAIGN_TYPE_RENAMED: "Campaign type renamed", CAMPAIGN_TYPE_DELETED: "Campaign type deleted",
     } as Record<string, string>,
   },
 };

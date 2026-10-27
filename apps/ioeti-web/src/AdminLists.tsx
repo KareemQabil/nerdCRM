@@ -12,23 +12,24 @@ import { stageLabel } from "./labels";
 import "./admin.css";
 
 type Language = "ar" | "en";
-const KINDS: ListKind[] = ["lost-reasons", "sources", "opportunity-stages"];
+const KINDS: ListKind[] = ["lost-reasons", "sources", "opportunity-stages", "campaign-types"];
 const L = {
   ar: {
-    kinds: { "lost-reasons": "أسباب الخسارة", sources: "مصادر العملاء المحتملين", "opportunity-stages": "مراحل الفرص" },
+    kinds: { "lost-reasons": "أسباب الخسارة", sources: "مصادر العملاء المحتملين", "opportunity-stages": "مراحل الفرص", "campaign-types": "أنواع الحملات" },
     hints: {
       "lost-reasons": "البائع بيختار منها لما يسجّل فرصة أو عميل محتمل كخاسر. من غيرها مش هينفع حد يسجّل خسارة.",
       sources: "منين جه العميل المحتمل: معرض، موقع، ترشيح… بتظهر في التسجيل والتقارير.",
       "opportunity-stages": "مسار الفرصة من أول تواصل لحد القرار. اسحب لتغيير الترتيب؛ مراحل الفوز والخسارة ثابتة في الآخر.",
+      "campaign-types": "تصنيف الحملات: معرض، ندوة، بريد، تواصل اجتماعي… بتظهر عند إنشاء الحملة.",
     },
-    placeholder: { "lost-reasons": "مثال: السعر أعلى من الميزانية", sources: "مثال: معرض القاهرة", "opportunity-stages": "مثال: زيارة تقييم" },
+    placeholder: { "lost-reasons": "مثال: السعر أعلى من الميزانية", sources: "مثال: معرض القاهرة", "opportunity-stages": "مثال: زيارة تقييم", "campaign-types": "مثال: معرض" },
     add: "إضافة", save: "حفظ", cancel: "إلغاء", rename: "إعادة تسمية", remove: "حذف", close: "إغلاق",
     uses: (n: number) => n === 0 ? "غير مستخدم" : n === 1 ? "مستخدم مرة" : `مستخدم ${n} مرات`,
     roles: { WON: "مرحلة الفوز", LOST: "مرحلة الخسارة", DEFAULT: "مرحلة البداية", PROPOSITION: "مرحلة العرض" },
     protectedNote: "مرحلة أساسية في إعداد المبيعات: تتغير تسميتها بس، ومتتحذفش.",
     inUse: "مستخدم في سجلات؛ غيّر اسمه بدل ما تحذفه.",
     confirmTitle: "حذف القيمة؟", confirmText: (n: string) => `"${n}" هتختفي من القائمة. مفيش سجلات بتستخدمها.`,
-    empty: { "lost-reasons": "لسه مفيش أسباب خسارة. ضيف أول سبب علشان الفريق يقدر يسجّل الصفقات الخاسرة.", sources: "لسه مفيش مصادر.", "opportunity-stages": "مفيش مراحل." },
+    empty: { "lost-reasons": "لسه مفيش أسباب خسارة. ضيف أول سبب علشان الفريق يقدر يسجّل الصفقات الخاسرة.", sources: "لسه مفيش مصادر.", "opportunity-stages": "مفيش مراحل.", "campaign-types": "لسه مفيش أنواع حملات." },
     drag: "اسحب لتغيير الترتيب",
     dragHelp: "لتغيير الترتيب: اضغط مسافة على المقبض، حرّك بالأسهم لفوق أو تحت، ثم مسافة للتثبيت أو Esc للإلغاء.",
     picked: (n: string) => `اتمسكت المرحلة ${n}.`, over: (n: string, p: number) => `${n} في المكان ${p}.`,
@@ -37,20 +38,21 @@ const L = {
       PROTECTED: "المرحلة دي أساسية ومتتحذفش.", conflict: "القائمة اتغيرت من مكان تاني؛ اتحدّثت.", forbidden: "لمسؤولي النظام بس.", failed: "تعذّر تنفيذ الطلب." },
   },
   en: {
-    kinds: { "lost-reasons": "Lost reasons", sources: "Lead sources", "opportunity-stages": "Opportunity stages" },
+    kinds: { "lost-reasons": "Lost reasons", sources: "Lead sources", "opportunity-stages": "Opportunity stages", "campaign-types": "Campaign types" },
     hints: {
       "lost-reasons": "Sellers pick one when they mark an opportunity or a lead lost. Without any, nobody can record a loss.",
       sources: "Where a lead came from: a fair, the website, a referral… Used at intake and in reports.",
       "opportunity-stages": "The path of an opportunity up to the decision. Drag to reorder; the won and lost stages stay last.",
+      "campaign-types": "How campaigns are grouped: fair, seminar, e-mail, social… Offered when a campaign is created.",
     },
-    placeholder: { "lost-reasons": "e.g. Price above budget", sources: "e.g. Cairo fair", "opportunity-stages": "e.g. Assessment visit" },
+    placeholder: { "lost-reasons": "e.g. Price above budget", sources: "e.g. Cairo fair", "opportunity-stages": "e.g. Assessment visit", "campaign-types": "e.g. Fair" },
     add: "Add", save: "Save", cancel: "Cancel", rename: "Rename", remove: "Delete", close: "Close",
     uses: (n: number) => n === 0 ? "Not used" : n === 1 ? "Used once" : `Used ${n} times`,
     roles: { WON: "Won stage", LOST: "Lost stage", DEFAULT: "Starting stage", PROPOSITION: "Proposal stage" },
     protectedNote: "A core stage of the sales set-up: it can be renamed, not deleted.",
     inUse: "Used by records; rename it instead of deleting it.",
     confirmTitle: "Delete this value?", confirmText: (n: string) => `"${n}" leaves the list. No record uses it.`,
-    empty: { "lost-reasons": "No lost reasons yet. Add the first one so the team can record lost deals.", sources: "No sources yet.", "opportunity-stages": "No stages." },
+    empty: { "lost-reasons": "No lost reasons yet. Add the first one so the team can record lost deals.", sources: "No sources yet.", "opportunity-stages": "No stages.", "campaign-types": "No campaign types yet." },
     drag: "Drag to reorder",
     dragHelp: "To reorder: press Space on the handle, move with the up and down arrows, then Space to drop or Escape to cancel.",
     picked: (n: string) => `Picked up ${n}.`, over: (n: string, p: number) => `${n} at position ${p}.`,

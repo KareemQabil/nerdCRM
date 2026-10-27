@@ -3,6 +3,7 @@ package com.ioeti.admin.service;
 import com.axelor.apps.base.db.Source;
 import com.axelor.apps.crm.db.LostReason;
 import com.axelor.apps.crm.db.OpportunityStatus;
+import com.axelor.apps.marketing.db.CampaignType;
 import com.axelor.db.JPA;
 import com.axelor.db.Model;
 import com.axelor.db.Query;
@@ -19,7 +20,7 @@ import java.util.Objects;
 
 /**
  * The reference lists people pick from every day, managed from the platform (journeys plan, phase 5,
- * brought forward): lost reasons, lead sources and opportunity stages. These are native records; the
+ * brought forward): lost reasons, lead sources, opportunity stages and campaign types. These are native records; the
  * values are the company's own, so none are shipped. A value in use cannot be deleted (it is renamed
  * instead); the configured won, lost and default stages and the sales-proposition stage cannot be
  * deleted. Every change goes to the admin audit trail.
@@ -29,7 +30,8 @@ public class ReferenceLists {
   public enum Kind {
     LOST_REASON("lost-reasons", "LOST_REASON"),
     SOURCE("sources", "SOURCE"),
-    OPPORTUNITY_STAGE("opportunity-stages", "OPPORTUNITY_STAGE");
+    OPPORTUNITY_STAGE("opportunity-stages", "OPPORTUNITY_STAGE"),
+    CAMPAIGN_TYPE("campaign-types", "CAMPAIGN_TYPE");
 
     public final String path;
     public final String subject;
@@ -64,6 +66,7 @@ public class ReferenceLists {
     Model value = switch (kind) {
       case LOST_REASON -> { LostReason r = new LostReason(); r.setName(name); yield r; }
       case SOURCE -> { Source s = new Source(); s.setName(name); yield s; }
+      case CAMPAIGN_TYPE -> { CampaignType t = new CampaignType(); t.setName(name); yield t; }
       case OPPORTUNITY_STAGE -> {
         OpportunityStatus s = new OpportunityStatus();
         s.setName(name);
@@ -85,6 +88,7 @@ public class ReferenceLists {
     switch (kind) {
       case LOST_REASON -> ((LostReason) value).setName(name);
       case SOURCE -> ((Source) value).setName(name);
+      case CAMPAIGN_TYPE -> ((CampaignType) value).setName(name);
       case OPPORTUNITY_STAGE -> ((OpportunityStatus) value).setName(name);
     }
     Model saved = JPA.save(value);
@@ -139,6 +143,7 @@ public class ReferenceLists {
     return (Class<Model>) (Class<?>) switch (kind) {
       case LOST_REASON -> LostReason.class;
       case SOURCE -> Source.class;
+      case CAMPAIGN_TYPE -> CampaignType.class;
       case OPPORTUNITY_STAGE -> OpportunityStatus.class;
     };
   }
@@ -154,6 +159,7 @@ public class ReferenceLists {
   private static String nameOf(Model value) {
     if (value instanceof LostReason r) return r.getName();
     if (value instanceof Source s) return s.getName();
+    if (value instanceof CampaignType t) return t.getName();
     return ((OpportunityStatus) value).getName();
   }
 
@@ -176,6 +182,8 @@ public class ReferenceLists {
           count("SELECT COUNT(x) FROM Lead x WHERE x.source = ?1", value)
               + count("SELECT COUNT(x) FROM Opportunity x WHERE x.source = ?1", value)
               + count("SELECT COUNT(x) FROM Partner x WHERE x.source = ?1", value));
+      case CAMPAIGN_TYPE -> new Entry(value.getId(), value.getVersion(), nameOf(value), null, null,
+          count("SELECT COUNT(x) FROM Campaign x WHERE x.campaignType = ?1", value));
       case OPPORTUNITY_STAGE -> {
         OpportunityStatus stage = (OpportunityStatus) value;
         yield new Entry(stage.getId(), stage.getVersion(), stage.getName(), stage.getSequence(), role(stage),
