@@ -71,6 +71,15 @@ Lead qualification (Wave 2 part 2, `scripts/lead_lifecycle_probe.py`, test-only 
 - assigning to another user answers 422 `BLOCKED_BY_POLICY` (D-07, D-12) and changes nothing;
 - a lead picked up by another rep leaves the caller's scope: 404, never 403 (`RecordAccess.writable` race fixed).
 
+Personal data (G-007, `scripts/pii_dto_audit.py`, backend CI, no server needed):
+
+| Control | Result |
+|---|---|
+| Every field of every IOETI REST record classified | ✅ 145 fields / 29 records |
+| No `RESTRICTED` field in any response record | ✅ (only `LoseLead.note`, input-only) |
+| Gate rejects an unclassified field, restricted data in a response, a contact-named field classified too low, a stale entry | ✅ negative controls, plus a live control (an added `ContactView.email` failed the gate) |
+| Native refusal messages logged with e-mail, phone, national ID masked (Latin and Arabic-Indic digits) | ✅ `PiiMaskerTest` 4/4 |
+
 WebSocket and scheduled jobs (issue #10, `scripts/websocket_identity_probe.py`):
 
 | Control | Result |

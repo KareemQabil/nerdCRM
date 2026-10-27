@@ -424,3 +424,23 @@ Slice: `docs/slices/W2-lead-qualification.md`.
 
 ### Evidence
 See `docs/evidence/wave2-lead-qualification/`.
+
+## 2026-10-20 · G-007 · personal-data classification, gate and log masking
+
+Full description: `docs/security/PII_CLASSIFICATION.md`.
+
+### Change
+- `docs/security/pii-classification.json`: every field of every IOETI REST record has a class (`REFERENCE` 92, `BUSINESS` 44, `PERSONAL` 8, `RESTRICTED` 1).
+- `scripts/pii_dto_audit.py` (backend CI, first step, no server): fails on an unclassified field, restricted data in a response, a contact/identity-named field classified below `RESTRICTED`, or a stale registry entry. It runs its own negative controls every time.
+- `PiiMasker` (`ioeti-core`): masks e-mail, phone-like numbers and Egyptian national IDs, Latin and Arabic-Indic digits, keeps ISO dates; `NativeCommands` logs native refusal messages through it.
+- `AGENTS.md`: new rule, classify every new REST field.
+
+### Evidence
+| Check | Result |
+|---|---|
+| `pii_dto_audit.py` | 145 fields, 0 problems; 5/5 negative controls |
+| Live control | adding `ContactView.email` fails the gate; reverted |
+| JUnit | `PiiMaskerTest` 4/4, full suite green |
+
+### Not closed
+Production log-pipeline masking and retention (D-08), field-level role matrix (D-07), domain data for recruitment and training (D-03/D-04).

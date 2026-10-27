@@ -27,6 +27,7 @@ IOETI Egypt business operating system on **Axelor Open Suite 9.1.10 / Axelor Ope
 | New entity | `modules/<m>/src/main/resources/domains/<Entity>.xml`, package `com.ioeti.<context>.db`, **explicit `table="ioeti_<snake_name>"`** |
 | Field on an upstream entity | redeclare the entity in the IOETI module's `domains/` with the **upstream** `<module name=… package=…/>`; prefix new fields `ioeti` (e.g. `ioetiBusinessLine`) |
 | Any new IOETI table/column/index | add `db/migrations/V###__name.sql` (idempotent, same names Hibernate generates) and `db/migrations/rollback/U###__name.sql`; `python3 scripts/db_migrate.py verify` must pass (backend CI enforces it). Never edit an applied migration |
+| Any new field in an IOETI REST record (request or response) | classify it in `docs/security/pii-classification.json` (`REFERENCE`, `BUSINESS`, `PERSONAL`, `RESTRICTED`); `RESTRICTED` (contact details, identity numbers, personal money, free text about a person) is input-only. `python3 scripts/pii_dto_audit.py` must pass (backend CI enforces it). See `docs/security/PII_CLASSIFICATION.md` |
 | Rule on an IOETI entity | pure validator class (unit-tested) + `<Entity>ManagementRepository.save()` bound in the module's `AxelorModule` |
 | Rule on an upstream entity | JPA `entity-listener` declared in the IOETI domain extension (see `OpportunityBusinessLineListener`); do **not** subclass upstream `*ManagementRepository` bindings unless unavoidable |
 | UI change to an upstream form/grid | view with `extension="true"` and `<extend target=…>` in the IOETI module |

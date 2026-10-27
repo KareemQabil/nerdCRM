@@ -15,7 +15,7 @@ import org.slf4j.LoggerFactory;
  *       reports some of them through CDI observers ({@code ObserverBaseException}) and some through
  *       repository saves ({@code PersistenceException}). Configuration errors answer
  *       {@code SETUP_REQUIRED}, the others the command's own code. The native message is logged with
- *       the correlation id and never sent.
+ *       the correlation id, with restricted personal data masked (G-007), and never sent.
  *   <li>Anything else propagates (500 with a correlation id, from the IOETI error contract).
  * </ul>
  */
@@ -48,7 +48,7 @@ public final class NativeCommands {
 
   public static ApiException rejected(AxelorException e, String code, String message) {
     LOG.warn("Command refused by AOS [correlationId={}, category={}]: {}",
-        CorrelationId.current(), e.getCategory(), e.getMessage());
+        CorrelationId.current(), e.getCategory(), PiiMasker.mask(e.getMessage()));
     if (e.getCategory() == TraceBackRepository.CATEGORY_CONFIGURATION_ERROR) {
       return new ApiException(
           422, "SETUP_REQUIRED", "Setup for this company or product is incomplete.", null);
