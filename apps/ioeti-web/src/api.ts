@@ -28,7 +28,7 @@ export type ContactSummary = { id: number; name: string; jobTitle: string | null
 export type LeadConversion = { leadId: number; accountId: number; contactId: number | null; opportunityId: number };
 export type ConvertLeadCommand = { version: number; opportunityName?: string; businessLineCode?: string; accountId?: number };
 export type AccountSummary = { id: number; name: string; reference: string | null; customer: boolean; prospect: boolean; version?: number };
-export type SessionIdentity = { code: string; name: string; language: string | null; administrator?: boolean; policyOwner?: boolean };
+export type SessionIdentity = { code: string; name: string; language: string | null; administrator?: boolean; policyOwner?: boolean; pages?: string[] };
 export type Opportunity = {
   id: number;
   version: number;
@@ -90,6 +90,8 @@ async function request(path: string, options?: RequestInit): Promise<Response> {
   }
   if (response.status === 401 || response.status === 403) {
     const { code } = await contractDetails(response);
+    // the session ended: the app returns to sign-in (not for the sign-in and session checks themselves)
+    if (response.status === 401 && code !== MFA_REQUIRED && !/\/(session|login|logout|mfa)\b/.test(path)) window.dispatchEvent(new Event("ioeti:session-expired"));
     throw new ApiError(response.status, response.status === 401 ? "Session expired" : "Access denied", code);
   }
   if (!response.ok) {

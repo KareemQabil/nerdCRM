@@ -1,3 +1,4 @@
+import { useCreateIntent } from "./createIntent";
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import { ArrowLeft, ArrowRight, CircleAlert, Plus, RefreshCw, Save, Search, ShieldCheck, X } from "lucide-react";
 import {
@@ -143,8 +144,9 @@ export function OpportunitiesPage({ language, labels }: Props) {
     else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
   }
 
-  function openCreate(event: React.MouseEvent<HTMLButtonElement>) {
-    previousFocus.current = event.currentTarget;
+  useCreateIntent("opportunity", () => openCreate());
+  function openCreate(event?: React.MouseEvent<HTMLButtonElement>) {
+    previousFocus.current = event?.currentTarget ?? (document.activeElement as HTMLElement | null);
     setName(""); setBusinessLineCode(""); setCreatable(null);
     setFormError(""); setMode({ type: "create" });
     void getCreatableBusinessLines()

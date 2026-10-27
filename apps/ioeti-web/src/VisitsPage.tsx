@@ -1,3 +1,4 @@
+import { useCreateIntent } from "./createIntent";
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import {
   ArrowLeft, ArrowRight, Building2, CalendarClock, CheckCircle2, CircleAlert, Clock3, MapPin, Pause, Play, Plus, Save, Send, UserRound, XCircle,
@@ -83,6 +84,7 @@ function VisitList({ language }: { language: Language }) {
   const [rows, setRows] = useState<Visit[] | null>(null);
   const [error, setError] = useState("");
   const [adding, setAdding] = useState(false);
+  useCreateIntent("visit", () => setAdding(true));
   useEffect(() => { setRows(null); getVisits(mine).then(setRows).catch(e => { setRows([]); setError(problem(e, l)); }); }, [mine, l]);
   const groups = useMemo(() => {
     const today = new Date(); const key = (d: Date | null) => d ? d.toDateString() : "";

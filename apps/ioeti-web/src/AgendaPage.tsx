@@ -1,3 +1,4 @@
+import { useCreateIntent } from "./createIntent";
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type PointerEvent as ReactPointerEvent } from "react";
 import {
   CalendarDays, CalendarPlus, Check, ChevronLeft, ChevronRight, CircleAlert, ClipboardList, Clock3, ExternalLink, GraduationCap, MapPin,
@@ -131,6 +132,7 @@ export function AgendaPage({ language }: { language: Language }) {
   const [notice, setNotice] = useState("");
   const [opened, setOpened] = useState<AgendaItem | null>(null);
   const [creating, setCreating] = useState<Date | null>(null);
+  useCreateIntent("calendar", () => setCreating(nextSlot(new Date())));
   const setView = (v: View) => { setViewState(v); try { localStorage.setItem(STORE, v); } catch { /* per-viewer convenience only */ } };
 
   const [from, to] = useMemo((): [Date, Date] => {
