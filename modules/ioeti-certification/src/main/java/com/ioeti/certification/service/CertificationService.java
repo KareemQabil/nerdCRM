@@ -166,8 +166,11 @@ public class CertificationService {
 
   /** Where the cycle stands in the Stage 1 → Stage 2 → findings → decision → certificate sequence. */
   public static String phase(CertificationCycle cycle) {
-    if (CertificationDecisionService.certificate(cycle) != null) return "CERTIFIED";
-    List<String> blockers = auditBlockers(cycle);
+    return phase(CertificationDecisionService.certificate(cycle), auditBlockers(cycle));
+  }
+
+  public static String phase(com.ioeti.certification.db.ClientCertificate certificate, List<String> blockers) {
+    if (certificate != null) return "CERTIFIED";
     if (blockers.contains(BLOCKER_STAGE1)) return "STAGE1_PENDING";
     if (blockers.contains(BLOCKER_STAGE2)) return "STAGE2_PENDING";
     if (blockers.contains(BLOCKER_MAJORS)) return "FINDINGS_OPEN";

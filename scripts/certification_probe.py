@@ -107,10 +107,13 @@ def main():
     if search(USER, f"EXISTS (SELECT r FROM Role r WHERE r.name = '{OWNER_ROLE}' AND r MEMBER OF self.roles)"):
         raise SystemExit("this database already has policy owners; run the probe on a disposable database")
     role_existed = bool(search(ROLE, f"self.name = '{DECISION_ROLE}'"))
+    owner_role_existed = bool(search(ROLE, f"self.name = '{OWNER_ROLE}'"))
     exit_code = 1
     users = {}
     try:
         decision_role = (search(ROLE, f"self.name = '{DECISION_ROLE}'") or [None])[0] or create(ROLE, {"name": DECISION_ROLE})
+
+        def perm(name, model, condition=None, **rights):
             return create(PERM, {"name": f"wave4b.{name}.{tag}", "object": model, **rights,
                                  **({"condition": condition, "conditionParams": "__user__"} if condition else {})})
 
@@ -512,7 +515,7 @@ def main():
               and s_rc == 201, f"{s_rs} {s_s1} {s_s2} {s_rc}")
         s_w, b_w = act(dec1, d1, "withdraw", reason="Certification mark misuse continued")
         s_after, b_after = act(dec1, d1, "restore")
-        s_s3, b_s3, _ = plan(a, c2 if False else d1, "SURVEILLANCE", users["AudQ"]["id"], date=str(today + timedelta(days=400)))
+        s_s3, b_s3, _ = plan(a, d1, "SURVEILLANCE", users["AudQ"]["id"], date=str(today + timedelta(days=400)))
         _, b_pub = anon.call("GET", f"{PUBLIC}/{number}")
         events = ((b_w.get("object") or {}).get("certificate") or {}).get("events") or []
         check("withdraw is final (restore → 422); the history keeps who and why; the public check says WITHDRAWN;"
@@ -521,7 +524,7 @@ def main():
               and [e["action"] for e in events] == ["ISSUED", "SUSPENDED", "RESTORED", "WITHDRAWN"]
               and events[-1].get("reason") == "Certification mark misuse continued" and events[-1].get("actorName") == "Wave4b Dec1"
               and (b_pub.get("object") or {}).get("status") == "WITHDRAWN"
-              and s_s3 in (409, 422) and error(b_s3).get("code") in ("CERTIFICATE_REQUIRED", "STAGE_EXISTS"),
+              and s_s3 == 422 and error(b_s3).get("code") == "CERTIFICATE_REQUIRED",
               f"{s_w} {s_after} {[e.get('action') for e in events]} {b_pub.get('object')} {s_s3} {error(b_s3)}")
 
         # committee of 3, then a committee of 2 that splits
@@ -614,6 +617,8 @@ def main():
                 admin.call("POST", f"/ws/rest/{USER}/{u['id']}", {"data": {"id": u["id"], "version": cur.get("version"), "roles": []}})
         if role_existed:
             created = [(m, r) for m, r in created if m != ROLE]
+        if not owner_role_existed:
+            created.extend((ROLE, r["id"]) for r in search(ROLE, f"self.name = '{OWNER_ROLE}'"))
         complete, leftovers = cleanup(admin, created, {CEVENT: 0, VOTE: 0, NOTICE: 0, NC: 0, CERT: 1, AUDIT: 1, DECISION: 2,
                                                        CYCLE: 3, QUAL: 3, VERSION: 3, ADMIN_AUDIT: 3, PARTNER: 4, BL: 4,
                                                        USER: 5, GROUP: 6, ROLE: 6, PERM: 7})

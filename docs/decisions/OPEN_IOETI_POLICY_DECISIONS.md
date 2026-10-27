@@ -106,6 +106,14 @@ Signer: the project owner, answering a structured interview in the engineering s
     - Each applied value becomes an ordinary version in the owner's name, with its date and reason.
     - A value already set is never replaced.
   - The values and their reasons are listed in `docs/slices/R1-recommended-values.md`.
+- **D-02 implemented (2026-10-27, M1):**
+  - Decisions follow `cert.decision` per scheme (independent reviewer, or a committee of N: majority grants, a tie
+    refuses); a GRANT issues the certificate (validity and surveillance from `cert.cycle`). Fail closed while either is unset.
+  - The decision right is the role `ioeti-cert-decision-maker`; anyone who ever audited the client is refused.
+  - Suspend, restore and withdraw are taken by one eligible decision maker (not by the committee); to confirm with the
+    quality manager.
+  - The public check runs only while `channels.enabled` contains CERTIFICATE_CHECK (D-10).
+  - See `docs/slices/M1-certification.md`.
 
 ## Related, owner-only actions (not engineering decisions)
 

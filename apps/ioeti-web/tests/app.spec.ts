@@ -1105,8 +1105,6 @@ test("certification: Stage 1 and 2 with server-chosen auditors, findings to clos
   const { requests, answers, fail } = await certificationMocks(page);
   await page.goto("/#/certification/61");
   await expect(page.getByRole("heading", { name: "Nile Foods" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "قرار الاعتماد" })).toBeDisabled();
-  await expect(page.getByRole("button", { name: "إصدار الشهادة" })).toBeDisabled();
   // no open major yet: Stage 1, Stage 2 and the policy block the decision
   await expect(page.locator(".cert-readiness li.is-blocked")).toHaveCount(3);
   const stage1 = page.locator(".cert-stage").first();

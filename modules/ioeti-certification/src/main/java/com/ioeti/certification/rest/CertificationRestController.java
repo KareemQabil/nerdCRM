@@ -494,15 +494,20 @@ public class CertificationRestController {
     JpaSecurity security = Beans.get(JpaSecurity.class);
     Partner client = cycle.getClient();
     boolean canReadClient = security.isPermitted(JpaSecurity.CAN_READ, Partner.class, client.getId());
-    CertificationDecisionService decisions = Beans.get(CertificationDecisionService.class);
     LocalDate today = CertificationDecisionService.today();
+    // computed once per row: the register shows up to 500 rows when filtering by phase
     ClientCertificate certificate = CertificationDecisionService.certificate(cycle);
+    List<String> audit = CertificationService.auditBlockers(cycle);
+    List<String> missing = Beans.get(CertificationDecisionService.class).missingPolicies(cycle, today);
+    List<String> blockers = new ArrayList<>(audit);
+    if (!missing.isEmpty()) blockers.add(CertificationService.BLOCKER_POLICY);
     return new CycleView(cycle.getId(), cycle.getVersion(), cycle.getReference(),
         canReadClient ? client.getId() : null, canReadClient ? client.getName() : null,
         cycle.getBusinessLine().getCode(), cycle.getScope(), cycle.getSiteCount(),
-        CertificationService.openMajors(cycle), CertificationService.readyForDecision(cycle), decisions.status(cycle, today),
+        audit.contains(CertificationService.BLOCKER_MAJORS) ? CertificationService.openMajors(cycle) : 0, audit.isEmpty(),
+        CertificationDecisionService.status(cycle, certificate, missing, audit),
         cycle.getManager() != null && cycle.getManager().equals(AuthUtils.getUser()),
-        CertificationService.phase(cycle), CertificationService.decisionBlockers(cycle),
+        CertificationService.phase(certificate, audit), blockers,
         cycle.getManager() == null ? null : cycle.getManager().getName(),
         certificate == null ? null : certificate.getNumber(),
         certificate == null ? null : DecisionRules.effectiveStatus(certificate.getStatus(), certificate.getExpiresOn(), today));

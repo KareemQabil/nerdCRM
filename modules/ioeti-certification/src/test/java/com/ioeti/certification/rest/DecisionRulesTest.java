@@ -11,6 +11,10 @@ import com.axelor.auth.db.Role;
 import com.axelor.auth.db.User;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.ioeti.certification.db.CertificationCycle;
+import com.ioeti.certification.db.ClientCertificate;
+import com.ioeti.certification.service.CertificationDecisionService;
+import com.ioeti.certification.service.CertificationService;
 import com.ioeti.certification.service.DecisionRules;
 import com.ioeti.core.api.ApiException;
 import com.ioeti.core.policy.PolicyService;
@@ -154,6 +158,21 @@ class DecisionRulesTest {
     assertEquals(0, CertificateCheckController.admit("10.0.0.2", 3, now + 10), "another address is counted on its own");
     assertEquals(0, CertificateCheckController.admit("10.0.0.1", 3, now + CertificateCheckController.WINDOW_MILLIS + 1), "after the window");
     CertificateCheckController.resetForTests();
+  }
+
+  @Test
+  void phaseAndDecisionStatusFollowTheCertificateThePoliciesAndTheAudits() {
+    ClientCertificate certificate = new ClientCertificate();
+    List<String> none = List.of();
+    assertEquals("CERTIFIED", CertificationService.phase(certificate, none));
+    assertEquals("STAGE1_PENDING", CertificationService.phase(null, List.of("STAGE1_NOT_COMPLETED", "STAGE2_NOT_COMPLETED")));
+    assertEquals("FINDINGS_OPEN", CertificationService.phase(null, List.of("OPEN_MAJOR_NONCONFORMITIES")));
+    assertEquals("READY_FOR_DECISION", CertificationService.phase(null, none));
+    CertificationCycle cycle = new CertificationCycle();
+    assertEquals("GRANTED", CertificationDecisionService.status(cycle, certificate, List.of("cert.decision"), List.of("STAGE1_NOT_COMPLETED")));
+    assertEquals("BLOCKED_BY_POLICY", CertificationDecisionService.status(cycle, null, List.of("cert.cycle"), none),
+        "fail closed comes before readiness");
+    assertEquals("NOT_READY", CertificationDecisionService.status(cycle, null, none, List.of("STAGE2_NOT_COMPLETED")));
   }
 
   private static PolicyService policy(String value) throws Exception {

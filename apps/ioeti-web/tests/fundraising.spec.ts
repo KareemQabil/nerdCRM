@@ -165,7 +165,7 @@ test("restricted funds: balance per restriction and currency, unallocated apart;
   await expect(page.locator(".fund-note").filter({ hasText: "الترحيل لدفتر الأستاذ لسه مش متاح" })).toBeVisible();
   await page.getByLabel("الكود").fill("water-2027");
   await page.getByLabel("الاسم", { exact: true }).fill("Clean water wells");
-  await page.getByLabel("الحساب التحليلي", { exact: true }).selectOption("802");
+  await page.locator("form.fund-form").getByLabel("الحساب التحليلي").selectOption("802");
   await page.getByRole("button", { name: "قيد جديد" }).click();
   await expect(page.locator(".fund-list")).toContainText("Clean water wells");
   expect(posted.find(p => p.path === "/fund-restrictions")!.body).toEqual({ code: "WATER-2027", name: "Clean water wells", analyticAccountId: 802 });

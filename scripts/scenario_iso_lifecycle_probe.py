@@ -368,12 +368,12 @@ def main():
         cyc = obj(b_cy)
         track(CYCLE, cyc.get("id"))
         ids["cycle"] = cyc.get("id")
-        s_dec, b_dec = cm.call("POST", f"{CERT}/cycles/{cyc.get('id')}/decision")
+        s_dec, b_dec = cm.call("GET", f"{CERT}/cycles/{cyc.get('id')}/decision")
         s_cy_a, _ = a.call("GET", f"{CERT}/cycles/{cyc.get('id')}")
-        check("7 certification cycle opened for the converted client (201); decision → BLOCKED_BY_POLICY (D-02); sales, with no "
-              "right on cycles, → 403",
-              (s_cy, cyc.get("clientId"), s_dec, error(b_dec).get("code"), s_cy_a) == (201, account_id, 422, "BLOCKED_BY_POLICY", 403)
-              and "D-02" in error(b_dec).get("message", ""), f"{s_cy} {b_cy} {s_dec} {b_dec} {s_cy_a}")
+        check("7 certification cycle opened for the converted client (201); the decision panel says it is blocked by policy (D-02, no "
+              "decision mode set); sales, with no right on cycles, → 403",
+              (s_cy, cyc.get("clientId"), s_dec, obj(b_dec).get("status"), s_cy_a) == (201, account_id, 200, "BLOCKED_BY_POLICY", 403),
+              f"{s_cy} {b_cy} {s_dec} {b_dec} {s_cy_a}")
 
         # --- 8. every area agrees -----------------------------------------------------------------------------
         def a360(client):

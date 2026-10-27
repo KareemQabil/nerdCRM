@@ -300,8 +300,8 @@ public class FundraisingService {
   }
 
   /**
-   * Finance allocates a restricted commitment to a restriction, once. Every recorded collection already on it, and every
-   * later one, records the restriction's analytic account.
+   * Finance allocates a restricted commitment to a restriction, once. Every recorded (not voided) collection already on
+   * it, and every later one, records the restriction's analytic account.
    */
   @Transactional(rollbackOn = {Exception.class})
   public FundingCommitment allocate(FundingCommitment commitment, FundRestriction restriction) {
@@ -319,7 +319,8 @@ public class FundraisingService {
     commitment.setAllocatedAt(LocalDateTime.now());
     commitment.setAllocatedBy(AuthUtils.getUser());
     for (DonationCollection k : Query.of(DonationCollection.class).filter(
-        "self.installment.commitment = ?1 AND self.fundRestriction IS NULL", commitment).fetch()) {
+        "self.installment.commitment = ?1 AND self.fundRestriction IS NULL AND self.statusSelect = ?2", commitment,
+        DonationCollectionRepository.STATUS_RECORDED).fetch()) {
       allocate(k, restriction);
       JPA.save(k);
     }

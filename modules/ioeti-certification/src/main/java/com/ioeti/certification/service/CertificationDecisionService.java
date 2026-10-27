@@ -153,9 +153,13 @@ public class CertificationDecisionService {
    * REFUSED (the last round refused and none is open; a new round may start).
    */
   public String status(CertificationCycle cycle, LocalDate today) {
-    if (certificate(cycle) != null) return "GRANTED";
-    if (!missingPolicies(cycle, today).isEmpty()) return "BLOCKED_BY_POLICY";
-    List<String> blockers = CertificationService.auditBlockers(cycle);
+    return status(cycle, certificate(cycle), missingPolicies(cycle, today), CertificationService.auditBlockers(cycle));
+  }
+
+  /** {@link #status(CertificationCycle, LocalDate)} from values the caller already has. */
+  public static String status(CertificationCycle cycle, ClientCertificate certificate, List<String> missing, List<String> blockers) {
+    if (certificate != null) return "GRANTED";
+    if (!missing.isEmpty()) return "BLOCKED_BY_POLICY";
     if (blockers.contains(CertificationService.BLOCKER_STAGE1) || blockers.contains(CertificationService.BLOCKER_STAGE2)) return "NOT_READY";
     if (openRound(cycle) != null) return "AWAITING_DECISION";
     List<CertificationDecision> rounds = rounds(cycle);
