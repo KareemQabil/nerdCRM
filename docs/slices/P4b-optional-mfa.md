@@ -1,5 +1,10 @@
 # P4b: optional two-step sign-in (D-07)
 
+Status: implemented and checked against the real backend.
+- `scripts/mfa_probe.py` passes 19/19 (backend CI) with complete cleanup.
+- These still pass: the admin probe (43/43), the session security probe (20/20) and the roles probe (22/22).
+- Mocked browser suites: 123 + 27.
+
 D-07 (signed 2026-10-25) says: **MFA is optional** (users may turn it on).
 
 ## What is used
