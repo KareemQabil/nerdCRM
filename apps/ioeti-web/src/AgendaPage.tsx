@@ -6,6 +6,7 @@ import {
 import { getAgenda, localDate, problem, recordHref, wallClock, type AgendaItem } from "./dailyApi";
 import type { Language } from "./preferences";
 import "./daily.css";
+import { PageHeader } from "./ui";
 
 const L = {
   ar: {
@@ -67,7 +68,7 @@ export function AgendaPage({ language }: { language: Language }) {
   const Prev = ar ? ChevronRight : ChevronLeft, Next = ar ? ChevronLeft : ChevronRight;
   const busyDays = days.filter(d => (byDay.get(localDate(d))?.length ?? 0) > 0);
   return <section className="page-enter agenda-page">
-    <div className="page-head"><div className="page-title"><span className="eyebrow">{l.eyebrow}</span><h1><CalendarDays size={24}/>{l.title}</h1><p>{l.hint}</p></div></div>
+    <PageHeader eyebrow={l.eyebrow} title={<><CalendarDays size={24}/>{l.title}</>} description={l.hint}/>
     <div className="agenda-toolbar">
       <div className="agenda-nav">
         <button type="button" className="icon-button" aria-label={l.previous} onClick={() => setStart(addDays(start, -span))}><Prev size={18}/></button>

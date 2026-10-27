@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import {
-  ArrowLeft, ArrowRight, CalendarClock, CheckCircle2, CircleAlert, CircleDashed, FileLock2, HandCoins, HeartHandshake, History,
+  ArrowLeft, ArrowRight, CalendarClock, CheckCircle2, CircleAlert, CircleDashed, FileLock2, HandCoins, History,
   LockKeyhole, Plus, RefreshCw, Search, UserRound, Wallet,
 } from "lucide-react";
 import { ApiError, getAccounts, type AccountSummary } from "./api";
@@ -14,6 +14,8 @@ import {
 } from "./fundraisingApi";
 import type { Language } from "./preferences";
 import "./fundraising.css";
+import { amount } from "./format";
+import { ErrorBanner, PageHeader } from "./ui";
 
 const strings = {
   ar: {
@@ -127,7 +129,7 @@ function useAction(l: Labels, after: () => Promise<unknown>) {
 function useMoney(_language: Language) {
   return useCallback((value: Money | null | undefined, currency: string) =>
     value === null || value === undefined ? "—"
-      : `${Number(value).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${currency}`, []);
+      : amount(value, currency), []);
 }
 const donorLabel = (name: string | null, l: Labels) => name ?? l.anonymousDonor;
 
@@ -140,9 +142,7 @@ export function FundraisingPage({language}:{language:Language}){
   if(route[0]==="opportunities"&&/^\d+$/.test(route[1]||""))return <OpportunityRecord key={route[1]} oppId={Number(route[1])} l={l} language={language} Back={Back}/>;
   const tab=(["donors","pipeline","collections"] as const).find(t=>t===route[0])??"overview";
   return <section className="page-enter fund-page">
-    <div className="directory-head"><div className="page-title">
-      <span className="eyebrow">{language==="ar"?"التنفيذ والخدمات":"Delivery & services"}</span><h1>{l.title}</h1><p>{l.desc}</p>
-    </div><div className="directory-head-symbol"><HeartHandshake size={29}/></div></div>
+    <PageHeader className="directory-head" eyebrow={language==="ar"?"التنفيذ والخدمات":"Delivery & services"} title={l.title} description={l.desc}/>
     <div className="demo-record-tabs fund-tabs" role="tablist" aria-label={l.title}>
       {(["overview","donors","pipeline","collections"] as const).map(t=><button key={t} type="button" role="tab" aria-selected={tab===t} className={tab===t?"active":""}
         onClick={()=>{window.location.hash=t==="overview"?"#/fundraising":"#/fundraising/"+t;}}>{l.tabs[t]}</button>)}
@@ -265,7 +265,7 @@ function DonorRecord({donorId,l,language,Back}:{donorId:number;l:Labels;language
   },[donorId]);
   useEffect(()=>{void reload().catch(e=>setLoadError(message(e,l)));},[reload,l]);
   const {busy,error,run}=useAction(l,reload);
-  if(loadError)return <section className="page-enter"><a className="record-back" href="#/fundraising/donors"><Back size={17}/>{l.back}</a><div className="error-banner" role="alert"><CircleAlert size={17}/><span>{loadError}</span></div></section>;
+  if(loadError)return <section className="page-enter"><a className="record-back" href="#/fundraising/donors"><Back size={17}/>{l.back}</a><ErrorBanner message={loadError}/></section>;
   if(!donor)return <div className="empty-state" role="status">{l.loading}</div>;
   const editable=donor.managedByMe;
   return <article className="record-workspace page-enter fund-record" aria-labelledby="donor-title">
@@ -364,7 +364,7 @@ function OpportunityRecord({oppId,l,language,Back}:{oppId:number;l:Labels;langua
   },[oppId]);
   useEffect(()=>{void reload().catch(e=>setLoadError(message(e,l)));},[reload,l]);
   const {busy,error,run}=useAction(l,reload);
-  if(loadError)return <section className="page-enter"><a className="record-back" href="#/fundraising/pipeline"><Back size={17}/>{l.back}</a><div className="error-banner" role="alert"><CircleAlert size={17}/><span>{loadError}</span></div></section>;
+  if(loadError)return <section className="page-enter"><a className="record-back" href="#/fundraising/pipeline"><Back size={17}/>{l.back}</a><ErrorBanner message={loadError}/></section>;
   if(!opp)return <div className="empty-state" role="status">{l.loading}</div>;
   const editable=opp.managedByMe;
   const open=["IDENTIFIED","PROPOSAL","SUBMITTED"].includes(opp.stage);

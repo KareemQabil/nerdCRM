@@ -14,6 +14,7 @@ import { VisitChecklist } from "./VisitChecklist";
 import { DocumentsPanel } from "./DocumentsPanel";
 import "./daily.css";
 import "./visits.css";
+import { ErrorBanner, PageHeader } from "./ui";
 
 const L = {
   ar: {
@@ -97,15 +98,12 @@ function VisitList({ language }: { language: Language }) {
     return g;
   }, [rows]);
   return <section className="page-enter visits-page">
-    <div className="page-head">
-      <div className="page-title"><span className="eyebrow">{l.eyebrow}</span><h1>{l.title}</h1><p>{l.hint}</p></div>
-      <div className="page-head-actions"><button type="button" className="btn btn-primary" onClick={() => setAdding(true)}><Plus size={16}/>{l.add}</button></div>
-    </div>
+    <PageHeader eyebrow={l.eyebrow} title={l.title} description={l.hint} actions={<><button type="button" className="btn btn-primary" onClick={() => setAdding(true)}><Plus size={16}/>{l.add}</button></>}/>
     <div className="segmented" role="group">
       <button type="button" className={mine ? "chosen" : ""} aria-pressed={mine} onClick={() => setMine(true)}>{l.mine}</button>
       <button type="button" className={!mine ? "chosen" : ""} aria-pressed={!mine} onClick={() => setMine(false)}>{l.all}</button>
     </div>
-    {error && <div className="error-banner" role="alert"><CircleAlert size={17}/><span>{error}</span></div>}
+    {error && <ErrorBanner message={error}/>}
     {rows === null ? <div className="empty-state" role="status">{l.loading}</div> :
       (["active", "today", "upcoming", "toPlan", "done"] as const).map(g => groups[g].length > 0 && <section key={g} className={"visit-group is-" + g} aria-label={l.groups[g]}>
         <h2>{l.groups[g]}<b>{groups[g].length}</b></h2>
@@ -159,7 +157,7 @@ function VisitRecord({ id, language }: { id: number; language: Language }) {
   const minutes = v?.durationSeconds ? Math.round(v.durationSeconds / 60) : null;
   return <article className="page-enter visit-record">
     <div className="record-context-bar"><a className="record-back" href="#/visits"><Back size={17}/>{l.back}</a></div>
-    {error && <div className="error-banner" role="alert"><CircleAlert size={17}/><span>{error}</span></div>}
+    {error && <ErrorBanner message={error}/>}
     {!v ? (!error && <div className="empty-state" role="status">{l.loading}</div>) : <>
       <header className={"visit-hero is-" + v.status.toLowerCase()}>
         <div className="visit-hero-top"><span className={"visit-status is-" + v.status.toLowerCase()}>{l.status[v.status]}</span>

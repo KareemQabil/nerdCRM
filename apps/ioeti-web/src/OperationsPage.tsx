@@ -11,6 +11,7 @@ import {
 } from "./operationsApi";
 import type { Language } from "./preferences";
 import "./operations.css";
+import { ErrorBanner, PageHeader } from "./ui";
 
 const strings = {
   ar: {
@@ -103,8 +104,7 @@ export function OperationsPage({language}:{language:Language}){
   if(route[0]==="engagements"&&/^\d+$/.test(route[1]||""))return <EngagementRecord key={route[1]} engagementId={Number(route[1])} l={l} Back={Back}/>;
   const tab=(["engagements","checklists"] as const).find(t=>t===route[0])??"handovers";
   return <section className="page-enter ops-page">
-    <div className="directory-head"><div className="page-title"><span className="eyebrow">{language==="ar"?"التنفيذ والخدمات":"Delivery & services"}</span><h1>{l.title}</h1><p>{l.desc}</p></div>
-      <div className="directory-head-symbol"><Workflow size={29}/></div></div>
+    <PageHeader className="directory-head" eyebrow={language==="ar"?"التنفيذ والخدمات":"Delivery & services"} title={l.title} description={l.desc}/>
     <div className="demo-record-tabs ops-tabs" role="tablist" aria-label={l.title}>
       {(["handovers","engagements","checklists"] as const).map(t=><button key={t} type="button" role="tab" aria-selected={tab===t} className={tab===t?"active":""}
         onClick={()=>{window.location.hash=t==="handovers"?"#/operations":"#/operations/"+t;}}>{l.tabs[t]}</button>)}
@@ -154,7 +154,7 @@ function HandoverRecord({handoverId,l,Back}:{handoverId:number;l:Labels;Back:typ
   const reload=useCallback(async()=>{const [x,e]=await Promise.all([getHandover(handoverId),getEvents(handoverId).catch(()=>[] as HandoverEvent[])]);setH(x);setEvents(e);},[handoverId]);
   useEffect(()=>{void reload().catch(e=>setLoadError(message(e,l)));void getPeople().then(setPeople).catch(()=>setPeople(null));},[reload,l]);
   const {busy,error,run}=useAction(l,reload);
-  if(loadError)return <section className="page-enter"><a className="record-back" href="#/operations"><Back size={17}/>{l.back}</a><div className="error-banner" role="alert"><CircleAlert size={17}/><span>{loadError}</span></div></section>;
+  if(loadError)return <section className="page-enter"><a className="record-back" href="#/operations"><Back size={17}/>{l.back}</a><ErrorBanner message={loadError}/></section>;
   if(!h)return <div className="empty-state" role="status">{l.loading}</div>;
   const open=h.status==="SUBMITTED"||h.status==="REWORK_REQUESTED";
   const reviewer=people!==null; // the server lists people only to callers who may create engagements
@@ -226,7 +226,7 @@ function EngagementRecord({engagementId,l,Back}:{engagementId:number;l:Labels;Ba
   const reload=useCallback(async()=>{const [x,t]=await Promise.all([getEngagement(engagementId),getTasks(engagementId)]);setG(x);setTasks(t);},[engagementId]);
   useEffect(()=>{void reload().catch(e=>setLoadError(message(e,l)));void getPeople().then(setPeople).catch(()=>setPeople([]));},[reload,l]);
   const {busy,error,run}=useAction(l,reload);
-  if(loadError)return <section className="page-enter"><a className="record-back" href="#/operations/engagements"><Back size={17}/>{l.back}</a><div className="error-banner" role="alert"><CircleAlert size={17}/><span>{loadError}</span></div></section>;
+  if(loadError)return <section className="page-enter"><a className="record-back" href="#/operations/engagements"><Back size={17}/>{l.back}</a><ErrorBanner message={loadError}/></section>;
   if(!g)return <div className="empty-state" role="status">{l.loading}</div>;
   const editable=people.length>0;
   return <article className="record-workspace page-enter ops-record" aria-labelledby="eng-title">

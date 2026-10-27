@@ -7,6 +7,8 @@ import { getPendingReviews, type Review } from "./workspaceApi";
 import { getAreasReport, getSalesReport, type AreasReport, type SalesReport } from "./reportsApi";
 import { stageLabel } from "./labels";
 import type { Language } from "./preferences";
+import { amount } from "./format";
+import { PageHeader } from "./ui";
 
 /**
  * The live home page: the signed-in person's own work first, then the pipeline and activity they may
@@ -71,8 +73,7 @@ export function HomeCockpit({ language, name, unread, onNavigate }: Props) {
     void load(() => getPendingReviews()).then(setReviews);
   }, []);
 
-  const money = (amount: string | number, currency: string | null) =>
-    new Intl.NumberFormat(ar ? "ar-EG" : "en-EG", { maximumFractionDigits: 0 }).format(Number(amount)) + (currency ? " " + currency : "");
+  const money = (value: string | number, currency: string | null) => amount(value, currency, true);
   const planned = followUps.state === "ready" ? followUps.value.filter(f => f.status === "PLANNED") : [];
   const overdue = planned.filter(f => f.overdue);
   const tiles: { key: string; label: string; value: number; tone: string; page: string; icon: typeof Bell }[] = [
@@ -103,16 +104,11 @@ export function HomeCockpit({ language, name, unread, onNavigate }: Props) {
   const funnel = sales.state === "ready" ? sales.value.leads : null;
 
   return <section className="page-enter cockpit">
-    <div className="page-head">
-      <div className="page-title">
-        <span className="eyebrow">{new Intl.DateTimeFormat(ar ? "ar-EG" : "en-GB", { weekday: "long", day: "numeric", month: "long" }).format(new Date())}</span>
-        <h1>{l.hello}{name ? (ar ? "، " : ", ") + name : ""}</h1><p>{l.dayHint}</p>
-      </div>
-      <div className="page-head-actions">
+    <PageHeader eyebrow={new Intl.DateTimeFormat(ar ? "ar-EG" : "en-GB", { weekday: "long", day: "numeric", month: "long" }).format(new Date())}
+      title={l.hello + (name ? (ar ? "، " : ", ") + name : "")} description={l.dayHint} actions={<>
         <button type="button" className="btn btn-primary" onClick={() => onNavigate("leads")}><UserPlus size={16}/>{l.newLead}</button>
         <button type="button" className="btn btn-secondary" onClick={() => onNavigate("inbox")}><Inbox size={16}/>{l.openInbox}</button>
-      </div>
-    </div>
+      </>}/>
 
     <h2 className="cockpit-heading">{l.day}</h2>
     <div className="cockpit-tiles" role="list">

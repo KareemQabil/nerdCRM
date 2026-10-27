@@ -14,6 +14,7 @@ import { AdminLists } from "./AdminLists";
 import { AdminNumbering } from "./AdminNumbering";
 import { AdminQuality } from "./AdminQuality";
 import "./admin.css";
+import { PageHeader } from "./ui";
 
 type Language = "ar" | "en";
 type Tab = "people" | "teams" | "lines" | "lists" | "quality" | "numbering" | "profiles" | "changes";
@@ -206,9 +207,7 @@ export function AdminConsole({ language, routeHash, myCode }: { language: Langua
   }, []);
 
   return <section className="page-enter admin-console" data-area="admin">
-    <div className="page-head">
-      <div className="page-title"><span className="eyebrow">{l.area}</span><h1>{l.title}</h1><p>{l.hint}</p></div>
-    </div>
+    <PageHeader eyebrow={l.area} title={l.title} description={l.hint}/>
     <div className="segmented admin-tabs" role="tablist" aria-label={l.title}>
       {TABS.map(t => <button key={t} type="button" role="tab" aria-selected={tab === t} className={tab === t ? "chosen" : ""} onClick={() => go("#/admin/" + t)}>{l.tabs[t]}</button>)}
     </div>

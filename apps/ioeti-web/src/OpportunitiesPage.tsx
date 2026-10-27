@@ -6,6 +6,8 @@ import {
 } from "./api";
 import { type Language } from "./preferences";
 import { OpportunityRecordWorkspace } from "./OpportunityRecordWorkspace";
+import { ErrorBanner, PageHeader } from "./ui";
+import { problem } from "./dailyApi";
 
 type Labels = Record<string, string>;
 type Props = { language: Language; lines: BusinessLine[]; labels: Labels };
@@ -44,7 +46,7 @@ export function OpportunitiesPage({ language, labels }: Props) {
       setItems(values);
       setMore(values.length === 25);
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : labels.unavailable);
+      setError(problem(reason, isRTL));
     } finally { setLoading(false); }
   }, [labels.unavailable]);
 
@@ -65,7 +67,7 @@ export function OpportunitiesPage({ language, labels }: Props) {
         if (current === generation) {
           setSelected(null);
           setError(reason instanceof ApiError && reason.statusCode === 403
-            ? labels.forbidden : reason instanceof Error ? reason.message : labels.unavailable);
+            ? labels.forbidden : problem(reason, isRTL));
         }
       }).finally(() => {
         if (current === generation) setDetailLoading(false);
@@ -104,7 +106,7 @@ export function OpportunitiesPage({ language, labels }: Props) {
       setSelected(record);
     } catch (reason) {
       setError(reason instanceof ApiError && reason.statusCode === 403
-        ? labels.forbidden : reason instanceof Error ? reason.message : labels.unavailable);
+        ? labels.forbidden : problem(reason, isRTL));
     } finally { setDetailLoading(false); }
   }
   function backToList() {
@@ -176,7 +178,7 @@ export function OpportunitiesPage({ language, labels }: Props) {
         setFormError(field === "name" ? labels.invalidName
           : field === "businessLineCode" ? labels.lineUnavailable : labels.unavailable);
       }
-      else setFormError(reason instanceof Error ? reason.message : labels.unavailable);
+      else setFormError(problem(reason, isRTL));
     } finally { setSaving(false); }
   }
   async function loadMore() {
@@ -186,7 +188,7 @@ export function OpportunitiesPage({ language, labels }: Props) {
       const next = await getOpportunities(items.length, 25);
       setItems(previous => [...previous, ...next.filter(n => !previous.some(item => item.id === n.id))]);
       setMore(next.length === 25);
-    } catch (reason) { setError(reason instanceof Error ? reason.message : labels.unavailable); }
+    } catch (reason) { setError(problem(reason, isRTL)); }
     finally { setLoadingMore(false); }
   }
   const visible = items.filter(item => {
@@ -207,12 +209,10 @@ export function OpportunitiesPage({ language, labels }: Props) {
       ? <div className="empty-state" role="status">{labels.loading}</div>
       : <div className="opportunities-list">
 
-    <div className="page-heading-actions">
-      <div className="page-title"><span className="eyebrow">{labels.sales}</span><h1>{labels.opportunities}</h1><p>{labels.opportunitiesDescription}</p></div>
-      <button type="button" className="btn btn-primary" onClick={openCreate}><Plus size={17}/>{labels.newOpportunity}</button>
-    </div>
+    <PageHeader eyebrow={labels.sales} title={labels.opportunities} description={labels.opportunitiesDescription}
+      actions={<button type="button" className="btn btn-primary" onClick={openCreate}><Plus size={17}/>{labels.newOpportunity}</button>}/>
     <div className="list-toolbar"><label className="search-field"><Search size={18}/><span className="sr-only">{labels.searchOpportunities}</span><input value={filter} onChange={e => setFilter(e.target.value)} placeholder={labels.searchOpportunities}/></label><button className="icon-button" type="button" aria-label={labels.retry} onClick={() => void reload()}><RefreshCw size={17}/></button></div>
-    {error && <div className="error-banner" role="alert"><CircleAlert size={17}/><span>{error}</span><button className="btn btn-secondary" type="button" onClick={() => void reload()}>{labels.retry}</button></div>}
+    <ErrorBanner message={error} onRetry={() => void reload()} retryLabel={labels.retry}/>
     <div className="data-panel">
       <div className="data-panel-heading"><strong>{labels.opportunities}</strong><span>{visible.length} {labels.result}</span></div>
       {loading ? <div className="empty-state" role="status">{labels.loading}</div> : visible.length === 0 ? <div className="empty-state">{labels.emptyOpportunities}</div> : <div className="table-scroll">

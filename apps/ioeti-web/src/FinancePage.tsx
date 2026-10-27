@@ -10,6 +10,8 @@ import { InvoicesPanel } from "./InvoicesPanel";
 import type { Language } from "./preferences";
 import "./daily.css";
 import "./finance.css";
+import { amount, day as dayOf, rate } from "./format";
+import { PageHeader } from "./ui";
 
 const L = {
   ar: {
@@ -85,9 +87,8 @@ export function FinancePage({ language }: { language: Language }) {
   const [upcomingError, setUpcomingError] = useState("");
   const [message, setMessage] = useState<{ kind: "error" | "ok"; text: string; items?: string[] } | null>(null);
   const [busy, setBusy] = useState(false);
-  const money = (value: number | null, currency: string) => value == null ? "—"
-    : new Intl.NumberFormat(ar ? "ar-EG" : "en-GB", { maximumFractionDigits: 2 }).format(value) + " " + currency;
-  const day = (value: string | null) => value ? new Date(value + "T00:00:00").toLocaleDateString(ar ? "ar-EG" : "en-GB", { day: "numeric", month: "short", year: "numeric" }) : "—";
+  const money = (value: number | null, currency: string) => amount(value, currency);
+  const day = (value: string | null) => dayOf(value, ar);
   const loadQueue = useCallback(() => getFinanceQueue(state).then(r => { setQueue(r); setQueueError(""); }).catch(e => { setQueue([]); setQueueError(problem(e, l)); }), [state, l]);
   const loadUpcoming = useCallback(() => getUpcomingMilestones(within).then(r => { setUpcoming(r); setUpcomingError(""); }).catch(e => { setUpcoming([]); setUpcomingError(problem(e, l)); }), [within, l]);
   const loadSummary = useCallback(() => getFinanceSummary().then(setSummary).catch(() => setSummary(null)), []);
@@ -119,7 +120,7 @@ export function FinancePage({ language }: { language: Language }) {
     } finally { setBusy(false); }
   }
   return <section className="page-enter finance-page">
-    <div className="page-head"><div className="page-title"><span className="eyebrow">{l.eyebrow}</span><h1>{l.title}</h1><p>{l.hint}</p></div></div>
+    <PageHeader eyebrow={l.eyebrow} title={<>{l.title}</>} description={l.hint}/>
     <div className="finance-held" role="note"><LockKeyhole size={16}/><span>{l.held}</span><span className="system-map-decision" dir="ltr">D-06</span></div>
     {message && <div className={message.kind === "error" ? "error-banner" : "finance-ok"} role={message.kind === "error" ? "alert" : "status"}>
       {message.kind === "error" ? <CircleAlert size={17}/> : <Send size={16}/>}<span>{message.text}
@@ -135,7 +136,7 @@ export function FinancePage({ language }: { language: Language }) {
           <div><dt>{l.collected}</dt><dd>{summary.invoicesPermitted ? money(r.collected, r.currency) : <small>{l.notPermitted}</small>}</dd></div>
         </dl>
           {r.fxStatus && r.fxStatus !== "BASE" && summary.baseCurrency && <p className="finance-fx">
-            {r.fxStatus === "OK" ? <>{l.inBase(summary.baseCurrency)}: {money(r.bookedInBase ?? null, summary.baseCurrency)} · {l.rateUsed(new Intl.NumberFormat(ar ? "ar-EG" : "en-GB", { maximumFractionDigits: 6 }).format(r.rate ?? 0), day(r.rateDate ?? null))}</>
+            {r.fxStatus === "OK" ? <>{l.inBase(summary.baseCurrency)}: {money(r.bookedInBase ?? null, summary.baseCurrency)} · {l.rateUsed(rate(r.rate ?? 0), day(r.rateDate ?? null))}</>
               : <><TriangleAlert size={13}/>{l.fx[r.fxStatus]}</>}</p>}
         </div>)}
       {summary && summary.rows.length > 1 && summary.baseCurrency && (summary.totalInBase

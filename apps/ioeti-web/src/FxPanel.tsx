@@ -4,6 +4,7 @@ import { ApiError } from "./api";
 import { Dialog } from "./Dialog";
 import { enterFxRate, getFx, refreshFx, type FxOverview } from "./financeApi";
 import type { Language } from "./preferences";
+import { day as dayOf, rate as formatRate } from "./format";
 
 const L = {
   ar: {
@@ -63,8 +64,8 @@ export function FxPanel({ language, onChanged }: { language: Language; onChanged
   }), [l]);
   useEffect(() => { void load(); }, [load]);
   if (hidden) return null;
-  const rate = (value: number) => new Intl.NumberFormat(ar ? "ar-EG" : "en-GB", { maximumFractionDigits: 6 }).format(value);
-  const day = (value: string) => new Date(value + "T00:00:00").toLocaleDateString(ar ? "ar-EG" : "en-GB", { day: "numeric", month: "short", year: "numeric" });
+  const rate = (value: number) => formatRate(value);
+  const day = (value: string) => dayOf(value, ar);
   async function fetchNow() {
     setBusy(true); setMessage(null);
     try { setFx(await refreshFx()); setMessage({ kind: "ok", text: l.refreshed }); onChanged?.(); }

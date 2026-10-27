@@ -13,6 +13,7 @@ import {
 } from "./recruitmentApi";
 import type { Language } from "./preferences";
 import "./recruitment.css";
+import { ErrorBanner, PageHeader } from "./ui";
 
 const strings = {
   ar: {
@@ -119,9 +120,7 @@ export function RecruitmentPage({language}:{language:Language}){
   if(route[0]==="candidates"&&/^\d+$/.test(route[1]||""))return <CandidateRecord key={route[1]} candidateId={Number(route[1])} l={l} Back={Back}/>;
   const tab=route[0]==="candidates"?"candidates":"orders";
   return <section className="page-enter rec-page">
-    <div className="directory-head"><div className="page-title">
-      <span className="eyebrow">{language==="ar"?"التنفيذ والخدمات":"Delivery & services"}</span><h1>{l.title}</h1><p>{l.desc}</p>
-    </div><div className="directory-head-symbol"><BriefcaseBusiness size={29}/></div></div>
+    <PageHeader className="directory-head" eyebrow={language==="ar"?"التنفيذ والخدمات":"Delivery & services"} title={l.title} description={l.desc}/>
     <div className="demo-record-tabs rec-tabs" role="tablist" aria-label={l.title}>
       <button type="button" role="tab" aria-selected={tab==="orders"} className={tab==="orders"?"active":""} onClick={()=>{window.location.hash="#/recruitment";}}>{l.orders}</button>
       <button type="button" role="tab" aria-selected={tab==="candidates"} className={tab==="candidates"?"active":""} onClick={()=>{window.location.hash="#/recruitment/candidates";}}>{l.candidates}</button>
@@ -187,7 +186,7 @@ function JobOrderRecord({orderId,l,Back}:{orderId:number;l:Labels;Back:typeof Ar
   },[orderId]);
   useEffect(()=>{void reload().catch(e=>setLoadError(message(e,l)));void getCandidates().then(setCandidates).catch(()=>setCandidates([]));},[reload,l]);
   const {busy,error,run}=useAction(l,reload);
-  if(loadError)return <section className="page-enter"><a className="record-back" href="#/recruitment"><Back size={17}/>{l.back}</a><div className="error-banner" role="alert"><CircleAlert size={17}/><span>{loadError}</span></div></section>;
+  if(loadError)return <section className="page-enter"><a className="record-back" href="#/recruitment"><Back size={17}/>{l.back}</a><ErrorBanner message={loadError}/></section>;
   if(!order)return <div className="empty-state" role="status">{l.loading}</div>;
   const editable=order.recruitedByMe;
   const current=apps.find(a=>a.id===selected)||null;
@@ -325,7 +324,7 @@ function CandidateRecord({candidateId,l,Back}:{candidateId:number;l:Labels;Back:
   const reload=useCallback(async()=>{const [c,k]=await Promise.all([getCandidate(candidateId),getConsents(candidateId)]);setCand(c);setConsents(k);},[candidateId]);
   useEffect(()=>{void reload().catch(e=>setLoadError(message(e,l)));void getJobOrders().then(setOrders).catch(()=>setOrders([]));},[reload,l]);
   const {busy,error,run}=useAction(l,reload);
-  if(loadError)return <section className="page-enter"><a className="record-back" href="#/recruitment/candidates"><Back size={17}/>{l.back}</a><div className="error-banner" role="alert"><CircleAlert size={17}/><span>{loadError}</span></div></section>;
+  if(loadError)return <section className="page-enter"><a className="record-back" href="#/recruitment/candidates"><Back size={17}/>{l.back}</a><ErrorBanner message={loadError}/></section>;
   if(!cand)return <div className="empty-state" role="status">{l.loading}</div>;
   const editable=cand.ownedByMe;
   return <article className="record-workspace page-enter rec-record" aria-labelledby="cand-title">

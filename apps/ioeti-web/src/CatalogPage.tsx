@@ -9,6 +9,8 @@ import {
 import type { Language } from "./preferences";
 import "./daily.css";
 import "./catalog.css";
+import { amount } from "./format";
+import { ErrorBanner, PageHeader } from "./ui";
 
 const L = {
   ar: {
@@ -65,7 +67,7 @@ type Card = { id: number; code: string | null; name: string; unit: string | null
   summary?: string | null; onSale?: boolean; accountingReady?: boolean; category?: string | null; full?: CatalogService };
 
 export function CatalogPage({ language }: { language: Language }) {
-  const l = L[language], ar = language === "ar";
+  const l = L[language];
   const [cards, setCards] = useState<Card[] | null>(null);
   const [manage, setManage] = useState(false);
   const [q, setQ] = useState("");
@@ -91,13 +93,9 @@ export function CatalogPage({ language }: { language: Language }) {
   }, [l]);
   useEffect(() => { const t = window.setTimeout(() => void load(q), 250); return () => window.clearTimeout(t); }, [q, load]);
   const shown = (cards ?? []).filter(c => filter === "all" || (filter === "on" ? c.onSale !== false : c.onSale === false));
-  const money = (value: string | number | null, currency: string | null) => value == null ? "—"
-    : new Intl.NumberFormat(ar ? "ar-EG" : "en-GB", { maximumFractionDigits: 2 }).format(Number(value)) + (currency ? " " + currency : "");
+  const money = (value: string | number | null, currency: string | null) => amount(value, currency);
   return <section className="page-enter catalog-page">
-    <div className="page-head">
-      <div className="page-title"><span className="eyebrow">{l.eyebrow}</span><h1>{l.title}</h1><p>{l.hint}</p></div>
-      {manage && <div className="page-head-actions"><button type="button" className="btn btn-primary" onClick={() => setEditing("new")}><PackagePlus size={16}/>{l.add}</button></div>}
-    </div>
+    <PageHeader eyebrow={l.eyebrow} title={l.title} description={l.hint} actions={manage && <><button type="button" className="btn btn-primary" onClick={() => setEditing("new")}><PackagePlus size={16}/>{l.add}</button></>}/>
     <div className="catalog-toolbar">
       <label className="search-field"><Search size={18}/><span className="sr-only">{l.search}</span><input value={q} maxLength={80} placeholder={l.search} onChange={e => setQ(e.target.value)}/></label>
       {manage && <div className="segmented" role="group">{(["all", "on", "off"] as Filter[]).map(f =>
@@ -105,7 +103,7 @@ export function CatalogPage({ language }: { language: Language }) {
       <button type="button" className="icon-button" aria-label={l.refresh} onClick={() => void load(q)}><RefreshCw size={18}/></button>
     </div>
     {!manage && cards !== null && <p className="catalog-note">{l.readOnly}</p>}
-    {error && <div className="error-banner" role="alert"><CircleAlert size={17}/><span>{error}</span></div>}
+    {error && <ErrorBanner message={error}/>}
     {cards === null ? <div className="empty-state" role="status">{l.loading}</div>
       : shown.length === 0 ? <div className="empty-state catalog-empty"><Tag size={30}/><strong>{q ? l.noMatch : l.empty}</strong>{!q && manage && <span>{l.emptyManage}</span>}</div>
       : <ul className="catalog-grid">{shown.map(c => <li key={c.id} className={"catalog-card" + (c.onSale === false ? " is-off" : "")}>

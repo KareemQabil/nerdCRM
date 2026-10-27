@@ -9,6 +9,8 @@ import { LeadConvertPage } from "./LeadConvertPage";
 import { FollowUpQueue, LeadFilterBar, LeadIntakePanel } from "./LeadTools";
 import { searchLeads, type LeadQuery } from "./marketingApi";
 import { AccountDialog } from "./RecordDialogs";
+import { PageHeader } from "./ui";
+import { problem } from "./dailyApi";
 
 type Kind = "leads" | "accounts";
 type Row = LeadSummary | AccountSummary;
@@ -78,7 +80,7 @@ export function DirectoryPage({kind,language}: Props) {
       setHasMore(result.length===25);
     } catch(e) {
       if(e instanceof ApiError && e.statusCode===403)setError(l.noPermission);
-      else setError(e instanceof Error?e.message:l.unavailable);
+      else setError(problem(e,ar));
       setItems([]);setHasMore(false);
     } finally{setLoading(false);}
   },[kind,liveLeads,query,l.noPermission,l.unavailable]);
@@ -103,7 +105,7 @@ export function DirectoryPage({kind,language}: Props) {
       setDetailLoading(true);
       void (kind==="leads"?getLead(id):getAccount(id))
         .then(record=>{if(mine===generation)setSelected(record);})
-        .catch(error=>{if(mine===generation){setSelected(null);setError(error instanceof Error?error.message:l.unavailable);}})
+        .catch(error=>{if(mine===generation){setSelected(null);setError(problem(error,ar));}})
         .finally(()=>{if(mine===generation)setDetailLoading(false);});
     };
     sync();
@@ -140,7 +142,7 @@ export function DirectoryPage({kind,language}: Props) {
         window.history.pushState({ioetiRecordDetail:true,kind,id:item.id},"",route);
       }
       setSelected(record);
-    }catch(e){setError(e instanceof Error?e.message:l.unavailable);}
+    }catch(e){setError(problem(e,ar));}
     finally{setDetailLoading(false);}
   }
   function backToList(){
@@ -158,7 +160,7 @@ export function DirectoryPage({kind,language}: Props) {
       const result=liveLeads?await searchLeads(query,items.length,25):kind==="leads"?await getLeads(items.length,25):await getAccounts(items.length,25);
       setItems(current=>[...current,...result.filter(row=>!current.some(c=>c.id===row.id))]);
       setHasMore(result.length===25);
-    }catch(e){setError(e instanceof Error?e.message:l.unavailable);}
+    }catch(e){setError(problem(e,ar));}
     finally{setBusyMore(false);}
   }
   if(convertId!==null)return <LeadConvertPage leadId={convertId} language={language}/>;
@@ -172,18 +174,11 @@ export function DirectoryPage({kind,language}: Props) {
     />;
   }
   return <section className="page-enter directory-explorer">
-    <div className="directory-head page-head">
-      <div className="page-title">
-        <span className="eyebrow">{kind==="leads"?l.leadSource:l.accountSource}</span>
-        <h1>{kind==="leads"?l.leads:l.accounts}</h1><p>{kind==="leads"?l.leadsSub:l.accountsSub}</p>
-      </div>
-      {kind==="accounts"&&!DEMO_MODE&&<div className="page-head-actions">
-        <button type="button" className="btn btn-primary" onClick={()=>setAddingAccount(true)}><Building2 size={16}/>{l.newAccount}</button>
-      </div>}
-      {liveLeads&&<div className="page-head-actions">
-        <button type="button" className="btn btn-primary" aria-expanded={intake} onClick={()=>setIntake(open=>!open)}><UserPlus size={16}/>{l.newLead}</button>
-      </div>}
-    </div>
+    <PageHeader className="directory-head" eyebrow={kind==="leads"?l.leadSource:l.accountSource} title={kind==="leads"?l.leads:l.accounts}
+      description={kind==="leads"?l.leadsSub:l.accountsSub} actions={<>
+        {kind==="accounts"&&!DEMO_MODE&&<button type="button" className="btn btn-primary" onClick={()=>setAddingAccount(true)}><Building2 size={16}/>{l.newAccount}</button>}
+        {liveLeads&&<button type="button" className="btn btn-primary" aria-expanded={intake} onClick={()=>setIntake(open=>!open)}><UserPlus size={16}/>{l.newLead}</button>}
+      </>}/>
     {DEMO_MODE&&<div className="directory-topline"><div className="directory-illustration"><Layers3 size={17}/><span>{l.demo}</span></div></div>}
     {liveLeads&&<div className="segmented page-tabs" role="group">
       <button type="button" className={tab==="list"?"chosen":""} aria-pressed={tab==="list"} onClick={()=>setTab("list")}><UserRound size={15}/>{l.list}</button>

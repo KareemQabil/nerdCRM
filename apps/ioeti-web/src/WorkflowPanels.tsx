@@ -8,6 +8,7 @@ import {
 } from "./workspaceApi";
 import type { Language } from "./preferences";
 import "./workflow.css";
+import { amount as formatAmount } from "./format";
 
 const strings = {
   ar: {
@@ -63,8 +64,7 @@ function message(error: unknown, l: Labels): string {
   if (error.statusCode === 403 || error.statusCode === 404) return l.errors.denied;
   return l.errors.failed;
 }
-const amount = (value: string | number | null | undefined, currency: string | null) =>
-  value === null || value === undefined ? "—" : `${Number(value).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${currency ?? ""}`;
+const amount = (value: string | number | null | undefined, currency: string | null) => formatAmount(value, currency);
 const stamp = (value: string | null) => value ? value.replace("T", " ").slice(0, 16) : "—";
 
 function useRun(l: Labels, after: () => void) {
