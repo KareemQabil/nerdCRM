@@ -207,9 +207,10 @@ def main():
         check("draft quotation created from the opportunity (201)",
               s == 201 and quote.get("status") == "DRAFT" and quote.get("currency") == "EGP"
               and quote.get("opportunityId") == opp_a["id"] and quote.get("accountId") == account["id"]
-              and quote.get("taxStatus") == "BLOCKED_BY_POLICY", f"{s} {quote}")
-        check("no tax amounts exposed (D-06)",
-              not ({"taxTotal", "inTaxTotal", "taxes"} & set(quote)), sorted(quote))
+              and quote.get("taxStatus") == "POLICY_NOT_SET", f"{s} {quote}")
+        check("no tax amounts while the owners have not set the tax policy (D-06: finance.tax)",
+              quote.get("taxTotal") is None and quote.get("totalWithTax") is None and quote.get("tax") is None
+              and not ({"inTaxTotal", "taxes"} & set(quote)), {k: quote.get(k) for k in ("taxStatus", "taxTotal", "totalWithTax", "tax")})
         stored = fetch(SALE_ORDER, quote.get("id"), ["salespersonUser", "clientPartner", "opportunity", "company",
                                                      "statusSelect"])
         check("persisted natively: salesperson, account, opportunity, company, draft",

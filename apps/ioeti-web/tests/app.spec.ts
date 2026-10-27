@@ -497,11 +497,11 @@ const emptyPlan = (quoteVersion: number) => ({ quoteId: 7, quoteVersion, currenc
   plannedPercentage: "0", plannedAmountBeforeTax: "0", bookingStatus: "NOT_BOOKED", bookedBeforeTax: "0", invoiced: "0",
   collected: "0", invoicingStatus: "BLOCKED_BY_POLICY", milestones: [] as unknown[] });
 
-test("quotations: opportunity page creates a draft from the catalog, before tax only, finalize blocked by policy", async ({page}) => {
+test("quotations: opportunity page creates a draft from the catalog, no tax until the owners set it, finalize blocked by policy", async ({page}) => {
   await intercept(page);
   const ok = (object: unknown, code = 200) => ({ status: code, contentType: "application/json", body: JSON.stringify({ codeStatus: code, messageStatus: "ok", object }) });
   let quote = { id: 7, version: 0, reference: "#7", status: "DRAFT", opportunityId: 101, accountId: 901, accountName: "Nile View Hotel",
-    currency: "EGP", totalBeforeTax: "0", taxStatus: "BLOCKED_BY_POLICY", lines: [] as unknown[] };
+    currency: "EGP", totalBeforeTax: "0", taxStatus: "POLICY_NOT_SET", lines: [] as unknown[] };
   const posts: { path: string; body: unknown }[] = [];
   await page.route(/\/axelor-erp\/ws\/ioeti\/catalog\/products/, route => route.fulfill(ok([
     { id: 31, code: "ISO-AUD-DAY", name: "Audit day", unit: "Day", salePrice: "1500.0000", currency: "EGP" }])));
@@ -527,9 +527,41 @@ test("quotations: opportunity page creates a draft from the catalog, before tax 
     { path: "/axelor-erp/ws/ioeti/quotes", body: { opportunityId: 101, opportunityVersion: 1 } },
     { path: "/axelor-erp/ws/ioeti/quotes/7/lines", body: { version: 0, productId: 31, quantity: 2 } },
   ]);
-  await expect(page.getByText("لا تُحسب الضرائب هنا حتى تعتمد IOETI سياسة الضرائب والفوترة (D-06).")).toBeVisible();
+  await expect(page.getByText("لم يحدد مالك السياسات ضريبة لخط الأعمال هذا بعد (D-06)، فالعرض محسوب بدون ضريبة ولا يمكن اعتماده.")).toBeVisible();
   await expect(page.getByRole("button", { name: "اعتماد وإرسال العرض" })).toBeDisabled();
   await page.screenshot({ path: "test-results/ioeti-quote-draft.png", fullPage: true });
+});
+
+test("quotations: the tax comes from the owners' policy; when it changes the draft says so and the rep applies it again (D-06)", async ({page}) => {
+  await intercept(page);
+  const ok = (object: unknown, code = 200) => ({ status: code, contentType: "application/json", body: JSON.stringify({ codeStatus: code, messageStatus: "ok", object }) });
+  const line = { id: 1, productCode: "ISO-AUD-DAY", name: "Audit day", quantity: "2", unit: "Day", unitPriceBeforeTax: "1500.00", totalBeforeTax: "3000.00" };
+  let quote: Record<string, unknown> = { id: 7, version: 3, reference: "#7", status: "DRAFT", opportunityId: 101, accountId: 901, accountName: "Nile View Hotel",
+    currency: "EGP", totalBeforeTax: "3000.00", taxStatus: "APPLIED", taxTotal: "420.00", totalWithTax: "3420.00",
+    tax: { name: "ضريبة القيمة المضافة", ratePercent: "14.0000000000", policyVersionId: 12, since: "2026-10-25" }, taxOutdated: true, lines: [line] };
+  const posts: { path: string; body: unknown }[] = [];
+  await page.route(/\/axelor-erp\/ws\/ioeti\/catalog\/products/, route => route.fulfill(ok([])));
+  await page.route(/\/axelor-erp\/ws\/ioeti\/quotes(\/.*|\?.*)?$/, route => {
+    const url = new URL(route.request().url());
+    if (route.request().method() === "GET") return route.fulfill(ok(url.pathname.endsWith("/quotes") ? [quote] : []));
+    posts.push({ path: url.pathname, body: route.request().postDataJSON() });
+    quote = { ...quote, version: 4, taxTotal: "300.00", totalWithTax: "3300.00", taxOutdated: false,
+      tax: { name: "ضريبة القيمة المضافة", ratePercent: "10", policyVersionId: 13, since: "2026-11-01" } };
+    return route.fulfill(ok(quote));
+  });
+  await page.route(/\/axelor-erp\/ws\/ioeti\/quotes\/\d+\/milestones/, route => route.fulfill(ok(emptyPlan(3))));
+  await page.goto("/#/opportunities/101");
+  const foot = page.locator(".quote-lines tfoot");
+  await expect(foot).toContainText("ضريبة القيمة المضافة 14%");
+  await expect(foot).toContainText("420.00 EGP");
+  await expect(foot).toContainText("3420.00 EGP");
+  await expect(page.getByText("الضريبة من سياسة المالية: ضريبة القيمة المضافة 14% سارية من 2026-10-25 (D-06).")).toBeVisible();
+  await expect(page.getByRole("status").filter({ hasText: "تغيّرت سياسة الضريبة منذ آخر حساب لهذا العرض." })).toBeVisible();
+  await page.getByRole("button", { name: "طبّق الضريبة الحالية" }).click();
+  await expect(foot).toContainText("ضريبة القيمة المضافة 10%");
+  await expect(foot).toContainText("3300.00 EGP");
+  await expect(page.getByRole("button", { name: "طبّق الضريبة الحالية" })).toHaveCount(0);
+  expect(posts).toEqual([{ path: "/axelor-erp/ws/ioeti/quotes/7/tax", body: { version: 3 } }]);
 });
 
 test("quotations: setup and account refusals are localized, never raw", async ({page}) => {
@@ -556,7 +588,7 @@ test("payment milestones: added with the quotation version; booked, invoiced and
   await intercept(page);
   const ok = (object: unknown, code = 200) => ({ status: code, contentType: "application/json", body: JSON.stringify({ codeStatus: code, messageStatus: "ok", object }) });
   const quote = { id: 7, version: 3, reference: "#7", status: "DRAFT", opportunityId: 101, accountId: 901, accountName: "Nile View Hotel",
-    currency: "EGP", totalBeforeTax: "3000.00", taxStatus: "BLOCKED_BY_POLICY", lines: [] };
+    currency: "EGP", totalBeforeTax: "3000.00", taxStatus: "POLICY_NOT_SET", lines: [] };
   let plan = { ...emptyPlan(3) };
   const posts: unknown[] = [];
   await page.route(/\/axelor-erp\/ws\/ioeti\/quotes\?opportunityId=101$/, route => route.fulfill(ok([quote])));
@@ -587,7 +619,7 @@ test("payment milestones: added with the quotation version; booked, invoiced and
   await expect(page.getByRole("alert")).toHaveText(/مجموع نسب الدفعات لا يمكن أن يتجاوز 100%/);
   expect(posts[1]).toMatchObject({ version: 4 });
   await expect(page.locator("body")).not.toContainText("feedface");
-  await expect(page.getByText("إصدار الفواتير من الدفعات متوقف حتى اعتماد سياسة المالية (D-06).")).toBeVisible();
+  await expect(page.getByText("إصدار الفواتير من الدفعات لسه مش متاح؛ هيتعمل في حسابات Axelor (D-06).")).toBeVisible();
   await page.screenshot({ path: "test-results/ioeti-quote-milestones.png", fullPage: true });
 });
 
@@ -630,7 +662,7 @@ test("contract: lines are copied once from the quotation with the contract versi
     opportunityId: 101, accountId: 901, accountName: "Nile View Hotel", currency: "EGP", activationStatus: "BLOCKED_BY_POLICY",
     sourceQuoteId: null, lines: [], totalBeforeTax: "0" };
   const quote = { id: 7, version: 4, reference: "#7", status: "DRAFT", opportunityId: 101, accountId: 901, accountName: "Nile View Hotel",
-    currency: "EGP", totalBeforeTax: "3000.00", taxStatus: "BLOCKED_BY_POLICY",
+    currency: "EGP", totalBeforeTax: "3000.00", taxStatus: "POLICY_NOT_SET",
     lines: [{ id: 1, productCode: "ISO-AUD-DAY", name: "Audit day", quantity: "2", unit: "Day", unitPriceBeforeTax: "1500.00", totalBeforeTax: "3000.00" }] };
   const posts: unknown[] = [];
   await page.route(/\/axelor-erp\/ws\/ioeti\/contracts\?opportunityId=101$/, route => route.fulfill(ok([draft])));
@@ -1491,7 +1523,7 @@ async function workflowMocks(page: Page, options: { quoteStatus?: string; contra
   const s = { version: 3, versionNumber: 1, lines: [line(1, "2")], versions: [] as Record<string, unknown>[], reviews: [] as Record<string, unknown>[],
     requests: [] as Record<string, unknown>[], contractVersion: 1, renewed: false };
   const quote = () => ({ id: 7, version: s.version, reference: "SO-0007", status: options.quoteStatus ?? "DRAFT", opportunityId: 101, accountId: 901,
-    accountName: "Nile View Hotel", currency: "EGP", totalBeforeTax: String(s.lines.reduce((t, l) => t + Number(l.totalBeforeTax), 0)), taxStatus: "BLOCKED_BY_POLICY",
+    accountName: "Nile View Hotel", currency: "EGP", totalBeforeTax: String(s.lines.reduce((t, l) => t + Number(l.totalBeforeTax), 0)), taxStatus: "POLICY_NOT_SET",
     versionNumber: s.versionNumber, lines: s.lines });
   const plan = () => ({ quoteId: 7, quoteVersion: s.version, currency: "EGP", totalBeforeTax: "3000.00", plannedPercentage: "100", plannedAmountBeforeTax: "3000.00",
     bookingStatus: "NOT_BOOKED", bookedBeforeTax: "0", invoiced: "0", collected: "0", invoicingStatus: "BLOCKED_BY_POLICY",

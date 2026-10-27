@@ -761,6 +761,10 @@ td code { display: inline-block; font: 11px Inter,monospace; color: var(--on-sur
 .quote-line-form{grid-template-columns:minmax(0,2fr) minmax(0,1fr) auto;align-items:end;margin-top:0;}
 .quote-finalize{display:flex;flex-wrap:wrap;align-items:center;gap:12px;}
 .quote-finalize small{font-size:11px;color:var(--on-surface-variant);max-width:420px;}
+.quote-lines tfoot .quote-tax-row th{font-weight:500;color:var(--on-surface-variant);}
+.quote-tax-outdated{display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding:10px 12px;border-radius:var(--radius);border:1px solid color-mix(in srgb,var(--warning) 50%,transparent);background:color-mix(in srgb,var(--warning-container) 40%,var(--surface));font-size:13px;}
+.quote-tax-outdated svg{color:var(--warning);flex-shrink:0;}
+.quote-tax-outdated span{flex:1;min-width:180px;}
 @media(max-width:640px){.quote-line-form{grid-template-columns:1fr;}}
 .quote-code{display:block;font-size:10px;color:var(--on-surface-variant);}
 /* Wave 3: payment milestones */

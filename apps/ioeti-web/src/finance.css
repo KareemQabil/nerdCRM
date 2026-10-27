@@ -31,3 +31,24 @@
   .finance-amount { order: 2; }
   .finance-actions { order: 3; inline-size: 100%; justify-content: flex-end; }
 }
+/* D-06: figures in the company currency and the exchange rates they use */
+.finance-currency { display: grid; gap: 6px; }
+.finance-fx { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0; font-size: 12.5px; color: var(--on-surface-variant); }
+.finance-fx svg { color: var(--warning); flex: none; }
+.finance-total > div { background: var(--surface-variant); }
+.fx-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.fx-note { display: flex; align-items: flex-start; gap: 6px; margin: 0 0 10px; font-size: 13px; color: var(--on-surface-variant); }
+.fx-note svg { color: var(--warning); flex: none; margin-top: 2px; }
+.fx-ok { margin: 0 0 10px; color: var(--success); font-size: 13px; }
+.fx-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr)); }
+.fx-row { display: grid; gap: 3px; padding: 10px 12px; border-radius: var(--radius); border: 1px solid var(--outline-variant); background: var(--surface);
+  border-inline-start: 4px solid var(--success); }
+.fx-row.is-stale, .fx-row.is-missing { border-inline-start-color: var(--warning); }
+.fx-rate { font-weight: 800; font-variant-numeric: tabular-nums; font-size: 16px; }
+.fx-meta, .fx-missing { font-size: 12.5px; color: var(--on-surface-variant); }
+.fx-stale { display: inline-flex; align-items: center; gap: 4px; font-size: 12.5px; color: var(--warning); font-weight: 600; }
+.fx-history { margin-top: 12px; }
+.fx-history summary { cursor: pointer; display: inline-flex; align-items: center; gap: 6px; font-weight: 600; font-size: 13.5px; }
+.fx-history ol { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 6px; }
+.fx-history li { display: grid; gap: 2px; padding: 8px 10px; border-radius: var(--radius-sm, 8px); background: var(--surface-variant); font-size: 13px; }
+.fx-history small { color: var(--on-surface-variant); overflow-wrap: anywhere; }

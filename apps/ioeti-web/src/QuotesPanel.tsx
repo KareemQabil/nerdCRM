@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { CircleAlert, FileText, LockKeyhole, Plus } from "lucide-react";
-import { ApiError, addQuoteLine, createQuote, getCatalog, getQuotes, type CatalogProduct, type Quote } from "./api";
+import { ApiError, addQuoteLine, createQuote, getCatalog, getQuotes, refreshQuoteTax, type CatalogProduct, type Quote } from "./api";
 import type { Language } from "./preferences";
 import { MilestonesPanel } from "./MilestonesPanel";
 import { QuoteWorkflow } from "./WorkflowPanels";
@@ -12,8 +12,11 @@ const strings = {
     loading:"جار التحميل...",draft:"مسودة",product:"المنتج أو الخدمة",chooseProduct:"اختر من الكتالوج",
     quantity:"الكمية",add:"إضافة بند",adding:"جار الإضافة...",unitPrice:"سعر الوحدة قبل الضريبة",
     lineTotal:"الإجمالي قبل الضريبة",total:"الإجمالي قبل الضريبة",noLines:"لا توجد بنود بعد",
-    taxNote:"لا تُحسب الضرائب هنا حتى تعتمد IOETI سياسة الضرائب والفوترة (D-06).",
-    finalize:"اعتماد وإرسال العرض",finalizeNote:"متوقف حتى اعتماد سياسات المالية (D-06) ومصفوفة الموافقات (D-11).",
+    taxApplied:(name:string,rate:string,since:string)=>`الضريبة من سياسة المالية: ${name} ${rate}% سارية من ${since} (D-06).`,
+    taxNotSet:"لم يحدد مالك السياسات ضريبة لخط الأعمال هذا بعد (D-06)، فالعرض محسوب بدون ضريبة ولا يمكن اعتماده.",
+    taxOutdated:"تغيّرت سياسة الضريبة منذ آخر حساب لهذا العرض.",applyTax:"طبّق الضريبة الحالية",applying:"جار التطبيق...",
+    totalWithTax:"الإجمالي شامل الضريبة",
+    finalize:"اعتماد وإرسال العرض",finalizeNote:"متوقف حتى اعتماد مصفوفة الموافقات (D-11).",
     accountRequired:"اربط الفرصة بحساب عميل أولًا (مثلًا بتحويل العميل المحتمل).",
     setup:"إعداد المبيعات لهذه الشركة أو لهذا المنتج غير مكتمل؛ اطلب من المسؤول استكماله.",
     changed:"تم تعديل السجل من مكان آخر؛ حدّثنا البيانات، أعد المحاولة.",
@@ -27,8 +30,11 @@ const strings = {
     loading:"Loading...",draft:"Draft",product:"Product or service",chooseProduct:"Choose from catalog",
     quantity:"Quantity",add:"Add line",adding:"Adding...",unitPrice:"Unit price before tax",
     lineTotal:"Total before tax",total:"Total before tax",noLines:"No lines yet",
-    taxNote:"Taxes are not calculated here until IOETI approves its tax and invoicing policy (D-06).",
-    finalize:"Approve & send quotation",finalizeNote:"Blocked until the finance (D-06) and approval matrix (D-11) policies are signed.",
+    taxApplied:(name:string,rate:string,since:string)=>`Tax from the finance policy: ${name} ${rate}%, in force from ${since} (D-06).`,
+    taxNotSet:"No tax is set for this business line yet (D-06): the quotation is computed without tax and cannot be finalized.",
+    taxOutdated:"The tax policy has changed since this quotation was computed.",applyTax:"Apply the current tax",applying:"Applying...",
+    totalWithTax:"Total including tax",
+    finalize:"Approve & send quotation",finalizeNote:"Blocked until the approval matrix (D-11) is in place.",
     accountRequired:"Link the opportunity to a customer account first (for example by converting the lead).",
     setup:"Sales setup for this company or product is incomplete; ask an administrator to complete it.",
     changed:"This record changed elsewhere; the data is refreshed, try again.",
@@ -52,7 +58,7 @@ function message(error: unknown, l: Labels): string {
   return l.failed;
 }
 
-/** Draft quotations of one opportunity; amounts are before tax only (D-06). */
+/** Draft quotations of one opportunity; tax comes from the finance.tax policy in force (D-06). */
 export function QuotesPanel({opportunityId,opportunityVersion,language,onOpportunityChanged}:{
   opportunityId:number; opportunityVersion:number; language:Language; onOpportunityChanged?:()=>void;
 }){
@@ -95,6 +101,11 @@ export function QuotesPanel({opportunityId,opportunityVersion,language,onOpportu
       setProductId("");setQuantity("1");
     });
   };
+  const applyTax=()=>run(async()=>{
+    if(!quote)return;
+    const updated=await refreshQuoteTax(quote.id,quote.version);
+    setQuotes(current=>(current||[]).map(q=>q.id===updated.id?updated:q));
+  });
   return <section className="record-content-card quotes-panel" aria-labelledby="quotes-title">
     <div className="record-section-header"><div className="record-section-icon"><FileText size={20}/></div><div>
       <h2 id="quotes-title">{l.title}</h2><p>{l.desc}</p>
@@ -114,9 +125,18 @@ export function QuotesPanel({opportunityId,opportunityVersion,language,onOpportu
           <td dir="ltr">{line.unitPriceBeforeTax} {quote.currency}</td>
           <td dir="ltr">{line.totalBeforeTax} {quote.currency}</td>
         </tr>)}</tbody>
-        <tfoot><tr><th colSpan={3}>{l.total}</th><th dir="ltr">{quote.totalBeforeTax} {quote.currency}</th></tr></tfoot>
+        <tfoot><tr><th colSpan={3}>{l.total}</th><th dir="ltr">{quote.totalBeforeTax} {quote.currency}</th></tr>
+          {quote.taxStatus==="APPLIED"&&quote.tax&&<>
+            <tr className="quote-tax-row"><th colSpan={3}>{quote.tax.name} {Number(quote.tax.ratePercent)}%</th><th dir="ltr">{quote.taxTotal} {quote.currency}</th></tr>
+            <tr><th colSpan={3}>{l.totalWithTax}</th><th dir="ltr">{quote.totalWithTax} {quote.currency}</th></tr>
+          </>}
+        </tfoot>
       </table></div>
-      <p className="record-security-note"><LockKeyhole size={15}/>{l.taxNote}</p>
+      <p className="record-security-note"><LockKeyhole size={15}/>{quote.taxStatus==="APPLIED"&&quote.tax
+        ?l.taxApplied(quote.tax.name,String(Number(quote.tax.ratePercent)),quote.tax.since)
+        :l.taxNotSet}</p>
+      {quote.taxOutdated&&<div className="quote-tax-outdated" role="status"><CircleAlert size={16}/><span>{l.taxOutdated}</span>
+        <button type="button" className="btn btn-secondary" disabled={busy} onClick={()=>void applyTax()}>{busy?l.applying:l.applyTax}</button></div>}
       {quote.status==="DRAFT"&&<form className="opportunity-form quote-line-form" onSubmit={addLine}>
         <label><span>{l.product}</span><select required value={productId} onChange={e=>setProductId(e.target.value)}>
           <option value="">{catalog.length?l.chooseProduct:l.catalogEmpty}</option>

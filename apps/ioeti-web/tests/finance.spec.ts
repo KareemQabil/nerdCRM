@@ -2,7 +2,10 @@ import { expect, test, type Page, type Route } from "@playwright/test";
 
 /** Finance's invoicing queue (D-06) against a mocked API; the live API is covered by scripts/finance_probe.py. */
 
-async function mockFinance(page: Page, { invoicesPermitted = false } = {}) {
+type Fx = { policySet: boolean; source: string | null; maxAgeHours: number | null; baseCurrency: string; canChange: boolean;
+  currencies: Record<string, unknown>[]; history: Record<string, unknown>[] };
+
+async function mockFinance(page: Page, { invoicesPermitted = false, fx = null as Fx | null, usd = false } = {}) {
   const posted: { path: string; body: Record<string, unknown> }[] = [];
   const queue = [
     { id: 1, version: 0, status: "REQUESTED", orderId: 10, orderReference: "SO0012", accountId: 7, accountName: "مصنع النور", milestoneId: 100,
@@ -25,9 +28,28 @@ async function mockFinance(page: Page, { invoicesPermitted = false } = {}) {
       route.fulfill({ status: code, contentType: "application/json", body: JSON.stringify({ codeStatus: code, error }) });
     if (path === "/session") return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ code: "mona", name: "منى", language: "ar" }) });
     if (path === "/business-lines") return result([]);
-    if (path === "/finance/summary") return result({ ordersPermitted: true, requestsPermitted: true, invoicesPermitted,
-      rows: [{ currency: "EGP", booked: 30000, requested: queue.filter(r => r.status === "REQUESTED").reduce((n, r) => n + r.amountBeforeTax, 0),
-        invoiced: invoicesPermitted ? 0 : null, collected: invoicesPermitted ? 0 : null }] });
+    if (path === "/finance/summary") {
+      const requested = queue.filter(r => r.status === "REQUESTED").reduce((n, r) => n + r.amountBeforeTax, 0);
+      const usdRate = fx?.currencies.find(c => c.currency === "USD" && !c.stale)?.rate as number | undefined;
+      const rows: Record<string, unknown>[] = [{ currency: "EGP", booked: 30000, requested, invoiced: invoicesPermitted ? 0 : null, collected: invoicesPermitted ? 0 : null,
+        fxStatus: "BASE", rate: 1, bookedInBase: 30000, requestedInBase: requested }];
+      if (usd) rows.push({ currency: "USD", booked: 1000, requested: 0, invoiced: null, collected: null, fxStatus: usdRate ? "OK" : "NO_RATE",
+        rate: usdRate ?? null, rateDate: usdRate ? "2026-10-25" : null, bookedInBase: usdRate ? 1000 * usdRate : null, requestedInBase: usdRate ? 0 : null });
+      return result({ ordersPermitted: true, requestsPermitted: true, invoicesPermitted, rows, baseCurrency: "EGP",
+        totalInBase: usd && !usdRate ? null : { currency: "EGP", booked: 30000 + (usd ? 1000 * usdRate! : 0), requested, invoiced: null, collected: null } });
+    }
+    if (path === "/finance/fx" && method === "GET") return fx ? result(fx) : failure(403, { code: "FORBIDDEN", fields: [] });
+    if (path === "/finance/fx/refresh" && fx) {
+      fx.currencies = fx.currencies.map(c => c.currency === "EUR" ? { ...c, rate: 54.054054, source: "PUBLIC_API", stale: false, ageHours: 0, rateDate: "2026-10-25" } : c);
+      return result(fx);
+    }
+    if (path === "/finance/fx/rates" && fx) {
+      if (!String(body.reason ?? "").trim()) return failure(422, { code: "VALIDATION_FAILED", fields: [{ field: "reason", code: "REQUIRED" }] });
+      fx.currencies = fx.currencies.map(c => c.currency === body.currency ? { ...c, rate: body.rate, source: "MANUAL", stale: false, ageHours: 0, rateDate: body.rateDate } : c);
+      fx.history = [{ id: 9, currency: body.currency, rate: body.rate, rateDate: body.rateDate, asOf: `${body.rateDate}T00:00:00`, source: "MANUAL", provider: null,
+        reason: body.reason, enteredBy: "منى", recordedAt: "2026-10-25T10:00:00" }, ...fx.history];
+      return result(fx, 201);
+    }
     if (path === "/finance/queue") {
       const state = url.searchParams.get("state");
       return result(queue.filter(r => state === "all" || (state === "cancelled" ? r.status === "CANCELLED" : r.status === "REQUESTED")));
@@ -57,7 +79,9 @@ test("finance's queue: the held policy is stated, figures are real, and issuing 
   const { posted } = await mockFinance(page);
   await page.goto("/#/finance");
   await expect(page.getByRole("heading", { name: "الفواتير والتحصيل", level: 1 })).toBeVisible();
-  await expect(page.getByRole("note")).toContainText("إصدار الفاتورة وحساب الضريبة والفاتورة الإلكترونية موقوفين");
+  await expect(page.getByRole("note")).toContainText("إصدار الفواتير في الحسابات لسه جاي (D-06)");
+  // without native rights on exchange rates the panel is not shown
+  await expect(page.getByRole("region", { name: "أسعار الصرف للجنيه" })).toHaveCount(0);
   const money = page.locator(".finance-money");
   await expect(money).toContainText("طلبات مؤكدة (قبل الضريبة)");
   await expect(money).toContainText(/(30,000|٣٠٬٠٠٠) EGP/);
@@ -91,4 +115,51 @@ test("a milestone coming due is requested for invoicing with the order's version
   await expect(queue.locator(".finance-row").filter({ hasText: "تقرير المرحلة الأولى" })).toHaveCount(0);
   await queue.getByRole("button", { name: "ملغاة" }).click();
   await expect(queue.locator(".finance-row.is-cancelled")).toContainText("تقرير المرحلة الأولى");
+});
+
+test("exchange rates: the rate in use per currency, a stale one flagged, fetched from the public source or entered by hand with a reason; totals in EGP", async ({ page }) => {
+  const fx: Fx = { policySet: true, source: "PUBLIC_API", maxAgeHours: 48, baseCurrency: "EGP", canChange: true,
+    currencies: [{ currency: "USD", rate: null, rateDate: null, asOf: null, source: null, ageHours: null, stale: false },
+      { currency: "EUR", rate: 52, rateDate: "2026-10-22", asOf: "2026-10-22T00:00:00", source: "MANUAL", ageHours: 82, stale: true }],
+    history: [] };
+  const { posted } = await mockFinance(page, { fx, usd: true });
+  await page.goto("/#/finance");
+  const panel = page.getByRole("region", { name: "أسعار الصرف للجنيه" });
+  await expect(panel).toContainText("مصدر عام، والمالية تقدر تعدّل يدويًا");
+  await expect(panel).toContainText("السعر الأقدم من 48 ساعة ما بيتستخدمش.");
+  await expect(panel.locator(".fx-row").filter({ hasText: "USD" })).toContainText("لسه مفيش سعر");
+  await expect(panel.locator(".fx-row").filter({ hasText: "EUR" })).toContainText("قديم، مش بيتستخدم");
+  // the USD figures cannot be converted yet, so there is no EGP total
+  await expect(page.locator(".finance-currency").filter({ hasText: "USD" })).toContainText("مفيش سعر صرف");
+  await expect(page.locator(".finance-summary")).toContainText("الإجمالي بالجنيه مش متاح");
+
+  await panel.getByRole("button", { name: "حدّث من المصدر العام" }).click();
+  await expect(panel.locator(".fx-row").filter({ hasText: "EUR" })).not.toContainText("قديم");
+  await panel.getByRole("button", { name: "أدخل سعر يدوي" }).click();
+  const dialog = page.getByRole("dialog");
+  await dialog.getByLabel("العملة").selectOption("USD");
+  await dialog.getByLabel("كام EGP للوحدة").fill("48.5");
+  await expect(dialog.getByRole("button", { name: "حفظ" })).toBeDisabled(); // a reason is required
+  await dialog.getByLabel("السبب").fill("سعر البنك");
+  await dialog.getByRole("button", { name: "حفظ" }).click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(panel.locator(".fx-row").filter({ hasText: "USD" })).toContainText(/(48\.5|٤٨٫٥) EGP/);
+  await panel.getByText("آخر الأسعار المسجلة").click();
+  await expect(panel.locator(".fx-history")).toContainText("سعر البنك");
+  await expect(page.locator(".finance-total")).toContainText(/(78,500|٧٨٬٥٠٠) EGP/);
+  await page.screenshot({ path: "test-results/ioeti-finance-fx.png", fullPage: true });
+  // phone width: nothing scrolls sideways
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(0);
+  await page.screenshot({ path: "test-results/ioeti-finance-fx-phone.png", fullPage: true });
+  expect(posted.filter(p => p.path.startsWith("/finance/fx"))).toEqual([{ path: "/finance/fx/refresh", body: {} },
+    { path: "/finance/fx/rates", body: { currency: "USD", rate: 48.5, rateDate: new Date().toISOString().slice(0, 10), reason: "سعر البنك" } }]);
+});
+
+test("exchange rates: without the owners' finance.fx policy nothing converts and nothing can be entered", async ({ page }) => {
+  await mockFinance(page, { fx: { policySet: false, source: null, maxAgeHours: null, baseCurrency: "EGP", canChange: true, currencies: [], history: [] } });
+  await page.goto("/#/finance");
+  const panel = page.getByRole("region", { name: "أسعار الصرف للجنيه" });
+  await expect(panel).toContainText("مالك السياسات لسه ما حددش مصدر أسعار الصرف (finance.fx)");
+  await expect(panel.getByRole("button")).toHaveCount(0);
 });

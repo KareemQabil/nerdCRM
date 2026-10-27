@@ -17,7 +17,13 @@ import com.axelor.rpc.filter.JPQLFilter;
 import com.axelor.utils.api.ConflictChecker;
 import com.axelor.utils.api.ResponseConstructor;
 import com.axelor.utils.api.SecurityCheck;
+import com.axelor.apps.base.service.app.AppBaseService;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.ioeti.commercial.service.QuoteService;
+import com.ioeti.commercial.service.TaxPolicyBridge;
+import com.ioeti.core.db.PolicyVersion;
+import com.ioeti.core.policy.PolicyService;
+import com.ioeti.core.policy.PolicyValidator;
 import com.ioeti.core.api.ApiException;
 import com.ioeti.core.api.IoetiEndpoint;
 import com.ioeti.core.api.NativeCommands;
@@ -41,17 +47,17 @@ import java.util.TreeMap;
 /**
  * Draft quotations for opportunities (Wave 3), on native AOS {@code SaleOrder} records.
  *
- * <p>Tax amounts are not exposed: taxes, e-invoicing and currency policy are open decision D-06, so
- * the API answers with totals before tax only and {@code taxStatus = "BLOCKED_BY_POLICY"}.
- * Finalizing or sending a quotation also needs the commercial approval matrix (D-11), so that
- * command fails closed.
+ * <p>Tax (D-06, signed 2026-10-25) is the {@code finance.tax} policy the owners set for the quotation's
+ * business line (or the default), applied with the native tax services after every change. Without a
+ * policy in force {@code taxStatus = "POLICY_NOT_SET"} and no tax amounts are given. When the owners change
+ * the policy, a draft shows {@code taxOutdated} until its tax is applied again. Finalizing or sending a
+ * quotation also needs the commercial approval matrix (D-11), so that command fails closed.
  */
 @Path("/ioeti/quotes")
 @Produces(MediaType.APPLICATION_JSON)
 public class QuoteRestController {
 
 
-  static final String TAX_STATUS = "BLOCKED_BY_POLICY";
   static final BigDecimal MAX_QUANTITY = new BigDecimal("100000");
 
   @GET
@@ -170,8 +176,19 @@ public class QuoteRestController {
     if (number == null || saved == 0) {
       throw new ApiException(422, "VERSION_UNKNOWN", "This quotation has no saved version with that number.", null);
     }
-    runNative(() -> Beans.get(SaleOrderVersionService.class).recoverVersion(quote, number, true));
+    runNative(() -> Beans.get(QuoteService.class).restoreVersion(quote, number));
     return ResponseConstructor.build(Response.Status.OK, "Version restored", view(quote));
+  }
+
+  @POST
+  @Path("/{id}/tax")
+  @Consumes(MediaType.APPLICATION_JSON)
+  @Operation(summary = "Apply the tax policy in force today to a draft quotation again (D-06)", tags = {"IOETI quotes"})
+  @IoetiEndpoint
+  public Response refreshTax(@PathParam("id") Long id, VersionOnly command) {
+    SaleOrder quote = draftForChange(id, command == null ? null : command.version());
+    runNative(() -> Beans.get(QuoteService.class).refreshTax(quote));
+    return ResponseConstructor.build(Response.Status.OK, "Tax applied", view(quote));
   }
 
   private static SaleOrder draftForChange(Long id, Integer version) {
@@ -237,6 +254,15 @@ public class QuoteRestController {
             line.getUnit() == null ? null : line.getUnit().getName(),
             line.getPrice(),
             line.getExTaxTotal())).toList();
+    // the tax the quotation was computed with, and whether the owners have set a different one since
+    PolicyVersion used = quote.getIoetiTaxPolicy();
+    boolean draft = Integer.valueOf(SaleOrderRepository.STATUS_DRAFT_QUOTATION).equals(quote.getStatusSelect());
+    Long inForce = !draft ? null : Beans.get(TaxPolicyBridge.class)
+        .inForce(quote, Beans.get(AppBaseService.class).getTodayDate(quote.getCompany()))
+        .map(PolicyService.Applied::versionId).orElse(null);
+    JsonNode value = used == null ? null : PolicyValidator.read(used.getValueJson());
+    TaxView tax = value == null ? null : new TaxView(value.path("name").asText(), new BigDecimal(value.path("ratePercent").asText("0")),
+        used.getId(), used.getEffectiveFrom());
     return new QuoteView(
         quote.getId(),
         quote.getVersion(),
@@ -248,7 +274,11 @@ public class QuoteRestController {
         canReadAccount ? account.getName() : null,
         quote.getCurrency() == null ? null : quote.getCurrency().getCode(),
         quote.getExTaxTotal(),
-        TAX_STATUS,
+        used == null ? "POLICY_NOT_SET" : "APPLIED",
+        used == null ? null : quote.getTaxTotal(),
+        used == null ? null : quote.getInTaxTotal(),
+        tax,
+        draft && !java.util.Objects.equals(inForce, used == null ? null : used.getId()),
         quote.getVersionNumber(),
         lines);
   }
@@ -273,7 +303,10 @@ public class QuoteRestController {
   public record QuoteView(
       Long id, Integer version, String reference, String status, Long opportunityId,
       Long accountId, String accountName, String currency, BigDecimal totalBeforeTax,
-      String taxStatus, Integer versionNumber, List<QuoteLineView> lines) {}
+      String taxStatus, BigDecimal taxTotal, BigDecimal totalWithTax, TaxView tax, boolean taxOutdated,
+      Integer versionNumber, List<QuoteLineView> lines) {}
+  /** The finance.tax policy version a quotation's tax was computed with (D-06). */
+  public record TaxView(String name, BigDecimal ratePercent, Long policyVersionId, java.time.LocalDate since) {}
   public record VersionOnly(Integer version) {}
   public record VersionView(Integer number, LocalDateTime savedAt, int lines, BigDecimal totalBeforeTax) {}
 }

@@ -35,7 +35,8 @@ public final class PolicyCatalog {
   static {
     // --- D-06 finance ---------------------------------------------------------------------------------------
     add(new PolicyDefinition("finance.tax", "D-06", "FINANCE", Scope.BUSINESS_LINE, true,
-        List.of(of("ratePercent", Kind.PERCENT, true, "نسبة الضريبة", "Tax rate"), text("name", true, 60, "اسم الضريبة", "Tax name")),
+        List.of(of("ratePercent", Kind.PERCENT, true, "نسبة الضريبة", "Tax rate"), text("name", true, 60, "اسم الضريبة", "Tax name"),
+            choice("type", true, List.of("VAT", "OTHER"), "نوع الضريبة", "Tax type")),
         "ضريبة الخدمات", "Tax on services",
         "النسبة اللي بتتحسب على سطور عروض الأسعار والفواتير. ممكن قيمة لكل خط أعمال، أو قيمة عامة.",
         "The rate applied to quotation and invoice lines; per business line, or one default value."));

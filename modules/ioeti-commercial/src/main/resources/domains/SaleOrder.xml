@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<domain-models xmlns="http://axelor.com/xml/ns/domain-models"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://axelor.com/xml/ns/domain-models https://axelor.com/xml/ns/domain-models/domain-models_8.2.xsd">
+
+  <!-- Extension of the native AOS SaleOrder (no upstream file is modified): the finance.tax policy version
+       the quotation's tax was computed with (D-06; a record keeps the version it used). -->
+  <module name="sale" package="com.axelor.apps.sale.db"/>
+
+  <entity name="SaleOrder">
+    <many-to-one name="ioetiTaxPolicy" ref="com.ioeti.core.db.PolicyVersion" title="Tax policy version"/>
+  </entity>
+
+</domain-models>

@@ -11,8 +11,27 @@ export type UpcomingMilestone = {
   id: number; title: string | null; dueDate: string; amountBeforeTax: number | null; currency: string; orderId: number; orderVersion: number;
   orderReference: string | null; accountId: number | null; accountName: string | null; overdue: boolean; daysLeft: number;
 };
-export type FinanceMoney = { currency: string; booked: number | null; requested: number | null; invoiced: number | null; collected: number | null };
-export type FinanceSummary = { ordersPermitted: boolean; requestsPermitted: boolean; invoicesPermitted: boolean; rows: FinanceMoney[] };
+/** Per currency, and the same figures in the company currency at the rate in use; fxStatus says why they are missing. */
+export type FxStatus = "BASE" | "OK" | "POLICY_NOT_SET" | "NO_RATE" | "FX_STALE";
+export type FinanceMoney = {
+  currency: string; booked: number | null; requested: number | null; invoiced: number | null; collected: number | null;
+  fxStatus?: FxStatus; rate?: number | null; rateDate?: string | null;
+  bookedInBase?: number | null; requestedInBase?: number | null; invoicedInBase?: number | null; collectedInBase?: number | null;
+};
+export type FinanceSummary = {
+  ordersPermitted: boolean; requestsPermitted: boolean; invoicesPermitted: boolean; rows: FinanceMoney[];
+  baseCurrency?: string; totalInBase?: FinanceMoney | null;
+};
+/** D-06: exchange rates to the company currency (finance.fx policy; public source, manual override). */
+export type FxCurrency = { currency: string; rate: number | null; rateDate: string | null; asOf: string | null; source: string | null; ageHours: number | null; stale: boolean };
+export type FxRate = {
+  id: number; currency: string; rate: number; rateDate: string; asOf: string; source: string; provider: string | null; reason: string | null;
+  enteredBy: string | null; recordedAt: string;
+};
+export type FxOverview = {
+  policySet: boolean; source: "PUBLIC_API" | "MANUAL_ONLY" | null; maxAgeHours: number | null; baseCurrency: string; canChange: boolean;
+  currencies: FxCurrency[]; history: FxRate[];
+};
 
 const json = (body: unknown): RequestInit => ({ method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
 async function list<T>(url: string): Promise<T[]> {
@@ -28,4 +47,8 @@ export const getFinanceSummary = () => wrapped<FinanceSummary>("/ws/ioeti/financ
 export const requestMilestoneInvoice = (m: UpcomingMilestone) =>
   wrapped<unknown>("/ws/ioeti/workspace/invoice-requests", json({ milestoneId: m.id, quoteVersion: m.orderVersion }));
 export const cancelRequest = (r: FinanceRequest) => wrapped<unknown>(`/ws/ioeti/workspace/invoice-requests/${id(r.id)}/cancel`, json({ version: r.version }));
+export const getFx = () => wrapped<FxOverview>("/ws/ioeti/finance/fx");
+export const refreshFx = () => wrapped<FxOverview>("/ws/ioeti/finance/fx/refresh", json({}));
+export const enterFxRate = (input: { currency: string; rate: number; rateDate: string; reason: string }) =>
+  wrapped<FxOverview>("/ws/ioeti/finance/fx/rates", json(input));
 export const issueInvoice = (r: FinanceRequest) => wrapped<unknown>(`/ws/ioeti/workspace/invoice-requests/${id(r.id)}/issue`, json({}));

@@ -270,13 +270,16 @@ export async function getAccountOpportunities(id: number): Promise<Opportunity[]
   return values;
 }
 
-/** Wave 3: catalog and draft quotations (native AOS SaleOrder). Amounts are before tax (D-06). */
+/** Wave 3: catalog and draft quotations (native AOS SaleOrder). Tax comes from the finance.tax policy (D-06). */
 export type CatalogProduct = { id: number; code: string | null; name: string; unit: string | null; salePrice: string | null; currency: string | null };
 export type QuoteLine = { id: number; productCode: string | null; name: string; quantity: string; unit: string | null; unitPriceBeforeTax: string | null; totalBeforeTax: string | null };
 export type Quote = {
   id: number; version: number; reference: string | null; status: string | null; opportunityId: number | null;
   accountId: number | null; accountName: string | null; currency: string | null; totalBeforeTax: string | null;
-  taxStatus: string; versionNumber?: number | null; lines: QuoteLine[];
+  /** APPLIED, or POLICY_NOT_SET when the owners have not set a tax for the quotation's business line. */
+  taxStatus: string; taxTotal?: string | null; totalWithTax?: string | null;
+  tax?: { name: string; ratePercent: string; policyVersionId: number; since: string } | null; taxOutdated?: boolean;
+  versionNumber?: number | null; lines: QuoteLine[];
 };
 export async function getCatalog(search = ""): Promise<CatalogProduct[]> {
   if (DEMO_MODE) return [];
@@ -303,6 +306,14 @@ export async function addQuoteLine(id: number, version: number, productId: numbe
   return wrapped<Quote>(`/ws/ioeti/quotes/${encodeURIComponent(id)}/lines`, {
     method: "POST", headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ version, productId, quantity: Number(quantity) }),
+  });
+}
+
+/** D-06: apply the tax policy in force today to a draft quotation again. */
+export async function refreshQuoteTax(id: number, version: number): Promise<Quote> {
+  if (DEMO_MODE) throw new ApiError(403, "Preview mode is read-only");
+  return wrapped<Quote>(`/ws/ioeti/quotes/${encodeURIComponent(id)}/tax`, {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ version }),
   });
 }
 

@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<domain-models xmlns="http://axelor.com/xml/ns/domain-models"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://axelor.com/xml/ns/domain-models https://axelor.com/xml/ns/domain-models/domain-models_8.2.xsd">
+
+  <module name="ioeti" package="com.ioeti.workspace.db"/>
+
+  <!-- D-06 (signed 2026-10-25): an exchange rate to the company currency (EGP), fetched from the public
+       source the finance.fx policy names or entered by finance by hand. Rows are appended, never changed.
+       For a date, a manual rate wins over a fetched one; the newest date in force wins overall. The rate in
+       use is also kept as a native AOS conversion line so the accounting services convert with it. -->
+  <entity name="FxRate" table="ioeti_fx_rate">
+    <many-to-one name="currency" ref="com.axelor.apps.base.db.Currency" title="Currency" required="true"/>
+    <many-to-one name="toCurrency" ref="com.axelor.apps.base.db.Currency" title="Converted to" required="true"/>
+    <decimal name="rate" title="Rate" precision="20" scale="6" required="true"/>
+    <date name="rateDate" title="Rate date" required="true"/>
+    <datetime name="asOf" title="Rate as of" required="true"/>
+    <string name="source" title="Source" required="true" max="20"/>
+    <string name="provider" title="Provider" max="120"/>
+    <string name="reason" title="Reason" max="500"/>
+    <many-to-one name="enteredBy" ref="com.axelor.auth.db.User" title="Entered by"/>
+    <datetime name="recordedAt" title="Recorded at" required="true"/>
+    <many-to-one name="policyVersion" ref="com.ioeti.core.db.PolicyVersion" title="Policy version"/>
+    <index columns="currency,rateDate"/>
+  </entity>
+
+</domain-models>

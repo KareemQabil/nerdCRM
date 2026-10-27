@@ -860,3 +860,24 @@ Slice: `docs/slices/P1-policy-engine.md`. Decision record: `docs/decisions/OPEN_
 - Probe `scripts/policy_probe.py` 9/9, cleanup complete (backend CI); `PolicyValidatorTest` 6/6.
 - G-007 registry: policy DTO fields classified (1432 fields, 0 problems).
 - Fixed along the way: retiring checked "in force on `LocalDate.MAX`", which PostgreSQL cannot store (500). Retiring now checks what is in force on the retire date.
+
+## 2026-10-25 · P2a · D-06 tax on quotations and exchange rates from the owners' policies
+
+Slice: `docs/slices/P2a-finance-tax-fx.md`.
+
+- `ioeti-commercial`:
+  - `TaxPolicyBridge` applies the `finance.tax` value in force for the quotation's business line (or the default) to the lines through native AOS taxes: one native tax version per policy version, one native tax per scope.
+  - The quotation records the version used (`SaleOrder.ioetiTaxPolicy`). Without a policy there is no tax (`POLICY_NOT_SET`).
+  - New `POST /quotes/{id}/tax` to apply a changed policy.
+- `ioeti-core`: `finance.tax` gains a required `type` (VAT / OTHER), which the native tax type needs.
+- `ioeti-workspace`:
+  - `FxService`: public source (`open.er-api.com`, configurable by `ioeti.fx.url`) and finance's manual override with a reason. Manual wins on its date; a stale rate is not used.
+  - Rates are mirrored as non-overlapping native conversion lines.
+  - `FxRefreshJob`, a native Quartz schedule registered by `V020`.
+  - The finance summary gives figures in EGP, plus an EGP total only when complete.
+- Web:
+  - Quotations show the tax name, rate, amount and total including tax, and the policy version's date; an out-of-date draft offers "apply the current tax".
+  - The finance page has an exchange-rates panel: rates in use, stale flags, fetch, manual entry, history.
+- Migration `V020` / rollback `U020`.
+- Probe `scripts/finance_policy_probe.py` 11/11 (backend CI with the stub source); `quote_probe.py` now expects `POLICY_NOT_SET`. Mocked tests in `tests/finance.spec.ts` and `tests/app.spec.ts`.
+- G-007 registry: 1477 fields, 0 problems.
