@@ -130,6 +130,9 @@ jobs:
           # forced change, deactivation ending open sessions, teams, business lines and their members, the
           # audit trail without e-mail or password); every admin endpoint refuses anonymous and non-admins
           python3 scripts/admin_probe.py
+          # D-07: profiles from role templates start with no rights; rights (read/write/create/remove, own/team/line/all)
+          # take effect on the next request; the administrators' profile is fixed; every change is audited
+          python3 scripts/roles_probe.py
           # Journeys plan, phase 2: daily work (lead edit, accounts and contacts, opportunity stages with
           # won blocked by D-11 and lost only with a reason, activities, the personal agenda, global search)
           python3 scripts/daily_work_probe.py

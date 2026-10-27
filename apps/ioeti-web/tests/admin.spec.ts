@@ -25,6 +25,9 @@ async function mockAdmin(page: Page, options: { administrator?: boolean } = {}) 
       profileCode: "sales", profileName: "Sales", administrator: false, businessLines: ["ISO9001"], teams: [], createdOn: null },
   ];
   const posted: { path: string; body: Record<string, unknown> }[] = [];
+  type EditableRight = { object: string; key: string; managed: boolean; conditional: boolean; read: boolean; write: boolean; create: boolean; remove: boolean; scope: string };
+  let editable: { code: string; name: string; version: number; administrator: boolean; roles: string[]; rights: EditableRight[] } =
+    { code: "", name: "", version: 0, administrator: false, roles: [], rights: [] };
   await page.route("**/axelor-erp/ws/ioeti/**", async (route: Route) => {
     const url = new URL(route.request().url());
     const path = url.pathname.replace(/^.*\/ws\/ioeti/, "");
@@ -66,7 +69,35 @@ async function mockAdmin(page: Page, options: { administrator?: boolean } = {}) 
       person.version += 1;
       return result(person);
     }
+    if (path === "/admin/role-templates") return result({
+      templates: [{ code: "SALES_REP", role: "ioeti-sales-rep", nameAr: "مندوب مبيعات", nameEn: "Sales rep" },
+        { code: "SALES_MANAGER", role: "ioeti-sales-manager", nameAr: "مدير مبيعات", nameEn: "Sales manager" }],
+      recordTypes: [
+        { key: "Lead", area: "SALES", nameAr: "العملاء المحتملون", nameEn: "Leads", restricted: false, scopes: ["OWN", "TEAM", "LINE", "ALL"] },
+        { key: "Opportunity", area: "SALES", nameAr: "الفرص", nameEn: "Opportunities", restricted: false, scopes: ["OWN", "TEAM", "LINE", "ALL"] },
+        { key: "Product", area: "SALES", nameAr: "كتالوج الخدمات", nameEn: "Service catalogue", restricted: false, scopes: ["ALL"] },
+        { key: "CandidatePrivateProfile", area: "RECRUITMENT", nameAr: "بيانات المرشح الخاصة", nameEn: "Candidate private data", restricted: true, scopes: ["ALL"] }] });
+    if (path === "/admin/profiles" && method === "POST") {
+      const body = route.request().postDataJSON() as Record<string, unknown>;
+      posted.push({ path, body });
+      profiles.push({ id: 30, code: String(body.code), name: String(body.name), administrator: false, people: 0, rules: 0 });
+      editable = { code: String(body.code), name: String(body.name), version: 0, administrator: false, roles: ["ioeti-sales-manager"], rights: [] };
+      return result(editable, 201);
+    }
     if (path === "/admin/profiles") return result(profiles);
+    const rights = path.match(/^\/admin\/profiles\/([^/]+)\/rights$/);
+    if (rights && method === "POST") {
+      const body = route.request().postDataJSON() as { version: number; object: string; read: boolean; write: boolean; create: boolean; remove: boolean; scope: string };
+      posted.push({ path, body });
+      if (body.version !== editable.version) return route.fulfill({ status: 409, contentType: "application/json", body: "{}" });
+      const others = editable.rights.filter(r => r.key !== body.object);
+      const any = body.read || body.write || body.create || body.remove;
+      editable = { ...editable, version: editable.version + 1, rights: any ? [...others, { object: "x." + body.object, key: body.object, managed: true, conditional: body.scope !== "ALL",
+        read: body.read, write: body.write, create: body.create, remove: body.remove, scope: body.scope }] : others };
+      return result(editable);
+    }
+    if (path === "/admin/profiles/admins") return result({ code: "admins", name: "Administrators", version: 1, administrator: true, roles: ["role.admin"], rights: [] });
+    if (path.startsWith("/admin/profiles/") && editable.code && path.endsWith("/" + editable.code)) return result(editable);
     if (path.startsWith("/admin/profiles/")) return result({ code: "sales", name: "Sales", administrator: false, rights: [] });
     if (path === "/admin/teams") return result([]);
     if (path === "/admin/business-lines") return result(lines);
@@ -155,4 +186,43 @@ test("a temporary password must be replaced at the first sign-in", async ({ page
   await page.getByRole("button", { name: "حفظ والدخول" }).click();
   await expect(page.getByRole("heading", { name: /^مرحبًا/ })).toBeVisible();
   expect(callbacks.at(-1)).toEqual({ username: "hoda.samir", password: "Temp-Pass-2026x", newPassword: "Hoda-Own-Pass-2026" });
+});
+
+test("D-07: a profile starts from a template with no rights; each right saves at once with the profile version and its scope", async ({ page }) => {
+  const posted = await mockAdmin(page);
+  await page.goto("/#/admin/profiles");
+  await expect(page.getByText("كل ملف بيبدأ من قالب وظيفة ومن غير أي صلاحيات")).toBeVisible();
+  await page.getByRole("button", { name: "ملف جديد" }).click();
+  const dialog = page.getByRole("dialog");
+  await dialog.getByLabel("القالب").selectOption("SALES_MANAGER");
+  await dialog.getByLabel("اسم الملف").fill("مديرو مبيعات القاهرة");
+  await dialog.getByLabel("رمز الملف").fill("sales-cairo");
+  await dialog.getByRole("button", { name: "إنشاء الملف" }).click();
+  expect(posted.find(p => p.path === "/admin/profiles")!.body).toEqual({ code: "sales-cairo", name: "مديرو مبيعات القاهرة", template: "SALES_MANAGER" });
+  await expect(page.getByRole("status").filter({ hasText: "اتعمل الملف من غير صلاحيات" })).toBeVisible();
+  await expect(page.getByText("ioeti-sales-manager")).toBeVisible();
+  const matrix = page.getByRole("table", { name: "صلاحيات مديرو مبيعات القاهرة" });
+  // deny by default: nothing ticked
+  await expect(matrix.getByRole("checkbox", { checked: true })).toHaveCount(0);
+  await expect(matrix.getByRole("row").filter({ hasText: "بيانات المرشح الخاصة" })).toContainText("بيانات مقيدة");
+  await matrix.getByRole("checkbox", { name: "قراءة · العملاء المحتملون" }).click();
+  await expect(matrix.getByRole("checkbox", { name: "قراءة · العملاء المحتملون" })).toBeChecked();
+  await matrix.getByLabel("النطاق · العملاء المحتملون").selectOption("ALL");
+  // ticking an action that changes records ticks reading too
+  await matrix.getByRole("checkbox", { name: "تعديل · الفرص" }).click();
+  await expect(matrix.getByRole("checkbox", { name: "قراءة · الفرص" })).toBeChecked();
+  // un-ticking reading clears the rest
+  await matrix.getByRole("checkbox", { name: "قراءة · الفرص" }).click();
+  await expect(matrix.getByRole("checkbox", { name: "تعديل · الفرص" })).not.toBeChecked();
+  const sent = posted.filter(p => p.path === "/admin/profiles/sales-cairo/rights").map(p => p.body);
+  expect(sent).toEqual([
+    { version: 0, object: "Lead", read: true, write: false, create: false, remove: false, scope: "OWN" },
+    { version: 1, object: "Lead", read: true, write: false, create: false, remove: false, scope: "ALL" },
+    { version: 2, object: "Opportunity", read: true, write: true, create: false, remove: false, scope: "OWN" },
+    { version: 3, object: "Opportunity", read: false, write: false, create: false, remove: false, scope: "OWN" },
+  ]);
+  // the administrators' profile is shown, not edited
+  await page.getByRole("option", { name: /Administrators/ }).click();
+  await expect(page.getByText("صلاحية كاملة على المنصة.")).toBeVisible();
+  await expect(page.getByRole("checkbox")).toHaveCount(0);
 });

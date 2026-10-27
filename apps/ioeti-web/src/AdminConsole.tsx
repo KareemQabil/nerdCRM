@@ -6,8 +6,8 @@ import {
 import { ApiError } from "./api";
 import {
   activatePerson, addLine, addPerson, addTeam, changeLine, changePerson, changeTeam, deactivatePerson, getAdminLines, getChanges,
-  getLineMembers, getPeople, getPerson, getProfile, getProfiles, getTeams, makeTemporaryPassword, setLineMembers, setTemporaryPassword,
-  type AdminChange, type AdminLine, type AdminTeam, type AdminUser, type AdminUserDetail, type PersonRef, type Profile, type ProfileAccess,
+  getLineMembers, getPeople, getPerson, getProfile, getProfiles, getTeams, getRoleCatalog, createProfile, setProfileRight, makeTemporaryPassword, setLineMembers, setTemporaryPassword,
+  type AdminChange, type AdminLine, type AdminTeam, type AdminUser, type AdminUserDetail, type PersonRef, type Profile, type ProfileAccess, type RoleCatalog, type RecordTypeInfo, type RightChange, type Scope,
 } from "./adminApi";
 import { ChipPicker, Dialog, copyText } from "./Dialog";
 import { AdminLists } from "./AdminLists";
@@ -39,7 +39,13 @@ const L = {
     access: "الوصول", accessHint: "اللي ملف الصلاحيات بيسمح بيه، لكل نوع سجل. الشرط معناه إن القاعدة مقصورة على سجلات معيّنة (زي سجلاته هو).",
     read: "قراءة", write: "تعديل", create: "إنشاء", remove: "حذف", conditional: "بشرط", fullAccess: "صلاحية كاملة على المنصة.",
     noRules: "الملف ده مفيهوش قواعد.", history: "سجل التغييرات", noHistory: "مفيش تغييرات مسجلة.",
-    d07: "تعريف الأدوار وصلاحياتها قرار D-07 لسه ما اتعتمدش. هنا بتُسنِد الملفات الموجودة بس، ومش بتعرّف ملفات جديدة.",
+    d07: "D-07: كل ملف بيبدأ من قالب وظيفة ومن غير أي صلاحيات، وبعدين تدّيه اللي محتاجه بس. مالك السياسات بيتعيّن من صفحة السياسات، مش من هنا.",
+    newProfile: "ملف جديد", template: "القالب", profileCode: "رمز الملف", profileName: "اسم الملف", createProfile: "إنشاء الملف",
+    profileCreated: "اتعمل الملف من غير صلاحيات. ادّيه اللي محتاجه من الجدول.", role: "الدور", scope: "النطاق",
+    scopes: { OWN: "سجلاته", TEAM: "فريقه", LINE: "خطوط أعماله", ALL: "الكل" } as Record<string, string>,
+    areas: { SALES: "المبيعات", FINANCE: "المالية", DELIVERY: "التنفيذ", CERTIFICATION: "الشهادات", TRAINING: "التدريب", RECRUITMENT: "التوظيف", FUNDRAISING: "تنمية الموارد", CONTENT: "المعرفة", ADMIN: "الإدارة" } as Record<string, string>,
+    restricted: "بيانات مقيدة", managedElsewhere: "متضبطة من مكان تاني", adminFixed: "ملف المديرين ثابت ومش بيتعدّل من هنا.",
+    readFirst: "اللي بيعدّل لازم يقدر يقرأ الأول.", savedRight: "اتحفظت الصلاحية.", rightOf: (x: string) => "صلاحيات " + x,
     people: "شخص", rules: "قاعدة", team: "الفريق", members: "الأعضاء", noMembers: "مفيش أعضاء", addMember: "أضف عضو…", noTeams: "مفيش فرق لسه.",
     teamName: "اسم الفريق", editTeam: "تعديل الفريق", lineCode: "الرمز", nameAr: "الاسم بالعربي", nameEn: "الاسم بالإنجليزي",
     order: "الترتيب", purpose: "الغرض", responsibleTeam: "الفريق المسؤول", manager: "مدير الخط", editLine: "تعديل خط الأعمال",
@@ -53,7 +59,7 @@ const L = {
     actions: {
       USER_CREATED: "إضافة شخص", USER_UPDATED: "تعديل بيانات", USER_DEACTIVATED: "إيقاف حساب", USER_ACTIVATED: "تفعيل حساب",
       USER_PASSWORD_RESET: "كلمة مرور مؤقتة", TEAM_CREATED: "إضافة فريق", TEAM_UPDATED: "تعديل فريق", LINE_CREATED: "إضافة خط أعمال",
-      LINE_UPDATED: "تعديل خط أعمال", LINE_MEMBERS: "أعضاء خط أعمال",
+      LINE_UPDATED: "تعديل خط أعمال", LINE_MEMBERS: "أعضاء خط أعمال", PROFILE_CREATED: "إنشاء ملف صلاحيات", PROFILE_RIGHT_SET: "تعديل صلاحية",
       LOST_REASON_ADDED: "إضافة سبب خسارة", LOST_REASON_RENAMED: "تسمية سبب خسارة", LOST_REASON_DELETED: "حذف سبب خسارة",
       SOURCE_ADDED: "إضافة مصدر", SOURCE_RENAMED: "تسمية مصدر", SOURCE_DELETED: "حذف مصدر",
       OPPORTUNITY_STAGE_ADDED: "إضافة مرحلة", OPPORTUNITY_STAGE_RENAMED: "تسمية مرحلة", OPPORTUNITY_STAGE_DELETED: "حذف مرحلة",
@@ -86,7 +92,13 @@ const L = {
     access: "Access", accessHint: "What the profile allows per record type. Conditional means the rule covers some records only (for example their own).",
     read: "Read", write: "Edit", create: "Create", remove: "Delete", conditional: "Conditional", fullAccess: "Full access to the platform.",
     noRules: "This profile has no rules.", history: "Change log", noHistory: "No changes recorded.",
-    d07: "Defining roles and their rights is policy D-07, not yet approved. Here existing profiles are assigned, not authored.",
+    d07: "D-07: every profile starts from a job template with no rights; give it only what it needs. The policy owner is appointed under Policies, not here.",
+    newProfile: "New profile", template: "Template", profileCode: "Profile code", profileName: "Profile name", createProfile: "Create profile",
+    profileCreated: "The profile was created with no rights. Grant what it needs in the table.", role: "Role", scope: "Scope",
+    scopes: { OWN: "Their own", TEAM: "Their teams", LINE: "Their business lines", ALL: "All" } as Record<string, string>,
+    areas: { SALES: "Sales", FINANCE: "Finance", DELIVERY: "Delivery", CERTIFICATION: "Certification", TRAINING: "Training", RECRUITMENT: "Recruitment", FUNDRAISING: "Fundraising", CONTENT: "Knowledge", ADMIN: "Administration" } as Record<string, string>,
+    restricted: "Restricted data", managedElsewhere: "Managed elsewhere", adminFixed: "The administrators' profile is fixed and not edited here.",
+    readFirst: "A profile that changes records must be able to read them.", savedRight: "Right saved.", rightOf: (x: string) => "Rights for " + x,
     people: "people", rules: "rules", team: "Team", members: "Members", noMembers: "No members", addMember: "Add a member…", noTeams: "No teams yet.",
     teamName: "Team name", editTeam: "Edit team", lineCode: "Code", nameAr: "Arabic name", nameEn: "English name",
     order: "Order", purpose: "Purpose", responsibleTeam: "Responsible team", manager: "Line manager", editLine: "Edit business line",
@@ -100,7 +112,7 @@ const L = {
     actions: {
       USER_CREATED: "Person added", USER_UPDATED: "Details changed", USER_DEACTIVATED: "Deactivated", USER_ACTIVATED: "Activated",
       USER_PASSWORD_RESET: "Temporary password", TEAM_CREATED: "Team added", TEAM_UPDATED: "Team changed", LINE_CREATED: "Line added",
-      LINE_UPDATED: "Line changed", LINE_MEMBERS: "Line members",
+      LINE_UPDATED: "Line changed", LINE_MEMBERS: "Line members", PROFILE_CREATED: "Profile created", PROFILE_RIGHT_SET: "Right changed",
       LOST_REASON_ADDED: "Lost reason added", LOST_REASON_RENAMED: "Lost reason renamed", LOST_REASON_DELETED: "Lost reason deleted",
       SOURCE_ADDED: "Source added", SOURCE_RENAMED: "Source renamed", SOURCE_DELETED: "Source deleted",
       OPPORTUNITY_STAGE_ADDED: "Stage added", OPPORTUNITY_STAGE_RENAMED: "Stage renamed", OPPORTUNITY_STAGE_DELETED: "Stage deleted",
@@ -168,6 +180,10 @@ function errorText(error: unknown, l: Labels): string {
   if (error.statusCode === 409) return l.conflict;
   if (error.code === "SELF_LOCKOUT") return l.selfLock;
   if (error.code === "SELF_PASSWORD") return l.selfPassword;
+  if (error.code === "ADMIN_PROFILE_FIXED") return l.adminFixed;
+  if (error.code === "RIGHT_MANAGED_ELSEWHERE") return l.managedElsewhere;
+  if (error.fields?.[0]?.field === "read") return l.readFirst;
+  if (error.fields?.[0]?.code === "TAKEN") return l.duplicate;
   const field = error.fields?.[0];
   if (field) {
     const map: Record<string, string> = { DUPLICATE: l.duplicate, REQUIRED: l.required, FORMAT: l.format, WEAK: l.weak, TOO_SHORT: l.tooShort };
@@ -220,7 +236,7 @@ export function AdminConsole({ language, routeHash, myCode }: { language: Langua
     {tab === "lists" && <AdminLists language={language}/>}
     {tab === "quality" && <AdminQuality language={language}/>}
     {tab === "numbering" && <AdminNumbering language={language}/>}
-    {tab === "profiles" && <ProfilesTab l={l} ar={ar} profiles={profiles}/>}
+    {tab === "profiles" && <ProfilesTab l={l} ar={ar} profiles={profiles} onChanged={() => void loadShared()}/>}
     {tab === "changes" && <ChangesTab l={l} ar={ar}/>}
   </section>;
 }
@@ -630,30 +646,116 @@ function LineMembersDialog({ line, l, ar, people, onClose, onSaved }: {
 
 // --- profiles and change log --------------------------------------------------------------------------
 
-function ProfilesTab({ l, ar, profiles }: { l: Labels; ar: boolean; profiles: Profile[] }) {
+function ProfilesTab({ l, ar, profiles, onChanged }: { l: Labels; ar: boolean; profiles: Profile[]; onChanged: () => void }) {
   const [code, setCode] = useState<string | null>(null);
   const [access, setAccess] = useState<ProfileAccess | null>(null);
+  const [catalog, setCatalog] = useState<RoleCatalog | null>(null);
+  const [adding, setAdding] = useState(false);
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+  useEffect(() => { getRoleCatalog().then(setCatalog).catch(e => setError(errorText(e, l))); }, [l]);
   useEffect(() => {
     if (!code) { setAccess(null); return; }
     setAccess(null);
     getProfile(code).then(setAccess).catch(e => setError(errorText(e, l)));
   }, [code, l]);
   return <>
-    <p className="admin-warning" role="note"><LockKeyhole size={15}/>{l.d07}</p>
+    <div className="admin-toolbar"><p className="admin-muted admin-d07"><LockKeyhole size={15}/>{l.d07}</p>
+      <button type="button" className="btn btn-primary" disabled={!catalog} onClick={() => setAdding(true)}><Plus size={16}/>{l.newProfile}</button></div>
     <div className="admin-split">
       <ul className="admin-list data-panel" role="listbox" aria-label={l.tabs.profiles}>
-        {profiles.map(p => <li key={p.code}><button type="button" role="option" aria-selected={code === p.code} className={code === p.code ? "is-chosen" : ""} onClick={() => setCode(p.code)}>
+        {profiles.map(p => <li key={p.code}><button type="button" role="option" aria-selected={code === p.code} className={code === p.code ? "is-chosen" : ""} onClick={() => { setCode(p.code); setNotice(""); setError(""); }}>
           <span><strong>{p.name}</strong><small dir="ltr" className="admin-muted">{p.code}</small></span>
           <span className="admin-muted">{p.people} {l.people} · {p.administrator ? l.admin : `${p.rules} ${l.rules}`}</span></button></li>)}
       </ul>
       <div className="data-panel admin-section">
         {error && <div className="login-error" role="alert"><CircleAlert size={17}/>{error}</div>}
+        {notice && <p className="admin-saved" role="status">{notice}</p>}
         {!code ? <p className="admin-muted">{l.accessHint}</p> : !access ? <div className="admin-skeleton" aria-busy="true"><span/><span/></div>
-          : <><h3>{access.name}</h3><RightsTable access={access} l={l} ar={ar}/></>}
+          : <><h3>{access.name}</h3>
+            {!!access.roles?.length && <p className="admin-muted">{l.role}: {access.roles.map(r => <code key={r} dir="ltr" className="admin-role">{r}</code>)}</p>}
+            {access.administrator || !catalog ? <RightsTable access={access} l={l} ar={ar}/>
+              : <RightsEditor access={access} catalog={catalog} l={l} ar={ar} onSaved={next => { setAccess(next); setError(""); setNotice(l.savedRight); onChanged(); }}
+                  onError={e => { setNotice(""); setError(errorText(e, l)); if (code) void getProfile(code).then(setAccess); }}/>}</>}
       </div>
     </div>
+    {adding && catalog && <NewProfileDialog l={l} ar={ar} catalog={catalog} onClose={() => setAdding(false)}
+      onSaved={created => { setAdding(false); onChanged(); setCode(created.code); setNotice(l.profileCreated); }}/>}
   </>;
+}
+
+function NewProfileDialog({ l, ar, catalog, onClose, onSaved }: { l: Labels; ar: boolean; catalog: RoleCatalog; onClose: () => void; onSaved: (p: ProfileAccess) => void }) {
+  const [template, setTemplate] = useState(catalog.templates[0]?.code ?? "");
+  const [name, setName] = useState("");
+  const [code, setCode] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  async function submit(e: FormEvent) {
+    e.preventDefault(); setBusy(true); setError("");
+    try { onSaved(await createProfile(code, name, template)); }
+    catch (reason) { setError(errorText(reason, l)); }
+    finally { setBusy(false); }
+  }
+  return <Dialog title={l.newProfile} kicker={l.tabs.profiles} description={l.d07} busy={busy} onClose={onClose}
+    footer={<><button type="button" className="btn btn-secondary" disabled={busy} onClick={onClose}>{l.cancel}</button>
+      <button type="submit" form="admin-new-profile" className="btn btn-primary" disabled={busy}><Save size={16}/>{busy ? l.saving : l.createProfile}</button></>}>
+    <form id="admin-new-profile" className="admin-form" onSubmit={e => void submit(e)}>
+      <label><span>{l.template}</span><select value={template} onChange={e => setTemplate(e.target.value)} required>
+        {catalog.templates.map(t => <option key={t.code} value={t.code}>{ar ? t.nameAr : t.nameEn} · {t.role}</option>)}</select></label>
+      <label><span>{l.profileName}</span><input value={name} onChange={e => setName(e.target.value)} required maxLength={100}/></label>
+      <label><span>{l.profileCode}</span><input value={code} onChange={e => setCode(e.target.value.toLowerCase())} required minLength={3} maxLength={40}
+        pattern="[a-z][a-z0-9\-]{2,39}" dir="ltr" autoComplete="off" placeholder="sales-cairo"/></label>
+      {error && <div className="login-error" role="alert"><CircleAlert size={17}/>{error}</div>}
+    </form>
+  </Dialog>;
+}
+
+/** The rights matrix: every record type of the catalogue, grouped by area; a change saves at once with the profile's version. */
+function RightsEditor({ access, catalog, l, ar, onSaved, onError }: {
+  access: ProfileAccess; catalog: RoleCatalog; l: Labels; ar: boolean; onSaved: (next: ProfileAccess) => void; onError: (e: unknown) => void;
+}) {
+  const [busy, setBusy] = useState<string | null>(null);
+  const byKey = new Map(access.rights.filter(r => r.key).map(r => [r.key as string, r]));
+  async function change(type: RecordTypeInfo, next: RightChange) {
+    if (access.version == null || !access.code) return;
+    setBusy(type.key);
+    try { onSaved(await setProfileRight(access.code, access.version, next)); }
+    catch (e) { onError(e); }
+    finally { setBusy(null); }
+  }
+  const areas = [...new Set(catalog.recordTypes.map(t => t.area))];
+  return <div className="table-scroll"><table className="admin-table admin-rights-editor" aria-label={l.rightOf(access.name ?? "")}>
+    <thead><tr><th>{l.access}</th><th>{l.read}</th><th>{l.write}</th><th>{l.create}</th><th>{l.remove}</th><th>{l.scope}</th></tr></thead>
+    {areas.map(area => <tbody key={area}>
+      <tr className="admin-rights-area"><th colSpan={6}>{l.areas[area] ?? area}</th></tr>
+      {catalog.recordTypes.filter(t => t.area === area).map(type => {
+        const right = byKey.get(type.key);
+        const foreign = access.rights.find(r => r.key === type.key && !r.managed);
+        const current: RightChange = { object: type.key, read: !!right?.read, write: !!right?.write, create: !!right?.create, remove: !!right?.remove,
+          scope: (right?.scope as Scope) ?? (type.scopes.includes("OWN") ? "OWN" : "ALL") };
+        const label = ar ? type.nameAr : type.nameEn;
+        const box = (field: "read" | "write" | "create" | "remove", name: string) => <td><input type="checkbox" aria-label={`${name} · ${label}`}
+          checked={current[field]} disabled={!!foreign || busy !== null}
+          onChange={e => {
+            const next = { ...current, [field]: e.target.checked };
+            // reading is the base of every other action
+            if (field === "read" && !e.target.checked) { next.write = next.create = next.remove = false; }
+            if (field !== "read" && e.target.checked) next.read = true;
+            void change(type, next);
+          }}/></td>;
+        return <tr key={type.key} aria-busy={busy === type.key || undefined}>
+          <td><span className="admin-rights-name">{label}</span>{type.restricted && <span className="admin-badge is-restricted"><LockKeyhole size={12}/>{l.restricted}</span>}
+            {foreign && <span className="admin-badge">{l.managedElsewhere}</span>}</td>
+          {box("read", l.read)}{box("write", l.write)}{box("create", l.create)}{box("remove", l.remove)}
+          <td>{type.scopes.length > 1
+            ? <select aria-label={`${l.scope} · ${label}`} value={current.scope} disabled={!!foreign || busy !== null || !current.read}
+                onChange={e => void change(type, { ...current, scope: e.target.value as Scope })}>
+                {type.scopes.map(sc => <option key={sc} value={sc}>{l.scopes[sc] ?? sc}</option>)}</select>
+            : <span className="admin-muted">{l.scopes.ALL}</span>}</td>
+        </tr>;
+      })}
+    </tbody>)}
+  </table></div>;
 }
 
 function ChangesTab({ l, ar }: { l: Labels; ar: boolean }) {

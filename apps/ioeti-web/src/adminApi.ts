@@ -9,8 +9,15 @@ export type AdminUser = {
   mustChangePassword: boolean; profileCode: string | null; profileName: string | null; administrator: boolean;
   businessLines: string[]; teams: TeamRef[]; createdOn: string | null;
 };
-export type Right = { object: string; read: boolean; write: boolean; create: boolean; remove: boolean; conditional: boolean };
-export type ProfileAccess = { code: string | null; name: string | null; administrator: boolean; rights: Right[] };
+export type Scope = "OWN" | "TEAM" | "LINE" | "ALL";
+/** `key` and `scope` name the right in D-07 terms; `managed` is true when the profile editor wrote it. */
+export type Right = { object: string; read: boolean; write: boolean; create: boolean; remove: boolean; conditional: boolean;
+  key?: string | null; scope?: Scope | null; managed?: boolean };
+export type ProfileAccess = { code: string | null; name: string | null; version?: number | null; administrator: boolean; roles?: string[]; rights: Right[] };
+export type RoleTemplate = { code: string; role: string; nameAr: string; nameEn: string };
+export type RecordTypeInfo = { key: string; area: string; nameAr: string; nameEn: string; restricted: boolean; scopes: Scope[] };
+export type RoleCatalog = { templates: RoleTemplate[]; recordTypes: RecordTypeInfo[] };
+export type RightChange = { object: string; read: boolean; write: boolean; create: boolean; remove: boolean; scope: Scope };
 export type AdminUserDetail = { user: AdminUser; access: ProfileAccess };
 export type Profile = { id: number; code: string; name: string; administrator: boolean; people: number; rules: number };
 export type AdminTeam = { id: number; version: number; code: string | null; name: string; members: PersonRef[] };
@@ -64,6 +71,11 @@ export const setTemporaryPassword = (id: number, version: number, temporaryPassw
 
 export const getProfiles = () => list<Profile>(`${BASE}/profiles`);
 export const getProfile = (code: string) => wrapped<ProfileAccess>(`${BASE}/profiles/${enc(code)}`);
+// D-07: profiles from role templates (deny by default) and their rights per record type
+export const getRoleCatalog = () => wrapped<RoleCatalog>(`${BASE}/role-templates`);
+export const createProfile = (code: string, name: string, template: string) => post<ProfileAccess>(`${BASE}/profiles`, { code, name, template });
+export const setProfileRight = (code: string, version: number, change: RightChange) =>
+  post<ProfileAccess>(`${BASE}/profiles/${enc(code)}/rights`, { version, ...change });
 
 export const getTeams = () => list<AdminTeam>(`${BASE}/teams`);
 export const addTeam = (name: string, memberIds: number[]) => post<AdminTeam>(`${BASE}/teams`, { name, memberIds });
