@@ -15,6 +15,8 @@ import com.ioeti.admin.service.AdminService;
 import com.ioeti.admin.service.AdminService.LineChange;
 import com.ioeti.admin.service.AdminService.NewUser;
 import com.ioeti.admin.service.AdminService.UserChange;
+import com.ioeti.admin.service.RoleAdmin;
+import com.ioeti.admin.service.RoleAdmin.RecordType;
 import com.ioeti.businessline.db.BusinessLine;
 import com.ioeti.businessline.db.repo.BusinessLineRepository;
 import com.ioeti.core.api.ApiException;
@@ -44,8 +46,8 @@ import java.util.Set;
  *
  * <p>E-mail addresses are written but never returned ({@code contactOnFile} only). Passwords are set by the
  * administrator as temporary passwords the person must change at the next sign-in; they are never
- * returned or stored in the audit trail. Defining roles and their matrix is policy D-07: profiles are
- * listed and assigned here, not authored.
+ * returned or stored in the audit trail. Profiles are authored here from the D-07 role templates (deny by default):
+ * see {@link RoleAdmin}.
  */
 @Path("/ioeti/admin")
 @Produces(MediaType.APPLICATION_JSON)
@@ -180,6 +182,50 @@ public class AdminRestController {
     Group group = Query.of(Group.class).filter("self.code = ?1", code).fetchOne();
     if (group == null) throw ApiException.notFound();
     return ResponseConstructor.build(Response.Status.OK, "Profile", access(group));
+  }
+
+  @GET
+  @Path("/role-templates")
+  @Operation(summary = "D-07 role templates and the record types a profile can be granted, with their scopes (administrators)", tags = {"IOETI admin"})
+  @IoetiEndpoint
+  public Response roleTemplates() {
+    admin();
+    List<TemplateView> templates = RoleAdmin.TEMPLATES.stream().map(t -> new TemplateView(t.code(), t.role(), t.nameAr(), t.nameEn())).toList();
+    List<RecordTypeView> types = RoleAdmin.TYPES.stream().map(t -> new RecordTypeView(t.key(), t.area(), t.nameAr(), t.nameEn(), t.restricted(),
+        java.util.stream.Stream.concat(t.scopes().keySet().stream(), java.util.stream.Stream.of(RoleAdmin.ALL)).toList())).toList();
+    return ResponseConstructor.build(Response.Status.OK, "Role templates", new RoleCatalog(templates, types));
+  }
+
+  @POST
+  @Path("/profiles")
+  @Consumes(MediaType.APPLICATION_JSON)
+  @Operation(summary = "Create a profile from a D-07 template: its role, and no rights (administrators)", tags = {"IOETI admin"})
+  @IoetiEndpoint
+  public Response createProfile(NewProfile command) {
+    admin();
+    if (command == null) throw ApiException.badRequest("A body is required.");
+    RoleAdmin.Template template = RoleAdmin.template(command.template());
+    Group[] saved = new Group[1];
+    OptimisticLockConflicts.translate(() -> saved[0] = Beans.get(RoleAdmin.class).createProfile(command.code(), command.name(), template));
+    return ResponseConstructor.build(Response.Status.CREATED, "Profile created", access(saved[0]));
+  }
+
+  @POST
+  @Path("/profiles/{code}/rights")
+  @Consumes(MediaType.APPLICATION_JSON)
+  @Operation(summary = "Set what a profile may do with one record type, and in which scope; all off removes it (administrators)", tags = {"IOETI admin"})
+  @IoetiEndpoint
+  public Response setRight(@PathParam("code") String code, SetRight command) {
+    admin();
+    if (command == null) throw ApiException.badRequest("A body is required.");
+    Group group = Query.of(Group.class).filter("self.code = ?1", code).fetchOne();
+    if (group == null) throw ApiException.notFound();
+    ConflictChecker.checkVersion(group, command.version());
+    RecordType type = RoleAdmin.recordType(command.object());
+    OptimisticLockConflicts.translate(() -> Beans.get(RoleAdmin.class).setRight(group, type, command.read(), command.write(),
+        command.create(), command.remove(), command.scope()));
+    JPA.em().refresh(group);
+    return ResponseConstructor.build(Response.Status.OK, "Right set", access(group));
   }
 
   // --- teams ---------------------------------------------------------------------------------------
@@ -394,16 +440,20 @@ public class AdminRestController {
   }
 
   static ProfileAccess access(Group group) {
-    if (group == null) return new ProfileAccess(null, null, false, List.of());
+    if (group == null) return new ProfileAccess(null, null, null, false, List.of(), List.of());
     List<RightView> rights = new ArrayList<>();
     if (group.getPermissions() != null) {
       for (Permission p : group.getPermissions()) {
+        RecordType type = RoleAdmin.TYPES.stream().filter(t -> t.model().equals(p.getObject())).findFirst().orElse(null);
+        boolean managed = type != null && p.getName() != null && p.getName().equals("ioeti." + group.getCode() + "." + type.key());
         rights.add(new RightView(p.getObject(), Boolean.TRUE.equals(p.getCanRead()), Boolean.TRUE.equals(p.getCanWrite()),
-            Boolean.TRUE.equals(p.getCanCreate()), Boolean.TRUE.equals(p.getCanRemove()), p.getCondition() != null && !p.getCondition().isBlank()));
+            Boolean.TRUE.equals(p.getCanCreate()), Boolean.TRUE.equals(p.getCanRemove()), p.getCondition() != null && !p.getCondition().isBlank(),
+            type == null ? null : type.key(), type == null ? null : RoleAdmin.scopeOf(type, p), managed));
       }
     }
     rights.sort(Comparator.comparing(RightView::object, Comparator.nullsLast(String::compareTo)));
-    return new ProfileAccess(group.getCode(), group.getName(), AdminService.isAdminProfile(group), rights);
+    List<String> roles = group.getRoles() == null ? List.of() : group.getRoles().stream().map(r -> r.getName()).sorted().toList();
+    return new ProfileAccess(group.getCode(), group.getName(), group.getVersion(), AdminService.isAdminProfile(group), roles, rights);
   }
 
   // --- requests and responses ------------------------------------------------------------------------
@@ -437,9 +487,22 @@ public class AdminRestController {
 
   public record ProfileView(Long id, String code, String name, boolean administrator, long people, int rules) {}
 
-  public record RightView(String object, boolean read, boolean write, boolean create, boolean remove, boolean conditional) {}
+  /** {@code key} and {@code scope} name the right in D-07 terms when the record type is in the catalogue; {@code managed}
+   * is true when the profile editor wrote it (other rights are shown, not edited). */
+  public record RightView(String object, boolean read, boolean write, boolean create, boolean remove, boolean conditional,
+      String key, String scope, boolean managed) {}
 
-  public record ProfileAccess(String code, String name, boolean administrator, List<RightView> rights) {}
+  public record ProfileAccess(String code, String name, Integer version, boolean administrator, List<String> roles, List<RightView> rights) {}
+
+  public record TemplateView(String code, String role, String nameAr, String nameEn) {}
+
+  public record RecordTypeView(String key, String area, String nameAr, String nameEn, boolean restricted, List<String> scopes) {}
+
+  public record RoleCatalog(List<TemplateView> templates, List<RecordTypeView> recordTypes) {}
+
+  public record NewProfile(String code, String name, String template) {}
+
+  public record SetRight(Integer version, String object, boolean read, boolean write, boolean create, boolean remove, String scope) {}
 
   public record TeamView(Long id, Integer version, String code, String name, List<PersonRef> members) {}
 

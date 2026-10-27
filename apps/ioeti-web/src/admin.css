@@ -196,3 +196,16 @@
 .admin-quality-branch-add input { flex: 1 1 160px; min-width: 0; min-height: 34px; padding: 6px 10px; border: 1px solid var(--outline); border-radius: var(--radius);
   background: var(--surface); color: var(--on-surface); font: inherit; }
 .admin-list-add select optgroup { font-weight: 700; }
+
+/* D-07 profile editor: a rights matrix grouped by area */
+.admin-d07 { display: flex; align-items: flex-start; gap: 8px; margin: 0; max-width: 760px; }
+.admin-role { margin-inline-start: 6px; padding: 1px 7px; border-radius: 6px; background: var(--surface-variant); font-size: 12px; }
+.admin-rights-editor td, .admin-rights-editor th { padding-block: 8px; }
+.admin-rights-editor td:not(:first-child), .admin-rights-editor th:not(:first-child) { text-align: center; }
+.admin-rights-editor input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--primary); }
+.admin-rights-editor select { min-width: 130px; }
+.admin-rights-area th { text-align: start !important; background: var(--surface-variant); color: var(--on-surface); font-size: 12px; letter-spacing: .02em; }
+.admin-rights-name { margin-inline-end: 8px; }
+.admin-badge.is-restricted { color: color-mix(in srgb, var(--warning) 70%, var(--on-surface)); background: var(--warning-container); }
+.admin-rights-editor tr[aria-busy="true"] { opacity: .6; }
+.admin-saved { margin: 0 0 10px; padding: 8px 12px; border-radius: var(--radius-sm); background: var(--success-container); color: color-mix(in srgb, var(--success) 75%, var(--on-surface)); font-size: 13px; }

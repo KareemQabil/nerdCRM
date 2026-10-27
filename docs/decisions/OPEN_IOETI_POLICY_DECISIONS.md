@@ -71,6 +71,12 @@ Signer: the project owner, answering a structured interview in the engineering s
     order with SQL keep doing so as test fixtures, because they test other steps.
   - E-signature completion (D-10) is a later channel.
 
+- **D-07 role templates implemented (2026-10-27, P4a):**
+  - Profiles are created from the nine job templates with **no rights** and granted per record type and scope.
+  - The policy owner stays an appointment by owners under Policies.
+  - See `docs/slices/P4a-role-templates.md`.
+  - Optional MFA (P4b) and the retention review queue (P4c) follow.
+
 ## Related, owner-only actions (not engineering decisions)
 
 - Send, or decide not to send, the private upstream report for the AOP thread-bound identity issue. The draft is held outside the repository; see PR #9.
