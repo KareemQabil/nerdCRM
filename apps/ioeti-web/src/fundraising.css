@@ -58,3 +58,38 @@
 .fund-record .record-content-grid{margin-top:16px;}
 .fund-record .record-content-card+.record-content-card{margin-top:16px;}
 @media (max-width:640px){.fund-toolbar>*{flex:1 1 100%;}.fund-board{grid-template-columns:1fr 1fr;}.fund-installment-head{grid-template-columns:1fr 1fr;}.fund-kpis{gap:12px;}}
+/* M1 (D-05): receipts, allocation and restricted funds */
+.fund-receipt-cell{display:inline-flex;align-items:center;gap:8px;flex-wrap:wrap;}
+.fund-receipt-chip{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:700;padding:3px 9px;border-radius:999px;background:var(--success-container,rgba(22,163,74,.12));color:var(--success);text-decoration:none;}
+.fund-receipt-issue{min-height:32px;padding:0 10px;font-size:12px;}
+.fund-muted-inline{color:var(--on-surface-variant);font-size:11px;}
+.fund-analytic{font-variant-numeric:tabular-nums;color:var(--on-surface-variant);}
+.fund-pending{color:#b45309;font-weight:700;}
+.fund-allocation{border:1px dashed var(--outline-variant);border-radius:var(--radius);padding:10px 12px;margin:10px 0;}
+.fund-alloc-terms{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin:0;}
+.fund-alloc-terms dt{font-size:12px;color:var(--on-surface-variant);}
+.fund-alloc-terms dd{margin:2px 0 0;font-weight:700;overflow-wrap:anywhere;}
+.fund-list li.is-inactive{opacity:.65;}
+.fund-list select{min-height:34px;max-width:100%;border-radius:var(--radius);border:1px solid var(--outline-variant);background:var(--surface);color:var(--on-surface);padding:0 8px;}
+.fund-rf-unallocated td{color:#b45309;}
+.fund-rf-collected{font-weight:800;color:var(--success);}
+.fund-receipt-print{max-width:720px;margin:16px auto;background:var(--surface);color:var(--on-surface);border:1px solid var(--outline-variant);border-radius:var(--radius-lg,14px);padding:24px;position:relative;}
+.fund-receipt-print.is-voided{border-style:dashed;}
+.fund-receipt-head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap;border-bottom:2px solid var(--outline-variant);padding-bottom:12px;}
+.fund-receipt-head h1{margin:4px 0 0;font-size:24px;}
+.fund-receipt-no{display:flex;flex-direction:column;align-items:flex-end;gap:2px;font-size:12px;color:var(--on-surface-variant);}
+.fund-receipt-no strong{font-size:18px;color:var(--on-surface);font-variant-numeric:tabular-nums;}
+.fund-receipt-stamp{display:inline-flex;align-items:center;gap:6px;margin:12px 0 0;padding:6px 12px;border:2px solid var(--error);color:var(--error);border-radius:var(--radius);font-weight:800;}
+.fund-receipt-body{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin:18px 0;}
+.fund-receipt-body dt{font-size:12px;color:var(--on-surface-variant);}
+.fund-receipt-body dd{margin:3px 0 0;font-weight:700;overflow-wrap:anywhere;}
+.fund-receipt-amount{font-size:22px;font-variant-numeric:tabular-nums;}
+.fund-receipt-legal{font-size:12px;color:var(--on-surface-variant);border-top:1px solid var(--outline-variant);padding-top:10px;margin:0;}
+.fund-void-form{display:inline-flex;gap:8px;align-items:center;flex-wrap:wrap;}
+.fund-void-form select{min-height:40px;border-radius:var(--radius);border:1px solid var(--outline-variant);background:var(--surface);color:var(--on-surface);padding:0 10px;}
+@media print{
+  body *{visibility:hidden;}
+  .fund-receipt-print,.fund-receipt-print *{visibility:visible;}
+  .fund-receipt-print{position:absolute;inset:0 auto auto 0;width:100%;max-width:none;margin:0;border:0;background:#fff;color:#000;}
+  .fund-no-print{display:none!important;}
+}

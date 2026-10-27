@@ -36,3 +36,21 @@
 .rec-record .record-content-grid{margin-top:20px;}
 .rec-record .record-content-card+.record-content-card{margin-top:16px;}
 @media (max-width:640px){.rec-toolbar>*{flex:1 1 100%;}.rec-board{grid-template-columns:1fr 1fr;}.rec-kpis{gap:12px;}}
+/* M1 (D-04): the placement page */
+.rec-row-actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center;}
+.rec-terms{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin:12px 0;}
+.rec-terms div{border:1px solid var(--outline-variant);border-radius:var(--radius);padding:8px 12px;display:flex;flex-direction:column;gap:3px;min-width:0;}
+.rec-terms dt{font-size:12px;color:var(--on-surface-variant);}
+.rec-terms dd{margin:0;font-weight:700;font-variant-numeric:tabular-nums;overflow-wrap:anywhere;}
+.rec-terms small{font-weight:400;color:var(--on-surface-variant);}
+.rec-why{margin:8px 0;padding:10px 12px;border-radius:var(--radius);background:var(--error-container,rgba(220,38,38,.08));color:var(--on-surface);font-size:13px;line-height:1.6;}
+.rec-hint{grid-column:1/-1;margin:0;font-size:12px;color:var(--on-surface-variant);}
+.rec-fee-requested,.rec-fee-issued,.rec-guarantee-active{background:var(--success-container,rgba(22,163,74,.12));color:var(--success);}
+.rec-fee-policy_not_set,.rec-fee-offer_terms_missing,.rec-guarantee-terms_pending,.rec-guarantee-early_exit{background:var(--error-container,rgba(220,38,38,.1));color:var(--error);}
+.rec-countdown{display:grid;grid-template-columns:auto 1fr;align-items:baseline;gap:4px 10px;margin:10px 0;}
+.rec-countdown strong{font-size:30px;font-weight:800;font-variant-numeric:tabular-nums;}
+.rec-countdown span{color:var(--on-surface-variant);font-size:13px;}
+.rec-meter{grid-column:1/-1;height:8px;border-radius:999px;background:var(--surface-variant);overflow:hidden;}
+.rec-meter span{display:block;height:100%;background:var(--primary);border-radius:999px;}
+.rec-will{margin-top:12px;padding:12px;border-radius:var(--radius);background:var(--surface-variant);font-size:13px;}
+.rec-will p{margin:6px 0 0;line-height:1.6;}

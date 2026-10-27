@@ -1,4 +1,4 @@
-import { ApiError, wrapped } from "./api";
+import { ApiError, wrapped, type TrainingEnrollment } from "./api";
 import { DEMO_MODE } from "./demo";
 
 /**
@@ -18,6 +18,9 @@ const list = async <R>(path: string): Promise<R[]> => {
   if (!Array.isArray(values)) throw new ApiError(502, "Invalid training response");
   return values;
 };
+
+/** D-03: an enrolment says whether a national ID is on file (never the number). */
+export const identityProvided = (e: TrainingEnrollment) => (e as TrainingEnrollment & { identityProvided?: boolean }).identityProvided === true;
 
 export type IdentityCollection = "NOT_ASKED" | "OPTIONAL" | "REQUIRED";
 export type RefundStep = { daysBeforeStart: number; refundPercent: number };

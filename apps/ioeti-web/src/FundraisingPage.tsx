@@ -1,26 +1,28 @@
 import { useCallback, useEffect, useState } from "react";
 import {
-  ArrowLeft, ArrowRight, CalendarClock, CheckCircle2, CircleAlert, CircleDashed, FileLock2, HandCoins, History,
-  LockKeyhole, Plus, RefreshCw, Search, UserRound, Wallet,
+  ArrowLeft, ArrowRight, Ban, CalendarClock, CheckCircle2, CircleAlert, CircleDashed, FileLock2, HandCoins, History, Landmark,
+  LockKeyhole, Plus, Printer, ReceiptText, RefreshCw, Search, UserRound, Wallet,
 } from "lucide-react";
 import { ApiError, getAccounts, type AccountSummary } from "./api";
 import {
-  addDeliverable, advanceDeliverable, approveOpportunity, archiveOpportunity, cancelInstallment, createDonor, createOpportunity,
-  getCampaigns, getCollections, getCollectionStatus, getCommitment, getDeliverables, getDonor, getDonors, getInstallments,
-  getOpportunities, getOpportunity, getOverview, getTimeline, moveOpportunity, recordActivity, recordCollection, renewOpportunity,
-  saveSensitive, scheduleInstallment, voidCollection,
-  type Campaign, type CollectionRecord, type CollectionState, type Commitment, type Deliverable, type Donor, type DonorType,
-  type Installment, type InstallmentStatus, type Money, type MoneyTotals, type Opportunity, type Overview, type Stage, type TimelineEvent,
+  addDeliverable, advanceDeliverable, allocateCommitment, approveOpportunity, archiveOpportunity, cancelInstallment, createDonor,
+  createOpportunity, createRestriction, getAnalyticAccounts, getCampaigns, getCollections, getCollectionStatus, getCommitment,
+  getDeliverables, getDonor, getDonors, getInstallments, getOpportunities, getOpportunity, getOverview, getReceipt, getRestrictedFunds,
+  getRestrictions, getTimeline, issueReceipt, moveOpportunity, recordActivity, recordCollection, renewOpportunity, saveSensitive,
+  scheduleInstallment, updateRestriction, voidCollection, voidReceipt,
+  type AnalyticAccountOption, type Campaign, type CollectionRecord, type CollectionState, type Commitment, type Deliverable, type Donor,
+  type DonorType, type Installment, type InstallmentStatus, type Money, type MoneyTotals, type Opportunity, type Overview, type Receipt,
+  type ReceiptVoidReason, type RestrictedFund, type Restriction, type Stage, type TimelineEvent,
 } from "./fundraisingApi";
 import type { Language } from "./preferences";
 import "./fundraising.css";
-import { amount } from "./format";
+import { amount, day } from "./format";
 import { ErrorBanner, PageHeader } from "./ui";
 
 const strings = {
   ar: {
     title:"التمويل والشراكات",desc:"المانحون والمنح والتعهدات وجداول السداد والتحصيل الفعلي والإشراف على العلاقة، ضمن صلاحياتك.",
-    tabs:{overview:"نظرة عامة",donors:"المانحون",pipeline:"المنح والتعهدات",collections:"حالة التحصيل"},
+    tabs:{overview:"نظرة عامة",donors:"المانحون",pipeline:"المنح والتعهدات",collections:"حالة التحصيل",restricted:"الأموال المقيدة"},
     loading:"جار التحميل...",retry:"إعادة المحاولة",search:"بحث",open:"فتح",back:"العودة إلى التمويل",save:"حفظ",cancel:"إلغاء",empty:"لا يوجد",
     money:{proposed:"مقترح",committed:"ملتزم به",scheduled:"مجدول",collected:"محصّل فعليًا",outstanding:"متبقٍ للتحصيل",restrictedCommitted:"ملتزم مقيّد",unscheduled:"غير مجدول"},
     moneyNote:"المبالغ منفصلة ولا تُجمع معًا: التعهد ليس تحصيلًا، ولا تُجمع العملات المختلفة.",noMoney:"لا توجد مبالغ مسجلة بعد",
@@ -48,14 +50,25 @@ const strings = {
     voidAction:"إلغاء التحصيل",reasons:{DUPLICATE_ENTRY:"إدخال مكرر",WRONG_AMOUNT:"مبلغ خاطئ",PAYMENT_RETURNED:"دفعة مرتجعة"},
     deliverables:"التزامات المنحة",deliverable:"الالتزام",addDeliverable:"إضافة التزام",submitDeliverable:"تسليم",acceptDeliverable:"قبول المانح",
     dstates:{PENDING:"قيد التنفيذ",SUBMITTED:"مُسلّم",ACCEPTED:"مقبول"},
-    receipt:"إصدار إيصال تبرع",post:"ترحيل للحسابات",invoice:"إصدار فاتورة",allocate:"توزيع الأموال المقيدة",
-    blockedNote:"الإيصالات متوقفة حتى D-05، والترحيل والفواتير حتى D-06، وتوزيع الأموال المقيدة حتى D-05 وD-06.",
+    receipt:"إصدار إيصال تبرع",post:"ترحيل للحسابات",invoice:"إصدار فاتورة",allocate:"تخصيص لقيد التمويل",
+    blockedNote:"ترحيل التحصيلات لدفتر الأستاذ وفواتير الرعاة مش متاحين هنا لسه (D-06). التحصيل المقيّد بيتسجل عليه الحساب التحليلي بتاع القيد (D-05)، والمالية بتطلع منه رصيد كل قيد.",
+    receiptNumber:"رقم الإيصال",receiptIssued:"إيصال",receiptVoided:"إيصال ملغى",noReceipt:"من غير إيصال",openReceipt:"عرض الإيصال",voidedReceipts:"إيصالات ملغاة",
+    receiptNote:"المالية بس هي اللي بتصدر إيصال التبرع، وبعد تسجيل التحصيل الفعلي بس (مش على التعهد). إيصال واحد ساري لكل تحصيل، ورقمه مبيتكررش.",
+    allocation:{NOT_RESTRICTED:"غير مقيّد",ALLOCATED:"متخصص لقيد",PENDING_ALLOCATION:"مستني تخصيص من المالية"},analytic:"الحساب التحليلي",
+    restriction:"قيد التمويل",chooseRestriction:"اختر القيد",allocNote:"التخصيص بيتعمل مرة واحدة بمعرفة المالية؛ كل تحصيل على الالتزام ده بيتسجل عليه الحساب التحليلي بتاع القيد.",
+    restrictedTitle:"الأموال المقيدة حسب القيد",restrictedNote:"المبالغ هنا مسجّلة على القيود والحسابات التحليلية في السيستم؛ الترحيل لدفتر الأستاذ لسه مش متاح من هنا، والمصروف من كل قيد مش متتبع هنا.",
+    unallocated:"تمويل مقيّد مستني تخصيص",commitments:"التزامات",noRestricted:"مفيش تمويل مقيّد مسجّل",
+    mapTitle:"ربط القيود بالحسابات التحليلية",newRestriction:"قيد جديد",code:"الكود",name:"الاسم",chooseAnalytic:"اختر الحساب التحليلي",active:"نشط",deactivate:"إيقاف",activate:"تفعيل",
+    mapNote:"تغيير الحساب التحليلي بيأثر على التخصيصات الجاية بس؛ اللي اتسجل قبل كده بيفضل على حسابه.",noRestrictions:"مفيش قيود مربوطة لسه",
+    receiptTitle:"إيصال تبرع",donor:"المتبرع",receivedFor:"عن",print:"طباعة",issuedOn:"تاريخ الإصدار",issuedBy:"أصدره",restrictedTo:"مقيّد لـ",
+    voidReceipt:"إلغاء الإيصال",voidReasons:{WRONG_DONOR_DETAILS:"بيانات المتبرع غلط",WRONG_AMOUNT:"المبلغ غلط",COLLECTION_CORRECTED:"التحصيل اتصحح",DUPLICATE:"مكرر"},
+    reissue:"إصدار إيصال جديد",replaces:"بدل الإيصال",voidedStamp:"ملغى",backToGrant:"العودة للمنحة",receiptLegal:"الإيصال ده بيثبت استلام المبلغ فعليًا. صدر من نظام IOETI.",
     renewalOf:"تجديد لـ",archived:"مؤرشفة",readonly:"عرض فقط: مسؤول العلاقة وحده يعدّل هذا السجل.",
-    errors:{STAGE_TRANSITION:"هذا الانتقال غير مسموح من المرحلة الحالية.",ALREADY_DONOR:"لهذا الحساب ملف مانح بالفعل.",ALREADY_COMMITTED:"لهذه الفرصة التزام مسجل بالفعل.",HAS_COMMITMENT:"لا تُؤرشف فرصة لها التزام.",SCHEDULE_EXCEEDS_COMMITMENT:"مجموع الأقساط سيتجاوز المبلغ الملتزم به.",OVER_COLLECTION:"المبلغ أكبر من المتبقي على هذا القسط.",DUPLICATE_COLLECTION:"هذا التحويل مسجل بالفعل.",INSTALLMENT_STATE:"هذا القسط ملغى.",HAS_COLLECTIONS:"لا يُلغى قسط عليه تحصيلات.",ALREADY_VOIDED:"هذا التحصيل ملغى بالفعل.",DELIVERABLE_STATE:"الالتزام يُسلّم أولًا ثم يُقبل.",BLOCKED_BY_POLICY:"متوقف حتى اعتماد السياسة.",conflict:"تم تعديل البيانات من مكان آخر؛ حدّثناها، أعد المحاولة.",invalid:"راجع الحقول المطلوبة وقيمها.",denied:"ليست لديك صلاحية لهذا الإجراء.",failed:"تعذّر تنفيذ الطلب."},
+    errors:{RECEIPT_EXISTS:"فيه إيصال ساري للتحصيل ده بالفعل.",COLLECTION_VOIDED:"التحصيل الملغى مالوش إيصال.",RECEIPT_ISSUED:"فيه إيصال ساري على التحصيل ده؛ المالية تلغيه الأول.",RECEIPT_VOIDED:"الإيصال ده ملغى بالفعل.",ALREADY_ALLOCATED:"الالتزام ده متخصص لقيد بالفعل.",NOT_RESTRICTED:"التمويل غير المقيّد مبيتخصصش لقيد.",STAGE_TRANSITION:"هذا الانتقال غير مسموح من المرحلة الحالية.",ALREADY_DONOR:"لهذا الحساب ملف مانح بالفعل.",ALREADY_COMMITTED:"لهذه الفرصة التزام مسجل بالفعل.",HAS_COMMITMENT:"لا تُؤرشف فرصة لها التزام.",SCHEDULE_EXCEEDS_COMMITMENT:"مجموع الأقساط سيتجاوز المبلغ الملتزم به.",OVER_COLLECTION:"المبلغ أكبر من المتبقي على هذا القسط.",DUPLICATE_COLLECTION:"هذا التحويل مسجل بالفعل.",INSTALLMENT_STATE:"هذا القسط ملغى.",HAS_COLLECTIONS:"لا يُلغى قسط عليه تحصيلات.",ALREADY_VOIDED:"هذا التحصيل ملغى بالفعل.",DELIVERABLE_STATE:"الالتزام يُسلّم أولًا ثم يُقبل.",BLOCKED_BY_POLICY:"متوقف حتى اعتماد السياسة.",conflict:"تم تعديل البيانات من مكان آخر؛ حدّثناها، أعد المحاولة.",invalid:"راجع الحقول المطلوبة وقيمها.",denied:"ليست لديك صلاحية لهذا الإجراء.",failed:"تعذّر تنفيذ الطلب."},
   },
   en: {
     title:"Fundraising and partnerships",desc:"Donors, grants, pledges, payment schedules, actual collections and stewardship, within your permissions.",
-    tabs:{overview:"Overview",donors:"Donors",pipeline:"Grants and pledges",collections:"Collection status"},
+    tabs:{overview:"Overview",donors:"Donors",pipeline:"Grants and pledges",collections:"Collection status",restricted:"Restricted funds"},
     loading:"Loading...",retry:"Retry",search:"Search",open:"Open",back:"Back to fundraising",save:"Save",cancel:"Cancel",empty:"None",
     money:{proposed:"Proposed",committed:"Committed",scheduled:"Scheduled",collected:"Actually collected",outstanding:"Still to collect",restrictedCommitted:"Restricted commitments",unscheduled:"Not scheduled"},
     moneyNote:"Amounts are kept apart and never added together: a pledge is not collected money, and currencies are never mixed.",noMoney:"No amounts recorded yet",
@@ -83,10 +96,21 @@ const strings = {
     voidAction:"Void collection",reasons:{DUPLICATE_ENTRY:"Duplicate entry",WRONG_AMOUNT:"Wrong amount",PAYMENT_RETURNED:"Payment returned"},
     deliverables:"Grant deliverables",deliverable:"Deliverable",addDeliverable:"Add deliverable",submitDeliverable:"Submit",acceptDeliverable:"Donor accepted",
     dstates:{PENDING:"Pending",SUBMITTED:"Submitted",ACCEPTED:"Accepted"},
-    receipt:"Issue donation receipt",post:"Post to accounting",invoice:"Issue invoice",allocate:"Allocate restricted funds",
-    blockedNote:"Receipts wait for D-05; posting and invoices for D-06; restricted-fund allocation for D-05 and D-06.",
+    receipt:"Issue donation receipt",post:"Post to accounting",invoice:"Issue invoice",allocate:"Allocate to a restriction",
+    blockedNote:"Posting collections to the ledger and invoicing sponsors are not available here yet (D-06). A restricted collection records its restriction's analytic account (D-05), and finance reads each restriction's balance from it.",
+    receiptNumber:"Receipt number",receiptIssued:"Receipt",receiptVoided:"Voided receipt",noReceipt:"No receipt",openReceipt:"View receipt",voidedReceipts:"voided receipts",
+    receiptNote:"Only finance issues donation receipts, and only after the money is recorded as collected (never on a pledge). One receipt is in force per collection and its number is never reused.",
+    allocation:{NOT_RESTRICTED:"Not restricted",ALLOCATED:"Allocated",PENDING_ALLOCATION:"Waiting for finance to allocate"},analytic:"Analytic account",
+    restriction:"Restriction",chooseRestriction:"Choose a restriction",allocNote:"Finance allocates once; every collection on this commitment records the restriction's analytic account.",
+    restrictedTitle:"Restricted funds by restriction",restrictedNote:"These amounts are recorded against restrictions and analytic accounts in the system; posting to the ledger is not available from here yet, and spending per restriction is not tracked here.",
+    unallocated:"Restricted funding waiting for allocation",commitments:"commitments",noRestricted:"No restricted funding recorded",
+    mapTitle:"Restrictions and their analytic accounts",newRestriction:"New restriction",code:"Code",name:"Name",chooseAnalytic:"Choose an analytic account",active:"Active",deactivate:"Deactivate",activate:"Activate",
+    mapNote:"Changing the analytic account affects future allocations only; what was recorded keeps its account.",noRestrictions:"No restrictions mapped yet",
+    receiptTitle:"Donation receipt",donor:"Donor",receivedFor:"For",print:"Print",issuedOn:"Issued on",issuedBy:"Issued by",restrictedTo:"Restricted to",
+    voidReceipt:"Void receipt",voidReasons:{WRONG_DONOR_DETAILS:"Wrong donor details",WRONG_AMOUNT:"Wrong amount",COLLECTION_CORRECTED:"Collection corrected",DUPLICATE:"Duplicate"},
+    reissue:"Issue a new receipt",replaces:"Replaces receipt",voidedStamp:"VOID",backToGrant:"Back to the grant",receiptLegal:"This receipt confirms the amount was actually received. Issued from the IOETI system.",
     renewalOf:"Renewal of",archived:"Archived",readonly:"Read only: only the relationship manager changes this record.",
-    errors:{STAGE_TRANSITION:"This change is not allowed from the current stage.",ALREADY_DONOR:"This account already has a donor profile.",ALREADY_COMMITTED:"This opportunity already has a commitment.",HAS_COMMITMENT:"An opportunity with a commitment cannot be archived.",SCHEDULE_EXCEEDS_COMMITMENT:"The installments would exceed the committed amount.",OVER_COLLECTION:"This is more than is still due on the installment.",DUPLICATE_COLLECTION:"This transfer is already recorded.",INSTALLMENT_STATE:"This installment is cancelled.",HAS_COLLECTIONS:"An installment with collections cannot be cancelled.",ALREADY_VOIDED:"This collection is already voided.",DELIVERABLE_STATE:"A deliverable is submitted, then accepted.",BLOCKED_BY_POLICY:"Blocked until the policy is signed.",conflict:"The data changed elsewhere; it is refreshed, try again.",invalid:"Check the required fields and their values.",denied:"You do not have permission for this action.",failed:"The request failed."},
+    errors:{RECEIPT_EXISTS:"A receipt is already in force for this collection.",COLLECTION_VOIDED:"A voided collection gets no receipt.",RECEIPT_ISSUED:"A receipt is in force for this collection; finance voids it first.",RECEIPT_VOIDED:"This receipt is already voided.",ALREADY_ALLOCATED:"This commitment is already allocated to a restriction.",NOT_RESTRICTED:"Unrestricted funding is not allocated to a restriction.",STAGE_TRANSITION:"This change is not allowed from the current stage.",ALREADY_DONOR:"This account already has a donor profile.",ALREADY_COMMITTED:"This opportunity already has a commitment.",HAS_COMMITMENT:"An opportunity with a commitment cannot be archived.",SCHEDULE_EXCEEDS_COMMITMENT:"The installments would exceed the committed amount.",OVER_COLLECTION:"This is more than is still due on the installment.",DUPLICATE_COLLECTION:"This transfer is already recorded.",INSTALLMENT_STATE:"This installment is cancelled.",HAS_COLLECTIONS:"An installment with collections cannot be cancelled.",ALREADY_VOIDED:"This collection is already voided.",DELIVERABLE_STATE:"A deliverable is submitted, then accepted.",BLOCKED_BY_POLICY:"Blocked until the policy is signed.",conflict:"The data changed elsewhere; it is refreshed, try again.",invalid:"Check the required fields and their values.",denied:"You do not have permission for this action.",failed:"The request failed."},
   },
 } as const;
 type Labels = typeof strings.ar | typeof strings.en;
@@ -140,17 +164,19 @@ export function FundraisingPage({language}:{language:Language}){
   const Back=language==="ar"?ArrowRight:ArrowLeft;
   if(route[0]==="donors"&&/^\d+$/.test(route[1]||""))return <DonorRecord key={route[1]} donorId={Number(route[1])} l={l} language={language} Back={Back}/>;
   if(route[0]==="opportunities"&&/^\d+$/.test(route[1]||""))return <OpportunityRecord key={route[1]} oppId={Number(route[1])} l={l} language={language} Back={Back}/>;
-  const tab=(["donors","pipeline","collections"] as const).find(t=>t===route[0])??"overview";
+  if(route[0]==="receipts"&&/^\d+$/.test(route[1]||""))return <ReceiptRecord key={route[1]} receiptId={Number(route[1])} l={l} language={language} Back={Back}/>;
+  const tab=(["donors","pipeline","collections","restricted"] as const).find(t=>t===route[0])??"overview";
   return <section className="page-enter fund-page">
     <PageHeader className="directory-head" eyebrow={language==="ar"?"التنفيذ والخدمات":"Delivery & services"} title={l.title} description={l.desc}/>
     <div className="demo-record-tabs fund-tabs" role="tablist" aria-label={l.title}>
-      {(["overview","donors","pipeline","collections"] as const).map(t=><button key={t} type="button" role="tab" aria-selected={tab===t} className={tab===t?"active":""}
+      {(["overview","donors","pipeline","collections","restricted"] as const).map(t=><button key={t} type="button" role="tab" aria-selected={tab===t} className={tab===t?"active":""}
         onClick={()=>{window.location.hash=t==="overview"?"#/fundraising":"#/fundraising/"+t;}}>{l.tabs[t]}</button>)}
     </div>
     {tab==="overview"&&<OverviewView l={l} language={language}/>}
     {tab==="donors"&&<DonorsRegister l={l}/>}
     {tab==="pipeline"&&<Pipeline l={l} language={language}/>}
     {tab==="collections"&&<CollectionsView l={l} language={language}/>}
+    {tab==="restricted"&&<RestrictedFunds l={l} language={language}/>}
   </section>;
 }
 
@@ -410,10 +436,12 @@ function OpportunityRecord({oppId,l,language,Back}:{oppId:number;l:Labels;langua
         </dl>
         {commitment.restricted&&<p className="fund-restricted"><LockKeyhole size={14}/>{l.restricted}: {commitment.restrictionPurpose}</p>}
         <p className="fund-note"><CircleAlert size={14}/>{l.moneyNote}</p>
+        {commitment.restricted&&<Allocation commitment={commitment} l={l} run={run} busy={busy}/>}
         <div className="lead-actions">
-          {(["allocate","invoice","receipt","post"] as const).map(k=><button key={k} type="button" className="btn btn-secondary" disabled aria-describedby="fund-blocked-note">{l[k]}</button>)}
+          {(["invoice","post"] as const).map(k=><button key={k} type="button" className="btn btn-secondary" disabled aria-describedby="fund-blocked-note">{l[k]}</button>)}
         </div>
         <p className="record-security-note" id="fund-blocked-note"><LockKeyhole size={15}/>{l.blockedNote}</p>
+        <p className="fund-note"><ReceiptText size={14}/>{l.receiptNote}</p>
       </section>
       <section className="record-content-card" aria-labelledby="sched-title">
         <div className="record-section-header"><div className="record-section-icon"><CalendarClock size={20}/></div><div><h2 id="sched-title">{l.schedule}</h2></div></div>
@@ -456,7 +484,16 @@ function InstallmentRow({installment,currency,editable,l,language,run,busy}:{ins
     {open&&<div className="fund-installment-body">
       <h4>{l.collections}</h4>
       {rows.length===0?<p className="fund-muted">{l.empty}</p>:<ul className="fund-list">{rows.map(k=><li key={k.id} className={k.status==="VOIDED"?"is-voided":""}>
-        <span><span dir="ltr">{fmt(k.amount,currency)}</span> · <span dir="ltr">{k.receivedOn}</span> · {k.status==="VOIDED"?`${l.voided}${k.voidReason?` (${(l.reasons as Record<string,string>)[k.voidReason]})`:""}`:l.recorded}{k.recordedBy?` · ${k.recordedBy}`:""}</span>
+        <span><span dir="ltr">{fmt(k.amount,currency)}</span> · <span dir="ltr">{k.receivedOn}</span> · {k.status==="VOIDED"?`${l.voided}${k.voidReason?` (${(l.reasons as Record<string,string>)[k.voidReason]})`:""}`:l.recorded}{k.recordedBy?` · ${k.recordedBy}`:""}
+          {k.analyticAccount&&<> · <span className="fund-analytic" title={l.analytic}>{k.analyticAccount}</span></>}
+          {k.allocationStatus==="PENDING_ALLOCATION"&&<> · <span className="fund-pending">{l.allocation.PENDING_ALLOCATION}</span></>}</span>
+        <span className="fund-receipt-cell">
+          {k.receiptStatus==="ISSUED"&&(k.receiptId!=null?<a className="fund-receipt-chip" href={"#/fundraising/receipts/"+k.receiptId}><ReceiptText size={13}/><span dir="ltr">{k.receiptNumber}</span></a>
+            :<span className="fund-receipt-chip"><ReceiptText size={13}/>{l.receiptIssued}</span>)}
+          {k.canIssueReceipt&&<button type="button" className="btn btn-secondary fund-receipt-issue" disabled={busy}
+            onClick={()=>act(async()=>{const r=await issueReceipt(k.id);window.location.hash="#/fundraising/receipts/"+r.id;})}><ReceiptText size={14}/>{l.receipt}</button>}
+          {(k.voidedReceipts??0)>0&&<small className="fund-muted-inline">{k.voidedReceipts} {l.voidedReceipts}</small>}
+        </span>
         {editable&&k.status==="RECORDED"&&<span className="lead-actions">{(Object.keys(l.reasons) as (keyof Labels["reasons"])[]).slice(0,3).map(r=>
           <button key={r} type="button" className="text-action" disabled={busy} onClick={()=>act(()=>voidCollection(k.id,k.version,r))}>{l.voidAction}: {l.reasons[r]}</button>)}</span>}
       </li>)}</ul>}
@@ -471,4 +508,110 @@ function InstallmentRow({installment,currency,editable,l,language,run,busy}:{ins
         onClick={()=>act(()=>cancelInstallment(installment.id,installment.version))}>{l.cancelInstallment}</button>}
     </div>}
   </div>;
+}
+
+/** D-05: finance allocates a restricted commitment to a restriction (its analytic account), once. */
+function Allocation({commitment,l,run,busy}:{commitment:Commitment;l:Labels;run:(a:()=>Promise<unknown>)=>Promise<boolean>;busy:boolean}){
+  const [options,setOptions]=useState<Restriction[]>([]);const [pick,setPick]=useState("");
+  useEffect(()=>{if(commitment.canAllocate)void getRestrictions().then(r=>setOptions(r.filter(x=>x.active))).catch(()=>setOptions([]));},[commitment.canAllocate]);
+  const status=commitment.allocationStatus??"PENDING_ALLOCATION";
+  return <div className="fund-allocation" aria-label={l.restriction}>
+    <dl className="fund-alloc-terms">
+      <div><dt>{l.restriction}</dt><dd>{commitment.fundRestrictionName?<>{commitment.fundRestrictionName} <span dir="ltr">({commitment.fundRestrictionCode})</span></>:l.allocation[status]}</dd></div>
+      {commitment.analyticAccount&&<div><dt>{l.analytic}</dt><dd dir="ltr">{commitment.analyticAccount}</dd></div>}
+    </dl>
+    {commitment.canAllocate&&status==="PENDING_ALLOCATION"&&<form className="opportunity-form fund-form" onSubmit={e=>{e.preventDefault();void run(()=>allocateCommitment(commitment.id,commitment.version,Number(pick)));}}>
+      <label><span>{l.restriction}</span><select required value={pick} onChange={e=>setPick(e.target.value)}><option value="">{l.chooseRestriction}</option>
+        {options.map(o=><option key={o.id} value={o.id}>{o.name} · {o.analyticAccountCode}</option>)}</select></label>
+      <button type="submit" className="btn btn-primary" disabled={busy||!pick}><Landmark size={15}/>{l.allocate}</button>
+      <p className="fund-hint">{l.allocNote}</p></form>}
+  </div>;
+}
+
+/** D-05: the restricted-funds balance per restriction and currency, and finance's restriction → analytic account mapping. */
+function RestrictedFunds({l,language}:{l:Labels;language:Language}){
+  const fmt=useMoney(language);
+  const [rows,setRows]=useState<RestrictedFund[]|null>(null);const [error,setError]=useState("");
+  const [restrictions,setRestrictions]=useState<Restriction[]>([]);const [accounts,setAccounts]=useState<AnalyticAccountOption[]|null>(null);
+  const [code,setCode]=useState("");const [name,setName]=useState("");const [accountId,setAccountId]=useState("");
+  const load=useCallback(async()=>{
+    const [r,m]=await Promise.all([getRestrictedFunds(),getRestrictions()]);setRows(r);setRestrictions(m);setError("");
+  },[]);
+  useEffect(()=>{void load().catch(e=>{setRows([]);setError(message(e,l));});
+    void getAnalyticAccounts().then(setAccounts).catch(()=>setAccounts(null));},[load,l]);
+  const {busy,error:actionError,run}=useAction(l,load);
+  return <div className="fund-overview">
+    {error&&<Retry error={error} l={l} onRetry={()=>void load().catch(e=>setError(message(e,l)))}/>}
+    <section className="record-content-card" aria-labelledby="fund-rf-title">
+      <div className="record-section-header"><div className="record-section-icon"><Landmark size={20}/></div><div><h2 id="fund-rf-title">{l.restrictedTitle}</h2></div></div>
+      {rows===null?<div className="empty-state" role="status">{l.loading}</div>:rows.length===0?<p className="fund-muted">{l.noRestricted}</p>
+      :<div className="table-scroll"><table className="fund-table fund-rf-table"><thead><tr><th>{l.restriction}</th><th>{l.analytic}</th><th>{l.money.committed}</th><th>{l.money.collected}</th><th>{l.commitments}</th></tr></thead>
+        <tbody>{rows.map(r=><tr key={(r.code??"-")+r.currency} className={r.allocated?"":"fund-rf-unallocated"}>
+          <td>{r.allocated?<><strong>{r.name}</strong> <small dir="ltr">{r.code}</small></>:<strong>{l.unallocated}</strong>}</td>
+          <td dir="ltr">{r.analyticAccountCode?`${r.analyticAccountCode} - ${r.analyticAccountName}`:"—"}</td>
+          <td dir="ltr">{fmt(r.committed,r.currency)}</td><td dir="ltr" className="fund-rf-collected">{fmt(r.collected,r.currency)}</td><td>{r.commitments}</td></tr>)}</tbody></table></div>}
+      <p className="fund-note"><CircleAlert size={14}/>{l.restrictedNote}</p>
+    </section>
+    <section className="record-content-card" aria-labelledby="fund-map-title">
+      <div className="record-section-header"><div className="record-section-icon"><FileLock2 size={20}/></div><div><h2 id="fund-map-title">{l.mapTitle}</h2></div></div>
+      {actionError&&<div className="login-error" role="alert"><CircleAlert size={17}/>{actionError}</div>}
+      {restrictions.length===0?<p className="fund-muted">{l.noRestrictions}</p>:<ul className="fund-list">{restrictions.map(r=><li key={r.id} className={r.active?"":"is-inactive"}>
+        <span><strong>{r.name}</strong> · <span dir="ltr">{r.code}</span> → <span dir="ltr">{r.analyticAccountCode} - {r.analyticAccountName}</span>{r.active?"":` · ${l.deactivate}`}</span>
+        {accounts!==null&&<span className="lead-actions">
+          <select aria-label={l.analytic+" "+r.code} value={r.analyticAccountId} disabled={busy}
+            onChange={e=>void run(()=>updateRestriction(r.id,r.version,{analyticAccountId:Number(e.target.value)}))}>
+            {[{id:r.analyticAccountId,code:r.analyticAccountCode,name:r.analyticAccountName},...accounts.filter(a=>a.id!==r.analyticAccountId)].map(a=><option key={a.id} value={a.id}>{a.code} - {a.name}</option>)}</select>
+          <button type="button" className="text-action" disabled={busy} onClick={()=>void run(()=>updateRestriction(r.id,r.version,{active:!r.active}))}>{r.active?l.deactivate:l.activate}</button></span>}
+      </li>)}</ul>}
+      {accounts!==null&&<form className="opportunity-form fund-form" onSubmit={e=>{e.preventDefault();
+          void run(async()=>{await createRestriction({code,name,analyticAccountId:Number(accountId)});setCode("");setName("");setAccountId("");});}}>
+        <label><span>{l.code}</span><input required dir="ltr" maxLength={30} value={code} onChange={e=>setCode(e.target.value.toUpperCase())}/></label>
+        <label><span>{l.name}</span><input required maxLength={255} value={name} onChange={e=>setName(e.target.value)}/></label>
+        <label><span>{l.analytic}</span><select required value={accountId} onChange={e=>setAccountId(e.target.value)}><option value="">{l.chooseAnalytic}</option>
+          {accounts.map(a=><option key={a.id} value={a.id}>{a.code} - {a.name}</option>)}</select></label>
+        <button type="submit" className="btn btn-primary" disabled={busy}><Plus size={16}/>{l.newRestriction}</button>
+        <p className="fund-hint">{l.mapNote}</p></form>}
+    </section>
+  </div>;
+}
+
+/** D-05: one donation receipt, printable; finance voids it with a reason and reissues with a new number. */
+function ReceiptRecord({receiptId,l,language,Back}:{receiptId:number;l:Labels;language:Language;Back:typeof ArrowLeft}){
+  const fmt=useMoney(language);const ar=language==="ar";
+  const [r,setR]=useState<Receipt|null>(null);const [loadError,setLoadError]=useState("");const [reason,setReason]=useState<ReceiptVoidReason>("WRONG_DONOR_DETAILS");
+  const reload=useCallback(()=>getReceipt(receiptId).then(setR),[receiptId]);
+  useEffect(()=>{void reload().catch(e=>setLoadError(message(e,l)));},[reload,l]);
+  const {busy,error,run}=useAction(l,reload);
+  if(loadError)return <section className="page-enter"><a className="record-back" href="#/fundraising"><Back size={17}/>{l.back}</a><ErrorBanner message={loadError}/></section>;
+  if(!r)return <div className="empty-state" role="status">{l.loading}</div>;
+  const voided=r.status==="VOIDED";
+  return <article className="record-workspace page-enter fund-record" aria-labelledby="receipt-title">
+    <div className="record-context-bar fund-no-print"><a className="record-back" href={"#/fundraising/opportunities/"+r.opportunityId}><Back size={17}/>{l.backToGrant}</a>
+      <span className="record-context-separator">/</span><span className="record-current" dir="ltr">{r.number}</span></div>
+    {error&&<div className="login-error fund-no-print" role="alert"><CircleAlert size={17}/>{error}</div>}
+    <section className={"fund-receipt-print"+(voided?" is-voided":"")} aria-labelledby="receipt-title">
+      <header className="fund-receipt-head"><div><span className="eyebrow">IOETI</span><h1 id="receipt-title">{l.receiptTitle}</h1></div>
+        <div className="fund-receipt-no"><span>{l.receiptNumber}</span><strong dir="ltr">{r.number}</strong></div></header>
+      {voided&&<p className="fund-receipt-stamp" role="status"><Ban size={16}/>{l.voidedStamp}{r.voidReason?` · ${l.voidReasons[r.voidReason]}`:""}</p>}
+      <dl className="fund-receipt-body">
+        <div><dt>{l.donor}</dt><dd>{r.donorName??l.anonymousDonor}</dd></div>
+        <div><dt>{l.amount}</dt><dd dir="ltr" className="fund-receipt-amount">{fmt(r.amount,r.currency)}</dd></div>
+        <div><dt>{l.receivedOn}</dt><dd>{day(r.receivedOn,ar)}</dd></div>
+        <div><dt>{l.receivedFor}</dt><dd>{r.title} · <span dir="ltr">{r.reference}</span></dd></div>
+        {r.restrictedTo&&<div><dt>{l.restrictedTo}</dt><dd>{r.restrictedTo}</dd></div>}
+        <div><dt>{l.issuedOn}</dt><dd>{day(r.issuedOn,ar)}{r.issuedBy?` · ${l.issuedBy}: ${r.issuedBy}`:""}</dd></div>
+        {r.replacesNumber&&<div><dt>{l.replaces}</dt><dd dir="ltr">{r.replacesNumber}</dd></div>}
+      </dl>
+      <p className="fund-receipt-legal">{l.receiptLegal}</p>
+    </section>
+    <div className="lead-actions fund-no-print">
+      <button type="button" className="btn btn-secondary" onClick={()=>window.print()}><Printer size={15}/>{l.print}</button>
+      {r.canVoid&&<form className="fund-void-form" onSubmit={e=>{e.preventDefault();void run(()=>voidReceipt(r.id,r.version,reason));}}>
+        <label><span className="sr-only">{l.voidReceipt}</span><select aria-label={l.voidReceipt} value={reason} onChange={e=>setReason(e.target.value as ReceiptVoidReason)}>
+          {(Object.keys(l.voidReasons) as ReceiptVoidReason[]).map(k=><option key={k} value={k}>{l.voidReasons[k]}</option>)}</select></label>
+        <button type="submit" className="btn btn-secondary" disabled={busy}><Ban size={15}/>{l.voidReceipt}</button></form>}
+      {voided&&<button type="button" className="btn btn-primary" disabled={busy}
+        onClick={()=>void run(async()=>{const next=await issueReceipt(r.collectionId);window.location.hash="#/fundraising/receipts/"+next.id;})}><ReceiptText size={15}/>{l.reissue}</button>}
+    </div>
+  </article>;
 }

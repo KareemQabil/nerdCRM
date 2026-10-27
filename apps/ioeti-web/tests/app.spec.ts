@@ -1324,12 +1324,12 @@ test("recruitment: pipeline from sourcing to placement; consent required to subm
   await page.getByRole("button", { name: "تأكيد التعيين" }).click();
   const placements = page.locator("table");
   await expect(placements).toContainText("Salma Hassan");
-  await expect(placements).toContainText("شروط الضمان بانتظار السياسة D-04");
+  await expect(placements).toContainText("مستني اتفاقية العميل");
   await expect(placements).toContainText("قبول العرض");
   await page.getByRole("button", { name: "تسجيل بدء العمل" }).click();
   await expect(placements).toContainText("بدء العمل");
-  await expect(page.getByRole("button", { name: "إصدار فاتورة الأتعاب" })).toBeDisabled();
-  await expect(page.getByRole("button", { name: "طلب بديل" })).toBeDisabled();
+  // M1 (D-04): fee, guarantee and early exit live on the placement's own page
+  await expect(placements.getByRole("link", { name: "فتح التعيين" })).toHaveAttribute("href", "#/recruitment/placements/95");
   await expect(page.locator(".record-tags .rec-status")).toHaveText("مكتمل");
   expect(requests.filter(r => r.path === "/applications/71/submit").map(r => r.body)).toEqual([{ version: 2 }, { version: 2 }]);
   expect(requests.some(r => /share-cv|invoice|replacement/.test(r.path))).toBe(false);
@@ -1527,7 +1527,8 @@ test("fundraising: grant from proposal to commitment, schedule within the commit
   await expect(money.locator(".fund-money-committed dd")).toContainText("400");
   await expect(money.locator(".fund-money-collected dd")).toContainText("0");
   await expect(page.locator(".fund-restricted")).toContainText("Girls' STEM scholarships");
-  for (const label of ["توزيع الأموال المقيدة", "إصدار فاتورة", "إصدار إيصال تبرع", "ترحيل للحسابات"]) await expect(page.getByRole("button", { name: label })).toBeDisabled();
+  // M1 (D-05): receipts are issued per collection by finance and allocation is finance's (tests/fundraising.spec.ts); invoicing and posting stay closed
+  for (const label of ["إصدار فاتورة", "ترحيل للحسابات"]) await expect(page.getByRole("button", { name: label })).toBeDisabled();
   await expect(page.locator("#fund-blocked-note")).toContainText("D-05");
   await page.getByLabel("تاريخ الاستحقاق").first().fill("2026-10-15");
   await page.getByLabel("المبلغ", { exact: true }).fill("500000");

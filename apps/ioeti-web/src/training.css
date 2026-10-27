@@ -1,0 +1,79 @@
+/* D-03 training: rules, certificates, national ID, cancellation and refunds. Base training layout lives in styles.css. */
+.training-page .btn-danger { background: var(--error); color: var(--on-error, #fff); border-color: transparent; }
+.training-page .btn-danger-quiet { border: 1px solid color-mix(in srgb, var(--error) 45%, var(--outline-variant)); background: transparent; color: var(--error); }
+.training-page .btn-danger-quiet:not(:disabled):hover { background: var(--error-container); }
+.training-page .btn-small { min-height: 34px; padding: 5px 11px; font-size: 12.5px; gap: 5px; }
+.training-page .record-section-header { flex-wrap: wrap; }
+.training-head-action { margin-inline-start: auto; }
+
+.training-notice { display: flex; gap: 8px; align-items: center; padding: 10px 14px; border-radius: var(--radius); background: var(--success-container); color: var(--success); font-size: 13px; margin-bottom: 12px; }
+.training-muted { color: var(--on-surface-variant); }
+.training-hint { display: flex; gap: 6px; align-items: center; color: var(--on-surface-variant); font-size: 12px; margin: 6px 0 0; grid-column: 1 / -1; }
+.training-missing { color: var(--warning); font-weight: 700; }
+
+.training-rule-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
+.training-rule-grid > div { grid-template-columns: 1fr; gap: 4px; }
+.training-steps { margin: 0; padding-inline-start: 18px; line-height: 1.8; }
+.training-policy-gaps { list-style: none; margin: 14px 0 0; padding: 0; display: grid; gap: 8px; }
+.training-policy-gaps li { display: flex; gap: 8px; align-items: flex-start; padding: 10px 12px; border-radius: var(--radius); background: var(--warning-container); color: var(--on-surface); font-size: 13px; line-height: 1.7; }
+.training-policy-gaps svg { color: var(--warning); flex-shrink: 0; margin-top: 3px; }
+
+.training-row-actions { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: center; }
+.training-row-cancelled td { color: var(--on-surface-variant); }
+.training-id { display: inline-flex; gap: 5px; align-items: center; font-size: 12px; font-weight: 700; }
+.training-id.is-on { color: var(--success); }
+.training-id.is-off { color: var(--on-surface-variant); }
+.training-reason { color: var(--warning); font-size: 12.5px; font-weight: 700; }
+.training-serial { font-weight: 700; font-variant-numeric: tabular-nums; }
+.training-score { display: flex; gap: 6px; align-items: center; }
+.training-score input { width: 84px; }
+
+.training-explain { display: flex; gap: 10px; align-items: flex-start; padding: 12px 14px; border-radius: var(--radius); margin-top: 14px; line-height: 1.7; }
+.training-explain p { margin: 0; }
+.training-explain svg { flex-shrink: 0; margin-top: 3px; }
+.training-explain.is-ok { background: var(--success-container); }
+.training-explain.is-ok svg { color: var(--success); }
+.training-explain.is-warn { background: var(--warning-container); }
+.training-explain.is-warn svg { color: var(--warning); }
+.training-explain.is-block { background: var(--error-container); }
+.training-explain.is-block svg { color: var(--error); }
+
+.training-money { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+.training-money > div { grid-template-columns: 1fr; gap: 4px; }
+.training-field { display: grid; gap: 6px; margin-top: 12px; }
+.training-field textarea, .training-field input { width: 100%; }
+.training-invoices { border: 0; padding: 0; margin: 16px 0 0; display: grid; gap: 8px; }
+.training-invoices legend { font-weight: 700; margin-bottom: 4px; }
+.training-invoice { display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; align-items: center; padding: 10px 12px; border: 1px solid var(--outline-variant); border-radius: var(--radius); cursor: pointer; }
+.training-invoice > span:last-child { grid-column: 2; color: var(--on-surface-variant); font-size: 12.5px; }
+.training-invoice.is-chosen { border-color: var(--primary); background: var(--primary-container); }
+.training-share { display: grid; gap: 6px; max-width: 240px; }
+.training-refund-summary { display: flex; gap: 8px; align-items: center; margin-top: 14px; font-size: 13px; }
+.training-refund-status { font-weight: 700; font-size: 12.5px; }
+.training-refund-status.is-requested { color: var(--warning); }
+.training-refund-status.is-credited { color: var(--success); }
+.training-refund-status.is-rejected { color: var(--error); }
+
+/* the printable certificate: on paper only the certificate is printed */
+.training-certificate { position: relative; display: grid; justify-items: center; gap: 6px; text-align: center; padding: 34px 24px 26px; margin-top: 8px;
+  border: 3px double var(--outline); border-radius: 14px; background: var(--surface); color: var(--on-surface); }
+.training-certificate h3 { font-size: 22px; margin: 6px 0 4px; }
+.training-certificate p { margin: 0; line-height: 1.8; }
+.training-certificate-name { font-size: 24px; font-weight: 800; }
+.training-certificate-course { font-size: 18px; font-weight: 700; }
+.training-certificate footer { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 10px; width: 100%; margin-top: 18px; padding-top: 12px; border-top: 1px solid var(--outline-variant); font-size: 13px; }
+.training-certificate.is-revoked { opacity: .65; }
+.training-revoked-stamp { position: absolute; inset-block-start: 40%; transform: rotate(-12deg); border: 3px solid var(--error); color: var(--error); font-size: 26px; font-weight: 800; padding: 4px 18px; border-radius: 8px; }
+
+@media (max-width: 600px) {
+  .training-head-action { margin-inline-start: 0; width: 100%; }
+  .training-certificate { padding: 24px 12px 18px; }
+  .training-certificate-name { font-size: 20px; }
+}
+
+@media print {
+  body * { visibility: hidden !important; }
+  .training-certificate, .training-certificate * { visibility: visible !important; }
+  .training-certificate { position: fixed; inset: 0; margin: 0; border-radius: 0; box-shadow: none; justify-content: center; align-content: center;
+    background: #fff; color: #000; }
+}
