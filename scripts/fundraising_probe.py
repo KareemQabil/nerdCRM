@@ -11,7 +11,13 @@ Checks, through /ws/ioeti/fundraising:
   money stays apart: proposed ≠ committed ≠ scheduled ≠ collected; a pledge is not collected
   schedule never exceeds the commitment; a collection never exceeds what is due; the same bank
   reference twice → 409; voiding keeps the row and stops counting it; bank references never returned
-  receipts (D-05), posting and invoicing (D-06), restricted allocation (D-05/D-06) → BLOCKED_BY_POLICY
+  posting collections and invoicing installments (D-06) → BLOCKED_BY_POLICY
+  M1 (D-05 signed): only finance (native rights on receipts) issues a receipt, only for a recorded collection
+  (voided → 422), once (409), uniquely numbered, with the collection's amount, donor and date; a collection with
+  a receipt in force cannot be voided; a receipt is voided with a reason (stale → 409, twice → 422) and a reissue
+  gets a new number; restrictions map to active native analytic accounts (finance only); a restricted commitment
+  is allocated once (unrestricted → 422, twice → 409) and its recorded collections, later ones included, carry
+  the analytic account; the restricted-funds report sums them per restriction
   deliverables and stewardship; archive keeps history; renewal of an approved opportunity
   isolation: another fundraiser → 404; sales → 403 and Account 360 shows no fundraising data;
   fundraisers are denied quotations; anonymous donors are unnamed for the reporter
@@ -34,6 +40,7 @@ PARTNER, CAMPAIGN = "com.axelor.apps.base.db.Partner", "com.axelor.apps.marketin
 P = "com.ioeti.fundraising.db."
 DONOR, SENS, OPP, COMMIT = P + "DonorProfile", P + "DonorSensitiveProfile", P + "FundingOpportunity", P + "FundingCommitment"
 INST, COLL, DELIV, STEW = P + "PledgeInstallment", P + "DonationCollection", P + "GrantDeliverable", P + "StewardshipActivity"
+RECEIPT, RESTR, ANALYTIC = P + "DonationReceipt", P + "FundRestriction", "com.axelor.apps.account.db.AnalyticAccount"
 BASE = "/ws/ioeti/fundraising"
 MISSING = 987654326
 ROUNDS = int(os.environ.get("PROBE_FUND_ROUNDS", "5"))
@@ -109,12 +116,15 @@ def main():
         rep = [perm(f"r.{m.split('.')[-1].lower()}", m, canRead=True) for m in own if m != SENS]
         rep += [perm("r.partner", PARTNER, canRead=True)]
         sales = [perm("s.partner", PARTNER, canRead=True)]
+        # finance (fixture): reads fundraising money, issues receipts and maps restrictions; no fundraising writes
+        finance = [perm(f"n.{m.split('.')[-1].lower()}", m, canRead=True) for m in (OPP, COMMIT, INST, COLL, DONOR, PARTNER)]
+        finance += [perm("n.receipt", RECEIPT, **rw), perm("n.restr", RESTR, **rw), perm("n.analytic", ANALYTIC, canRead=True)]
         groups = {}
-        for key, perms in (("fund", fund), ("rep", rep), ("sales", sales)):
+        for key, perms in (("fund", fund), ("rep", rep), ("sales", sales), ("fin", finance)):
             groups[key] = create(GROUP, {"code": f"wave4e-{key}-{tag}", "name": f"Wave4e {key} {tag}",
                                          "permissions": [{"id": p["id"]} for p in perms]})
         sessions = {}
-        for label, group in (("FundA", "fund"), ("FundA2", None), ("FundB", "fund"), ("Reporter", "rep"), ("Sales", "sales")):
+        for label, group in (("FundA", "fund"), ("FundA2", None), ("FundB", "fund"), ("Reporter", "rep"), ("Sales", "sales"), ("Finance", "fin")):
             if group is None:
                 sessions[label] = Client()
                 assert sessions[label].login(users["FundA"]["code"], users["FundA"]["_pw"]) == 200
@@ -126,7 +136,7 @@ def main():
             users[label]["_pw"] = password
             sessions[label] = Client()
             assert sessions[label].login(users[label]["code"], password) == 200, label
-        a, a2, b, rep_c, sales_c = (sessions[k] for k in ("FundA", "FundA2", "FundB", "Reporter", "Sales"))
+        a, a2, b, rep_c, sales_c, fin = (sessions[k] for k in ("FundA", "FundA2", "FundB", "Reporter", "Sales", "Finance"))
         foundation = create(PARTNER, {"name": f"Wave4e Nile Delta Foundation {tag}", "partnerTypeSelect": 1, "isProspect": True})
         quiet = create(PARTNER, {"name": f"Wave4e Quiet Benefactor {tag}", "partnerTypeSelect": 2, "firstName": "Quiet"})
         campaign = create(CAMPAIGN, {"name": f"Wave4e Scholarships {tag}"})
@@ -207,7 +217,7 @@ def main():
         check("approval: restricted without purpose → 422; commitment 201 (committed 400000, collected 0, outstanding 400000); again → 409",
               (s_np, field(b_np)) == (422, "restrictionPurpose") and s == 201 and num(com.get("committed")) == 400000
               and num(com.get("collected")) == 0 and num(com.get("outstanding")) == 400000 and com.get("restricted") is True
-              and com.get("receiptStatus") == "BLOCKED_BY_POLICY" and (s_twice, error(b_twice).get("code")) == (409, "ALREADY_COMMITTED"),
+              and com.get("allocationStatus") == "PENDING_ALLOCATION" and (s_twice, error(b_twice).get("code")) == (409, "ALREADY_COMMITTED"),
               f"{s_np} {s} {s_twice} {body}")
         check("overview keeps money apart: the approved amount is committed, not proposed and not collected",
               num(egp.get("committed")) >= 400000 and num(egp.get("collected")) == 0
@@ -255,19 +265,112 @@ def main():
         sv, bv = call(a, "POST", f"/collections/{k1['id']}/void", {"version": version(COLL, k1["id"]), "reason": "WRONG_AMOUNT"})
         sv2, bv2 = call(a, "POST", f"/collections/{k1['id']}/void", {"version": version(COLL, k1["id"]), "reason": "WRONG_AMOUNT"})
         _, klist = call(a, "GET", f"/installments/{i1['id']}/collections")
-        sc2, _, _ = collect(a, i1, "150000", f"NBE-{tag}-0004")
+        sc2, _, k2 = collect(a, i1, "150000", f"NBE-{tag}-0004")
         _, c_after = call(a, "GET", f"/commitments/{com['id']}")
         check("void keeps the row (listed as VOIDED) and stops counting it; void twice → 422; the corrected collection counts",
               sv == 200 and obj(bv).get("status") == "VOIDED" and (sv2, error(bv2).get("code")) == (422, "ALREADY_VOIDED")
               and [k["status"] for k in obj(klist)] == ["VOIDED"] and sc2 == 201
               and num(obj(c_after).get("collected")) == 150000, f"{sv} {sv2} {obj(klist)} {sc2} {obj(c_after)}")
-        blocked = [call(a, "POST", path) for path in (f"/collections/{k1['id']}/receipt", f"/collections/{k1['id']}/post",
-                                                       f"/installments/{i1['id']}/invoice", f"/commitments/{com['id']}/allocate")]
+        blocked = [call(a, "POST", path) for path in (f"/collections/{k1['id']}/post", f"/installments/{i1['id']}/invoice")]
         before = len(search(COLL, f"self.installment.commitment.id = {com['id']}"))
-        check("receipt (D-05), posting and invoice (D-06), restricted allocation (D-05, D-06) → 422 BLOCKED_BY_POLICY, nothing created",
+        check("posting a collection and invoicing an installment (D-06) → 422 BLOCKED_BY_POLICY, nothing created",
               all(s_ == 422 and error(b_).get("code") == "BLOCKED_BY_POLICY" for s_, b_ in blocked)
-              and "D-05" in error(blocked[0][1]).get("message", "") and "D-06" in error(blocked[2][1]).get("message", "")
-              and before == 2, [s_ for s_, _ in blocked])
+              and "D-06" in error(blocked[1][1]).get("message", "") and before == 2, [s_ for s_, _ in blocked])
+
+        # --- 4b. D-05 receipts: finance only, recorded collections only, once, numbered -----------------------
+        def receipt(client, coll_id):
+            s_, b_ = call(client, "POST", f"/collections/{coll_id}/receipt")
+            if obj(b_).get("id"):
+                created.append((RECEIPT, obj(b_)["id"]))
+            return s_, b_, obj(b_)
+
+        s_fa, _, _ = receipt(a, k2["id"])
+        s_void_k, b_void_k, _ = receipt(fin, k1["id"])
+        s_r1, b_r1, r1 = receipt(fin, k2["id"])
+        s_r_dup, b_r_dup, _ = receipt(fin, k2["id"])
+        year = str(date.today().year)
+        check("receipt: fundraiser without finance rights → 403; voided collection → 422 COLLECTION_VOIDED; finance issues it (201): "
+              "unique number, the collection's amount, donor and date; again → 409 RECEIPT_EXISTS",
+              s_fa == 403 and (s_void_k, error(b_void_k).get("code")) == (422, "COLLECTION_VOIDED") and s_r1 == 201
+              and str(r1.get("number", "")).startswith(f"DR-{year}-") and len(r1.get("number", "")) == 14 and num(r1.get("amount")) == 150000
+              and r1.get("donorName") == foundation["name"] and r1.get("receivedOn") == "2026-10-16" and r1.get("status") == "ISSUED"
+              and (s_r_dup, error(b_r_dup).get("code")) == (409, "RECEIPT_EXISTS"), f"{s_fa} {s_void_k} {s_r1} {r1} {s_r_dup}")
+        _, fin_k = call(fin, "GET", f"/installments/{i1['id']}/collections")
+        _, own_k = call(a, "GET", f"/installments/{i1['id']}/collections")
+        fin_row = next((k for k in obj(fin_k) if k["id"] == k2["id"]), {}) if isinstance(obj(fin_k), list) else {}
+        own_row = next((k for k in obj(own_k) if k["id"] == k2["id"]), {}) if isinstance(obj(own_k), list) else {}
+        s_kv, b_kv = call(a, "POST", f"/collections/{k2['id']}/void", {"version": version(COLL, k2["id"]), "reason": "WRONG_AMOUNT"})
+        s_rb, _ = call(b, "GET", f"/receipts/{r1.get('id')}")
+        s_rr, _ = call(rep_c, "GET", "/receipts")
+        check("the collection shows its receipt (number for finance only); a collection with a receipt in force cannot be voided (422); "
+              "receipts are closed to other fundraisers and the reporter (403)",
+              fin_row.get("receiptStatus") == "ISSUED" and fin_row.get("receiptNumber") == r1.get("number")
+              and own_row.get("receiptStatus") == "ISSUED" and own_row.get("receiptNumber") is None and own_row.get("canIssueReceipt") is False
+              and (s_kv, error(b_kv).get("code")) == (422, "RECEIPT_ISSUED") and s_rb == 403 and s_rr == 403,
+              f"{fin_row} {own_row} {s_kv} {s_rb} {s_rr}")
+        v_r1 = version(RECEIPT, r1["id"])
+        s_rv_stale, _ = call(fin, "POST", f"/receipts/{r1['id']}/void", {"version": v_r1 - 1 if v_r1 else -1, "reason": "WRONG_DONOR_DETAILS"})
+        s_rv_bad, b_rv_bad = call(fin, "POST", f"/receipts/{r1['id']}/void", {"version": v_r1, "reason": "CHANGED_MIND"})
+        s_rv_a, _ = call(a, "POST", f"/receipts/{r1['id']}/void", {"version": v_r1, "reason": "WRONG_DONOR_DETAILS"})
+        s_rv, b_rv = call(fin, "POST", f"/receipts/{r1['id']}/void", {"version": v_r1, "reason": "WRONG_DONOR_DETAILS"})
+        s_rv2, b_rv2 = call(fin, "POST", f"/receipts/{r1['id']}/void", {"version": version(RECEIPT, r1["id"]), "reason": "DUPLICATE"})
+        s_r2, _, r2 = receipt(fin, k2["id"])
+        _, all_r = call(fin, "GET", f"/receipts?collectionId={k2['id']}")
+        check("void: stale → 409; unknown reason → 422; fundraiser → 403; finance voids with a reason (kept, VOIDED); twice → 422; "
+              "the reissue gets a new number and names the one it replaces",
+              s_rv_stale == 409 and (s_rv_bad, field(b_rv_bad)) == (422, "reason") and s_rv_a == 403 and s_rv == 200
+              and obj(b_rv).get("status") == "VOIDED" and obj(b_rv).get("voidReason") == "WRONG_DONOR_DETAILS"
+              and (s_rv2, error(b_rv2).get("code")) == (422, "RECEIPT_VOIDED") and s_r2 == 201 and r2.get("number") != r1.get("number")
+              and r2.get("replacesNumber") == r1.get("number") and sorted(x["status"] for x in obj(all_r)) == ["ISSUED", "VOIDED"],
+              f"{s_rv_stale} {s_rv_bad} {s_rv_a} {s_rv} {s_rv2} {s_r2} {r2}")
+
+        # --- 4c. D-05 restricted funds: restriction → analytic account; allocation; the balance report ----------
+        acct = create(ANALYTIC, {"code": f"AN{tag}", "name": f"Probe STEM {tag}", "statusSelect": 1})
+        idle = create(ANALYTIC, {"code": f"AX{tag}", "name": f"Probe inactive {tag}", "statusSelect": 0})
+        def restriction(client, code, account_id, name="Girls' STEM scholarships"):
+            s_, b_ = call(client, "POST", "/fund-restrictions", {"code": code, "name": name, "analyticAccountId": account_id})
+            if obj(b_).get("id"):
+                created.append((RESTR, obj(b_)["id"]))
+            return s_, b_, obj(b_)
+        s_ra, _, _ = restriction(a, f"R{tag}", acct["id"])
+        s_ri, b_ri, _ = restriction(fin, f"R{tag}", idle["id"])
+        s_rc, b_rc, _ = restriction(fin, "x y", acct["id"])
+        s_rok, b_rok, restr = restriction(fin, f"r{tag}", acct["id"])
+        s_rdup, b_rdup, _ = restriction(fin, f"R{tag}", acct["id"])
+        _, accts = call(fin, "GET", f"/analytic-accounts?q={tag}")
+        check("restriction mapping: fundraiser → 403; inactive analytic account → 422; bad code → 422; finance maps it (201); "
+              "duplicate code → 422; only active analytic accounts are offered",
+              s_ra == 403 and (s_ri, field(b_ri), error(b_ri).get("fields", [{}])[0].get("code")) == (422, "analyticAccountId", "INACTIVE")
+              and (s_rc, field(b_rc)) == (422, "code") and s_rok == 201 and restr.get("code") == f"R{tag}"
+              and restr.get("analyticAccountCode") == f"AN{tag}" and (s_rdup, field(b_rdup)) == (422, "code")
+              and [x["code"] for x in obj(accts)] == [f"AN{tag}"], f"{s_ra} {s_ri} {s_rc} {s_rok} {restr} {s_rdup} {obj(accts)}")
+        _, _, plain = new_opp(a, f"gp-{tag}", donor["id"])
+        stage(a, plain, "PROPOSAL")
+        stage(a, plain, "SUBMITTED")
+        _, _, plain_c = approve(a, plain, amount="1000", restricted=False, restrictionPurpose=None)
+        s_al_a, _ = call(a, "POST", f"/commitments/{com['id']}/allocate", {"version": version(COMMIT, com["id"]), "restrictionId": restr.get("id")})
+        s_al_plain, b_al_plain = call(fin, "POST", f"/commitments/{plain_c.get('id')}/allocate", {"version": version(COMMIT, plain_c.get("id")), "restrictionId": restr.get("id")})
+        s_al_stale, _ = call(fin, "POST", f"/commitments/{com['id']}/allocate", {"version": version(COMMIT, com["id"]) - 1, "restrictionId": restr.get("id")})
+        s_al, b_al = call(fin, "POST", f"/commitments/{com['id']}/allocate", {"version": version(COMMIT, com["id"]), "restrictionId": restr.get("id")})
+        s_al2, b_al2 = call(fin, "POST", f"/commitments/{com['id']}/allocate", {"version": version(COMMIT, com["id"]), "restrictionId": restr.get("id")})
+        allocated = {r["id"]: r for r in search(COLL, f"self.installment.commitment.id = {com['id']}", ("analyticAccount", "statusSelect"))}
+        sc3, _, k3 = collect(a, i2, "20000", f"NBE-{tag}-0005")
+        k3_row = (search(COLL, f"self.id = {k3.get('id') or 0}", ("analyticAccount",)) or [{}])[0]
+        check("allocation: fundraiser → 403; unrestricted → 422 NOT_RESTRICTED; stale → 409; finance allocates (ALLOCATED, analytic account); "
+              "twice → 409; the recorded collection (not the voided one) and a later one carry the analytic account",
+              s_al_a == 403 and (s_al_plain, error(b_al_plain).get("code")) == (422, "NOT_RESTRICTED") and s_al_stale == 409 and s_al == 200
+              and obj(b_al).get("allocationStatus") == "ALLOCATED" and obj(b_al).get("analyticAccount") == f"AN{tag} - Probe STEM {tag}"
+              and (s_al2, error(b_al2).get("code")) == (409, "ALREADY_ALLOCATED")
+              and (allocated.get(k2["id"], {}).get("analyticAccount") or {}).get("id") == acct["id"]
+              and not allocated.get(k1["id"], {}).get("analyticAccount") and sc3 == 201
+              and (k3_row.get("analyticAccount") or {}).get("id") == acct["id"], f"{s_al_a} {s_al_plain} {s_al_stale} {s_al} {obj(b_al)} {s_al2} {allocated} {k3_row}")
+        _, rf = call(fin, "GET", "/restricted-funds")
+        row = next((r for r in obj(rf) if r.get("code") == f"R{tag}"), {}) if isinstance(obj(rf), list) else {}
+        s_rf_a, _ = call(a, "GET", "/restricted-funds")
+        check("restricted-funds report (finance): the restriction's analytic account, committed 400000 and collected 170000 (voided excluded); "
+              "fundraiser without restriction rights → 403",
+              row.get("analyticAccountCode") == f"AN{tag}" and num(row.get("committed")) == 400000 and num(row.get("collected")) == 170000
+              and row.get("allocated") is True and row.get("currency") == "EGP" and s_rf_a == 403, f"{row} {s_rf_a}")
 
         # --- 5. deliverables, stewardship, timeline, archive, renewal --------------------------------------
         sd, bd = call(a, "POST", f"/commitments/{com['id']}/deliverables",
@@ -376,7 +479,11 @@ def main():
         donor_ids = [r["id"] for r in search(DONOR, f"self.partner.name like '%{tag}'")]
         if donor_ids:
             ids = ",".join(map(str, donor_ids))
-            for model, domain in ((COLL, f"self.installment.commitment.opportunity.donor.id in ({ids})"),
+            # a reissued receipt points at the voided one it replaces: those go first
+            for row in search(RECEIPT, f"self.collection.installment.commitment.opportunity.donor.id in ({ids}) AND self.replaces IS NOT NULL"):
+                admin.call("DELETE", f"/ws/rest/{RECEIPT}/{row['id']}")
+            for model, domain in ((RECEIPT, f"self.collection.installment.commitment.opportunity.donor.id in ({ids})"),
+                                  (COLL, f"self.installment.commitment.opportunity.donor.id in ({ids})"),
                                   (INST, f"self.commitment.opportunity.donor.id in ({ids})"),
                                   (DELIV, f"self.commitment.opportunity.donor.id in ({ids})"),
                                   (COMMIT, f"self.opportunity.donor.id in ({ids})"),
@@ -385,8 +492,9 @@ def main():
                 for row in search(model, domain):
                     if (model, row["id"]) not in created:
                         created.append((model, row["id"]))
-        complete, leftovers = cleanup(admin, created, {COLL: 0, INST: 1, DELIV: 1, COMMIT: 2, OPP: 3, STEW: 3, SENS: 3,
-                                                       DONOR: 4, CAMPAIGN: 5, PARTNER: 5, USER: 6, GROUP: 7, PERM: 8})
+        created.extend((RESTR, r["id"]) for r in search(RESTR, f"self.code like '%{tag}'") if (RESTR, r["id"]) not in created)
+        complete, leftovers = cleanup(admin, created, {RECEIPT: -1, COLL: 0, INST: 1, DELIV: 1, COMMIT: 2, OPP: 3, STEW: 3, SENS: 3,
+                                                       DONOR: 4, RESTR: 4, CAMPAIGN: 5, PARTNER: 5, ANALYTIC: 5, USER: 6, GROUP: 7, PERM: 8})
         if not complete:
             print(f"FAIL cleanup left {leftovers}")
             exit_code = 1

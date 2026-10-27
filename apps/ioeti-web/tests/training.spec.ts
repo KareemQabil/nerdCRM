@@ -177,7 +177,7 @@ test("D-03: with no policies set the page says which are missing, asks no nation
   await expect(page.getByRole("columnheader", { name: "الرقم القومي" })).toHaveCount(0);
 });
 
-test("D-03: cancelling a paid enrolment shows the computed refund before confirming; a missing policy blocks it", async ({ page }) => {
+test("D-03: cancelling a paid enrolment shows the computed refund before confirming", async ({ page }) => {
   const { posted } = await mock(page);
   await openCohort(page);
   await page.getByRole("row", { name: /Omar Nabil/ }).first().getByRole("button", { name: "إلغاء التسجيل" }).click();
@@ -266,4 +266,91 @@ test("D-03: the training page passes axe's WCAG 2.1 A and AA rules in light and 
   await expect(page.getByRole("table", { name: "الشهادات والتقييم" })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
   await page.screenshot({ path: "test-results/ioeti-training-d03-mobile.png", fullPage: true });
+});
+
+/**
+ * The Wave 4a flow (moved here from app.spec.ts, where its "D-03 actions stay disabled" assertions no longer hold):
+ * open a cohort, enrol into seats then the waitlist, cancel (now through the cancellation dialog) promotes, attendance.
+ */
+test("training: open a cohort, enrol into seats then the waitlist, cancel promotes, attendance", async ({ page }) => {
+  const ok = (object: unknown, code = 200) => ({ status: code, contentType: "application/json", body: JSON.stringify({ codeStatus: code, messageStatus: "ok", object }) });
+  const course = { id: 3, version: 0, code: "ISO-IA", name: "Internal auditor ISO 9001", nameAr: null, durationHours: 16, active: true };
+  let cohort = { id: 40, version: 1, code: "IA-NOV", courseId: 3, courseName: course.name, startDate: "2026-11-01", endDate: "2026-11-02",
+    capacity: 1, minSeats: null, location: "Cairo", status: "PLANNED", confirmed: 0, waitlisted: 0, seatsLeft: 1, coordinatedByMe: true };
+  type Row = { id: number; version: number; traineeId: number; traineeName: string; clientName: string | null; status: string; waitlistPosition: number | null };
+  let enrollments: Row[] = [];
+  const session = { id: 70, version: 0, title: "Day 1", startsAt: "2026-11-01T09:00:00", durationMinutes: 240 };
+  const attendance: { id: number; enrollmentId: number; status: string }[] = [];
+  const requests: { path: string; body: unknown }[] = [];
+  const recount = () => {
+    const confirmed = enrollments.filter(e => e.status === "CONFIRMED").length;
+    cohort = { ...cohort, version: cohort.version + 1, confirmed, waitlisted: enrollments.filter(e => e.status === "WAITLISTED").length, seatsLeft: cohort.capacity - confirmed };
+  };
+  await page.route("**/axelor-erp/ws/ioeti/**", route => {
+    const url = new URL(route.request().url());
+    const full = url.pathname.replace(/^.*\/ws\/ioeti/, "");
+    if (full === "/session") return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ code: "sara", name: "Sara", language: "ar" }) });
+    if (full === "/accounts") return route.fulfill(ok([{ id: 902, name: "Delta Foods", reference: "AC-902", customer: true, prospect: false }]));
+    if (full === "/accounts/902/contacts") return route.fulfill(ok([{ id: 951, name: "Sara Adel", jobTitle: "QA lead" }, { id: 952, name: "Omar Nabil", jobTitle: null }]));
+    if (!full.startsWith("/training/")) return route.fulfill(ok([]));
+    const path = full.replace(/^\/training/, "");
+    const method = route.request().method();
+    const body = method === "POST" ? route.request().postDataJSON() as Record<string, unknown> : null;
+    if (body) requests.push({ path, body });
+    if (path === "/courses") return route.fulfill(ok([course]));
+    if (path === "/cohorts") return route.fulfill(ok([cohort]));
+    if (path === "/cohorts/40") return route.fulfill(ok(cohort));
+    if (path === "/cohorts/40/open") { cohort = { ...cohort, status: "OPEN", version: cohort.version + 1 }; return route.fulfill(ok(cohort)); }
+    if (path === "/cohorts/40/rules") return route.fulfill(ok(NO_RULES));
+    if (path === "/cohorts/40/enrollments" && method === "GET") return route.fulfill(ok(enrollments));
+    if (path === "/cohorts/40/enrollments") {
+      const isFull = enrollments.filter(e => e.status === "CONFIRMED").length >= cohort.capacity;
+      const row = { id: 500 + enrollments.length, version: 0, traineeId: body!.traineeId as number,
+        traineeName: body!.traineeId === 951 ? "Sara Adel" : "Omar Nabil", clientName: "Delta Foods",
+        status: isFull ? "WAITLISTED" : "CONFIRMED", waitlistPosition: isFull ? 1 : null };
+      enrollments = [...enrollments, row]; recount(); return route.fulfill(ok(row, 201));
+    }
+    if (/\/enrollments\/\d+\/cancellation$/.test(path)) return route.fulfill(ok({ enrollmentId: Number(path.split("/")[2]), version: 0, status: "CONFIRMED",
+      outcome: "NOT_INVOICED", fee: null, paid: 0, daysBeforeStart: 5, refundPercent: null, refundAmount: 0, currency: null, canLinkInvoice: false, refund: null }));
+    if (/\/enrollments\/\d+\/cancel$/.test(path)) {
+      const id = Number(path.split("/")[2]);
+      enrollments = enrollments.map(e => e.id === id ? { ...e, status: "CANCELLED", waitlistPosition: null }
+        : e.status === "WAITLISTED" ? { ...e, status: "CONFIRMED", waitlistPosition: null } : e);
+      recount(); return route.fulfill(ok(enrollments.find(e => e.id === id)));
+    }
+    if (path === "/cohorts/40/sessions" && method === "GET") return route.fulfill(ok([session]));
+    if (path === "/sessions/70/attendance" && method === "GET") return route.fulfill(ok(attendance));
+    if (path === "/sessions/70/attendance") {
+      attendance.splice(0, attendance.length, { id: 1, enrollmentId: body!.enrollmentId as number, status: body!.status as string });
+      session.version += 1; return route.fulfill(ok(attendance[0]));
+    }
+    return route.fulfill({ status: 404, contentType: "application/json", body: "{}" });
+  });
+  await page.goto("/#/training");
+  await expect(page.getByRole("heading", { name: "التدريب الخارجي" })).toBeVisible();
+  await page.getByRole("button", { name: /Internal auditor ISO 9001/ }).click();
+  await page.getByRole("button", { name: "فتح التسجيل" }).click();
+  await page.getByLabel("الجهة الراعية").selectOption("902");
+  const traineeSelect = page.getByRole("combobox", { name: "المتدرب", exact: true });
+  await expect(traineeSelect.locator("option")).toHaveCount(3);
+  await traineeSelect.selectOption("951");
+  await page.getByRole("button", { name: "تسجيل", exact: true }).click();
+  await expect(page.getByRole("cell", { name: "Sara Adel" })).toBeVisible();
+  await traineeSelect.selectOption("952");
+  await page.getByRole("button", { name: "تسجيل", exact: true }).click();
+  await expect(page.getByText("قائمة الانتظار #1")).toBeVisible();
+  await page.getByRole("row", { name: /Sara Adel/ }).getByRole("button", { name: "إلغاء التسجيل" }).click();
+  const dialog = page.getByRole("dialog", { name: "إلغاء التسجيل" });
+  await expect(dialog).toContainText("مفيش فاتورة مربوطة");
+  await dialog.getByRole("button", { name: "تأكيد الإلغاء" }).click();
+  await expect(page.getByText("قائمة الانتظار #1")).toHaveCount(0);
+  await expect(page.getByRole("row", { name: /Omar Nabil/ })).toContainText("مؤكد");
+  await page.getByRole("button", { name: /Day 1/ }).click();
+  await page.getByRole("group", { name: /Omar Nabil/ }).getByRole("button", { name: "حاضر" }).click();
+  await expect(page.getByRole("group", { name: /Omar Nabil/ }).getByRole("button", { name: "حاضر" })).toHaveAttribute("aria-pressed", "true");
+  await page.screenshot({ path: "test-results/ioeti-training.png", fullPage: true });
+  expect(requests.map(r => r.path)).toEqual(["/cohorts/40/open", "/cohorts/40/enrollments", "/cohorts/40/enrollments",
+    "/enrollments/500/cancel", "/sessions/70/attendance"]);
+  expect(requests[1].body).toMatchObject({ traineeId: 951, clientId: 902 });
+  expect(requests[4].body).toEqual({ version: 0, enrollmentId: 501, status: "PRESENT" });
 });
