@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
+import { PhoneFilters } from "./PhoneFilters";
+import { WhenChips, localValue, nextWorkingMorning } from "./WhenChips";
 import { BellRing, CalendarClock, CheckCircle2, CircleAlert, History, LockKeyhole, Megaphone, Plus, Save, ShieldCheck, Trash2, UserPlus } from "lucide-react";
 import { ApiError, getBusinessLines, getLead, getLeadStages, type BusinessLine, type LeadStage, type LeadSummary } from "./api";
 import {
@@ -112,7 +114,8 @@ export function LeadFilterBar({query,onChange,language}:{query:LeadQuery; onChan
     try{await deleteView(id);setViews(current=>current.filter(v=>v.id!==id));setViewId("");}
     catch(e){setError(message(e,l));}
   }
-  return <div className="mk-filters">
+  const active=[query.stageId,query.sourceId,query.businessLine,query.mine||undefined].filter(v=>v!=null&&v!=="").length;
+  return <PhoneFilters label={ar?"فلترة":"Filters"} active={active}><div className="mk-filters">
     <label><span>{l.stage}</span><select value={query.stageId??""} onChange={e=>set({stageId:e.target.value?Number(e.target.value):undefined})}>
       <option value="">{l.all}</option>{stages.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</select></label>
     <label><span>{l.source}</span><select value={query.sourceId??""} onChange={e=>set({sourceId:e.target.value?Number(e.target.value):undefined})}>
@@ -131,7 +134,7 @@ export function LeadFilterBar({query,onChange,language}:{query:LeadQuery; onChan
       </form>
       :<button type="button" className="btn btn-secondary" onClick={()=>setNaming(true)}><Save size={15}/>{l.saveView}</button>}
     {error&&<p className="mk-error" role="alert"><CircleAlert size={15}/>{error}</p>}
-  </div>;
+  </div></PhoneFilters>;
 }
 
 /** New lead with a duplicate review: the server answers 409 POSSIBLE_DUPLICATE until the user confirms. */
@@ -237,7 +240,7 @@ export function LeadEngagementPanel({lead,language,onLeadChanged}:{lead:LeadSumm
   const [campaignId,setCampaignId]=useState("");
   const [type,setType]=useState<FollowUpType>("CALL");
   const [subject,setSubject]=useState("");
-  const [at,setAt]=useState("");
+  const [at,setAt]=useState(()=>localValue(nextWorkingMorning()));
   const [busy,setBusy]=useState(false);
   const [error,setError]=useState("");
   const [loadError,setLoadError]=useState("");
@@ -300,11 +303,12 @@ export function LeadEngagementPanel({lead,language,onLeadChanged}:{lead:LeadSumm
           <button type="submit" className="btn btn-secondary" disabled={busy||!campaignId}>{l.attribute}</button>
         </form>}
         <h4><CalendarClock size={16}/>{l.plan}</h4>
-        <form className="mk-form" onSubmit={e=>{e.preventDefault();void run(v=>planFollowUp(lead.id,v,type,subject,at),()=>{setSubject("");setAt("");});}}>
+        <form className="mk-form" onSubmit={e=>{e.preventDefault();void run(v=>planFollowUp(lead.id,v,type,subject,at),()=>{setSubject("");setAt(localValue(nextWorkingMorning()));});}}>
           <label><span>{l.type}</span><select value={type} onChange={e=>setType(e.target.value as FollowUpType)}>
             {(["CALL","MEETING","TASK"] as FollowUpType[]).map(t=><option key={t} value={t}>{l.types[t]}</option>)}</select></label>
           <label><span>{l.subject}</span><input value={subject} maxLength={255} required onChange={e=>setSubject(e.target.value)}/></label>
-          <label><span>{l.when}</span><input type="datetime-local" value={at} required onChange={e=>setAt(e.target.value)}/></label>
+          <div className="when-field"><label><span>{l.when}</span><input type="datetime-local" value={at} required onChange={e=>setAt(e.target.value)}/></label>
+            <WhenChips language={language} onPick={setAt}/></div>
           <div className="mk-actions"><button type="submit" className="btn btn-primary" disabled={busy||!subject.trim()||!at}>{l.plan}</button></div>
         </form>
       </div>

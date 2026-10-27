@@ -105,11 +105,9 @@ export function RecordWorkspace({kind,language,record,onBack,onPrevious,onNext,o
   const summary=lead?[
     [l.organization,record.organization||l.empty],
     [l.stage,record.stage?stageLabel(record.stage,language):l.empty],
-    [l.record,"#"+record.id],
   ]:[
     [l.reference,record.reference||l.empty],
     [l.classification,status],
-    [l.record,"#"+record.id],
   ];
   const flow=kind==="leads"?l.leadFlow:l.accountFlow;
   return <article className="record-workspace page-enter" aria-labelledby="record-profile-title">

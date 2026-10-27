@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { PhoneFilters } from "./PhoneFilters";
 import { CircleAlert, Download, LockKeyhole } from "lucide-react";
 import { ApiError, getBusinessLines, type BusinessLine } from "./api";
 import { stageLabel } from "./labels";
@@ -45,6 +46,19 @@ const num = (v: number) => v.toLocaleString("en-US");
 const money = (v: string | number) => amount(v);
 const pct = (part: number, whole: number) => whole === 0 ? "—" : `${Math.round(part * 100 / whole)}%`;
 
+/** One-tap date ranges for the report filters; "all time" clears both dates. */
+function rangePresets(ar:boolean):{label:string;range:()=>[string,string]}[]{
+  const iso=(d:Date)=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+  const today=()=>new Date();
+  return [
+    {label:ar?"الشهر ده":"This month",range:()=>{const t=today();return [iso(new Date(t.getFullYear(),t.getMonth(),1)),iso(t)];}},
+    {label:ar?"آخر 30 يوم":"Last 30 days",range:()=>{const t=today();return [iso(new Date(t.getFullYear(),t.getMonth(),t.getDate()-29)),iso(t)];}},
+    {label:ar?"الربع ده":"This quarter",range:()=>{const t=today();return [iso(new Date(t.getFullYear(),Math.floor(t.getMonth()/3)*3,1)),iso(t)];}},
+    {label:ar?"السنة دي":"This year",range:()=>{const t=today();return [iso(new Date(t.getFullYear(),0,1)),iso(t)];}},
+    {label:ar?"كل الفترات":"All time",range:()=>["",""]},
+  ];
+}
+
 export function ReportsPage({language}:{language:Language}){
   const l=strings[language];
   const ar=language==="ar";
@@ -68,12 +82,16 @@ export function ReportsPage({language}:{language:Language}){
   const suffix=`${from||"start"}_${to||"today"}`;
   return <section className="page-enter rp-page">
     <div className="page-title"><span className="eyebrow">{language==="ar"?"مساحة العمل":"Workspace"}</span><h1>{l.title}</h1><p>{l.sub}</p></div>
-    <div className="mk-filters">
+    <div className="when-chips rp-presets" role="group" aria-label={ar?"فترات جاهزة":"Quick ranges"}>
+      {rangePresets(ar).map(p=>{const [f,t]=p.range();return <button key={p.label} type="button" className="when-chip" aria-pressed={from===f&&to===t}
+        onClick={()=>{setFrom(f);setTo(t);}}>{p.label}</button>;})}
+    </div>
+    <PhoneFilters label={ar?"فلترة":"Filters"} active={[from,to,line].filter(Boolean).length}><div className="mk-filters">
       <label><span>{l.from}</span><input type="date" value={from} onChange={e=>setFrom(e.target.value)}/></label>
       <label><span>{l.to}</span><input type="date" value={to} onChange={e=>setTo(e.target.value)}/></label>
       <label><span>{l.line}</span><select value={line} onChange={e=>setLine(e.target.value)}><option value="">{l.all}</option>
         {lines.map(b=><option key={b.code} value={b.code}>{ar?b.nameAr:b.nameEn}</option>)}</select></label>
-    </div>
+    </div></PhoneFilters>
     {error&&<p className="mk-error" role="alert"><CircleAlert size={15}/>{error}</p>}
     {sales?.pipeline&&<section className="rp-card" aria-labelledby="rp-pipeline">
       <div className="rp-head"><h2 id="rp-pipeline">{l.pipeline}</h2>
