@@ -27,7 +27,7 @@ const strings = {
     failed: "تعذّر تحميل هذا الجزء الآن.", loading: "جار التحميل...", view: "عرض", nothing: "لا شيء ينتظرك الآن.",
     keys: { TRAINING_ENROLLMENTS: "تسجيلات التدريب", CERTIFICATION_CYCLES: "دورات الاعتماد", JOB_ORDERS: "طلبات التوظيف",
       APPLICATIONS: "طلبات المرشحين", PLACEMENTS: "التعيينات", HANDOVERS: "طلبات التسليم", ENGAGEMENTS: "المشروعات التنفيذية",
-      FUNDING_OPPORTUNITIES: "فرص التمويل" } as Record<string, string>,
+      FUNDING_OPPORTUNITIES: "فرص التمويل", FIELD_VISITS: "الزيارات الميدانية", QUALITY_ISSUES: "مشاكل الجودة" } as Record<string, string>,
   },
   en: {
     hello: "Hello", day: "Your work today", dayHint: "What is waiting for you, most urgent first.",
@@ -39,13 +39,14 @@ const strings = {
     failed: "This section could not be loaded right now.", loading: "Loading...", view: "View", nothing: "Nothing is waiting for you.",
     keys: { TRAINING_ENROLLMENTS: "Training enrolments", CERTIFICATION_CYCLES: "Certification cycles", JOB_ORDERS: "Job orders",
       APPLICATIONS: "Candidate applications", PLACEMENTS: "Placements", HANDOVERS: "Handovers", ENGAGEMENTS: "Engagements",
-      FUNDING_OPPORTUNITIES: "Funding opportunities" } as Record<string, string>,
+      FUNDING_OPPORTUNITIES: "Funding opportunities", FIELD_VISITS: "Field visits", QUALITY_ISSUES: "Quality issues" } as Record<string, string>,
   },
 } as const;
 
 const AREA_PAGE: Record<string, string> = {
   TRAINING_ENROLLMENTS: "training", CERTIFICATION_CYCLES: "certification", JOB_ORDERS: "recruitment", APPLICATIONS: "recruitment",
   PLACEMENTS: "recruitment", HANDOVERS: "operations", ENGAGEMENTS: "operations", FUNDING_OPPORTUNITIES: "fundraising",
+  FIELD_VISITS: "visits", QUALITY_ISSUES: "quality",
 };
 
 async function load<T>(call: () => Promise<T>): Promise<Section<T>> {

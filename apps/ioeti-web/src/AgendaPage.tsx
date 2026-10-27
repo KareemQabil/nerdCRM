@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   CalendarDays, ChevronLeft, ChevronRight, CircleAlert, ClipboardList, GraduationCap, MapPin, NotebookPen, PhoneCall, RefreshCw,
-  ShieldCheck, UserRoundSearch, UsersRound,
+  ShieldAlert, ShieldCheck, UserRoundSearch, UsersRound,
 } from "lucide-react";
 import { getAgenda, localDate, problem, recordHref, wallClock, type AgendaItem } from "./dailyApi";
 import type { Language } from "./preferences";
@@ -13,7 +13,7 @@ const L = {
     today: "اليوم", week: "أسبوع", twoWeeks: "أسبوعين", previous: "السابق", next: "التالي", refresh: "تحديث",
     empty: "مفيش حاجة في الفترة دي.", emptyHint: "خطط لمتابعة من صفحة أي عميل محتمل أو حساب أو فرصة وهتظهر هنا.",
     loading: "جاري التحميل…", open: "فتح", allDay: "طوال اليوم",
-    types: { ACTIVITY: "نشاط", SESSION: "جلسة تدريب", AUDIT: "زيارة تدقيق", INTERVIEW: "مقابلة توظيف", VISIT: "زيارة ميدانية" },
+    types: { ACTIVITY: "نشاط", SESSION: "جلسة تدريب", AUDIT: "زيارة تدقيق", INTERVIEW: "مقابلة توظيف", VISIT: "زيارة ميدانية", ACTION: "إجراء تصحيحي مستحق" },
     kinds: { CALL: "مكالمة", MEETING: "اجتماع", TASK: "مهمة", NOTE: "ملاحظة" },
     audit: "تدقيق مخطط", done: "تم", overdue: "متأخر", total: "عنصر",
   },
@@ -22,7 +22,7 @@ const L = {
     today: "Today", week: "Week", twoWeeks: "Two weeks", previous: "Previous", next: "Next", refresh: "Refresh",
     empty: "Nothing in this period.", emptyHint: "Plan a follow-up from any lead, account or opportunity and it shows up here.",
     loading: "Loading…", open: "Open", allDay: "All day",
-    types: { ACTIVITY: "Activity", SESSION: "Training session", AUDIT: "Audit visit", INTERVIEW: "Interview", VISIT: "Field visit" },
+    types: { ACTIVITY: "Activity", SESSION: "Training session", AUDIT: "Audit visit", INTERVIEW: "Interview", VISIT: "Field visit", ACTION: "Corrective action due" },
     kinds: { CALL: "Call", MEETING: "Meeting", TASK: "Task", NOTE: "Note" },
     audit: "Planned audit", done: "Done", overdue: "Overdue", total: "items",
   },
@@ -33,6 +33,7 @@ function icon(item: AgendaItem) {
   if (item.type === "AUDIT") return ShieldCheck;
   if (item.type === "INTERVIEW") return UserRoundSearch;
   if (item.type === "VISIT") return MapPin;
+  if (item.type === "ACTION") return ShieldAlert;
   return item.kind === "CALL" ? PhoneCall : item.kind === "MEETING" ? UsersRound : item.kind === "TASK" ? ClipboardList : NotebookPen;
 }
 const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
@@ -90,8 +91,9 @@ export function AgendaPage({ language }: { language: Language }) {
         <header><b>{d.getDate()}</b><span>{d.toLocaleDateString(locale, { weekday: "long", month: "long" })}</span>{key === todayKey && <em>{l.today}</em>}</header>
         <ol>{(byDay.get(key) ?? []).map(item => {
           const Icon = icon(item), href = recordHref(item.recordType, item.recordId);
-          const time = item.type === "AUDIT" ? l.allDay : wallClock(item.at)?.toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" }) ?? "";
-          const overdue = item.type === "ACTIVITY" && item.status === "PLANNED" && (wallClock(item.at)?.getTime() ?? now) < now;
+          const time = item.type === "AUDIT" || item.type === "ACTION" ? l.allDay : wallClock(item.at)?.toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" }) ?? "";
+          const overdue = (item.type === "ACTIVITY" && item.status === "PLANNED" && (wallClock(item.at)?.getTime() ?? now) < now)
+            || (item.type === "ACTION" && item.status === "OPEN" && (wallClock(item.at)?.getTime() ?? now) < startOfDay(new Date(now)).getTime());
           const title = item.title || (item.type === "AUDIT" ? l.audit : l.types[item.type]);
           return <li key={item.type + item.id} className={"agenda-item is-" + item.type.toLowerCase() + (item.status === "DONE" ? " is-done" : "") + (overdue ? " is-overdue" : "")}>
             <time>{time}</time>

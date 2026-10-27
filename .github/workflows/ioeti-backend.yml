@@ -151,6 +151,9 @@ jobs:
           # Root-cause analysis and evidence on quality issues: the company's methods, branches, causes and processes
           # (none shipped, fail closed), causes attributed to the organisation/client/supplier, documents on the issue
           python3 scripts/quality_rca_probe.py
+          # Visits and quality on the shared surfaces: my agenda (corrective actions due), search, Account 360 and
+          # report areas, each through native permissions (left out, never zero, for those without rights)
+          python3 scripts/cross_domain_probe.py
           # Finance's invoicing queue within D-06: requests, milestones coming due and real figures per currency;
           # issuing stays BLOCKED_BY_POLICY and no payment is recorded as received
           python3 scripts/finance_probe.py
@@ -211,6 +214,7 @@ jobs:
             logs/visit-checklist-probe.json
             logs/quality-probe.json
             logs/quality-rca-probe.json
+            logs/cross-domain-probe.json
             logs/finance-probe.json
           if-no-files-found: ignore
       - name: Attach Axelor integration logs

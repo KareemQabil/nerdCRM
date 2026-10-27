@@ -388,7 +388,8 @@ def main():
         check("8 Account 360 (administrator): one each of opportunity, quotation, contract, handover, engagement and cycle; "
               "money per stage: 0 draft, 9,000 booked, 2,700 requested, 0 invoiced, 0 collected (a request is not revenue)",
               s_x == 200 and sec_x == {"OPPORTUNITIES": 1, "QUOTES": 1, "CONTRACTS": 1, "HANDOVERS": 1, "ENGAGEMENTS": 1,
-                                       "CERTIFICATION_CYCLES": 1, "TRAINING_ENROLLMENTS": 0, "JOB_ORDERS": 0, "DONOR_PROFILE": 0}
+                                       "CERTIFICATION_CYCLES": 1, "TRAINING_ENROLLMENTS": 0, "JOB_ORDERS": 0, "DONOR_PROFILE": 0,
+                                       "FIELD_VISITS": 0, "QUALITY_ISSUES": 0}
               and [num(egp_x.get(k)) for k in ("quotedDraft", "bookedActive", "invoiceRequested", "invoiced", "collected")]
               == [0.0, 9000.0, 2700.0, 0.0, 0.0] and list(money_x) == ["EGP"], f"{s_x} {sec_x} {money_x}")
         check("8 Account 360 (RepA): only the areas sales may read (no engagement or cycle section), same figures; invoices "

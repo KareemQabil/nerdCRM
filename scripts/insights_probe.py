@@ -243,8 +243,9 @@ def main():
         _, areas_x = admin.call("GET", f"{RP}/areas")
         keys_a = [r["key"] for r in obj(areas_a).get("areas") or []]
         keys_x = [r["key"] for r in obj(areas_x).get("areas") or []]
-        check("areas: a salesperson without training, certification, recruitment, operations or fundraising rights sees none of them; the administrator sees all 8",
-              keys_a == [] and len(keys_x) == 8, f"{keys_a} {keys_x}")
+        check("areas: a salesperson without training, certification, recruitment, operations, fundraising, field-visit or quality rights sees none of them; "
+              "the administrator sees all 10",
+              keys_a == [] and len(keys_x) == 10 and {"FIELD_VISITS", "QUALITY_ISSUES"} <= set(keys_x), f"{keys_a} {keys_x}")
         s_sys_a, _ = a.call("GET", f"{RP}/system")
         s_sys, b_sys = admin.call("GET", f"{RP}/system")
         system = obj(b_sys)

@@ -1,22 +1,22 @@
 import { useEffect, useRef, useState } from "react";
-import { Briefcase, Building2, CornerDownLeft, Search, UserRound, X } from "lucide-react";
+import { Briefcase, Building2, CornerDownLeft, MapPin, Search, ShieldAlert, UserRound, X } from "lucide-react";
 import { problem, recordHref, searchEverything, type SearchHit } from "./dailyApi";
 import type { Language } from "./preferences";
 import "./daily.css";
 
 const L = {
   ar: {
-    placeholder: "ابحث عن عميل محتمل أو حساب أو فرصة…", hint: "اكتب حرفين على الأقل. الهمزات والتاء المربوطة مش فارقة.",
-    none: "مفيش نتائج تقدر توصلها.", searching: "جاري البحث…", types: { LEAD: "عميل محتمل", ACCOUNT: "حساب", OPPORTUNITY: "فرصة" },
+    placeholder: "ابحث عن عميل محتمل أو حساب أو فرصة أو زيارة أو مشكلة جودة…", hint: "اكتب حرفين على الأقل. الهمزات والتاء المربوطة مش فارقة.",
+    none: "مفيش نتائج تقدر توصلها.", searching: "جاري البحث…", types: { LEAD: "عميل محتمل", ACCOUNT: "حساب", OPPORTUNITY: "فرصة", VISIT: "زيارة ميدانية", QUALITY: "مشكلة جودة" },
     keys: "↑↓ للتنقل · Enter للفتح · Esc للإغلاق", close: "إغلاق",
   },
   en: {
-    placeholder: "Search leads, accounts and opportunities…", hint: "Type at least two characters. Arabic spelling variants match.",
-    none: "No results you can open.", searching: "Searching…", types: { LEAD: "Lead", ACCOUNT: "Account", OPPORTUNITY: "Opportunity" },
+    placeholder: "Search leads, accounts, opportunities, visits and quality issues…", hint: "Type at least two characters. Arabic spelling variants match.",
+    none: "No results you can open.", searching: "Searching…", types: { LEAD: "Lead", ACCOUNT: "Account", OPPORTUNITY: "Opportunity", VISIT: "Field visit", QUALITY: "Quality issue" },
     keys: "↑↓ to move · Enter to open · Esc to close", close: "Close",
   },
 } as const;
-const ICONS = { LEAD: UserRound, ACCOUNT: Building2, OPPORTUNITY: Briefcase } as const;
+const ICONS = { LEAD: UserRound, ACCOUNT: Building2, OPPORTUNITY: Briefcase, VISIT: MapPin, QUALITY: ShieldAlert } as const;
 
 /** One search box for the records the caller may read (Ctrl/⌘ + K). */
 export function CommandPalette({ language, onClose }: { language: Language; onClose: () => void }) {

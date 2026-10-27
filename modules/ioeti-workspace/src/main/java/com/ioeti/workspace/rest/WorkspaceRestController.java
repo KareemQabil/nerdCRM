@@ -7,7 +7,10 @@ import com.axelor.apps.contract.db.Contract;
 import com.axelor.apps.contract.db.ContractLine;
 import com.axelor.apps.contract.db.repo.ContractRepository;
 import com.axelor.apps.crm.db.Opportunity;
+import com.axelor.apps.intervention.db.Intervention;
 import com.axelor.apps.project.db.Project;
+import com.axelor.apps.quality.db.QualityImprovement;
+import com.axelor.apps.quality.db.repo.QualityImprovementRepository;
 import com.axelor.apps.sale.db.SaleOrder;
 import com.axelor.apps.sale.db.repo.SaleOrderRepository;
 import com.axelor.apps.supplychain.db.Timetable;
@@ -244,14 +247,18 @@ public class WorkspaceRestController {
     sections.add(section("TRAINING_ENROLLMENTS", TrainingEnrollment.class, "self.client.id = ?", id));
     sections.add(section("JOB_ORDERS", ClientJobOrder.class, "self.client.id = ?", id));
     sections.add(section("DONOR_PROFILE", DonorProfile.class, "self.partner.id = ?", id));
+    sections.add(section("FIELD_VISITS", Intervention.class, "self.deliveredPartner.id = ?", id));
+    sections.add(section("QUALITY_ISSUES", QualityImprovement.class,
+        "self.type = ? AND (self.qiIdentification.customerPartner.id = ? OR self.qiIdentification.supplierPartner.id = ?)",
+        QualityImprovementRepository.TYPE_SYSTEM, id, id));
     return ResponseConstructor.build(Response.Status.OK, "Account 360",
         new Account360View(account.getId(), account.getName(), sections.stream().filter(Section::permitted).toList(), money(id)));
   }
 
   /** A section the caller has no read right on is left out entirely (not shown as zero). */
-  private static <T extends Model> Section section(String key, Class<T> type, String condition, Long accountId) {
+  private static <T extends Model> Section section(String key, Class<T> type, String condition, Object... params) {
     if (!Beans.get(JpaSecurity.class).isPermitted(JpaSecurity.CAN_READ, type)) return new Section(key, 0, false);
-    return new Section(key, readable(type, new JPQLFilter(condition, accountId)).count(), true);
+    return new Section(key, readable(type, new JPQLFilter(condition, params)).count(), true);
   }
 
   /** Money per currency in separate stages; a stage the caller may not read is null, never zero. */
