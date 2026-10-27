@@ -6,6 +6,7 @@ import {
   type FinanceRequest, type FinanceSummary, type UpcomingMilestone,
 } from "./financeApi";
 import { FxPanel } from "./FxPanel";
+import { InvoicesPanel } from "./InvoicesPanel";
 import type { Language } from "./preferences";
 import "./daily.css";
 import "./finance.css";
@@ -14,7 +15,7 @@ const L = {
   ar: {
     eyebrow: "المالية", title: "الفواتير والتحصيل",
     hint: "طلبات الفوترة اللي المبيعات رفعتها من الطلبات المؤكدة، والأقساط اللي جاي معادها، والأرقام الفعلية لكل عملة.",
-    held: "المالية بتصدر الفاتورة في حسابات Axelor لما إعداد الحسابات يكتمل وشروط السداد تتحدد (D-06). الفاتورة الإلكترونية مش في النسخة الأولى، ومفيش أي دفعة بتتسجل كمحصّلة من هنا.",
+    held: "المالية بتصدر الفاتورة في حسابات Axelor لما إعداد الحسابات يكتمل وشروط السداد تتحدد (D-06). الدفعة بتتسجل بس لما المالية تسجلها بمرجعها. الفاتورة الإلكترونية مش في النسخة الأولى.",
     issued: "صادرة", invoice: "الفاتورة", invoiceTotal: "شامل الضريبة", invoiceDue: "تستحق", issuedOk: (n: string) => `اتصدرت الفاتورة ${n}.`,
     missingTitle: "مش ممكن تتصدر لسه. الناقص:",
     missing: { TAX_POLICY: "الطلب اتأكد من غير ضريبة من سياسة المالية", PAYMENT_TERMS_POLICY: "مالك السياسات لسه ما حددش شروط السداد",
@@ -39,7 +40,7 @@ const L = {
   en: {
     eyebrow: "Finance", title: "Invoices & collection",
     hint: "The invoice requests sales raised from confirmed orders, the milestones coming due, and the real figures per currency.",
-    held: "Finance issues the invoice in Axelor accounting once the accounting set-up is complete and the payment terms are set (D-06). E-invoicing is not in V1, and no payment is recorded as received from here.",
+    held: "Finance issues the invoice in Axelor accounting once the accounting set-up is complete and the payment terms are set (D-06). A payment counts only when finance records it with its reference. E-invoicing is not in V1.",
     issued: "Issued", invoice: "Invoice", invoiceTotal: "including tax", invoiceDue: "due", issuedOk: (n: string) => `Invoice ${n} issued.`,
     missingTitle: "It cannot be issued yet. Missing:",
     missing: { TAX_POLICY: "The order was confirmed without the finance tax policy", PAYMENT_TERMS_POLICY: "The policy owners have not set the payment terms",
@@ -175,6 +176,8 @@ export function FinancePage({ language }: { language: Language }) {
           </div> : <span className="finance-status">{r.status === "ISSUED" ? l.issued : l.cancelled}</span>}
         </li>)}</ul>}
     </section>
+
+    <InvoicesPanel language={language} onChanged={() => void loadSummary()}/>
 
     <section className="data-panel" aria-labelledby="finance-upcoming-title">
       <div className="finance-head"><h2 id="finance-upcoming-title"><CalendarClock size={17}/>{l.upcoming}</h2>

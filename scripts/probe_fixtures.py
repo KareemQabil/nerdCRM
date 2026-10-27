@@ -101,9 +101,21 @@ UPDATE supplychain_timetable SET invoice = NULL, invoiced = false WHERE invoice 
 UPDATE account_invoice SET move = NULL, old_move = NULL, payment_move = NULL, original_invoice = NULL, reject_move_line = NULL
   WHERE id IN (SELECT id FROM _inv);
 UPDATE account_move SET invoice = NULL WHERE id IN (SELECT id FROM _mv);
-DELETE FROM account_invoice_term_payment WHERE invoice_term IN (SELECT id FROM _it);
-DELETE FROM account_invoice_payment WHERE invoice IN (SELECT id FROM _inv) OR move IN (SELECT id FROM _mv);
-DELETE FROM account_reconcile WHERE credit_move_line IN (SELECT id FROM _ml) OR debit_move_line IN (SELECT id FROM _ml);
+CREATE TEMP TABLE _rc AS SELECT id FROM account_reconcile WHERE company = {cid}
+  OR credit_move_line IN (SELECT id FROM _ml) OR debit_move_line IN (SELECT id FROM _ml);
+CREATE TEMP TABLE _rg AS SELECT id FROM account_reconcile_group WHERE company = {cid};
+CREATE TEMP TABLE _ip AS SELECT id FROM account_invoice_payment WHERE invoice IN (SELECT id FROM _inv) OR move IN (SELECT id FROM _mv);
+DELETE FROM account_invoice_term_payment_reconcile_list WHERE reconcile_list IN (SELECT id FROM _rc)
+  OR account_invoice_term_payment IN (SELECT id FROM account_invoice_term_payment WHERE invoice_term IN (SELECT id FROM _it) OR invoice_payment IN (SELECT id FROM _ip));
+DELETE FROM account_invoice_term_payment WHERE invoice_term IN (SELECT id FROM _it) OR invoice_payment IN (SELECT id FROM _ip);
+UPDATE account_invoice_payment SET imputed_by = NULL, reconcile = NULL, move = NULL WHERE id IN (SELECT id FROM _ip);
+DELETE FROM account_invoice_payment WHERE id IN (SELECT id FROM _ip);
+DELETE FROM account_reconcile_payment_move_line_distribution_list WHERE account_reconcile IN (SELECT id FROM _rc);
+DELETE FROM account_payment_move_line_distribution WHERE reconcile IN (SELECT id FROM _rc) OR move_line IN (SELECT id FROM _ml);
+UPDATE account_tax_payment_move_line SET reconcile = NULL WHERE reconcile IN (SELECT id FROM _rc);
+DELETE FROM account_reconcile WHERE id IN (SELECT id FROM _rc);
+UPDATE account_move_line SET reconcile_group = NULL WHERE id IN (SELECT id FROM _ml);
+DELETE FROM account_reconcile_group WHERE id IN (SELECT id FROM _rg);
 DELETE FROM account_tax_payment_move_line WHERE move_line IN (SELECT id FROM _ml);
 DELETE FROM account_analytic_move_line WHERE move_line IN (SELECT id FROM _ml) OR invoice_line IN (SELECT id FROM _il);
 DELETE FROM account_move_line_tax_line_set WHERE account_move_line IN (SELECT id FROM _ml);

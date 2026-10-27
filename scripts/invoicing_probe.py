@@ -39,7 +39,7 @@ TAX, TAX_LINE, TAX_TYPE = "com.axelor.apps.account.db.Tax", "com.axelor.apps.acc
 PAYMENT_CONDITION, PAYMENT_CONDITION_LINE = "com.axelor.apps.account.db.PaymentCondition", "com.axelor.apps.account.db.PaymentConditionLine"
 SALE_ORDER, SALE_ORDER_LINE = "com.axelor.apps.sale.db.SaleOrder", "com.axelor.apps.sale.db.SaleOrderLine"
 SALE_ORDER_LINE_TAX, TIMETABLE = "com.axelor.apps.sale.db.SaleOrderLineTax", "com.axelor.apps.supplychain.db.Timetable"
-INVOICE = "com.axelor.apps.account.db.Invoice"
+INVOICE, INVOICE_PAYMENT = "com.axelor.apps.account.db.Invoice", "com.axelor.apps.account.db.InvoicePayment"
 SUPPLYCHAIN_CONFIG = "com.axelor.apps.supplychain.db.SupplyChainConfig"
 PAYMENT_MODE = "com.axelor.apps.account.db.PaymentMode"
 APP_INVOICE = "com.axelor.studio.db.AppInvoice"
@@ -149,7 +149,7 @@ def main():
                perm("ireq", INVOICE_REQUEST, "self.requestedBy = ?", **rwc),
                perm("product", PRODUCT, canRead=True), perm("partner", PARTNER, canRead=True), perm("line", LINE, canRead=True)]
         fin = [perm("f.so", SALE_ORDER, canRead=True), perm("f.ireq", INVOICE_REQUEST, canRead=True), perm("f.partner", PARTNER, canRead=True),
-               perm("f.tt", TIMETABLE, canRead=True), perm("f.inv", INVOICE, **rwc)]
+               perm("f.tt", TIMETABLE, canRead=True), perm("f.inv", INVOICE, **rwc), perm("f.pay", INVOICE_PAYMENT, **rwc)]
         none = [perm("n.partner", PARTNER, canRead=True)]
         groups = {k: create(GROUP, {"code": f"invprobe-{k}-{tag}", "name": f"Invoicing probe {k} {tag}", "permissions": [{"id": p["id"]} for p in v]})
                   for k, v in (("rep", rep), ("fin", fin), ("none", none))}
@@ -182,7 +182,11 @@ def main():
         s, b = rep_c.call("POST", f"{QUOTES}/{quote['id']}/milestones", {"version": version(SALE_ORDER, quote["id"]), "title": "Deposit",
                                                                        "percentage": "40", "dueDate": today.isoformat()})
         assert s in (200, 201), f"milestone {s} {b}"
-        milestone = [m["id"] for m in search(TIMETABLE, f"self.saleOrder.id = {quote['id']}", ("title",)) if m.get("title") == "Deposit"][0]
+        s, b = rep_c.call("POST", f"{QUOTES}/{quote['id']}/milestones", {"version": version(SALE_ORDER, quote["id"]), "title": "Balance",
+                                                                       "percentage": "60", "dueDate": (today + timedelta(days=60)).isoformat()})
+        assert s in (200, 201), f"milestone {s} {b}"
+        stones = {m.get("title"): m["id"] for m in search(TIMETABLE, f"self.saleOrder.id = {quote['id']}", ("title",))}
+        milestone = stones["Deposit"]
         # TEST FIXTURE: stands in for order confirmation (D-11), never done by the product API
         psql(DATABASE, f"UPDATE sale_sale_order SET status_select = 3 WHERE id = {int(quote['id'])};")
         s, b = rep_c.call("POST", f"{WS}/invoice-requests", {"milestoneId": milestone, "quoteVersion": version(SALE_ORDER, quote["id"])})
@@ -291,6 +295,113 @@ def main():
               and dec(egp_after.get("invoiced")) - dec(egp_before.get("invoiced") or 0) == amount + tax_amount
               and dec(egp_after.get("collected")) == dec(egp_before.get("collected") or 0), (s_again, err(b_again), egp_before, egp_after))
 
+        # --- P2c: recording what the client paid --------------------------------------------------------------------
+        inv_id = inv.get("id")
+        total = amount + tax_amount
+
+        def finance_invoice(iid, state="all"):
+            return next((r for r in rows(fin_c.call("GET", f"{F}/invoices?state={state}")[1]) if r["id"] == iid), {})
+
+        def pay(client, body):
+            return client.call("POST", f"{F}/invoices/{inv_id}/payments", {"version": version(INVOICE, inv_id), **body})
+
+        listed = finance_invoice(inv_id, "due")
+        s_rep_pay, _ = pay(rep_c, {"amount": 1000, "reference": "TRX-1"})
+        bad = [pay(fin_c, b) for b in ({"amount": float(total) + 1, "reference": "TRX-1"}, {"amount": 1000, "reference": " "},
+                                       {"amount": 1000, "reference": "TRX-1", "paymentDate": (today + timedelta(days=1)).isoformat()})]
+        s_nr, b_nr = pay(fin_c, {"amount": 1000, "reference": "TRX-1"})
+        pay_ready = obj(fin_c.call("GET", f"{F}/invoices/{inv_id}/readiness?for=payment")[1])
+        check("a payment needs native payment rights (403 for the salesperson); amount, reference and date are checked; without the payment "
+              "mode's journal and account it is refused naming them; nothing is recorded",
+              listed.get("status") == "DUE" and dec(listed.get("remaining")) == total and listed.get("canRecordPayment") is True
+              and s_rep_pay == 403 and [(s_, err(b_)[1]) for s_, b_ in bad] == [(422, ["RANGE"]), (422, ["REQUIRED"]), (422, ["RANGE"])]
+              and (s_nr, err(b_nr)[0]) == (422, "ACCOUNTING_NOT_READY") and {"PAYMENT_JOURNAL", "PAYMENT_ACCOUNT", "RECONCILE_SEQUENCE"} <= set(err(b_nr)[1])
+              and pay_ready.get("ready") is False and search(INVOICE_PAYMENT, f"self.invoice.id = {inv_id}") == [],
+              (listed.get("status"), s_rep_pay, [(s_, err(b_)) for s_, b_ in bad], s_nr, err(b_nr), pay_ready))
+
+        # TEST FIXTURE: finance's bank set-up for the payment mode (bank journal and account)
+        types["cash"] = create(ACCOUNT_TYPE, {"name": f"TEST ONLY cash {tag}", "technicalTypeSelect": "cash"})
+        bank = create(ACCOUNT, {"name": f"TEST ONLY bank {tag}", "code": f"5{tag}", "company": {"id": co["id"]}, "commonPosition": 0,
+                                "accountType": {"id": types["cash"]["id"]}, "statusSelect": 1})
+        bank_seq = create(SEQUENCE, {"name": f"Bank moves probe {tag}", "codeSelect": "move", "company": {"id": co["id"]}, "prefixe": f"B{tag}-",
+                                     "padding": 5, "toBeAdded": 1})
+        bank_type = create(JOURNAL_TYPE, {"name": f"Bank probe {tag}", "code": f"JB{tag}", "technicalTypeSelect": 4})
+        bank_journal = create(JOURNAL, {"name": f"Bank probe {tag}", "code": f"BQ{tag}", "company": {"id": co["id"]}, "journalType": {"id": bank_type["id"]},
+                                        "sequence": {"id": bank_seq["id"]}, "statusSelect": 1, "authorizedFunctionalOriginSelect": "5",
+                                        "validAccountTypeSet": [{"id": types["receivable"]["id"]}, {"id": types["cash"]["id"]}]})
+        for code, prefix in (("reconcile", "RC"), ("reconcileGroupDraft", "RGD"), ("reconcileGroupFinal", "RGF")):
+            create(SEQUENCE, {"name": f"Reconciliations {code} probe {tag}", "codeSelect": code, "company": {"id": co["id"]},
+                              "prefixe": f"{prefix}{tag}-", "padding": 5, "toBeAdded": 1})
+        create(ACCOUNT_MANAGEMENT, {"company": {"id": co["id"]}, "paymentMode": {"id": mode["id"]}, "typeSelect": 3,
+                                    "journal": {"id": bank_journal["id"]}, "cashAccount": {"id": bank["id"]}})
+        before_pay = obj(fin_c.call("GET", F + "/summary")[1])
+        s_p1, b_p1 = pay(fin_c, {"amount": 1000, "reference": f"TRX-{tag}-1"})
+        after_p1 = obj(b_p1)
+        natives = search(INVOICE_PAYMENT, f"self.invoice.id = {inv_id}", ("statusSelect", "amount", "invoicePaymentRef", "move"))
+        check("with the bank set-up, a partial payment is recorded natively (posted and reconciled) with its reference; the invoice is partly paid",
+              s_p1 == 201 and after_p1.get("status") == "PARTLY_PAID" and dec(after_p1.get("remaining")) == total - 1000
+              and [(p.get("statusSelect"), dec(p.get("amount")), p.get("invoicePaymentRef"), bool(p.get("move"))) for p in natives]
+              == [(1, Decimal("1000"), f"TRX-{tag}-1", True)]
+              and [(dec(p["amount"]), p["reference"]) for p in after_p1.get("payments") or []] == [(Decimal("1000"), f"TRX-{tag}-1")],
+              (s_p1, err(b_p1), after_p1.get("status"), after_p1.get("remaining"), natives))
+        s_p2, b_p2 = pay(fin_c, {"amount": float(total - 1000), "reference": f"TRX-{tag}-2"})
+        s_p3, b_p3 = pay(fin_c, {"amount": 1, "reference": f"TRX-{tag}-3"})
+        after_pay = obj(fin_c.call("GET", F + "/summary")[1])
+        egp_b = next((r for r in before_pay.get("rows") or [] if r["currency"] == "EGP"), {})
+        egp_a = next((r for r in after_pay.get("rows") or [] if r["currency"] == "EGP"), {})
+        paid = finance_invoice(inv_id, "paid")
+        check("paying the rest makes it paid; another payment is refused; collected grows by exactly the two payments recorded",
+              s_p2 == 201 and obj(b_p2).get("status") == "PAID" and paid.get("id") == inv_id and dec(paid.get("remaining")) == 0
+              and (s_p3, err(b_p3)[0]) == (422, "ALREADY_PAID")
+              and dec(egp_a.get("collected")) - dec(egp_b.get("collected") or 0) == total,
+              (s_p2, err(b_p2), obj(b_p2).get("status"), s_p3, err(b_p3), egp_b.get("collected"), egp_a.get("collected")))
+
+        # --- P2c: a credit note on the balance invoice ------------------------------------------------------------------
+        s, b = rep_c.call("POST", f"{WS}/invoice-requests", {"milestoneId": stones["Balance"], "quoteVersion": version(SALE_ORDER, quote["id"])})
+        req2 = obj(b)
+        created.append((INVOICE_REQUEST, req2.get("id")))
+        s_i2, _ = fin_c.call("POST", f"{WS}/invoice-requests/{req2.get('id')}/issue", {"version": version(INVOICE_REQUEST, req2.get("id"))})
+        balance = next((x for x in search(INVOICE, f"self.partner.id = {account['id']} AND self.operationTypeSelect = 3", ("exTaxTotal", "inTaxTotal"))
+                        if x["id"] != inv_id), {})
+        bal_id = balance.get("id")
+
+        def credit(client, body):
+            return client.call("POST", f"{F}/invoices/{bal_id}/credit-notes", {"version": version(INVOICE, bal_id), **body})
+
+        s_rep_cr, _ = credit(rep_c, {"percent": 50, "reason": "probe"})
+        bad = [credit(fin_c, b) for b in ({"percent": 0, "reason": "probe"}, {"percent": 150, "reason": "probe"}, {"percent": 50, "reason": " "})]
+        s_cnr, b_cnr = credit(fin_c, {"percent": 50, "reason": "probe"})
+        check("a credit note needs native invoice rights (403 for the salesperson); the share and reason are checked; without the credit-note "
+              "journal, numbering and refund payment mode it is refused naming them",
+              s_i2 == 200 and bal_id and s_rep_cr == 403 and [(s_, err(b_)[1]) for s_, b_ in bad] == [(422, ["RANGE"]), (422, ["RANGE"]), (422, ["REQUIRED"])]
+              and (s_cnr, err(b_cnr)[0]) == (422, "ACCOUNTING_NOT_READY")
+              and {"CREDIT_NOTE_JOURNAL", "CREDIT_NOTE_SEQUENCE", "REFUND_PAYMENT_MODE"} <= set(err(b_cnr)[1]),
+              (s_i2, bal_id, s_rep_cr, [(s_, err(b_)) for s_, b_ in bad], s_cnr, err(b_cnr)))
+
+        # TEST FIXTURE: finance's credit-note set-up
+        ref_seq = create(SEQUENCE, {"name": f"Credit notes probe {tag}", "codeSelect": "invoice", "company": {"id": co["id"]}, "prefixe": f"CN{tag}-",
+                                    "padding": 5, "toBeAdded": 1})
+        cn_seq = create(SEQUENCE, {"name": f"Credit note moves probe {tag}", "codeSelect": "move", "company": {"id": co["id"]}, "prefixe": f"CM{tag}-",
+                                   "padding": 5, "toBeAdded": 1})
+        cn_type = create(JOURNAL_TYPE, {"name": f"Credit notes probe {tag}", "code": f"JC{tag}", "technicalTypeSelect": 3})
+        cn_journal = create(JOURNAL, {"name": f"Credit notes probe {tag}", "code": f"AV{tag}", "company": {"id": co["id"]}, "journalType": {"id": cn_type["id"]},
+                                      "sequence": {"id": cn_seq["id"]}, "statusSelect": 1, "authorizedFunctionalOriginSelect": "3",
+                                      "validAccountTypeSet": [{"id": types[t]["id"]} for t in ("income", "receivable", "tax")]})
+        refund_mode = create(PAYMENT_MODE, {"name": f"Refund probe {tag}", "code": f"RF{tag}", "typeSelect": 9, "inOutSelect": 2})
+        update(ACCOUNT_CONFIG, config["id"], {"customerCreditNoteJournal": {"id": cn_journal["id"]}, "custRefSequence": {"id": ref_seq["id"]},
+                                              "outPaymentMode": {"id": refund_mode["id"]}})
+        s_cn, b_cn = credit(fin_c, {"percent": 50, "reason": f"cancelled half {tag}"})
+        after_cn = obj(b_cn)
+        refunds = search(INVOICE, f"self.originalInvoice.id = {bal_id}", ("statusSelect", "exTaxTotal", "inTaxTotal", "invoiceId", "operationTypeSelect"))
+        half = (dec(balance.get("exTaxTotal")) / 2).quantize(Decimal("0.01"))
+        s_over, b_over = credit(fin_c, {"percent": 60, "reason": "too much"})
+        check("with the set-up, a 50% credit note is issued natively (ventilated, numbered) with its reason; crediting beyond the invoice is refused",
+              s_cn == 201 and len(refunds) == 1 and refunds[0].get("statusSelect") == 3 and refunds[0].get("operationTypeSelect") == 4
+              and dec(refunds[0].get("exTaxTotal")) == half and str(refunds[0].get("invoiceId") or "").startswith(f"CN{tag}-")
+              and dec(after_cn.get("credited")) == half and [c["reason"] for c in after_cn.get("refunds") or []] == [f"cancelled half {tag}"]
+              and (s_over, err(b_over)[1]) == (422, ["RANGE"]),
+              (s_cn, err(b_cn), refunds, after_cn.get("credited"), after_cn.get("remaining"), s_over, err(b_over)))
+
         exit_code = 0 if all(r["result"] == "PASS" for r in RESULTS) else 1
         print(f"\n{sum(r['result'] == 'PASS' for r in RESULTS)}/{len(RESULTS)} checks passed")
     finally:
@@ -332,7 +443,8 @@ def main():
         created.extend((TAX_TYPE, r["id"]) for r in search(TAX_TYPE, "self.code LIKE 'IOETI-%'") if r["id"] not in tax_types_before)
         if co:
             update(ACCOUNT_CONFIG, [rid for m, rid in created if m == ACCOUNT_CONFIG][0],
-                   {"customerAccount": None, "customerSalesJournal": None, "custInvSequence": None})
+                   {"customerAccount": None, "customerSalesJournal": None, "custInvSequence": None, "customerCreditNoteJournal": None,
+                    "custRefSequence": None, "outPaymentMode": None})
         ids = [x["id"] for x in users.values()]
         if ids:
             joined = ",".join(map(str, ids))

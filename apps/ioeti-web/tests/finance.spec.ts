@@ -5,7 +5,11 @@ import { expect, test, type Page, type Route } from "@playwright/test";
 type Fx = { policySet: boolean; source: string | null; maxAgeHours: number | null; baseCurrency: string; canChange: boolean;
   currencies: Record<string, unknown>[]; history: Record<string, unknown>[] };
 
-async function mockFinance(page: Page, { invoicesPermitted = false, fx = null as Fx | null, usd = false, canIssue = false, ready = false } = {}) {
+type Inv = Record<string, unknown> & { id: number; version: number; remaining: number; paid: number; totalWithTax: number; credited: number;
+  status: string; payments: Record<string, unknown>[]; refunds: Record<string, unknown>[] };
+
+async function mockFinance(page: Page, { invoicesPermitted = false, fx = null as Fx | null, usd = false, canIssue = false, ready = false,
+  invoices = null as Inv[] | null, bankReady = true } = {}) {
   const posted: { path: string; body: Record<string, unknown> }[] = [];
   const queue = [
     { id: 1, version: 0, status: "REQUESTED", orderId: 10, orderReference: "SO0012", accountId: 7, accountName: "مصنع النور", milestoneId: 100,
@@ -50,6 +54,29 @@ async function mockFinance(page: Page, { invoicesPermitted = false, fx = null as
       fx.history = [{ id: 9, currency: body.currency, rate: body.rate, rateDate: body.rateDate, asOf: `${body.rateDate}T00:00:00`, source: "MANUAL", provider: null,
         reason: body.reason, enteredBy: "منى", recordedAt: "2026-10-25T10:00:00" }, ...fx.history];
       return result(fx, 201);
+    }
+    if (path === "/finance/invoices" && method === "GET") {
+      if (!invoices) return failure(403, { code: "FORBIDDEN", fields: [] });
+      const state = url.searchParams.get("state");
+      return result(invoices.filter(i => state === "all" || (state === "paid" ? i.remaining <= 0 : i.remaining > 0)));
+    }
+    const inv = path.match(/^\/finance\/invoices\/(\d+)\/(payments|credit-notes|readiness)$/);
+    if (inv && invoices) {
+      const i = invoices.find(x => x.id === Number(inv[1]))!;
+      if (inv[2] === "readiness") return result(bankReady ? { ready: true, missing: [] } : { ready: false, missing: [
+        { code: "PAYMENT_JOURNAL", detail: "TR01" }, { code: "RECONCILE_SEQUENCE", detail: "reconcile" }] });
+      if (body.version !== i.version) return failure(409, { code: "CONFLICT", fields: [] });
+      if (inv[2] === "payments") {
+        if (!bankReady) return failure(422, { code: "ACCOUNTING_NOT_READY", fields: [{ field: "accounting", code: "PAYMENT_JOURNAL" }] });
+        if (Number(body.amount) > i.remaining) return failure(422, { code: "VALIDATION_FAILED", fields: [{ field: "amount", code: "RANGE" }] });
+        i.paid += Number(body.amount); i.remaining -= Number(body.amount); i.version++;
+        i.status = i.remaining <= 0 ? "PAID" : "PARTLY_PAID"; i.canRecordPayment = i.remaining > 0;
+        i.payments.push({ id: i.payments.length + 1, date: body.paymentDate, amount: Number(body.amount), reference: body.reference, recordedBy: "منى" });
+        return result(i, 201);
+      }
+      i.credited += 6000 * Number(body.percent) / 100; i.version++;
+      i.refunds.push({ id: 50, number: "CN-00001", date: "2026-10-25", totalWithTax: 6840 * Number(body.percent) / 100, reason: body.reason });
+      return result(i, 201);
     }
     if (path === "/finance/queue") {
       const state = url.searchParams.get("state");
@@ -201,4 +228,71 @@ test("exchange rates: without the owners' finance.fx policy nothing converts and
   const panel = page.getByRole("region", { name: "أسعار الصرف للجنيه" });
   await expect(panel).toContainText("مالك السياسات لسه ما حددش مصدر أسعار الصرف (finance.fx)");
   await expect(panel.getByRole("button")).toHaveCount(0);
+});
+
+const invoice = (): Inv => ({ id: 70, version: 3, number: "INV-00007", accountId: 7, accountName: "مصنع النور", invoiceDate: "2026-10-20", dueDate: "2026-10-22",
+  currency: "EGP", totalBeforeTax: 6000, totalWithTax: 6840, paid: 0, remaining: 6840, status: "DUE", overdue: true, credited: 0, canRecordPayment: true,
+  canCredit: true, payments: [], refunds: [] });
+
+test("collection: finance records what the client paid with its reference, partly then fully; the invoice moves to paid", async ({ page }) => {
+  const { posted } = await mockFinance(page, { invoices: [invoice()] });
+  await page.goto("/#/finance");
+  const panel = page.getByRole("region", { name: "الفواتير الصادرة والتحصيل" });
+  const row = panel.locator(".finance-row").filter({ hasText: "INV-00007" });
+  await expect(row).toContainText("مستحقة");
+  await expect(row).toContainText("متأخرة");
+  await row.getByRole("button", { name: "سجّل دفعة" }).click();
+  let dialog = page.getByRole("dialog");
+  await expect(dialog.getByLabel("المبلغ (EGP)")).toHaveValue("6840");
+  await dialog.getByLabel("المبلغ (EGP)").fill("1000");
+  await expect(dialog.getByRole("button", { name: "حفظ" })).toBeDisabled(); // the reference is required
+  await dialog.getByLabel("مرجع البنك أو الإيصال").fill("TRX-555");
+  await dialog.getByRole("button", { name: "حفظ" }).click();
+  await expect(page.getByRole("status").filter({ hasText: "اتسجلت الدفعة." })).toBeVisible();
+  await expect(row).toContainText("مدفوعة جزئيًا");
+  await expect(row).toContainText(/(5,840|٥٬٨٤٠) EGP/);
+  await row.getByRole("button", { name: "سجّل دفعة" }).click();
+  dialog = page.getByRole("dialog");
+  await expect(dialog.getByLabel("المبلغ (EGP)")).toHaveValue("5840");
+  await dialog.getByLabel("مرجع البنك أو الإيصال").fill("TRX-556");
+  await dialog.getByRole("button", { name: "حفظ" }).click();
+  await expect(panel.locator(".finance-row").filter({ hasText: "INV-00007" })).toHaveCount(0); // no longer due
+  await panel.getByRole("button", { name: "مدفوعة", exact: true }).click();
+  const paid = panel.locator(".finance-row").filter({ hasText: "INV-00007" });
+  await expect(paid).toContainText("مدفوعة");
+  await expect(paid.getByRole("button", { name: "سجّل دفعة" })).toHaveCount(0);
+  await paid.getByText("الدفعات / الإشعارات الدائنة").click();
+  await expect(paid.locator(".fx-history li")).toHaveCount(2);
+  await expect(paid).toContainText("TRX-555");
+  const today = new Date().toISOString().slice(0, 10);
+  expect(posted.filter(p => p.path.includes("/payments"))).toEqual([
+    { path: "/finance/invoices/70/payments", body: { version: 3, amount: 1000, paymentDate: today, reference: "TRX-555" } },
+    { path: "/finance/invoices/70/payments", body: { version: 4, amount: 5840, paymentDate: today, reference: "TRX-556" } }]);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(0);
+  await page.screenshot({ path: "test-results/ioeti-finance-collection-phone.png", fullPage: true });
+});
+
+test("collection: without the bank set-up nothing is recorded and finance is told what is missing; a credit note gives its share and reason", async ({ page }) => {
+  const { posted } = await mockFinance(page, { invoices: [invoice()], bankReady: false });
+  await page.goto("/#/finance");
+  const panel = page.getByRole("region", { name: "الفواتير الصادرة والتحصيل" });
+  const row = panel.locator(".finance-row").filter({ hasText: "INV-00007" });
+  await row.getByRole("button", { name: "سجّل دفعة" }).click();
+  await page.getByRole("dialog").getByLabel("مرجع البنك أو الإيصال").fill("TRX-1");
+  await page.getByRole("dialog").getByRole("button", { name: "حفظ" }).click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  const alert = panel.getByRole("alert");
+  await expect(alert).toContainText("مش ممكن لسه. الناقص:");
+  await expect(alert.locator("li")).toHaveText(["يومية البنك لطريقة السداد (TR01)", "ترقيم التسويات في الحسابات (reconcile)"]);
+  await expect(row).toContainText("مستحقة");
+  await row.getByRole("button", { name: "إشعار دائن" }).click();
+  const dialog = page.getByRole("dialog");
+  await dialog.getByLabel("النسبة من الفاتورة %").fill("50");
+  await dialog.getByLabel("السبب").fill("إلغاء نص الخدمة");
+  await dialog.getByRole("button", { name: "حفظ" }).click();
+  await expect(page.getByRole("status").filter({ hasText: "اتعمل الإشعار الدائن." })).toBeVisible();
+  await expect(row).toContainText(/إشعارات دائنة \(قبل الضريبة\)(3,000|٣٬٠٠٠) EGP/);
+  expect(posted.filter(p => p.path.includes("/credit-notes"))).toEqual([
+    { path: "/finance/invoices/70/credit-notes", body: { version: 3, percent: 50, reason: "إلغاء نص الخدمة" } }]);
 });
