@@ -1,0 +1,62 @@
+{
+  "source": "ioeti_dev",
+  "checks": [
+    {
+      "check": "applied migrations are unchanged (checksums)",
+      "result": "PASS",
+      "detail": []
+    },
+    {
+      "check": "source has IOETI-owned objects to compare",
+      "result": "PASS",
+      "detail": 46
+    },
+    {
+      "check": "scratch copy has the same IOETI objects as the source",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "check": "drift guard detects an IOETI object that no migration covers (negative control)",
+      "result": "PASS",
+      "detail": [
+        "column crm_lead.ioeti_drift_probe integer null=YES default=-"
+      ]
+    },
+    {
+      "check": "every IOETI-owned object is covered by a migration (rollback chain leaves nothing)",
+      "result": "PASS",
+      "detail": {
+        "not_covered": []
+      }
+    },
+    {
+      "check": "forward chain reproduces the Hibernate-generated schema exactly",
+      "result": "PASS",
+      "detail": {
+        "missing_from_migrations": [],
+        "not_in_source": []
+      }
+    },
+    {
+      "check": "forward chain is idempotent (second run changes nothing)",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "check": "runner applies the full chain once and records it",
+      "result": "PASS",
+      "detail": [
+        "V001__ioeti_business_line.sql",
+        "V002__ioeti_user_business_line.sql",
+        "V003__ioeti_lead_line_and_origin.sql"
+      ]
+    }
+  ],
+  "started": "2026-10-19T21:16:33Z",
+  "migrations": [
+    "V001__ioeti_business_line.sql",
+    "V002__ioeti_user_business_line.sql",
+    "V003__ioeti_lead_line_and_origin.sql"
+  ]
+}

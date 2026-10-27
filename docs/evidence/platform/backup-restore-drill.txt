@@ -1,0 +1,12 @@
+PASS backup written and encrypted (pg_dump and age both succeeded)
+PASS ciphertext contains no known plaintext
+PASS decrypt and restore succeeded
+PASS every table restored with identical row counts (1184 tables)
+PASS IOETI-owned schema identical
+PASS migration ledger identical
+PASS IOETI business-line content identical (checksum)
+PASS one flipped byte makes decryption fail
+PASS a different key cannot decrypt
+PASS drill database removed
+
+10/10 checks passed · backup 8.5 MB in 2.12 s · restore 29.79 s
