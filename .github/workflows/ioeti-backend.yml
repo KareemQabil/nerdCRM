@@ -88,6 +88,8 @@ jobs:
           python3 scripts/pilot_readiness.py setup
           python3 scripts/pilot_readiness.py check
           python3 scripts/pilot_readiness.py teardown
+          # Wave 4a: external training (capacity, waitlist, attendance; certificates fail closed, D-03)
+          PROBE_TRAINING_ROUNDS=10 python3 scripts/training_probe.py
           # SEC-004: cookies, fixation, CSRF, logout, per-user login throttle (runs last: it
           # throttles one throw-away user)
           python3 scripts/session_security_probe.py
@@ -110,6 +112,7 @@ jobs:
             logs/lead-conversion-probe.json
             logs/lead-lifecycle-probe.json
             logs/pii-dto-audit.json
+            logs/training-probe.json
             logs/quote-probe.json
             logs/websocket-identity-probe.json
             logs/migration-verify.json

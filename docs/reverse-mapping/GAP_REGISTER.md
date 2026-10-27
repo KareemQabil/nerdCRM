@@ -112,7 +112,7 @@ This section is appended; the rows above are unchanged. Status reflects live Axe
 | G-010 | Ready for reviewer | Multi-user live probes for the whole lead → contract chain; UAT script `docs/runbooks/PILOT_UAT_SCRIPT.md`; fictional dataset `scripts/pilot_readiness.py` setup/check/teardown in backend CI | Reviewer UAT sign-off (D-09) |
 | G-011 | In progress | Private disclosure draft held outside the repository | Owner action (see the decisions file) |
 | G-012 | Policy-blocked | — | D-02 |
-| G-013 | Not started | — | Training/recruitment bounded contexts (D-03/D-04 for gated parts) |
+| G-013 | Training started | `ioeti-training` (Wave 4a): courses, cohorts, capacity and waitlist, enrolment, sessions, attendance; certificates and cohort cancellation fail closed (D-03); `scripts/training_probe.py` | Recruitment bounded context (D-04 for gated parts); training UI; invoicing of enrolments (D-06) |
 | G-014 | Partial | `.env` secrets outside git; template documents production settings | Production secret store (D-08) |
 
 P1 progress (appended 2026-10-20):
