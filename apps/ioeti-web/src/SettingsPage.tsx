@@ -12,7 +12,7 @@ const strings = {
     prefs:"التفضيلات",language:"اللغة",theme:"المظهر",themes:{light:"فاتح",dark:"داكن",luxury:"فاخر"},
     sources:"مصادر العملاء المحتملين",addSource:"إضافة مصدر",name:"الاسم",none:"لا توجد مصادر",
     system:"حالة النظام",modules:"موديولات IOETI المثبتة",migrations:"ترحيلات قاعدة البيانات المطبقة",noLedger:"لم تُطبق ترحيلات على قاعدة البيانات هذه بعد.",
-    policies:"قرارات السياسات",status:{OPEN:"مفتوح",SIGNED:"معتمد"},policyNote:"الإجراءات التي تعتمد على قرار مفتوح متوقفة في النظام (BLOCKED_BY_POLICY).",
+    policies:"قرارات السياسات",status:{OPEN:"مفتوح",SIGNED:"معتمد"},policyNote:"القرارات المعتمدة تحدد شكل القواعد؛ قيمها يضبطها مالك السياسات من صفحة السياسات، وأي إجراء يحتاج قيمة غير مضبوطة يُرفض (POLICY_NOT_SET).",
     errors:{DUPLICATE:"هذا المصدر موجود.",REQUIRED:"الاسم مطلوب.",denied:"ليست لديك صلاحية لهذا الإجراء.",failed:"تعذّر تنفيذ الطلب."},
   },
   en: {
@@ -20,7 +20,7 @@ const strings = {
     prefs:"Preferences",language:"Language",theme:"Theme",themes:{light:"Light",dark:"Dark",luxury:"Luxury"},
     sources:"Lead sources",addSource:"Add source",name:"Name",none:"No sources",
     system:"System status",modules:"Installed IOETI modules",migrations:"Applied database migrations",noLedger:"No migrations were applied to this database yet.",
-    policies:"Policy decisions",status:{OPEN:"Open",SIGNED:"Signed"},policyNote:"Actions that depend on an open decision are blocked in the system (BLOCKED_BY_POLICY).",
+    policies:"Policy decisions",status:{OPEN:"Open",SIGNED:"Signed"},policyNote:"Signed decisions set the shape of each rule; policy owners set the values on the Policies page, and an action that needs a value not yet set is refused (POLICY_NOT_SET).",
     errors:{DUPLICATE:"This source already exists.",REQUIRED:"The name is required.",denied:"You do not have permission for this action.",failed:"The request failed."},
   },
 } as const;

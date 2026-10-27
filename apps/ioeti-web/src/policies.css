@@ -1,0 +1,53 @@
+/* policies and business rules: the list of rules by area, the chosen rule beside it */
+.policies-page { display: grid; gap: 16px; }
+.policies-layout { display: grid; gap: 16px; grid-template-columns: minmax(260px, 360px) minmax(0, 1fr); align-items: start; }
+@media (max-width: 900px) { .policies-layout { grid-template-columns: 1fr; } }
+.policies-list { display: grid; gap: 14px; }
+.policies-group h2 { margin: 0 0 6px; font-size: 12px; font-weight: 700; color: var(--on-surface-variant); text-transform: none; }
+.policies-group ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.policies-row { display: grid; gap: 4px; width: 100%; text-align: start; padding: 10px 12px; border-radius: var(--radius); border: 1px solid var(--outline-variant);
+  background: var(--surface); color: var(--on-surface); font: inherit; cursor: pointer; border-inline-start: 3px solid var(--outline); }
+.policies-row:hover { border-color: var(--outline); }
+.policies-row.is-set { border-inline-start-color: var(--success); }
+.policies-row.is-unset { border-inline-start-color: var(--warning); }
+.policies-row.is-chosen { background: var(--primary-container); color: var(--on-primary-container); border-color: var(--primary); }
+.policies-row-head { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
+.policies-row-head strong { font-size: 13.5px; }
+.policies-row-head code { font-size: 11px; opacity: .75; }
+.policies-row-status { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; color: var(--on-surface-variant); }
+.policies-row.is-chosen .policies-row-status { color: inherit; }
+.policies-panel { display: grid; gap: 12px; padding: 18px; min-width: 0; }
+.policies-panel-head { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; flex-wrap: wrap; }
+.policies-panel-head h2 { display: flex; align-items: center; gap: 8px; margin: 2px 0 6px; font-size: 18px; }
+.policies-panel-head p { margin: 0; color: var(--on-surface-variant); font-size: 13.5px; max-width: 70ch; }
+.policies-panel h3 { margin: 4px 0 0; font-size: 14px; }
+.policies-decision { font-size: 12px; color: var(--on-surface-variant); }
+.policies-values { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.policies-values > li { display: grid; gap: 6px; padding: 10px 12px; border-radius: var(--radius); border: 1px solid var(--outline-variant); background: var(--surface); }
+.policies-value-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.policies-values small, .policies-next { display: inline-flex; align-items: center; gap: 5px; color: var(--on-surface-variant); font-size: 12px; margin: 0; flex-wrap: wrap; }
+.policies-summary { display: flex; flex-wrap: wrap; gap: 6px 18px; margin: 0; }
+.policies-summary div { display: grid; gap: 1px; min-width: 0; }
+.policies-summary dt { font-size: 11.5px; color: var(--on-surface-variant); }
+.policies-summary dd { margin: 0; font-weight: 600; font-size: 13.5px; overflow-wrap: anywhere; }
+.policies-items { margin: 0; padding-inline-start: 18px; display: grid; gap: 2px; font-weight: 500; }
+.policies-items span + span::before { content: " · "; }
+.policies-history summary { cursor: pointer; display: inline-flex; align-items: center; gap: 6px; font-weight: 600; font-size: 13.5px; }
+.policies-history ol { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 8px; }
+.policies-history li { display: grid; gap: 4px; padding: 8px 10px; border-radius: var(--radius-sm, 8px); background: var(--surface-variant); font-size: 13px; }
+.policies-history small { color: var(--on-surface-variant); }
+.policies-owners { display: grid; gap: 8px; padding: 14px 16px; }
+.policies-owners.is-empty { border-color: color-mix(in srgb, var(--warning) 50%, transparent); background: color-mix(in srgb, var(--warning-container) 40%, var(--surface)); }
+.policies-owners h2 { display: flex; align-items: center; gap: 6px; margin: 0; font-size: 15px; }
+.policies-owners p { margin: 0; color: var(--on-surface-variant); font-size: 13px; }
+.policies-owner-list { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+.policies-form .policies-number { display: flex; align-items: center; gap: 6px; }
+.policies-form .policies-number input { flex: 1; min-width: 0; }
+.policies-check { display: flex; align-items: center; gap: 8px; }
+.policies-list-field, .policies-dates { border: 1px solid var(--outline-variant); border-radius: var(--radius); padding: 10px 12px; margin: 0; display: grid; gap: 8px; }
+.policies-list-field legend, .policies-dates legend { font-size: 13px; font-weight: 600; padding: 0 4px; }
+.policies-list-row { display: grid; grid-template-columns: auto repeat(auto-fit, minmax(150px, 1fr)) auto; gap: 8px; align-items: end; padding: 8px;
+  border-radius: var(--radius-sm, 8px); background: var(--surface-variant); }
+.policies-list-index { align-self: center; font-weight: 700; color: var(--on-surface-variant); }
+.policies-dates ul { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+@media (max-width: 600px) { .policies-list-row { grid-template-columns: 1fr; } .policies-list-index { display: none; } }

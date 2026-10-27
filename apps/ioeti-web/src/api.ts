@@ -20,7 +20,7 @@ export type ContactSummary = { id: number; name: string; jobTitle: string | null
 export type LeadConversion = { leadId: number; accountId: number; contactId: number | null; opportunityId: number };
 export type ConvertLeadCommand = { version: number; opportunityName?: string; businessLineCode?: string; accountId?: number };
 export type AccountSummary = { id: number; name: string; reference: string | null; customer: boolean; prospect: boolean; version?: number };
-export type SessionIdentity = { code: string; name: string; language: string | null; administrator?: boolean };
+export type SessionIdentity = { code: string; name: string; language: string | null; administrator?: boolean; policyOwner?: boolean };
 export type Opportunity = {
   id: number;
   version: number;

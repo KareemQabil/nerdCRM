@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<domain-models xmlns="http://axelor.com/xml/ns/domain-models"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://axelor.com/xml/ns/domain-models https://axelor.com/xml/ns/domain-models/domain-models_8.2.xsd">
+
+  <module name="ioeti" package="com.ioeti.core.db"/>
+
+  <!-- One version of a business-rule policy (owner decisions, 2026-10-25). Versions are appended, never
+       changed: the version in force for a key and scope on a date is the latest one effective on or
+       before that date. A retired version unsets the policy from its date. No values are shipped. -->
+  <entity name="PolicyVersion" table="ioeti_policy_version">
+    <string name="policyKey" title="Policy" required="true" max="80"/>
+    <string name="scopeKey" title="Applies to" max="120"/>
+    <string name="valueJson" title="Value" large="true"/>
+    <boolean name="retired" title="Unset from this date"/>
+    <date name="effectiveFrom" title="Effective from" required="true"/>
+    <string name="reason" title="Reason" required="true" max="500"/>
+    <many-to-one name="author" ref="com.axelor.auth.db.User" title="Set by" required="true"/>
+    <datetime name="createdAt" title="Recorded at" required="true"/>
+    <index columns="policyKey,scopeKey"/>
+  </entity>
+
+</domain-models>
