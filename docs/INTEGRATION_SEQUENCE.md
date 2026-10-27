@@ -69,6 +69,8 @@ Draft PRs, each stacked on the previous one:
 - platform part 1 (migrations and backup): #20;
 - 5, part 2a (payment milestones): #21;
 - 5, part 2b (draft contracts): #22;
-- 5, part 2c (contract lines from the quotation): branch `claude/ioeti-wave3-contract-lines`.
+- 5, part 2c (contract lines from the quotation): #23;
+- SEC-001 residual #10 (WebSocket identity, scheduled jobs): #24;
+- 4, part 2 (lead qualification and assignment): branch `claude/ioeti-wave2-lead-lifecycle`.
 
 Policy-dependent steps follow `docs/decisions/OPEN_IOETI_POLICY_DECISIONS.md`.

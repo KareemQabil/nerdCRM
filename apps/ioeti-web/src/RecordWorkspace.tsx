@@ -4,6 +4,7 @@ import {
   CircleDashed, FileClock, GitMerge, Layers3, LockKeyhole, Network, ShieldCheck, UserRound
 } from "lucide-react";
 import { Account360 } from "./Account360";
+import { LeadQualificationPanel } from "./LeadQualificationPanel";
 import type { AccountSummary, LeadSummary } from "./api";
 import type { Language } from "./preferences";
 import { DEMO_MODE } from "./demo";
@@ -12,6 +13,7 @@ type RecordItem = LeadSummary | AccountSummary;
 type Props = {
   kind: "leads" | "accounts"; language: Language; record: RecordItem;
   onBack: () => void; onPrevious?: () => void; onNext?: () => void;
+  onRecordChanged?: (record: RecordItem) => void;
 };
 const strings = {
   ar: {
@@ -34,6 +36,8 @@ const strings = {
     security:"تُجلب معلومات هذا السجل من واجهة IOETI محدودة الحقول وفق صلاحيات الخادم.",
     convert:"تحويل إلى حساب وفرصة",converted:"تم التحويل",openAccount:"فتح الحساب",openOpportunity:"فتح الفرصة",
     accountRelated:"الفرص وجهات الاتصال المرتبطة بهذا الحساب ضمن صلاحياتك",
+    lostLead:"عميل محتمل خاسر · أعد فتحه للتحويل",
+    qualification:"مرحلة العميل المحتمل والمسؤول عنه ونتيجته، وفق قواعد Axelor CRM",
   },
   en: {
     backAccounts:"Back to accounts",backLeads:"Back to leads",
@@ -55,6 +59,8 @@ const strings = {
     security:"This profile loads only allowlisted IOETI API fields subject to server permissions.",
     convert:"Convert to account & opportunity",converted:"Converted",openAccount:"Open account",openOpportunity:"Open opportunity",
     accountRelated:"Opportunities and contacts of this account within your permissions",
+    lostLead:"Lost lead · reopen it to convert",
+    qualification:"Stage, ownership and outcome of this lead, with Axelor CRM rules",
   },
 } as const;
 function isLead(record:RecordItem):record is LeadSummary{return "organization" in record;}
@@ -64,7 +70,7 @@ function classification(item:AccountSummary,l:typeof strings.ar|typeof strings.e
   if(item.prospect)return l.prospect;
   return l.empty;
 }
-export function RecordWorkspace({kind,language,record,onBack,onPrevious,onNext}:Props){
+export function RecordWorkspace({kind,language,record,onBack,onPrevious,onNext,onRecordChanged}:Props){
   const ar=language==="ar";
   const l=strings[language];
   const lead=isLead(record);
@@ -109,6 +115,7 @@ export function RecordWorkspace({kind,language,record,onBack,onPrevious,onNext}:
           {record.accountId!=null&&<a className="btn btn-secondary" href={"#/accounts/"+record.accountId}><Building2 size={16}/>{l.openAccount}</a>}
           {record.opportunityId!=null&&<a className="btn btn-secondary" href={"#/opportunities/"+record.opportunityId}>{l.openOpportunity}</a>}
         </div>
+        :lead&&!DEMO_MODE&&record.version!=null&&record.stageKind==="LOST"?<span className="record-readonly-pill"><LockKeyhole size={14}/>{l.lostLead}</span>
         :lead&&!DEMO_MODE&&record.version!=null?<a className="btn btn-primary" href={"#/leads/"+record.id+"/convert"}><GitMerge size={17}/>{l.convert}</a>
         :<span className="record-readonly-pill"><LockKeyhole size={14}/>{l.readonly}</span>}
         <div className="record-paging">
@@ -125,8 +132,10 @@ export function RecordWorkspace({kind,language,record,onBack,onPrevious,onNext}:
         <p className="record-security-note"><ShieldCheck size={15}/>{l.security}</p>
       </section>
       <section className="record-content-card record-related" aria-labelledby="record-related-heading">
-        <div className="record-section-header"><div className="record-section-icon"><Network size={20}/></div><div><h2 id="record-related-heading">{l.related}</h2><p>{!lead&&!DEMO_MODE?l.accountRelated:lead?l.leadJourney:l.accountJourney}</p></div></div>
-        {!lead&&!DEMO_MODE?<Account360 accountId={record.id} language={language}/>:<div className="record-related-empty"><CircleDashed size={28}/><strong>{l.connection}</strong><p>{l.connectionDesc}</p></div>}
+        <div className="record-section-header"><div className="record-section-icon"><Network size={20}/></div><div><h2 id="record-related-heading">{l.related}</h2><p>{!lead&&!DEMO_MODE?l.accountRelated:lead&&!DEMO_MODE&&record.version!=null&&!record.converted?l.qualification:lead?l.leadJourney:l.accountJourney}</p></div></div>
+        {!lead&&!DEMO_MODE?<Account360 accountId={record.id} language={language}/>
+        :lead&&!DEMO_MODE&&record.version!=null&&!record.converted?<LeadQualificationPanel lead={record} language={language} onChanged={updated=>onRecordChanged?.(updated)}/>
+        :<div className="record-related-empty"><CircleDashed size={28}/><strong>{l.connection}</strong><p>{l.connectionDesc}</p></div>}
       </section>
     </div>
     <section className="record-flow-card" aria-labelledby="record-flow-heading">

@@ -77,6 +77,8 @@ jobs:
           python3 scripts/scope_matrix_probe.py
           # Wave 2: Lead → Account (+ Contact) + Opportunity conversion and Account 360
           PROBE_CONVERT_ROUNDS=10 python3 scripts/lead_conversion_probe.py
+          # Wave 2: lead qualification (stage, lose, reopen, assign to me) on native LeadService
+          PROBE_LIFECYCLE_ROUNDS=10 python3 scripts/lead_lifecycle_probe.py
           # Wave 3: catalog and draft quotations on native AOS SaleOrder (fictional fixtures, no taxes)
           PROBE_QUOTE_ROUNDS=10 python3 scripts/quote_probe.py
           # SEC-004: cookies, fixation, CSRF, logout, per-user login throttle (runs last: it
@@ -99,6 +101,7 @@ jobs:
             logs/session-security-probe.json
             logs/scope-matrix-probe.json
             logs/lead-conversion-probe.json
+            logs/lead-lifecycle-probe.json
             logs/quote-probe.json
             logs/websocket-identity-probe.json
             logs/migration-verify.json

@@ -780,3 +780,12 @@ td code { display: inline-block; font: 11px Inter,monospace; color: var(--on-sur
 .contract-create label{display:grid;gap:8px;font-size:12px;font-weight:700;}
 .contract-create select{color:var(--on-surface);background:var(--glass-light);border:1px solid var(--outline);border-radius:var(--radius);min-height:var(--control-height);padding:8px 12px;}
 .contract-body{display:grid;gap:14px;}
+/* Wave 2: lead qualification */
+.lead-qualification{display:flex;flex-direction:column;gap:14px;}
+.lead-qualification .record-properties dd{display:flex;align-items:center;gap:6px;}
+.lead-actions{display:flex;flex-wrap:wrap;gap:10px;}
+.lead-stage-form,.lead-lose-form{display:grid;gap:12px;}
+.lead-stage-form{grid-template-columns:1fr auto;align-items:end;}
+.lead-lose-form textarea{width:100%;resize:vertical;font:inherit;}
+.lead-lost-tag{display:inline-flex;align-items:center;gap:5px;color:var(--error);}
+@media (max-width:640px){.lead-stage-form{grid-template-columns:1fr;}}

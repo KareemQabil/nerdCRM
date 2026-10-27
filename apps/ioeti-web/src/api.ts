@@ -11,7 +11,10 @@ export type LeadSummary = {
   // live API only (absent in the fictional preview)
   version?: number; converted?: boolean; businessLineCode?: string | null;
   accountId?: number | null; opportunityId?: number | null;
+  stageId?: number | null; stageKind?: "OPEN" | "CONVERTED" | "LOST" | null; lostReason?: string | null; assignedToMe?: boolean | null; receivedAt?: string | null;
 };
+export type LeadStage = { id: number; name: string; kind: "OPEN" | "CONVERTED" | "LOST" };
+export type LostReason = { id: number; name: string };
 export type ContactSummary = { id: number; name: string; jobTitle: string | null };
 export type LeadConversion = { leadId: number; accountId: number; contactId: number | null; opportunityId: number };
 export type ConvertLeadCommand = { version: number; opportunityName?: string; businessLineCode?: string; accountId?: number };
@@ -198,6 +201,32 @@ export async function convertLead(id: number, command: ConvertLeadCommand): Prom
     body: JSON.stringify(command),
   });
 }
+/** Lead qualification on the native AOS LeadService; the preview never changes leads. */
+export async function getLeadStages(): Promise<LeadStage[]> {
+  if (DEMO_MODE) return [];
+  const values = await wrapped<LeadStage[]>("/ws/ioeti/leads/stages");
+  if (!Array.isArray(values)) throw new ApiError(502, "Invalid stages response");
+  return values;
+}
+export async function getLostReasons(): Promise<LostReason[]> {
+  if (DEMO_MODE) return [];
+  const values = await wrapped<LostReason[]>("/ws/ioeti/leads/lost-reasons");
+  if (!Array.isArray(values)) throw new ApiError(502, "Invalid lost reasons response");
+  return values;
+}
+async function leadCommand(id: number, action: string, body: Record<string, unknown>): Promise<LeadSummary> {
+  if (DEMO_MODE) throw new ApiError(403, "Preview mode is read-only");
+  return wrapped<LeadSummary>(`/ws/ioeti/leads/${encodeURIComponent(id)}/${action}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+}
+export const moveLeadStage = (id: number, version: number, stageId: number) => leadCommand(id, "stage", { version, stageId });
+export const loseLead = (id: number, version: number, lostReasonId: number | null, note: string) =>
+  leadCommand(id, "lose", { version, lostReasonId, note: note || null });
+export const reopenLead = (id: number, version: number) => leadCommand(id, "reopen", { version });
+export const assignLeadToMe = (id: number, version: number) => leadCommand(id, "assign", { version });
 /** Account 360: contacts and opportunities, each filtered by the caller's own permissions. */
 export async function getAccountContacts(id: number): Promise<ContactSummary[]> {
   if (DEMO_MODE) return [];

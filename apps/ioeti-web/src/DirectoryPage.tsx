@@ -20,7 +20,7 @@ const strings = {
     offline:"معلومات النطاق قيد التوصيل بالـBackend",readOnly:"بيانات حية ضمن نطاق صلاحياتك",
     demo:"هذه السجلات خيالية للمعاينة فقط",noPermission:"ليس لديك صلاحية قراءة هذا الموديول.",
     source:"المصدر", leadSource:"Axelor Lead · LeadStatus", accountSource:"Axelor Partner",
-    next:"القادم: تأهيل/توزيع العملاء المحتملين من Axelor", nextAccounts:"Account 360: الفرص وجهات الاتصال داخل صفحة الحساب",
+    next:"تأهيل العملاء المحتملين وتحويلهم من صفحة كل عميل محتمل؛ التوزيع على الآخرين وأهداف زمن الاستجابة بانتظار D-07 وD-12", nextAccounts:"Account 360: الفرص وجهات الاتصال داخل صفحة الحساب",
   },
   en: {
     leads:"Lead inbox",accounts:"Account directory",
@@ -32,7 +32,7 @@ const strings = {
     offline:"Backend domain connection is in progress",readOnly:"Live data within your permissions",
     demo:"All records are fictional and for visual review only",noPermission:"No permission to read this module.",
     source:"Source",leadSource:"Axelor Lead · LeadStatus",accountSource:"Axelor Partner",
-    next:"Next: Axelor-native lead qualification and routing", nextAccounts:"Account 360: opportunities and contacts on each account page",
+    next:"Qualify and convert from each lead page; routing to others and response-time targets wait for D-07 and D-12", nextAccounts:"Account 360: opportunities and contacts on each account page",
   },
 } as const;
 
@@ -151,6 +151,7 @@ export function DirectoryPage({kind,language}: Props) {
       kind={kind} language={language} record={selected} onBack={backToList}
       onPrevious={index>0?()=>void showRecord(visible[index-1]):undefined}
       onNext={index>=0&&index<visible.length-1?()=>void showRecord(visible[index+1]):undefined}
+      onRecordChanged={row=>{setSelected(row);setItems(current=>current.map(c=>c.id===row.id?row:c));}}
     />;
   }
   return <section className="page-enter directory-explorer">

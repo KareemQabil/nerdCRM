@@ -114,3 +114,10 @@ This section is appended; the rows above are unchanged. Status reflects live Axe
 | G-012 | Policy-blocked | — | D-02 |
 | G-013 | Not started | — | Training/recruitment bounded contexts (D-03/D-04 for gated parts) |
 | G-014 | Partial | `.env` secrets outside git; template documents production settings | Production secret store (D-08) |
+
+P1 progress (appended 2026-10-20):
+
+| GAP | Status | Evidence / PR | Remaining |
+|---|---|---|---|
+| G-040 Lead lifecycle | Conversion (#18) and qualification done on native `LeadService`: open-stage moves, lose with reason and note, reopen, assign to me; `receivedAt` exposed | `scripts/lead_lifecycle_probe.py` 24/24, `docs/slices/W2-lead-qualification.md` | Response targets, escalation and routing (D-12); duplicate check, consent, campaign attribution |
+| G-029 Account 360 | Contacts and opportunities tabs (#18); quotations and contracts on the opportunity page (#19, #21–#23) | lead-conversion and quote probes | Invoices, projects and specialized domains as they are built |

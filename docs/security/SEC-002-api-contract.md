@@ -47,6 +47,8 @@ Under that handler a 422 or 429 would be reported as 409, and a database error w
 | record missing, **or** present but outside the caller's read scope | the same 404 |
 | readable but not writable | 403 (existence is already known) |
 
+Read and write access are two queries. If a concurrent commit moves the record out of the caller's scope between them (another rep picks up a queued lead), the failed write check is followed by a fresh read check, and a record the caller can no longer read answers 404, not 403. Found by the Wave 2 lead pickup race (`scripts/lead_lifecycle_probe.py`).
+
 Applied to the Opportunity, Lead and Account GETs and to the Opportunity PUT. Business lines use a code lookup through the read filter. An unknown, unreadable or inactive line on create gives one identical 422.
 
 ## 4. Generic Axelor API exposure (G-003)
