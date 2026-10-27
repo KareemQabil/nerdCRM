@@ -381,6 +381,12 @@ public class AdminService {
 
   // --- audit ---------------------------------------------------------------------------------------
 
+  /** Records a change made outside this service (for example the MFA self-service) in the same admin change log. */
+  @Transactional(rollbackOn = {Exception.class})
+  public void auditChange(String action, String subject, Long subjectId, String label, List<String> changes) {
+    audit(action, subject, subjectId, label, changes);
+  }
+
   void audit(String action, String subject, Long subjectId, String label, List<String> changes) {
     AdminAuditEvent event = new AdminAuditEvent();
     event.setActor(AuthUtils.getUser());

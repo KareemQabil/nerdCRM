@@ -6,7 +6,7 @@ import {
   Moon, Palette, RefreshCw, Search, Settings2,
   Scale, ShieldCheck, Sun, Workflow, UsersRound, X, ClipboardList, BookOpen, Bell, BarChart3, CalendarDays, Tag, Megaphone, MapPin, ShieldAlert, ReceiptText,
 } from "lucide-react";
-import { ApiError, PASSWORD_CHANGE_REQUIRED, getBusinessLines, getSession, signIn, signOut, type BusinessLine, type SessionIdentity } from "./api";
+import { ApiError, MFA_REQUIRED, PASSWORD_CHANGE_REQUIRED, getBusinessLines, getSession, signIn, signInWithCode, signOut, type BusinessLine, type SessionIdentity } from "./api";
 import { OpportunitiesPage } from "./OpportunitiesPage";
 import { NativeModules } from "./NativeModules";
 import { DirectoryPage } from "./DirectoryPage";
@@ -434,11 +434,27 @@ function Login({ labels, onSuccess, initialError }: { labels: ReturnType<typeof 
   const [confirmPassword, setConfirmPassword] = useState("");
   // a temporary password set by an administrator must be replaced before the first session
   const [mustChange, setMustChange] = useState(false);
+  // D-07: two-step sign-in, when the person turned it on
+  const [needsCode, setNeedsCode] = useState(false);
+  const [code, setCode] = useState("");
+  const [recovery, setRecovery] = useState(false);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
   const ar = document.documentElement.lang !== "en";
   async function submit(e: FormEvent) {
     e.preventDefault();
+    if (needsCode) {
+      if (!code.trim()) return;
+      setPending(true); setError("");
+      try { await signInWithCode(username.trim(), code, recovery); await onSuccess(); }
+      catch (reason) {
+        setError(reason instanceof ApiError && reason.statusCode === 429 ? labels.tooManyAttempts
+          : ar ? "الكود مش مطابق. استخدم الكود الحالي من التطبيق، أو كود استرجاع." : "The code does not match. Use the current code from the app, or a recovery code.");
+        setCode("");
+      }
+      finally { setPending(false); }
+      return;
+    }
     if (!username.trim() || !password) return;
     if (mustChange) {
       if (nextPassword.length < 12) { setError(ar ? "اختر كلمة مرور من 12 حرفًا على الأقل." : "Choose at least 12 characters."); return; }
@@ -448,7 +464,9 @@ function Login({ labels, onSuccess, initialError }: { labels: ReturnType<typeof 
     setPending(true); setError("");
     try { await signIn(username.trim(), password, mustChange ? nextPassword : undefined); await onSuccess(); }
     catch (reason) {
-      if (reason instanceof ApiError && reason.code === PASSWORD_CHANGE_REQUIRED) {
+      if (reason instanceof ApiError && reason.code === MFA_REQUIRED) {
+        setNeedsCode(true); setPassword("");
+      } else if (reason instanceof ApiError && reason.code === PASSWORD_CHANGE_REQUIRED) {
         if (mustChange) setError(ar ? "كلمة المرور الجديدة لا تطابق قواعد كلمات المرور. استخدم حروفًا كبيرة وصغيرة وأرقامًا." : "The new password does not meet the password rules.");
         setMustChange(true);
       } else {
@@ -460,8 +478,18 @@ function Login({ labels, onSuccess, initialError }: { labels: ReturnType<typeof 
   return <div className="login-screen">
     <div className="login-brand"><span className="brand-emblem"><Layers3 size={25}/></span><span><strong>IOETI</strong><small>{labels.subtitle}</small></span></div>
     <div className="login-card"><span className="login-top-icon"><LockKeyhole size={24}/></span><span className="eyebrow">{labels.session}</span>
-      <h1>{mustChange ? (ar ? "اختر كلمة مرور جديدة" : "Choose a new password") : labels.signin}</h1>
-      <p>{mustChange ? (ar ? "كلمة المرور الحالية مؤقتة من مسؤول النظام. اختر كلمة مرور خاصة بك للمتابعة." : "Your current password is temporary. Choose your own to continue.") : labels.loginHelp}</p>
+      <h1>{needsCode ? (ar ? "الدخول بخطوتين" : "Two-step sign-in") : mustChange ? (ar ? "اختر كلمة مرور جديدة" : "Choose a new password") : labels.signin}</h1>
+      <p>{needsCode ? (ar ? "اكتب الكود اللي ظاهر في تطبيق المصادقة على موبايلك." : "Enter the code shown in the authenticator app on your phone.")
+        : mustChange ? (ar ? "كلمة المرور الحالية مؤقتة من مسؤول النظام. اختر كلمة مرور خاصة بك للمتابعة." : "Your current password is temporary. Choose your own to continue.") : labels.loginHelp}</p>
+      {needsCode ? <form onSubmit={(e) => void submit(e)} className="login-form">
+        <label>{recovery ? (ar ? "كود الاسترجاع" : "Recovery code") : (ar ? "الكود من التطبيق" : "Code from the app")}
+          <input value={code} onChange={(e) => setCode(e.target.value)} required autoFocus autoComplete="one-time-code" inputMode={recovery ? "text" : "numeric"} dir="ltr" maxLength={40}/></label>
+        <label className="login-check"><input type="checkbox" checked={recovery} onChange={(e) => setRecovery(e.target.checked)}/>
+          {ar ? "معاييش الموبايل: هستخدم كود استرجاع" : "I do not have my phone: use a recovery code"}</label>
+        {error && <div className="login-error" role="alert"><CircleAlert size={17}/>{error}</div>}
+        <button type="submit" className="btn btn-primary login-submit" disabled={pending}>{pending ? labels.loading : (ar ? "تأكيد والدخول" : "Confirm and sign in")}<ArrowLeft size={18}/></button>
+        <button type="button" className="btn btn-secondary" onClick={() => { setNeedsCode(false); setCode(""); setError(""); }}>{labels.back}</button>
+      </form> :
       <form onSubmit={(e) => void submit(e)} className="login-form">
         <label>{labels.username}<input autoComplete="username" value={username} onChange={(e) => setUsername(e.target.value)} required autoFocus={!mustChange} readOnly={mustChange} /></label>
         <label>{mustChange ? (ar ? "كلمة المرور المؤقتة" : "Temporary password") : labels.password}<input type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required readOnly={mustChange} /></label>
@@ -472,7 +500,7 @@ function Login({ labels, onSuccess, initialError }: { labels: ReturnType<typeof 
         </>}
         {(error || initialError) && <div className="login-error" role="alert"><CircleAlert size={17}/>{error || initialError}</div>}
         <button type="submit" className="btn btn-primary login-submit" disabled={pending}>{pending ? labels.loading : mustChange ? (ar ? "حفظ والدخول" : "Save and sign in") : labels.loginButton}{<ArrowLeft size={18}/>}</button>
-      </form>
+      </form>}
     </div>
     <p className="login-caption">{labels.product} · IOETI Egypt</p>
   </div>;

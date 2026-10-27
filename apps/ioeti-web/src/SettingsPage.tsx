@@ -5,6 +5,7 @@ import { addSource, getSources, type Option } from "./marketingApi";
 import { getSystemReport, type SystemReport } from "./reportsApi";
 import { usePreferences, type Language } from "./preferences";
 import "./insights.css";
+import { MfaSettings } from "./MfaSettings";
 
 const strings = {
   ar: {
@@ -60,6 +61,7 @@ export function SettingsPage({language}:{language:Language}){
           {(Object.keys(l.themes) as (keyof typeof l.themes)[]).map(t=><option key={t} value={t}>{l.themes[t]}</option>)}</select></label>
       </div>
     </section>
+    <MfaSettings language={language}/>
     <section className="rp-card" aria-labelledby="st-sources"><h2 id="st-sources">{l.sources}</h2>
       {sources.length===0?<p className="wf-muted">{l.none}</p>:<ul className="mk-tags">{sources.map(s=><li key={s.id}>{s.name}</li>)}</ul>}
       <form className="mk-inline" onSubmit={e=>{e.preventDefault();void add();}}>
