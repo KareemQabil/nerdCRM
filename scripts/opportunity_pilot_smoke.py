@@ -73,7 +73,12 @@ def main():
               "stale_code", old.get("codeStatus"),
               "stale_state", old.get("status"),
               "stale_message", str(old.get("messageStatus"))[:100])
-        require(status == 409 or old.get("codeStatus") == 409, "stale version refused")
+        require(status == 409 and old.get("codeStatus") == 409, "stale version refused with HTTP 409")
+        status, after = client.call("GET", f"/ws/ioeti/opportunities/{created_id}")
+        after = after.get("object") or {}
+        require(status == 200 and after.get("name") == newname
+                and after.get("version") == (reloaded.get("object") or {}).get("version"),
+                "stale write not persisted (name and version unchanged)")
         print("PILOT_CONTRACT=PASS")
     finally:
         if created_id is not None:
