@@ -1,0 +1,32 @@
+{
+  "A_viewer_only": {
+    "rounds": 20,
+    "list_leaks": 0,
+    "get_leaks": 0,
+    "generic_leaks": 0
+  },
+  "B_after_admin_read": {
+    "rounds": 20,
+    "list_leaks": 0,
+    "get_leaks": 0,
+    "generic_leaks": 0
+  },
+  "C_after_admin_failed_opportunity_save": {
+    "rounds": 20,
+    "list_leaks": 0,
+    "get_leaks": 0,
+    "generic_leaks": 0
+  },
+  "D_after_admin_failed_businessline_save": {
+    "rounds": 20,
+    "list_leaks": 0,
+    "get_leaks": 0,
+    "generic_leaks": 0
+  },
+  "E_viewer_only_again": {
+    "rounds": 20,
+    "list_leaks": 0,
+    "get_leaks": 0,
+    "generic_leaks": 0
+  }
+}

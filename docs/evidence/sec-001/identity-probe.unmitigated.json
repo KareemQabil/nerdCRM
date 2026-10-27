@@ -1,0 +1,171 @@
+{
+  "base": "http://localhost:8080/axelor-erp",
+  "restores": 2,
+  "workers_per_principal": 2,
+  "baseline_leaks": {
+    "A:effective_identity": 1,
+    "B:effective_identity": 1,
+    "B:native_rest_lines_scope": 1,
+    "RO:native_rest_lines_scope": 1,
+    "RO:native_rest_opportunity_scope": 1,
+    "RO:denied_ioeti_write_refused": 1
+  },
+  "restores_ok": [
+    true,
+    true,
+    "client-aborted"
+  ],
+  "concurrent_seconds": 248.5,
+  "worker_errors": [],
+  "boundary": {
+    "present": false,
+    "before_load": null,
+    "after_load": null
+  },
+  "checks": {
+    "A:effective_identity": 5862,
+    "A:ioeti_lines_scope": 5862,
+    "A:native_rest_lines_scope": 5862,
+    "A:ioeti_opportunity_scope": 5862,
+    "A:native_rest_opportunity_scope": 5862,
+    "A:denied_ioeti_write_refused": 5862,
+    "A:denied_native_write_refused": 5862,
+    "B:effective_identity": 5860,
+    "B:ioeti_lines_scope": 5860,
+    "B:native_rest_lines_scope": 5860,
+    "B:ioeti_opportunity_scope": 5860,
+    "B:native_rest_opportunity_scope": 5860,
+    "B:denied_ioeti_write_refused": 5860,
+    "B:denied_native_write_refused": 5860,
+    "RO:effective_identity": 6450,
+    "RO:ioeti_lines_scope": 6450,
+    "RO:native_rest_lines_scope": 6450,
+    "RO:opportunities_denied": 6450,
+    "RO:native_rest_opportunity_scope": 6450,
+    "RO:denied_ioeti_write_refused": 6450,
+    "RO:denied_native_write_refused": 6450,
+    "ANON:public_info_has_no_identity": 23450,
+    "ANON:protected_refused": 70350,
+    "BLK:session_refused": 23147,
+    "OUT:session_refused": 23331,
+    "BLK:data_refused": 23147,
+    "OUT:data_refused": 23331,
+    "ADMIN:denied_writes_left_records_unchanged": 1,
+    "ADMIN:denied_native_write_left_line_unchanged": 1
+  },
+  "leaks": {
+    "A:effective_identity": 2249,
+    "B:effective_identity": 2243,
+    "B:native_rest_lines_scope": 2198,
+    "RO:native_rest_lines_scope": 2487,
+    "RO:native_rest_opportunity_scope": 2385,
+    "RO:denied_ioeti_write_refused": 1,
+    "ANON:public_info_has_no_identity": 8947,
+    "RO:ioeti_lines_scope": 2515,
+    "B:denied_native_write_refused": 2248,
+    "RO:opportunities_denied": 2499,
+    "A:ioeti_opportunity_scope": 2285,
+    "A:native_rest_opportunity_scope": 2243,
+    "A:denied_native_write_refused": 2257,
+    "B:native_rest_opportunity_scope": 2304,
+    "A:ioeti_lines_scope": 2264,
+    "B:ioeti_lines_scope": 2233,
+    "RO:effective_identity": 2476,
+    "B:ioeti_opportunity_scope": 2248,
+    "RO:denied_native_write_refused": 2395,
+    "A:native_rest_lines_scope": 2251,
+    "A:denied_ioeti_write_refused": 1,
+    "ADMIN:denied_writes_left_records_unchanged": 1,
+    "ADMIN:denied_native_write_left_line_unchanged": 1
+  },
+  "leak_examples": [
+    {
+      "check": "A:effective_identity",
+      "detail": "http=200 identity_matches=False"
+    },
+    {
+      "check": "B:effective_identity",
+      "detail": "http=200 identity_matches=False"
+    },
+    {
+      "check": "B:native_rest_lines_scope",
+      "detail": "extra=['FUNDRAISING', 'ISO22000', 'ISO9001', 'RECRUITMENT', 'SEC001_818B6D'] missing=[]"
+    },
+    {
+      "check": "RO:native_rest_lines_scope",
+      "detail": "extra=['SEC001_818B6D'] missing=[]"
+    },
+    {
+      "check": "RO:native_rest_opportunity_scope",
+      "detail": "foreign=2 missing=0"
+    },
+    {
+      "check": "RO:denied_ioeti_write_refused",
+      "detail": "http=200"
+    },
+    {
+      "check": "ANON:public_info_has_no_identity",
+      "detail": "http=200 keys=['api', 'application', 'authentication', 'data', 'features', 'user']"
+    },
+    {
+      "check": "ANON:public_info_has_no_identity",
+      "detail": "http=200 keys=['api', 'application', 'authentication', 'data', 'features', 'user']"
+    },
+    {
+      "check": "ANON:public_info_has_no_identity",
+      "detail": "http=200 keys=['api', 'application', 'authentication', 'data', 'features', 'user']"
+    },
+    {
+      "check": "ANON:public_info_has_no_identity",
+      "detail": "http=200 keys=['api', 'application', 'authentication', 'data', 'features', 'user']"
+    },
+    {
+      "check": "B:native_rest_lines_scope",
+      "detail": "extra=['FUNDRAISING', 'ISO22000', 'ISO9001', 'RECRUITMENT', 'SEC001_818B6D'] missing=[]"
+    },
+    {
+      "check": "RO:native_rest_lines_scope",
+      "detail": "extra=['SEC001_818B6D'] missing=[]"
+    },
+    {
+      "check": "ANON:public_info_has_no_identity",
+      "detail": "http=200 keys=['api', 'application', 'authentication', 'data', 'features', 'user']"
+    },
+    {
+      "check": "RO:ioeti_lines_scope",
+      "detail": "http=200 extra=['SEC001_818B6D'] missing=[]"
+    },
+    {
+      "check": "ANON:public_info_has_no_identity",
+      "detail": "http=200 keys=['api', 'application', 'authentication', 'data', 'features', 'user']"
+    },
+    {
+      "check": "B:denied_native_write_refused",
+      "detail": "http=200"
+    },
+    {
+      "check": "ANON:public_info_has_no_identity",
+      "detail": "http=200 keys=['api', 'application', 'authentication', 'data', 'features', 'user']"
+    },
+    {
+      "check": "RO:native_rest_lines_scope",
+      "detail": "extra=['SEC001_818B6D'] missing=[]"
+    },
+    {
+      "check": "RO:opportunities_denied",
+      "detail": "http=200"
+    },
+    {
+      "check": "A:effective_identity",
+      "detail": "http=200 identity_matches=False"
+    }
+  ],
+  "summary": {
+    "checks": 313962,
+    "leaks": 50731
+  },
+  "cleanup": {
+    "complete": true,
+    "records": 13
+  }
+}
