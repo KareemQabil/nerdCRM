@@ -2,11 +2,11 @@ import { lazy, Suspense, useEffect, useMemo, useRef, useState, type FormEvent } 
 import {
   Activity, ArrowLeft, ArrowRight, BadgeCheck, BriefcaseBusiness, Building2,
   Check, ChevronDown, CircleAlert, CircleHelp, Crown, GraduationCap,
-  HeartHandshake, House, Layers3, LockKeyhole, Menu,
+  HeartHandshake, House, Layers3, LockKeyhole, LogOut, Menu,
   Moon, Palette, RefreshCw, Search, Settings2,
   ShieldCheck, Sun, Workflow, UsersRound, X,
 } from "lucide-react";
-import { ApiError, getBusinessLines, getSession, signIn, type BusinessLine, type SessionIdentity } from "./api";
+import { ApiError, getBusinessLines, getSession, signIn, signOut, type BusinessLine, type SessionIdentity } from "./api";
 import { OpportunitiesPage } from "./OpportunitiesPage";
 import { NativeModules } from "./NativeModules";
 import { DirectoryPage } from "./DirectoryPage";
@@ -241,6 +241,9 @@ export function App() {
           <button className="language-button" type="button" onClick={() => prefs.setLanguage(isRTL ? "en" : "ar")} aria-label={labels.language}>{isRTL ? "EN" : "ع"}</button>
           <div className="top-divider"/>
           <span className="account-avatar" aria-label={identity?.name || labels.workspace} title={identity?.name || identity?.code || ""}>{(identity?.name || identity?.code || "I").slice(0,1).toUpperCase()}</span>
+          {!DEMO_MODE && <IconButton label={labels.signOut} onClick={() => void signOut()
+            .then(() => { setIdentity(null); setLines([]); setLoadError(""); setSession("login"); })
+            .catch(() => setLoadError(labels.unavailable))}><LogOut size={18}/></IconButton>}
         </div>
       </header>
 
@@ -340,7 +343,9 @@ function Login({ labels, onSuccess, initialError }: { labels: ReturnType<typeof 
     if (!username.trim() || !password) return;
     setPending(true); setError("");
     try { await signIn(username.trim(), password); await onSuccess(); }
-    catch { setError(labels.signInError); }
+    catch (reason) {
+      setError(reason instanceof ApiError && reason.statusCode === 429 ? labels.tooManyAttempts : labels.signInError);
+    }
     finally { setPending(false); }
   }
   return <div className="login-screen">

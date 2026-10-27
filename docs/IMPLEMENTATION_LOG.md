@@ -122,3 +122,43 @@ Full report: `docs/security/SEC-002-api-contract.md`. Executed-test matrix: `doc
 - Session/CSRF (SEC-004).
 - Export, attachment and PDF parity.
 - Structural PII isolation.
+
+## 2026-10-19 · SEC-004 part 1 · Sessions, CSRF, logout, expiry, login throttling
+
+Branch `claude/ioeti-sec-004-session-hardening` (stacked on SEC-002, PR #15). Status: **LIVE_INTEGRATION_PASS** and **NEGATIVE_SECURITY_PASS**.
+
+Full report: `docs/security/SEC-004-sessions.md`.
+
+### Verified native controls
+Tested live:
+- session id rotation at login;
+- `HttpOnly` / `SameSite=Lax` session cookie;
+- pac4j CSRF (applied to requests that carry `Origin`);
+- logout invalidates the session;
+- `session.timeout` expiry.
+
+### Fixed or added
+- **Real-mode UI bug:** create and rename sent no `X-CSRF-Token` and would get 403 in a real browser. Fixed in `api.ts`.
+- **Sign-out in the custom UI.**
+- **`LoginThrottleFilter`:** per address and per username + address, 429 before credentials are checked. Neither AOP nor AOS has brute-force protection.
+- **Explicit security settings** in the config template; production must set `session.cookie.secure = true`.
+
+### Evidence
+| Check | Result |
+|---|---|
+| Session probe | 20/20 |
+| Expiry job | 6/6 |
+| Contract | 31/31 |
+| Smoke | 16/16 |
+| Identity | 0/325,817 |
+| Two-writer | 13/13 |
+| Pilot | PASS |
+| JUnit | 47/47 |
+| Web mocked | 21/21 |
+| Web demo | 14/14 |
+
+### Not done
+- MFA (D-07).
+- HTTPS `Secure`-cookie verification (needs a staging environment).
+- Multi-node throttle store.
+- Secret vault (D-08).

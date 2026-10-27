@@ -20,8 +20,20 @@ Cross-cutting, executed:
 - **SEC-001 identity isolation.** Mixed sessions plus metadata reloads give 0 leaks. Before the fix the control build showed 50,731 leaks. (`docs/security/SEC-001-identity-isolation.md`)
 - **Blocked user and logged-out cookie.** Both are refused under load (identity probe).
 
+Sessions and authentication (SEC-004, `scripts/session_security_probe.py`):
+
+| Control | Result |
+|---|---|
+| Session id rotated at login | ✅ |
+| Session cookie `HttpOnly` + `SameSite` Lax/Strict | ✅ |
+| CSRF on IOETI writes: missing / forged token refused, real token accepted, refused writes persist nothing | ✅ |
+| Logout: old cookie refused on session and data endpoints | ✅ |
+| Idle session expiry; active session survives | ✅ (separate CI job) |
+| Login throttle per username + address: 429 + `Retry-After` before credential check | ✅ |
+| Login throttle per address, and its release after the window | ✅ (expiry job) |
+| `Secure` cookies over HTTPS | ⬜ needs an HTTPS staging environment |
+
 Not yet covered (blocking for the multi-user pilot, see GAP register):
 - Own/Team/Line/All role matrix across all endpoints (SEC-003).
-- Session expiry, CSRF and cookie flags (SEC-004).
 - WebSocket and scheduled-job identity (issue #10).
 - Export, attachment and PDF parity (not built yet).
