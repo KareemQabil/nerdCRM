@@ -17,7 +17,8 @@ import java.util.Map;
 
 /**
  * Every business rule the owners decided to keep configurable (decisions D-01..D-12, signed 2026-10-25).
- * Only the shape of each rule lives here; every value is set by a policy owner and none is shipped.
+ * Only the shape of each rule lives here; every value is set by a policy owner and none is shipped (recommended starting
+ * values exist, but only a policy owner can apply them: see PolicyRecommendations in ioeti-admin).
  */
 public final class PolicyCatalog {
 
@@ -110,13 +111,13 @@ public final class PolicyCatalog {
         "مواعيد العمل", "Working hours", "بتتحسب عليها مواعيد الرد.", "Response targets are counted in these hours."));
 
     // --- D-02 certification -----------------------------------------------------------------------------------
-    add(new PolicyDefinition("cert.decision", "D-02", "CERTIFICATION", Scope.SCHEME, false,
+    add(new PolicyDefinition("cert.decision", "D-02", "CERTIFICATION", Scope.SCHEME, true,
         List.of(choice("mode", true, List.of("INDEPENDENT_REVIEWER", "COMMITTEE"), "مين ياخد القرار", "Who decides"),
             integer("committeeSize", false, 2, 9, "عدد أعضاء اللجنة", "Committee members")),
         "قرار منح الشهادة", "Certification decision",
         "مراجع مستقل أو لجنة. صاحب القرار عمره ما يكون من فريق تدقيق نفس العميل.",
         "An independent reviewer or a committee; whoever decides was never on that client's audit team."));
-    add(new PolicyDefinition("cert.cycle", "D-02", "CERTIFICATION", Scope.SCHEME, false,
+    add(new PolicyDefinition("cert.cycle", "D-02", "CERTIFICATION", Scope.SCHEME, true,
         List.of(integer("validityMonths", true, 1, 120, "مدة صلاحية الشهادة بالشهور", "Certificate valid for (months)"),
             integer("surveillanceMonths", true, 1, 60, "تدقيق المراقبة كل (شهور)", "Surveillance every (months)")),
         "دورة الشهادة", "Certification cycle", "صلاحية الشهادة وإيقاع تدقيقات المراقبة.", "Certificate validity and the surveillance rhythm."));

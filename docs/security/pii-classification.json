@@ -1682,6 +1682,25 @@
     "MoveActivity.zone": "REFERENCE",
     "PersonView.id": "REFERENCE",
     "PersonView.name": "PERSONAL",
-    "PersonView.me": "REFERENCE"
+    "PersonView.me": "REFERENCE",
+    "ApplyRecommended.ids": "REFERENCE",
+    "ApplyRecommended.effectiveFrom": "BUSINESS",
+    "RecommendationView.id": "REFERENCE",
+    "RecommendationView.key": "REFERENCE",
+    "RecommendationView.decision": "REFERENCE",
+    "RecommendationView.area": "REFERENCE",
+    "RecommendationView.titleAr": "BUSINESS",
+    "RecommendationView.titleEn": "BUSINESS",
+    "RecommendationView.scope": "REFERENCE",
+    "RecommendationView.scopeLabel": "BUSINESS",
+    "RecommendationView.value": "BUSINESS",
+    "RecommendationView.basis": "REFERENCE",
+    "RecommendationView.whyAr": "BUSINESS",
+    "RecommendationView.whyEn": "BUSINESS",
+    "RecommendationView.current": "BUSINESS",
+    "RecommendationsView.canApply": "REFERENCE",
+    "RecommendationsView.recommendations": "BUSINESS",
+    "AppliedView.applied": "REFERENCE",
+    "RecommendationView.fields": "BUSINESS"
   }
 }

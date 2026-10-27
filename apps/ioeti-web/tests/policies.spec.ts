@@ -53,6 +53,21 @@ async function mockPolicies(page: Page, { owner = true, noOwners = false } = {})
     if (path === "/policies/owners" && method === "GET") return result(owners);
     if (path === "/policies/people") return result([{ id: 3, name: "سارة منصور", me: true }, { id: 8, name: "كريم حسن", me: false }]);
     if (path === "/policies/owners" && method === "POST") { owners = [...owners, { id: Number(body.userId), name: body.userId === 8 ? "كريم حسن" : "سارة منصور", me: false }]; return result(owners); }
+    if (path === "/policies/references") return result({ teams: [], sources: [] });
+    if (path === "/policies/recommended") return result({ canApply: owner && !noOwners, recommendations: [
+      { id: "finance.tax|", key: "finance.tax", decision: "D-06", area: "FINANCE", titleAr: "ضريبة الخدمات", titleEn: "Tax on services", scope: null, scopeLabel: null,
+        value: { ratePercent: 14, name: "ضريبة القيمة المضافة 14%", type: "VAT" }, basis: "FACT", whyAr: "14% هي النسبة العامة لضريبة القيمة المضافة في مصر.", whyEn: "",
+        current: detail("finance.tax").values.find(v => v.scope === null)?.value ?? null, fields: (DEFS["finance.tax"].fields as Record<string, unknown>[]).map(field) },
+      { id: "sales.quote-approval|", key: "sales.quote-approval", decision: "D-11", area: "SALES", titleAr: "موافقة عروض الأسعار", titleEn: "Quotation approval", scope: null,
+        scopeLabel: null, value: { tiers: [{ maxDiscountPercent: 5, approver: "NONE" }, { maxDiscountPercent: 10, approver: "SALES_MANAGER" }] }, basis: "PRACTICE",
+        whyAr: "خصم لحد 5% من غير موافقة.", whyEn: "", current: null, fields: (DEFS["sales.quote-approval"].fields as Record<string, unknown>[]).map(field) },
+    ] });
+    if (path === "/policies/recommended/apply") {
+      const ids = body.ids as string[];
+      if (ids.includes("finance.tax|")) versions["finance.tax"].push({ id: 900, scope: null, value: { ratePercent: 14, name: "ضريبة القيمة المضافة 14%", type: "VAT" },
+        retired: false, effectiveFrom: body.effectiveFrom ?? iso(0), reason: "Recommended starting value (R1)", authorName: "سارة منصور", createdAt: "2026-10-27T10:00:00" });
+      return result({ applied: ids });
+    }
     const one = path.match(/^\/policies\/([a-z.-]+)(\/retire)?$/);
     if (one && method === "GET") return result(detail(one[1]));
     if (one && method === "POST") {
@@ -143,4 +158,39 @@ test("with no policy owner yet, an administrator sees why nothing can change and
   await owners.getByRole("button", { name: "تعيين" }).click();
   await expect(page.locator(".policies-owner-list")).toContainText("كريم حسن");
   expect(posted.at(-1)).toEqual({ path: "/policies/owners", body: { userId: 8 } });
+});
+
+test("R1: a policy owner reviews the recommended starting values with their reasons and applies the chosen ones in one step", async ({ page }) => {
+  const { posted } = await mockPolicies(page);
+  await page.goto("/#/policies");
+  const panel = page.locator(".policies-recommended");
+  await expect(panel).toContainText("2 من 2 قاعدة لسه مالهاش قيمة");
+  await panel.getByRole("button", { name: "راجع القيم المقترحة" }).click();
+  const dialog = page.getByRole("dialog");
+  const tax = dialog.locator(".policies-rec", { hasText: "ضريبة الخدمات" });
+  await expect(tax).toContainText("14%");
+  await expect(tax).toContainText("مبني على قانون أو معيار");
+  await expect(tax).toContainText("بيشغّل: ضريبة عروض الأسعار والفواتير");
+  await expect(dialog.locator(".policies-rec", { hasText: "موافقة عروض الأسعار" })).toContainText("مدير المبيعات");
+  // keep the approval tiers for later: apply the tax only
+  await dialog.locator(".policies-rec", { hasText: "موافقة عروض الأسعار" }).getByRole("checkbox").uncheck();
+  await dialog.getByRole("button", { name: "تطبيق قيمة واحدة" }).click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(panel).toContainText("اتطبّقت 1 قيمة.");
+  expect(posted.find(p => p.path === "/policies/recommended/apply")!.body).toEqual({ ids: ["finance.tax|"], effectiveFrom: iso(0) });
+  await expect(page.getByRole("button", { name: /ضريبة الخدمات/ })).toContainText("قيمة سارية");
+  // what is already set shows as set and cannot be chosen again
+  await panel.getByRole("button", { name: "راجع القيم المقترحة" }).click();
+  await expect(page.getByRole("dialog").locator(".policies-rec.is-set")).toContainText("مضبوطة بالفعل:");
+  await expect(page.getByRole("dialog").locator(".policies-rec.is-set").getByRole("checkbox")).toHaveCount(0);
+});
+
+test("R1: someone who is not a policy owner sees the recommendations but cannot apply them", async ({ page }) => {
+  await mockPolicies(page, { owner: false });
+  await page.goto("/#/policies");
+  const panel = page.locator(".policies-recommended");
+  await expect(panel).toContainText("التطبيق لمالكي السياسات بس.");
+  await panel.getByRole("button", { name: "راجع القيم المقترحة" }).click();
+  await expect(page.getByRole("dialog").getByRole("checkbox")).toHaveCount(0);
+  await expect(page.getByRole("dialog").getByRole("button", { name: /تطبيق/ })).toHaveCount(0);
 });

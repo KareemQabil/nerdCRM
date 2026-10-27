@@ -11,6 +11,7 @@ import com.axelor.inject.Beans;
 import com.axelor.utils.api.ResponseConstructor;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.ioeti.admin.service.PolicyAdmin;
+import com.ioeti.admin.service.PolicyRecommendations;
 import com.ioeti.core.api.ApiException;
 import com.ioeti.core.api.IoetiEndpoint;
 import com.ioeti.core.db.PolicyVersion;
@@ -68,6 +69,33 @@ public class PolicyRestController {
     List<PolicyReferenceView> sources = Query.of(Source.class).order("name").fetch(500).stream()
         .map(o -> new PolicyReferenceView(o.getId(), o.getName())).toList();
     return ResponseConstructor.build(Response.Status.OK, "Policy references", new PolicyReferencesView(teams, sources));
+  }
+
+  @GET
+  @Path("/recommended")
+  @Operation(summary = "R1: a recommended starting value for every policy, why, and the value in force today (administrators and policy owners)", tags = {"IOETI policies"})
+  @IoetiEndpoint
+  public Response recommended() {
+    User me = reader();
+    List<RecommendationView> rows = Beans.get(PolicyRecommendations.class).status(today()).stream().map(st -> {
+      PolicyRecommendations.Recommendation r = st.recommendation();
+      PolicyDefinition d = PolicyCatalog.get(r.key());
+      return new RecommendationView(r.id(), r.key(), d.decision(), d.area(), d.titleAr(), d.titleEn(), r.scope(), r.scopeLabel(), r.value(),
+          r.basis().name(), r.whyAr(), r.whyEn(), st.current(), d.fields().stream().map(PolicyRestController::field).toList());
+    }).toList();
+    return ResponseConstructor.build(Response.Status.OK, "Recommended values", new RecommendationsView(PolicyService.isOwner(me), rows));
+  }
+
+  @POST
+  @Path("/recommended/apply")
+  @Consumes(MediaType.APPLICATION_JSON)
+  @Operation(summary = "R1: apply the chosen recommended values that are not yet in force, from a date (policy owners)", tags = {"IOETI policies"})
+  @IoetiEndpoint
+  public Response applyRecommended(ApplyRecommended command) {
+    if (command == null) throw ApiException.badRequest("Choose the recommendations to apply.");
+    if (!PolicyService.isOwner(AuthUtils.getUser())) throw ApiException.forbidden();
+    List<String> applied = Beans.get(PolicyRecommendations.class).apply(command.ids(), date(command.effectiveFrom()), today());
+    return ResponseConstructor.build(Response.Status.OK, "Recommended values applied", new AppliedView(applied));
   }
 
   @GET
@@ -241,4 +269,13 @@ public class PolicyRestController {
   public record PolicyReferenceView(Long id, String name) {}
 
   public record PolicyReferencesView(List<PolicyReferenceView> teams, List<PolicyReferenceView> sources) {}
+
+  public record ApplyRecommended(List<String> ids, String effectiveFrom) {}
+
+  public record RecommendationView(String id, String key, String decision, String area, String titleAr, String titleEn, String scope,
+      String scopeLabel, JsonNode value, String basis, String whyAr, String whyEn, JsonNode current, List<PolicyFieldView> fields) {}
+
+  public record RecommendationsView(boolean canApply, List<RecommendationView> recommendations) {}
+
+  public record AppliedView(List<String> applied) {}
 }
