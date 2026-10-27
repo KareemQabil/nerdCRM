@@ -170,6 +170,52 @@ test("a failed opportunity list says so in Arabic and its retry loads the list",
   await expect(banner).toHaveCount(0);
 });
 
+test("the opportunity register sorts, keeps its density and columns after a reload, and a row click opens the record", async ({ page }) => {
+  await intercept(page);
+  const rows = [
+    { id: 301, version: 1, name: "Beta audit", reference: "OP-301", businessLineCode: "ISO9001", businessLineNameAr: "أيزو 9001", businessLineNameEn: "ISO 9001",
+      stage: "Proposal", stageId: 3, stageKind: "OPEN", amount: "250000.00", currencyCode: "EGP", expectedCloseDate: "2026-12-01", probability: "40" },
+    { id: 302, version: 1, name: "Alpha training", reference: "OP-302", businessLineCode: "TRAINING", businessLineNameAr: "التدريب", businessLineNameEn: "Training",
+      stage: "Won", stageId: 5, stageKind: "WON", amount: "1200.50", currencyCode: "EGP", expectedCloseDate: null, probability: "100" },
+    { id: 303, version: 1, name: "Gamma consult", reference: "OP-303", businessLineCode: "ISO9001", businessLineNameAr: "أيزو 9001", businessLineNameEn: "ISO 9001",
+      stage: "New", stageId: 1, stageKind: "OPEN", amount: null, currencyCode: null, expectedCloseDate: null, probability: null },
+  ];
+  await page.route(/\/ws\/ioeti\/opportunities(\?.*)?$/, route => route.request().method() === "GET"
+    ? route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ codeStatus: 200, messageStatus: "ok", object: rows }) })
+    : route.fallback());
+  await page.route(/\/ws\/ioeti\/opportunities\/30\d$/, route => {
+    const row = rows.find(r => route.request().url().endsWith("/" + r.id));
+    return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ codeStatus: 200, messageStatus: "ok", object: row }) });
+  });
+  await page.goto("/#/opportunities");
+  const table = page.getByRole("table", { name: "الفرص التجارية" });
+  const names = () => table.locator("tbody .record-name-link");
+  await expect(names()).toHaveText(["Beta audit", "Alpha training", "Gamma consult"]);
+  // figures: one format, read left to right; the stage in Arabic with its kind
+  await expect(table.getByRole("row").filter({ hasText: "Beta audit" })).toContainText("250,000 EGP");
+  await expect(table.getByRole("row").filter({ hasText: "Alpha training" }).locator(".stage-chip.kind-won")).toBeVisible();
+  await expect(table.getByRole("row").filter({ hasText: "Gamma consult" })).not.toContainText("New");
+  // sort by value: highest last ascending, blanks last either way
+  const value = table.getByRole("columnheader", { name: "القيمة المتوقعة" });
+  await value.getByRole("button").click();
+  await expect(value).toHaveAttribute("aria-sort", "ascending");
+  await expect(names()).toHaveText(["Alpha training", "Beta audit", "Gamma consult"]);
+  await value.getByRole("button").click();
+  await expect(value).toHaveAttribute("aria-sort", "descending");
+  await expect(names()).toHaveText(["Beta audit", "Alpha training", "Gamma consult"]);
+  // compact density and a hidden column are remembered
+  await page.getByRole("button", { name: /كثافة الجدول/ }).click();
+  await page.getByLabel("الأعمدة الظاهرة").click();
+  await page.getByRole("checkbox", { name: "الاحتمال" }).uncheck();
+  await page.reload();
+  await expect(page.locator(".data-table")).toHaveClass(/is-dense/);
+  await expect(table.getByRole("columnheader", { name: "الاحتمال" })).toHaveCount(0);
+  await expect(names()).toHaveText(["Beta audit", "Alpha training", "Gamma consult"]);
+  // a click on the row (not on its controls) opens the record
+  await table.getByRole("row").filter({ hasText: "Gamma consult" }).locator("td").nth(1).click();
+  await expect(page).toHaveURL(/#\/opportunities\/303$/);
+});
+
 test("sign out ends the server session and returns to the sign-in screen", async ({ page }) => {
   await intercept(page);
   let loggedOut = false;

@@ -11,6 +11,8 @@ import { searchLeads, type LeadQuery } from "./marketingApi";
 import { AccountDialog } from "./RecordDialogs";
 import { PageHeader } from "./ui";
 import { problem } from "./dailyApi";
+import { DataTable, tableLabels } from "./DataTable";
+import { day } from "./format";
 
 type Kind = "leads" | "accounts";
 type Row = LeadSummary | AccountSummary;
@@ -173,6 +175,7 @@ export function DirectoryPage({kind,language}: Props) {
       onRecordChanged={row=>{setSelected(row);setItems(current=>current.map(c=>c.id===row.id?row:c));}}
     />;
   }
+  const openCell=(item:Row)=><button className="text-action directory-open" disabled={detailLoading} type="button" onClick={e=>void showRecord(item,e.currentTarget)}>{l.details}{ar?<ArrowLeft size={16}/>:<ArrowRight size={16}/>}</button>;
   return <section className="page-enter directory-explorer">
     <PageHeader className="directory-head" eyebrow={kind==="leads"?l.leadSource:l.accountSource} title={kind==="leads"?l.leads:l.accounts}
       description={kind==="leads"?l.leadsSub:l.accountsSub} actions={<>
@@ -196,14 +199,29 @@ export function DirectoryPage({kind,language}: Props) {
     <div className="data-panel">
       <div className="data-panel-heading"><strong>{kind==="leads"?l.leads:l.accounts}</strong><span>{visible.length} {ar?"سجل":"records"} · {DEMO_MODE?l.demo:l.readOnly}</span></div>
       {loading?<div className="empty-state" role="status">{l.loading}</div>:visible.length===0?<div className="empty-state">{l.empty}</div>:
-      <div className="directory-items">
-        {visible.map(item=><article className="directory-item" key={item.id}>
-          <div className="line-monogram">{item.name.trim().slice(0,1).toLocaleUpperCase()}</div>
-          <div className="directory-record"><strong>{item.name}</strong><small>{isLead(item)?item.organization||"—":item.reference||"—"}</small></div>
-          <div className="directory-state">{isLead(item)?stageLabel(item.stage,language):(item.customer?l.active:l.prospect)}</div>
-          <button className="text-action" disabled={detailLoading} type="button" onClick={e=>void showRecord(item,e.currentTarget)}>{l.details}{ar?<ArrowLeft size={16}/>:<ArrowRight size={16}/>}</button>
-        </article>)}
-      </div>}
+      <DataTable id={kind} caption={kind==="leads"?l.leads:l.accounts} rows={visible} rowKey={item=>item.id} rowClassName="directory-item"
+        labels={tableLabels(ar)} onOpen={(item,from)=>{const button=from.querySelector<HTMLButtonElement>(".directory-open");if(button&&!button.disabled)void showRecord(item,button);}}
+        columns={kind==="leads"?[
+          {key:"name",header:ar?"الاسم":"Name",sortValue:item=>item.name,cell:item=><div className="directory-cell">
+            <span className="line-monogram">{item.name.trim().slice(0,1).toLocaleUpperCase()}</span>
+            <span className="directory-record"><strong>{item.name}</strong><small>{isLead(item)?item.organization||"—":"—"}</small></span></div>},
+          {key:"stage",header:ar?"المرحلة":"Stage",sortValue:item=>isLead(item)?stageLabel(item.stage,language):null,
+            cell:item=>isLead(item)?<span className={"stage-chip kind-"+((item.stageKind??"OPEN").toLowerCase())}>{stageLabel(item.stage,language)}</span>:"—"},
+          {key:"line",header:ar?"خط الأعمال":"Business line",optional:true,sortValue:item=>isLead(item)?item.businessLineCode:null,
+            cell:item=>isLead(item)&&item.businessLineCode?<code dir="ltr">{item.businessLineCode}</code>:"—"},
+          {key:"received",header:ar?"وصل في":"Received",optional:true,sortValue:item=>isLead(item)?item.receivedAt:null,
+            cell:item=>isLead(item)?day(item.receivedAt,ar):"—"},
+          {key:"open",header:ar?"إجراءات":"Actions",cell:openCell},
+        ]:[
+          {key:"name",header:ar?"الاسم":"Name",sortValue:item=>item.name,cell:item=><div className="directory-cell">
+            <span className="line-monogram">{item.name.trim().slice(0,1).toLocaleUpperCase()}</span>
+            <span className="directory-record"><strong>{item.name}</strong></span></div>},
+          {key:"reference",header:ar?"المرجع":"Reference",sortValue:item=>isLead(item)?null:item.reference,
+            cell:item=>isLead(item)||!item.reference?"—":<code dir="ltr">{item.reference}</code>},
+          {key:"status",header:ar?"الحالة":"Status",sortValue:item=>isLead(item)?null:item.customer?0:1,
+            cell:item=>isLead(item)?"—":<span className={"stage-chip "+(item.customer?"kind-won":"kind-open")}>{item.customer?l.active:l.prospect}</span>},
+          {key:"open",header:ar?"إجراءات":"Actions",cell:openCell},
+        ]}/>}
     </div>
     </>}
     {hasMore&&!(liveLeads&&tab==="followUps")&&<div className="load-more"><button className="btn btn-secondary" type="button" disabled={busyMore} onClick={()=>void more()}>{busyMore?l.loading:l.more}</button></div>}
