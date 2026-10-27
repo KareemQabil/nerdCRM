@@ -245,3 +245,145 @@ test("guided journeys are readable in English LTR on a narrow mobile viewport",a
   await journey.getByRole("button",{name:"Open Grant record"}).click();
   await expect(page).toHaveURL(/#\/fundraising\/1202$/);
 });
+
+
+test("focus mission isolates one step, gives accessible progress and restores page on Escape", async ({page}) => {
+  const calls:string[] = [];
+  page.on("request",request => {if(request.url().includes("/axelor-erp/")) calls.push(request.url());});
+  await page.goto("/#/home");
+  const trigger=page.locator(".demo-tour").getByRole("button",{name:"وضع التركيز",exact:true});
+  await trigger.click();
+  const dialog=page.getByRole("dialog",{name:"عرض السعر"});
+  await expect(dialog).toBeVisible();
+  await expect(page.locator("#root")).toHaveJSProperty("inert",true);
+  await expect(dialog.getByRole("progressbar",{name:"تقدم الرحلة"})).toHaveAttribute("aria-valuenow","1");
+  await dialog.getByRole("button",{name:"التالي"}).click();
+  await expect(page.getByRole("dialog",{name:"العقد"})).toBeVisible();
+  await expect(page.getByRole("progressbar",{name:"تقدم الرحلة"})).toHaveAttribute("aria-valuenow","2");
+  await page.keyboard.press("Escape");
+  await expect(page.getByTestId("demo-mission-overlay")).toHaveCount(0);
+  await expect(page.locator("#root")).toHaveJSProperty("inert",false);
+  await expect(trigger).toBeFocused();
+  expect(calls).toEqual([]);
+});
+
+test("focus mission opens chosen record and does not simulate a backend action", async ({page}) => {
+  await page.goto("/#/home");
+  await page.locator(".demo-tour").getByRole("button",{name:"وضع التركيز",exact:true}).click();
+  const dialog=page.getByRole("dialog");
+  await dialog.getByRole("button",{name:/تدقيق ISO/}).click();
+  await dialog.getByRole("button",{name:"افتح الملف واشتغل عليه"}).click();
+  await expect(page).toHaveURL(new RegExp("certification/1101$"));
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(page.locator(".demo-record-hero")).toContainText("DEMO-1101");
+});
+
+test("focus mission mobile supports swipe, English and reduced-motion preferences", async ({page}) => {
+  await page.setViewportSize({width:390,height:844});
+  await page.emulateMedia({reducedMotion:"reduce"});
+  await page.goto("/#/home");
+  await page.getByRole("button",{name:"اللغة"}).click();
+  await page.getByRole("button",{name:"Enter focus mode"}).click();
+  const dialog=page.getByRole("dialog",{name:"Quotation"});
+  await expect(dialog).toBeVisible();
+  await expect(page.locator(".mission-dialog")).toHaveCSS("animation-name","none");
+  await expect(page.getByRole("progressbar",{name:"Journey progress"})).toHaveAttribute("aria-valuenow","1");
+  await dialog.locator(".mission-illustration").evaluate((element) => {
+    const area=element.closest(".mission-work-area");
+    if(!area) throw new Error("Missing swipe target");
+    const a=new Touch({identifier:1,target:element,clientX:280,clientY:80});
+    const b=new Touch({identifier:1,target:element,clientX:40,clientY:82});
+    area.dispatchEvent(new TouchEvent("touchstart",{touches:[a],changedTouches:[a],bubbles:true}));
+    area.dispatchEvent(new TouchEvent("touchend",{touches:[],changedTouches:[b],bubbles:true}));
+  });
+  await expect(page.getByRole("dialog",{name:"Contract"})).toBeVisible();
+  await page.getByRole("button",{name:"Close focus mode"}).click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(page.locator("body")).toHaveJSProperty("scrollWidth",390);
+});
+
+
+test("app-wide focus isolates the active register but preserves all data and Escape exit",async ({page})=>{
+  await page.goto("/#/demo/quotes");
+  await expect(page.locator(".demo-record-row")).toHaveCount(3);
+  const enter=page.getByRole("button",{name:"تفعيل وضع التركيز"});
+  await enter.click();
+  await expect(page.locator(".app-frame")).toHaveClass(/is-task-focus/);
+  await expect(page.locator(".side-panel")).toBeHidden();
+  await expect(page.getByText("مساحة عمل مركّزة")).toBeVisible();
+  await expect(page.locator(".demo-record-row")).toHaveCount(3);
+  await page.keyboard.press("Escape");
+  await expect(page.locator(".app-frame")).not.toHaveClass(/is-task-focus/);
+  await expect(page.locator(".side-panel")).toBeVisible();
+  await expect(page.locator(".demo-record-row")).toHaveCount(3);
+  await expect(page.getByRole("button",{name:"تفعيل وضع التركيز"})).toBeFocused();
+});
+
+test("global feedback shows safe normalized error code without raw server content",async ({page})=>{
+  await page.goto("/#/home");
+  await page.evaluate(async()=>{
+    const notices=await import("/src/feedback.ts");
+    notices.notifyApiFailure({statusCode:409,code:"STALE_WRITE",message:"Never show internal email or SQL"});
+  });
+  const feedback=page.getByRole("status").filter({hasText:"STALE_WRITE"});
+  await expect(feedback).toContainText("السجل اتعدل في مكان تاني");
+  await expect(feedback).toContainText("STALE_WRITE");
+  await expect(feedback).not.toContainText("Never show internal email");
+  await feedback.getByRole("button",{name:"إغلاق التنبيه"}).click();
+  await expect(feedback).toHaveCount(0);
+  await page.evaluate(async()=>{
+    const notices=await import("/src/feedback.ts");
+    notices.notifyApiSuccess("POST",201);
+  });
+  await expect(page.getByRole("status").filter({hasText:"تم إنشاء السجل"})).toBeVisible();
+});
+
+
+test("the demo home promotes one clear goal instead of duplicate hero and KPI sections",async ({page})=>{
+  await page.goto("/#/home");
+  await expect(page.getByRole("heading",{level:1,name:/مساحة عمل اليوم/})).toBeVisible();
+  await expect(page.locator(".hero-card")).toHaveCount(0);
+  await expect(page.locator(".stats-grid")).toHaveCount(0);
+  await expect(page.locator(".lines-preview")).toHaveCount(0);
+  await expect(page.locator(".demo-tour")).toBeVisible();
+});
+
+test("core text, muted text and primary buttons reach minimum 4.5:1 token contrast in every theme",async ({page})=>{
+  await page.goto("/#/home");
+  const results=await page.evaluate(()=>{
+    const root=document.documentElement;
+    const original=root.dataset.theme;
+    const lum=(s:string)=>{
+      const value=s.trim().toLowerCase();
+      const short=/^#([0-9a-f]{3})$/.exec(value);
+      const normalized=short ? "#"+[...short[1]].map(x=>x+x).join("") : value;
+      const match=/^#([0-9a-f]{6})$/i.exec(normalized);
+      if(!match)throw Error("A core surface token is not opaque: "+s);
+      const rgb=[0,2,4].map(n=>parseInt(match[1].slice(n,n+2),16)/255)
+        .map(c=>c<=.04045?c/12.92:Math.pow((c+.055)/1.055,2.4));
+      return rgb[0]*.2126+rgb[1]*.7152+rgb[2]*.0722;
+    };
+    const ratio=(a:string,b:string)=>{
+      const [lo,hi]=[lum(a),lum(b)].sort((x,y)=>x-y);
+      return(hi+.05)/(lo+.05);
+    };
+    const values=[] as {theme:string,body:number,secondary:number,primary:number}[];
+    for(const theme of ["light","dark","luxury"]){
+      root.dataset.theme=theme;
+      const styles=getComputedStyle(root);
+      const token=(name:string)=>styles.getPropertyValue(name).trim();
+      values.push({theme,
+        body:ratio(token("--on-surface"),token("--surface")),
+        secondary:ratio(token("--on-surface-variant"),token("--surface")),
+        primary:ratio(token("--on-primary"),token("--primary"))});
+    }
+    if(original)root.dataset.theme=original;
+    else delete root.dataset.theme;
+    return values;
+  });
+  for(const result of results){
+    expect(result.body,result.theme+" body text").toBeGreaterThanOrEqual(4.5);
+    expect(result.secondary,result.theme+" secondary text").toBeGreaterThanOrEqual(4.5);
+    expect(result.primary,result.theme+" primary action").toBeGreaterThanOrEqual(4.5);
+  }
+});

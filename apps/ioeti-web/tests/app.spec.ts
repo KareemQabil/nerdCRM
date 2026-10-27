@@ -2029,3 +2029,17 @@ test("mobile gate: every live-mode page fits a 390 px screen without horizontal 
   }
   expect(overflowing).toEqual({});
 });
+
+test("global notices: failed background reads stay silent; a refused change is announced once", async ({page}) => {
+  const { answers, fail } = await insightsMocks(page);
+  await page.goto("/#/settings");
+  await expect(page.getByRole("heading", { name: "الإعدادات", level: 1 })).toBeVisible();
+  // the administrators' system page answers 403 to this user: an optional section, not an error
+  await page.waitForLoadState("networkidle");
+  await expect(page.getByRole("button", { name: "إغلاق التنبيه" })).toHaveCount(0);
+  answers.push(fail(422, "VALIDATION_FAILED", "DUPLICATE"));
+  await page.getByPlaceholder("الاسم").fill("Exhibition");
+  await page.getByRole("button", { name: "إضافة مصدر" }).click();
+  await expect(page.getByRole("alert")).toHaveText(/هذا المصدر موجود/);
+  await expect(page.getByRole("button", { name: "إغلاق التنبيه" })).toHaveCount(1);
+});
