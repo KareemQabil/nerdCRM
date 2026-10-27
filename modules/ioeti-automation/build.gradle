@@ -1,0 +1,26 @@
+plugins {
+	id 'com.axelor.app'
+}
+
+apply from: new File(projectDir.canonicalFile, "../../gradle/ioeti-module.gradle")
+
+// IOETI notifications and outbox (Wave 7b): an in-app inbox per user, filled by IOETI workflows
+// (through the core Notifier) and by colleagues mentioning each other on a record, and an outbox of
+// messages to leads that are drafted and checked against consent but never sent: outbound channels
+// are D-10 and automatic reminders or escalations are D-12.
+axelor {
+	title "IOETI Automation"
+	description "IOETI in-app notifications and the held outbox"
+}
+
+apply from: rootProject.file("modules/axelor-open-suite/libs.gradle")
+
+dependencies {
+	api project(":modules:ioeti-core")
+	// consent flags live on the native lead (Wave 6)
+	api project(":modules:ioeti-marketing")
+	// mentions link to the same records documents are filed on (Wave 7a)
+	api project(":modules:ioeti-content")
+
+	implementation libs.swagger_jaxrs
+}

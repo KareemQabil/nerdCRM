@@ -1,5 +1,6 @@
 package com.ioeti.operations.service;
 
+import com.ioeti.core.notify.Notifier;
 import com.axelor.apps.contract.db.Contract;
 import com.axelor.apps.contract.db.repo.ContractRepository;
 import com.axelor.apps.project.db.Project;
@@ -48,6 +49,13 @@ import java.util.List;
  * so concurrent writers serialize and the second sees 409.
  */
 public class OperationsService {
+
+  /** In-app notice about a handover (Wave 7b); dropped when no inbox module is installed. */
+  private static void notice(User recipient, String kind, HandoverRequest handover) {
+    Contract contract = handover.getContract();
+    Beans.get(Notifier.class).notify(recipient, kind, "HANDOVER", handover.getId(),
+        "Handover " + (contract == null ? handover.getId() : contract.getContractId()));
+  }
 
   public static boolean isOpen(int status) {
     return status == HandoverRequestRepository.STATUS_SUBMITTED || status == HandoverRequestRepository.STATUS_REWORK_REQUESTED;
@@ -120,6 +128,7 @@ public class OperationsService {
     handover.setStatusSelect(HandoverRequestRepository.STATUS_REWORK_REQUESTED);
     handover.setReviewedBy(AuthUtils.getUser());
     event(handover, HandoverEventRepository.KIND_REWORK_REQUESTED, reason, null, null, null);
+    notice(handover.getRequestedBy(), "HANDOVER_REWORK", handover);
     return JPA.save(handover);
   }
 
@@ -145,6 +154,7 @@ public class OperationsService {
     handover.setReviewedBy(AuthUtils.getUser());
     handover.setDecidedAt(LocalDateTime.now());
     event(handover, HandoverEventRepository.KIND_REJECTED, reason, null, null, null);
+    notice(handover.getRequestedBy(), "HANDOVER_REJECTED", handover);
     return JPA.save(handover);
   }
 
@@ -185,6 +195,8 @@ public class OperationsService {
     event(handover, HandoverEventRepository.KIND_ACCEPTED, null, null, lead, null);
     event(handover, HandoverEventRepository.KIND_ENGAGEMENT_CREATED, null, null, null, project.getCode());
     JPA.save(handover);
+    notice(handover.getRequestedBy(), "HANDOVER_ACCEPTED", handover);
+    Beans.get(Notifier.class).notify(lead, "ENGAGEMENT_ASSIGNED", "ENGAGEMENT", project.getId(), "Engagement " + project.getCode());
     return project;
   }
 

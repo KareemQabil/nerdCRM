@@ -21,6 +21,8 @@ jobs:
           submodules: recursive
       - name: G-007 personal-data gate (every REST field classified, no restricted data in responses)
         run: python3 scripts/pii_dto_audit.py
+      - name: Policy decisions shown in the app match the decision document
+        run: python3 scripts/policy_registry_check.py
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -110,6 +112,9 @@ jobs:
           # Wave 7a: documents filed on records (access follows the record; content-type checked; immutable
           # revisions, concurrent uploads) and the knowledge base (readers see only published revisions)
           PROBE_CONTENT_ROUNDS=5 python3 scripts/content_probe.py
+          # Wave 7b: in-app inbox and mentions, the held outbox (consent re-checked, sending D-10 blocked),
+          # reports aggregated inside each caller's read scope, the administrators' system page
+          python3 scripts/insights_probe.py
           # SEC-004: cookies, fixation, CSRF, logout, per-user login throttle (runs last: it
           # throttles one throw-away user)
           python3 scripts/session_security_probe.py

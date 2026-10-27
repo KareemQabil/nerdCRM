@@ -1,0 +1,16 @@
+/* Wave 7b: inbox, mentions, outbox, reports and settings */
+.in-page,.rp-page,.st-page{display:flex;flex-direction:column;gap:14px;}
+.in-list li.in-unread{border-color:var(--primary);}
+.in-mention,.in-outbox{display:flex;flex-direction:column;gap:8px;margin-top:16px;border-top:1px solid var(--outline-variant);padding-top:14px;}
+.in-mention h3,.in-outbox h3{display:flex;align-items:center;gap:6px;margin:0;font-size:15px;}
+.in-outbox textarea{min-height:90px;resize:vertical;}
+.rp-card{border:1px solid var(--outline-variant);border-radius:var(--radius-lg,var(--radius));background:var(--surface);padding:16px;display:flex;flex-direction:column;gap:10px;min-width:0;}
+.rp-card h2{margin:0;font-size:16px;}
+.rp-card h3{margin:6px 0 0;font-size:14px;}
+.rp-head{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;}
+.rp-scroll{overflow-x:auto;max-width:100%;}
+.rp-table{border-collapse:collapse;width:100%;font-size:13px;font-variant-numeric:tabular-nums;}
+.rp-table th,.rp-table td{text-align:start;padding:8px 10px;border-bottom:1px solid var(--outline-variant);vertical-align:top;}
+.rp-table th{font-size:12px;color:var(--on-surface-variant);font-weight:600;}
+.rp-bar{display:block;block-size:6px;border-radius:3px;background:var(--primary);opacity:.5;margin-bottom:4px;max-inline-size:100%;}
+.in-badge{display:inline-flex;min-inline-size:18px;block-size:18px;padding:0 5px;border-radius:999px;background:var(--error);color:#fff;font-size:11px;font-weight:700;align-items:center;justify-content:center;margin-inline-start:auto;}
