@@ -202,6 +202,29 @@ test("a rep edits a lead with one name field; phone and e-mail are never prefill
   expect(body).not.toHaveProperty("businessLineCode");
 });
 
+test("Ctrl+K also jumps to a page the person can open, whatever the hamza or taa marbuta; pages come before records", async ({ page }) => {
+  await mockDaily(page);
+  await page.goto("/#/agenda");
+  await expect(page.getByRole("heading", { name: "أجندتي" })).toBeVisible();
+  await page.keyboard.press("Control+k");
+  const palette = page.getByRole("dialog");
+  // written without the hamza, "الاشعارات" still finds the notifications page
+  await palette.getByRole("combobox").fill("الاشعارات");
+  await expect(palette.getByRole("option").first()).toContainText("الإشعارات");
+  await expect(palette.getByRole("option").first()).toContainText("صفحة");
+  await palette.getByRole("combobox").fill("الفواتير");
+  const first = palette.getByRole("option").first();
+  await expect(first).toContainText("الفواتير والتحصيل");
+  await expect(first).toHaveAttribute("aria-selected", "true");
+  await page.keyboard.press("Enter");
+  await expect(page).toHaveURL(/#\/finance$/);
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  // the breadcrumb names the page's area, from the same table as the menu
+  await expect(page.locator(".breadcrumb")).toContainText("التنفيذ والخدمات");
+  await expect(page.locator(".breadcrumb strong")).toHaveText("الفواتير والتحصيل");
+  await expect(page).toHaveTitle("الفواتير والتحصيل · IOETI");
+});
+
 test("my agenda groups the week by day, and Ctrl+K finds and opens a record", async ({ page }) => {
   await mockDaily(page);
   await page.goto("/#/agenda");

@@ -57,6 +57,15 @@ function getPageFromLocation(): Page {
   return allPages.includes(segment as Page) ? segment as Page : "home";
 }
 
+const DEMO_AREA_NAMES: Record<DemoArea, [string, string]> = {
+  quotes: ["عروض الأسعار", "Quotations"], catalog: ["كتالوج الخدمات", "Service catalog"], contracts: ["العقود", "Contracts"],
+  finance: ["المالية", "Finance"], projects: ["المشروعات", "Projects"], visits: ["الزيارات", "Visits"], quality: ["الجودة", "Quality"],
+  marketing: ["التسويق", "Marketing"], learning: ["التدريب", "Training"], recruiting: ["التوظيف", "Recruitment"],
+  certification: ["الشهادات", "Certification"], fundraising: ["التمويل", "Fundraising"], documents: ["المستندات", "Documents"],
+  automations: ["الأتمتة", "Automations"], reports: ["التقارير", "Reports"], admin: ["الإعدادات", "Settings"],
+};
+const demoAreaLabel = (area: DemoArea, ar: boolean) => DEMO_AREA_NAMES[area][ar ? 0 : 1];
+
 function statusName(status: number, labels: ReturnType<typeof t>) {
   if (status === 2) return labels.active;
   if (status === 3) return labels.suspended;
@@ -272,6 +281,10 @@ export function App() {
     ] },
   ];
   const areaOf = (id: string) => navGroups.find(group => group.items.some(item => item.id === id))?.id || "workspace";
+  // one table of the pages this person can open: the side menu, the breadcrumb and the command palette read it
+  const pages = navGroups.flatMap(group => group.items.filter(item => !item.disabled).map(item => ({ id: item.id, label: item.label, group: group.label })));
+  const current = pages.find(item => item.id === page);
+  const pageName = current?.label ?? (activeDemoArea ? demoAreaLabel(activeDemoArea, isRTL) : labels.design);
 
   function renderNav(items: NavItem[]) {
     return items.map((item) => {
@@ -288,6 +301,7 @@ export function App() {
   }
 
   return <div className="app-frame">
+    <DocumentTitle title={pageName}/>
     {DEMO_MODE && <div className="demo-banner" role="status"><ShieldCheck size={15}/><span>{isRTL ? "نسخة معاينة عامة · بيانات افتراضية للتصميم فقط · أي تعديل مؤقت وغير محفوظ" : "Public UI preview · Sample data only · Edits are temporary and never saved"}</span></div>}
     <a className="skip-link" href="#main-content">{labels.workspace}</a>
     {mobileNav && <button className="nav-backdrop" type="button" aria-label={labels.back} onClick={() => setMobileNav(false)} />}
@@ -303,7 +317,7 @@ export function App() {
       <header className="top-bar">
         <div className="top-start">
           <IconButton className="mobile-menu" label={labels.navigation} onClick={() => setMobileNav(true)}><Menu size={19}/></IconButton>
-          <div className="breadcrumb"><span>{labels.workspace}</span><span className="crumb-separator">/</span><strong>{page === "home" ? labels.home : page === "agenda" ? (isRTL ? "أجندتي" : "My agenda") : page === "catalog" ? (isRTL ? "كتالوج الخدمات" : "Service catalogue") : page === "campaigns" ? (isRTL ? "الحملات" : "Campaigns") : page === "visits" ? (isRTL ? "الزيارات الميدانية" : "Field visits") : page === "quality" ? (isRTL ? "الجودة" : "Quality") : page === "finance" ? (isRTL ? "الفواتير والتحصيل" : "Invoices & collection") : page === "admin" ? (isRTL ? "لوحة الإدارة" : "Admin console") : page === "policies" ? (isRTL ? "السياسات" : "Policies") : page === "businessLines" ? labels.businessLines : page === "opportunities" ? labels.opportunities : page === "leads" ? labels.leads : page === "accounts" ? labels.accountDirectory : page === "capabilities" ? labels.capabilityMap : page === "training" && !DEMO_MODE ? labels.training : page === "certification" && !DEMO_MODE ? labels.certification : page === "recruitment" && !DEMO_MODE ? labels.recruitment : page === "fundraising" && !DEMO_MODE ? labels.fundraising : page === "operations" && !DEMO_MODE ? labels.operations : page === "knowledge" && !DEMO_MODE ? labels.knowledge : page === "inbox" && !DEMO_MODE ? labels.inbox : page === "reports" && !DEMO_MODE ? labels.reports : page === "settings" && !DEMO_MODE ? labels.settings : activeDemoArea ? (isRTL ? {quotes:"عروض الأسعار",catalog:"كتالوج الخدمات",contracts:"العقود",finance:"المالية",projects:"المشروعات",visits:"الزيارات",quality:"الجودة",marketing:"التسويق",learning:"التدريب",recruiting:"التوظيف",certification:"الشهادات",fundraising:"التمويل",documents:"المستندات",automations:"الأتمتة",reports:"التقارير",admin:"الإعدادات"}[activeDemoArea] : {quotes:"Quotations",catalog:"Service catalog",contracts:"Contracts",finance:"Finance",projects:"Projects",visits:"Visits",quality:"Quality",marketing:"Marketing",learning:"Training",recruiting:"Recruitment",certification:"Certification",fundraising:"Fundraising",documents:"Documents",automations:"Automations",reports:"Reports",admin:"Settings"}[activeDemoArea]) : labels.design}</strong></div>
+          <div className="breadcrumb"><span>{current?.group ?? labels.workspace}</span><span className="crumb-separator">/</span><strong>{pageName}</strong></div>
         </div>
         <div className="top-actions">
           {!DEMO_MODE && <button type="button" className="palette-trigger" onClick={() => setPalette(true)} aria-label={isRTL ? "بحث سريع" : "Quick search"}>
@@ -367,7 +381,7 @@ export function App() {
         </Suspense>}
         {page === "design" && <DesignLab labels={labels}/>}
       </main>
-      {palette && <CommandPalette language={prefs.language} onClose={() => setPalette(false)} />}
+      {palette && <CommandPalette language={prefs.language} pages={pages} onGo={id => navigate(id as Page)} onClose={() => setPalette(false)} />}
     </div>
   </div>;
 }
@@ -401,6 +415,12 @@ function BusinessLineWorkspace({ line, labels, onBack }: { line: BusinessLine; l
       <div className="record-related-empty"><CircleHelp size={27}/><strong>{ar?"لم تُربط الإعدادات الديناميكية بعد":"Dynamic configuration not connected"}</strong><p>{ar?"خطوات Pipeline والموافقات والتسليم تحتاج APIs وصلاحيات مستقلة.":"Pipeline, approvals and handover require dedicated authorized APIs."}</p></div></section>
     </div>
   </article>;
+}
+
+/** The browser tab and history name the page, as screen readers announce it. */
+function DocumentTitle({ title }: { title: string }) {
+  useEffect(() => { document.title = title + " · IOETI"; }, [title]);
+  return null;
 }
 
 function PageTitle({ eyebrow, title, description }: { eyebrow: string; title: string; description: string }) {

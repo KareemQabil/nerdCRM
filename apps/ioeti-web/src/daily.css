@@ -186,3 +186,4 @@
   .palette { max-height: calc(100dvh - 16px); }
   .palette-trigger span, .palette-trigger kbd { display: none; }
 }
+.palette-icon.is-page { color: var(--primary); }
