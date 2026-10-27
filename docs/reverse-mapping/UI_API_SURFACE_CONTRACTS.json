@@ -1,0 +1,913 @@
+{
+  "snapshot": "2026-10-19",
+  "source": "IOETI pinned source and requirements mapping; not runtime verification",
+  "status_legend": {
+    "BASE_READONLY": "Read-only UI and endpoint already exist on feature base; not full tested",
+    "BASE_IMPLEMENTED": "Base UI/endpoint exists, not production accepted",
+    "DRAFT_PR8": "Implemented in separate unmerged UI PR #8",
+    "PR6_SECURITY_DEPENDENCY": "Scoped mutation fixed in unmerged backend PR #6",
+    "NOT_IMPLEMENTED": "Proposed design/API contract, no endpoint implemented"
+  },
+  "caveat": "All API routes labelled NOT_IMPLEMENTED are proposed contracts only; do not imply an endpoint is available.",
+  "surfaces": [
+    {
+      "surface_id": "LS-001",
+      "capability_ids": [
+        "LD-001",
+        "LD-020"
+      ],
+      "source_entities": [
+        "crm:Lead",
+        "crm:LeadStatus"
+      ],
+      "api_contract": "GET /ws/ioeti/leads",
+      "interaction": "LIST_FILTER",
+      "state": "BASE_READONLY",
+      "negative_acceptance": "Restricted Lead records and no extra PII",
+      "depends_on": "SEC-003",
+      "notes": "Lead inbox already in custom UI; list search currently browser-side only"
+    },
+    {
+      "surface_id": "LS-002",
+      "capability_ids": [
+        "LD-001",
+        "LD-022"
+      ],
+      "source_entities": [
+        "crm:Lead",
+        "crm:Event"
+      ],
+      "api_contract": "GET /ws/ioeti/leads/{id}",
+      "interaction": "FULL_RECORD",
+      "state": "BASE_READONLY",
+      "negative_acceptance": "Own-Team-Line and cross-model event ACL; detail exists for allowed rows only",
+      "depends_on": "SEC-003",
+      "notes": "Full record view currently has only minimal Lead fields"
+    },
+    {
+      "surface_id": "LS-003",
+      "capability_ids": [
+        "LD-012",
+        "LD-021"
+      ],
+      "source_entities": [
+        "crm:Lead",
+        "crm:LeadStatus"
+      ],
+      "api_contract": "POST /ws/ioeti/leads/{id}/qualify",
+      "interaction": "GUIDED_WORKFLOW",
+      "state": "NOT_IMPLEMENTED",
+      "negative_acceptance": "MQL-SAL-SQL transitions and rejection reason enforced server-side",
+      "depends_on": "ENG-001",
+      "notes": "No qualification buttons until service and permissions exist"
+    },
+    {
+      "surface_id": "LS-004",
+      "capability_ids": [
+        "LD-017",
+        "LD-022"
+      ],
+      "source_entities": [
+        "crm:Lead",
+        "crm:Event"
+      ],
+      "api_contract": "GET /ws/ioeti/leads/{id}/activities",
+      "interaction": "RECORD_SECTION",
+      "state": "NOT_IMPLEMENTED",
+      "negative_acceptance": "Cross-owner event lookup cannot leak notes attachments or private contact data",
+      "depends_on": "SEC-003",
+      "notes": "Link event sources and consent only after scopes"
+    },
+    {
+      "surface_id": "LS-005",
+      "capability_ids": [
+        "LD-021",
+        "AC-001",
+        "OP-001"
+      ],
+      "source_entities": [
+        "crm:Lead",
+        "base:Partner",
+        "crm:Opportunity"
+      ],
+      "api_contract": "POST /ws/ioeti/leads/{id}/convert",
+      "interaction": "FULL_WIZARD",
+      "state": "NOT_IMPLEMENTED",
+      "negative_acceptance": "Duplicate conversion race idempotency record ownership and lineage",
+      "depends_on": "ENG-001",
+      "notes": "Use ConvertLeadWizardService not frontend ad hoc conversion"
+    },
+    {
+      "surface_id": "LS-006",
+      "capability_ids": [
+        "LD-016",
+        "LD-017"
+      ],
+      "source_entities": [
+        "crm:Lead",
+        "base:Partner"
+      ],
+      "api_contract": "POST /ws/ioeti/leads/dedup-review",
+      "interaction": "REVIEW_WORKFLOW",
+      "state": "NOT_IMPLEMENTED",
+      "negative_acceptance": "Confusable Arabic +20 duplicate detection and safe merge audit",
+      "depends_on": "SEC-003",
+      "notes": "Consent and provenance preserved after merge"
+    },
+    {
+      "surface_id": "AC-001",
+      "capability_ids": [
+        "AC-001",
+        "AC-002"
+      ],
+      "source_entities": [
+        "base:Partner"
+      ],
+      "api_contract": "GET /ws/ioeti/accounts",
+      "interaction": "LIST_FILTER",
+      "state": "BASE_READONLY",
+      "negative_acceptance": "Customer/prospect-only pagination is database scoped not post-page filtering",
+      "depends_on": "SEC-003",
+      "notes": "Existing account query filters after page boundary"
+    },
+    {
+      "surface_id": "AC-002",
+      "capability_ids": [
+        "AC-010",
+        "AC-011"
+      ],
+      "source_entities": [
+        "base:Partner",
+        "crm:Opportunity"
+      ],
+      "api_contract": "GET /ws/ioeti/accounts/{id}",
+      "interaction": "FULL_RECORD",
+      "state": "BASE_READONLY",
+      "negative_acceptance": "No account ID oracle; field allowlist and cross-line partner access",
+      "depends_on": "SEC-003",
+      "notes": "Current profile has only identity and customer/prospect"
+    },
+    {
+      "surface_id": "AC-003",
+      "capability_ids": [
+        "AC-004",
+        "AC-005"
+      ],
+      "source_entities": [
+        "base:Partner",
+        "base:PartnerLink"
+      ],
+      "api_contract": "GET /ws/ioeti/accounts/{id}/contacts",
+      "interaction": "RECORD_SECTION",
+      "state": "NOT_IMPLEMENTED",
+      "negative_acceptance": "Contact roles and PII require distinct contact scope; no fake contacts",
+      "depends_on": "SEC-003",
+      "notes": "Contacts hierarchy and decision makers"
+    },
+    {
+      "surface_id": "AC-004",
+      "capability_ids": [
+        "AC-010",
+        "AC-011",
+        "AC-012"
+      ],
+      "source_entities": [
+        "base:Partner",
+        "crm:Opportunity",
+        "contract:Contract"
+      ],
+      "api_contract": "GET /ws/ioeti/accounts/{id}/timeline",
+      "interaction": "RECORD_SECTION",
+      "state": "NOT_IMPLEMENTED",
+      "negative_acceptance": "Individually authorize related objects before aggregation",
+      "depends_on": "SEC-003",
+      "notes": "One Account 360 never overrides per-domain security"
+    },
+    {
+      "surface_id": "AC-005",
+      "capability_ids": [
+        "AC-013",
+        "AC-014"
+      ],
+      "source_entities": [
+        "base:Partner",
+        "contract:Contract"
+      ],
+      "api_contract": "GET /ws/ioeti/accounts/{id}/renewals",
+      "interaction": "RECORD_SECTION",
+      "state": "NOT_IMPLEMENTED",
+      "negative_acceptance": "No invented certificate expiry and no duplicate renewal opportunity",
+      "depends_on": "ENG-001",
+      "notes": "Renewal and account health require policies"
+    },
+    {
+      "surface_id": "OP-001",
+      "capability_ids": [
+        "OP-001",
+        "OP-016"
+      ],
+      "source_entities": [
+        "crm:Opportunity"
+      ],
+      "api_contract": "GET /ws/ioeti/opportunities",
+      "interaction": "LIST_FILTER",
+      "state": "BASE_IMPLEMENTED",
+      "negative_acceptance": "Server-side scoped pagination search sorting and no denied row",
+      "depends_on": "SEC-003",
+      "notes": "Current opportunity list filters loaded rows in browser"
+    },
+    {
+      "surface_id": "OP-002",
+      "capability_ids": [
+        "OP-001",
+        "OP-008",
+        "OP-013"
+      ],
+      "source_entities": [
+        "crm:Opportunity"
+      ],
+      "api_contract": "GET /ws/ioeti/opportunities/{id}",
+      "interaction": "FULL_RECORD",
+      "state": "DRAFT_PR8",
+      "negative_acceptance": "No forbidden vs unknown ID oracle and no inferred client owner value",
+      "depends_on": "SEC-002",
+      "notes": "PR8 adds full page using existing detail DTO"
+    },
+    {
+      "surface_id": "OP-003",
+      "capability_ids": [
+        "OP-001",
+        "OP-016"
+      ],
+      "source_entities": [
+        "crm:Opportunity"
+      ],
+      "api_contract": "PUT /ws/ioeti/opportunities/{id}",
+      "interaction": "CENTERED_MODAL",
+      "state": "PR6_SECURITY_DEPENDENCY",
+      "negative_acceptance": "Stale 409 no lost update; Rep A vs Rep B write denial",
+      "depends_on": "SEC-003",
+      "notes": "Rename only; use PR6 conflict fix after review"
+    },
+    {
+      "surface_id": "OP-004",
+      "capability_ids": [
+        "OP-002",
+        "OP-011",
+        "OP-012"
+      ],
+      "source_entities": [
+        "crm:Opportunity",
+        "crm:OpportunityStatus"
+      ],
+      "api_contract": "POST /ws/ioeti/opportunities/{id}/transition",
+      "interaction": "FULL_WORKFLOW",
+      "state": "NOT_IMPLEMENTED",
+      "negative_acceptance": "BusinessLine stage schema version expectedVersion and required fields",
+      "depends_on": "ENG-001",
+      "notes": "Stage transition must never be raw status patch"
+    },
+    {
+      "surface_id": "OP-005",
+      "capability_ids": [
+        "OP-013",
+        "OP-014"
+      ],
+      "source_entities": [
+        "crm:Event",
+        "crm:Opportunity"
+      ],
+      "api_contract": "GET /ws/ioeti/opportunities/{id}/activities",
+      "interaction": "RECORD_SECTION",
+      "state": "NOT_IMPLEMENTED",
+      "negative_acceptance": "No cross-record comments or event leakage",
+      "depends_on": "SEC-003",
+      "notes": "Display real persisted activity timeline only"
+    },
+    {
+      "surface_id": "OP-006",
+      "capability_ids": [
+        "OP-017",
+        "OP-018"
+      ],
+      "source_entities": [
+        "crm:Opportunity"
+      ],
+      "api_contract": "GET /ws/ioeti/opportunities/analytics",
+      "interaction": "ANALYTICS_PAGE",
+      "state": "NOT_IMPLEMENTED",
+      "negative_acceptance": "Report scope Own Team Line All and financial source reconciliation",
+      "depends_on": "SEC-003",
+      "notes": "Exclude demo fake KPI"
+    },
+    {
+      "surface_id": "CAT-001",
+      "capability_ids": [
+        "CAT-001",
+        "CAT-002"
+      ],
+      "source_entities": [
+        "base:Product",
+        "base:ProductCategory"
+      ],
+      "api_contract": "GET /ws/ioeti/services",
+      "interaction": "DATA_GRID",
+      "state": "NOT_IMPLEMENTED",
+      "negative_acceptance": "No internal inventory-only products leaked as client services",
+      "depends_on": "SEC-003",
+      "notes": "IOETI service catalog domain tagging"
+    },
+    {
+      "surface_id": "CAT-002",
+      "capability_ids": [
+        "CAT-007",
+        "CAT-008",
+        "CAT-009"
+      ],
+      "source_entities": [
+        "base:PriceList",
+        "base:Currency"
+      ],
+      "api_contract": "GET /ws/ioeti/pricebooks",
+      "interaction": "FULL_RECORD",
+      "state": "NOT_IMPLEMENTED",
+      "negative_acceptance": "Effective dates and finance-only internal costs never leaked",
+      "depends_on": "SEC-003",
+      "notes": "Price book version and line eligibility"
+    },
+    {
+      "surface_id": "CAT-003",
+      "capability_ids": [
+        "CAT-011",
+        "CAT-012",
+        "CAT-016"
+      ],
+      "source_entities": [
+        "base:Pricing",
+        "base:PricingRule"
+      ],
+      "api_contract": "POST /ws/ioeti/pricing/preview",
+      "interaction": "GUIDED_WORKFLOW",
+      "state": "NOT_IMPLEMENTED",
+      "negative_acceptance": "Deterministic approved formulas tax discounts margins restricted",
+      "depends_on": "ENG-001",
+      "notes": "Reuse price calculation service not browser formula"
+    },
+    {
+      "surface_id": "QT-001",
+      "capability_ids": [
+        "QT-001",
+        "QT-003"
+      ],
+      "source_entities": [
+        "sale:SaleOrder",
+        "sale:SaleOrderLine"
+      ],
+      "api_contract": "GET /ws/ioeti/quotes",
+      "interaction": "DATA_GRID",
+      "state": "NOT_IMPLEMENTED",
+      "negative_acceptance": "Authorized opportunity links and finance field redaction",
+      "depends_on": "SEC-003",
+      "notes": "Not yet a custom quote UI"
+    },
+    {
+      "surface_id": "QT-002",
+      "capability_ids": [
+        "QT-001",
+        "QT-002",
+        "QT-003",
+        "QT-004"
+      ],
+      "source_entities": [
+        "sale:SaleOrder",
+        "sale:SaleOrderLine"
+      ],
+      "api_contract": "POST /ws/ioeti/quotes",
+      "interaction": "FULL_WIZARD",
+      "state": "NOT_IMPLEMENTED",
+      "negative_acceptance": "Preview tax pricing approval and optimistic concurrency",
+      "depends_on": "ENG-001",
+      "notes": "A B C version alternative pricing choices"
+    },
+    {
+      "surface_id": "QT-003",
+      "capability_ids": [
+        "QT-006",
+        "QT-008",
+        "QT-016"
+      ],
+      "source_entities": [
+        "sale:SaleOrder"
+      ],
+      "api_contract": "GET /ws/ioeti/quotes/{id}",
+      "interaction": "FULL_RECORD",
+      "state": "NOT_IMPLEMENTED",
+      "negative_acceptance": "Immutable quote version and approval record lineage",
+      "depends_on": "ENG-001",
+      "notes": "Use SaleOrderVersionService after service semantic verification"
+    },
+    {
+      "surface_id": "QT-004",
+      "capability_ids": [
+        "QT-011",
+        "QT-012"
+      ],
+      "source_entities": [
+        "base:PrintingTemplate",
+        "sale:SaleOrder"
+      ],
+      "api_contract": "POST /ws/ioeti/quotes/{id}/pdf",
+      "interaction": "DOCUMENT_WORKFLOW",
+      "state": "NOT_IMPLEMENTED",
+      "negative_acceptance": "RTL printable PDF tested and server authorization on sensitive totals",
+      "depends_on": "OPS-001",
+      "notes": "Do not fake generated documents"
+    },
+    {
+      "surface_id": "CT-001",
+      "capability_ids": [
+        "CT-001",
+        "CT-002"
+      ],
+      "source_entities": [
+        "contract:Contract"
+      ],
+      "api_contract": "GET /ws/ioeti/contracts/{id}",
+      "interaction": "FULL_RECORD",
+      "state": "NOT_IMPLEMENTED",
+      "negative_acceptance": "Version legal stage and signed attachment scope",
+      "depends_on": "SEC-003",
+      "notes": "No data leak via linked opportunity"
+    },
+    {
+      "surface_id": "CT-002",
+      "capability_ids": [
+        "CT-002",
+        "CT-003",
+        "CT-004"
+      ],
+      "source_entities": [
+        "contract:Contract",
+        "contract:ContractVersion"
+      ],
+      "api_contract": "POST /ws/ioeti/contracts/{id}/approval",
+      "interaction": "FULL_WORKFLOW",
+      "state": "NOT_IMPLEMENTED",
+      "negative_acceptance": "Multi-role legal review history immutable signed record",
+      "depends_on": "ENG-001",
+      "notes": "Full page approval and not tiny popup"
+    },
+    {
+      "surface_id": "CT-003",
+      "capability_ids": [
+        "CT-006",
+        "CT-007",
+        "CT-011"
+      ],
+      "source_entities": [
+        "contract:Contract",
+        "crm:Opportunity"
+      ],
+      "api_contract": "POST /ws/ioeti/contracts/{id}/renewal",
+      "interaction": "GUIDED_WORKFLOW",
+      "state": "NOT_IMPLEMENTED",
+      "negative_acceptance": "Idempotent renewal and current active contract policy",
+      "depends_on": "ENG-001",
+      "notes": "Review authorization before creating opportunity"
+    },
+    {
+      "surface_id": "FIN-001",
+      "capability_ids": [
+        "FIN-001",
+        "FIN-002"
+      ],
+      "source_entities": [
+        "account:Invoice",
+        "supplychain:Timetable"
+      ],
+      "api_contract": "GET /ws/ioeti/invoices",
+      "interaction": "DATA_GRID",
+      "state": "NOT_IMPLEMENTED",
+      "negative_acceptance": "Accountant read scopes exclude unrelated customers and costs",
+      "depends_on": "SEC-003",
+      "notes": "Invoice request vs ledger policy undecided"
+    },
+    {
+      "surface_id": "FIN-002",
+      "capability_ids": [
+        "FIN-003",
+        "FIN-004",
+        "FIN-005"
+      ],
+      "source_entities": [
+        "account:InvoicePayment",
+        "supplychain:Timetable"
+      ],
+      "api_contract": "POST /ws/ioeti/milestones/{id}/complete",
+      "interaction": "FULL_WORKFLOW",
+      "state": "NOT_IMPLEMENTED",
+      "negative_acceptance": "No duplicate invoice across webhook retry or task completion",
+      "depends_on": "ENG-001",
+      "notes": "Payment event and fiscal posting policy owner signoff"
+    },
+    {
+      "surface_id": "FIN-003",
+      "capability_ids": [
+        "FIN-006",
+        "FIN-009",
+        "FIN-010"
+      ],
+      "source_entities": [
+        "account:Invoice",
+        "account:InvoicePayment"
+      ],
+      "api_contract": "GET /ws/ioeti/finance/aging",
+      "interaction": "ANALYTICS_PAGE",
+      "state": "NOT_IMPLEMENTED",
+      "negative_acceptance": "Totals reconcile and unauthorized export excludes finance secrets",
+      "depends_on": "SEC-003",
+      "notes": "Distinguish booked invoiced collected"
+    },
+    {
+      "surface_id": "OPS-001",
+      "capability_ids": [
+        "OPS-001",
+        "OPS-002"
+      ],
+      "source_entities": [
+        "project:Project",
+        "project:ProjectTemplate"
+      ],
+      "api_contract": "POST /ws/ioeti/handovers",
+      "interaction": "FULL_WORKFLOW",
+      "state": "NOT_IMPLEMENTED",
+      "negative_acceptance": "Only signed won eligible contract transferred and idempotent",
+      "depends_on": "ENG-001",
+      "notes": "New handover bounded entity"
+    },
+    {
+      "surface_id": "OPS-002",
+      "capability_ids": [
+        "OPS-003",
+        "OPS-005",
+        "OPS-008"
+      ],
+      "source_entities": [
+        "project:Project",
+        "project:ProjectTask"
+      ],
+      "api_contract": "GET /ws/ioeti/engagements/{id}",
+      "interaction": "FULL_RECORD",
+      "state": "NOT_IMPLEMENTED",
+      "negative_acceptance": "Role/team task scoping and handover source links",
+      "depends_on": "ENG-001",
+      "notes": "No fake project progress"
+    },
+    {
+      "surface_id": "OPS-003",
+      "capability_ids": [
+        "OPS-009",
+        "OPS-010"
+      ],
+      "source_entities": [
+        "intervention:Intervention",
+        "intervention:InterventionQuestion"
+      ],
+      "api_contract": "GET /ws/ioeti/visits/{id}",
+      "interaction": "FULL_RECORD",
+      "state": "NOT_IMPLEMENTED",
+      "negative_acceptance": "Protected visit photos and signed evidence with audit",
+      "depends_on": "SEC-003",
+      "notes": "Reuse field visit model not certification decision"
+    },
+    {
+      "surface_id": "ISO-001",
+      "capability_ids": [
+        "ISO-001",
+        "ISO-003",
+        "ISO-004"
+      ],
+      "source_entities": [
+        "intervention:Intervention"
+      ],
+      "api_contract": "GET /ws/ioeti/certification/cycles/{id}",
+      "interaction": "FULL_RECORD",
+      "state": "NOT_IMPLEMENTED",
+      "negative_acceptance": "Scheme approved and role scope client audit data",
+      "depends_on": "OWNER_ISO",
+      "notes": "Separate certificate cycle domain"
+    },
+    {
+      "surface_id": "ISO-002",
+      "capability_ids": [
+        "ISO-007",
+        "ISO-008",
+        "ISO-012"
+      ],
+      "source_entities": [
+        "intervention:InterventionQuestion"
+      ],
+      "api_contract": "POST /ws/ioeti/certification/audits/{id}/submit",
+      "interaction": "FULL_WORKFLOW",
+      "state": "NOT_IMPLEMENTED",
+      "negative_acceptance": "Stage 1 2 controls attached evidence and independent auditor",
+      "depends_on": "OWNER_ISO",
+      "notes": "Audit workflow not a flat visit form"
+    },
+    {
+      "surface_id": "ISO-003",
+      "capability_ids": [
+        "ISO-014",
+        "ISO-015",
+        "ISO-016",
+        "ISO-017"
+      ],
+      "source_entities": [
+        "quality:QualityImprovement",
+        "quality:QIAction"
+      ],
+      "api_contract": "POST /ws/ioeti/certification/decisions/{id}",
+      "interaction": "RESTRICTED_DECISION",
+      "state": "NOT_IMPLEMENTED",
+      "negative_acceptance": "Impartial decision maker cannot certify own audit, immutable outcome",
+      "depends_on": "OWNER_ISO",
+      "notes": "Gate must not be visual only"
+    },
+    {
+      "surface_id": "ISO-004",
+      "capability_ids": [
+        "ISO-018",
+        "ISO-021",
+        "ISO-022"
+      ],
+      "source_entities": [
+        "base:Sequence",
+        "intervention:Intervention"
+      ],
+      "api_contract": "GET /ws/ioeti/certification/certificates/{id}",
+      "interaction": "FULL_RECORD",
+      "state": "NOT_IMPLEMENTED",
+      "negative_acceptance": "Certificate serial/scheme/validity/withdrawal separation",
+      "depends_on": "OWNER_ISO",
+      "notes": "Registration and surveillance"
+    },
+    {
+      "surface_id": "TR-001",
+      "capability_ids": [
+        "TR-001",
+        "TR-004",
+        "TR-005"
+      ],
+      "source_entities": [
+        "talent:TrainingSession"
+      ],
+      "api_contract": "GET /ws/ioeti/training/cohorts/{id}",
+      "interaction": "FULL_RECORD",
+      "state": "NOT_IMPLEMENTED",
+      "negative_acceptance": "Do not use employee-only trainee foreign keys",
+      "depends_on": "OWNER_TRAINING",
+      "notes": "Independent external cohort domain"
+    },
+    {
+      "surface_id": "TR-002",
+      "capability_ids": [
+        "TR-012",
+        "TR-013",
+        "TR-016"
+      ],
+      "source_entities": [
+        "talent:TrainingRegister"
+      ],
+      "api_contract": "POST /ws/ioeti/training/cohorts/{id}/enroll",
+      "interaction": "REGISTRATION_WIZARD",
+      "state": "NOT_IMPLEMENTED",
+      "negative_acceptance": "No oversubscription; external trainee data isolation",
+      "depends_on": "OWNER_TRAINING",
+      "notes": "Dedicated Enrollment entity"
+    },
+    {
+      "surface_id": "TR-003",
+      "capability_ids": [
+        "TR-018",
+        "TR-020",
+        "TR-022"
+      ],
+      "source_entities": [
+        "talent:TrainingSession"
+      ],
+      "api_contract": "POST /ws/ioeti/training/cohorts/{id}/attendance",
+      "interaction": "ATTENDANCE_MATRIX",
+      "state": "NOT_IMPLEMENTED",
+      "negative_acceptance": "Authorized trainer, corrections audit, eligibility gate",
+      "depends_on": "OWNER_TRAINING",
+      "notes": "Full cohort task surface"
+    },
+    {
+      "surface_id": "TR-004",
+      "capability_ids": [
+        "TR-021",
+        "TR-022",
+        "TR-023"
+      ],
+      "source_entities": [
+        "base:Sequence",
+        "base:PrintingTemplate"
+      ],
+      "api_contract": "POST /ws/ioeti/training/certificates/{id}/issue",
+      "interaction": "ISSUANCE_WORKFLOW",
+      "state": "NOT_IMPLEMENTED",
+      "negative_acceptance": "Verified assessment eligibility serial issue revoked states",
+      "depends_on": "OWNER_TRAINING",
+      "notes": "Arabic certificate PDF"
+    },
+    {
+      "surface_id": "REC-001",
+      "capability_ids": [
+        "REC-001",
+        "REC-002",
+        "REC-003"
+      ],
+      "source_entities": [
+        "talent:JobPosition"
+      ],
+      "api_contract": "GET /ws/ioeti/recruitment/job-orders/{id}",
+      "interaction": "FULL_RECORD",
+      "state": "NOT_IMPLEMENTED",
+      "negative_acceptance": "External client linked not internal department vacancy",
+      "depends_on": "OWNER_RECRUITMENT",
+      "notes": "Client job order new entity"
+    },
+    {
+      "surface_id": "REC-002",
+      "capability_ids": [
+        "REC-004",
+        "REC-005",
+        "REC-008"
+      ],
+      "source_entities": [
+        "talent:JobApplication"
+      ],
+      "api_contract": "POST /ws/ioeti/recruitment/job-orders/{id}/submit-candidate",
+      "interaction": "RESTRICTED_WIZARD",
+      "state": "NOT_IMPLEMENTED",
+      "negative_acceptance": "Candidate consent before sharing CV and salary, export denied",
+      "depends_on": "OWNER_RECRUITMENT",
+      "notes": "Multi-client candidate isolation"
+    },
+    {
+      "surface_id": "REC-003",
+      "capability_ids": [
+        "REC-011",
+        "REC-012",
+        "REC-014"
+      ],
+      "source_entities": [
+        "contract:Contract"
+      ],
+      "api_contract": "POST /ws/ioeti/recruitment/placements/{id}/verify",
+      "interaction": "PLACEMENT_WORKFLOW",
+      "state": "NOT_IMPLEMENTED",
+      "negative_acceptance": "Fee idempotence signed guarantee effective date",
+      "depends_on": "OWNER_RECRUITMENT",
+      "notes": "Employment confirmation before invoice"
+    },
+    {
+      "surface_id": "FUND-001",
+      "capability_ids": [
+        "FUND-001",
+        "FUND-004",
+        "FUND-011"
+      ],
+      "source_entities": [
+        "base:Partner"
+      ],
+      "api_contract": "GET /ws/ioeti/fundraising/donors/{id}",
+      "interaction": "FULL_RECORD",
+      "state": "NOT_IMPLEMENTED",
+      "negative_acceptance": "Private donor facts excluded from sales role and exports",
+      "depends_on": "OWNER_FUNDRAISING",
+      "notes": "Donor is not just regular sales account"
+    },
+    {
+      "surface_id": "FUND-002",
+      "capability_ids": [
+        "FUND-006",
+        "FUND-007",
+        "FUND-008"
+      ],
+      "source_entities": [
+        "crm:Opportunity",
+        "contract:Contract"
+      ],
+      "api_contract": "GET /ws/ioeti/fundraising/grants/{id}",
+      "interaction": "FULL_RECORD",
+      "state": "NOT_IMPLEMENTED",
+      "negative_acceptance": "Grant terms award limits obligations decision controls",
+      "depends_on": "OWNER_FUNDRAISING",
+      "notes": "New Grant domain"
+    },
+    {
+      "surface_id": "FUND-003",
+      "capability_ids": [
+        "FUND-006",
+        "FUND-009",
+        "FUND-010"
+      ],
+      "source_entities": [
+        "supplychain:Timetable"
+      ],
+      "api_contract": "POST /ws/ioeti/fundraising/pledges/{id}/receipt",
+      "interaction": "RECEIPT_WORKFLOW",
+      "state": "NOT_IMPLEMENTED",
+      "negative_acceptance": "Pledge not collected cash; restricted donor access",
+      "depends_on": "OWNER_FUNDRAISING",
+      "notes": "Receipt accounting owner decision"
+    },
+    {
+      "surface_id": "ADM-001",
+      "capability_ids": [
+        "ADM-001",
+        "ADM-003",
+        "ADM-004"
+      ],
+      "source_entities": [
+        "studio:MetaJsonModel",
+        "studio:WkfProcess"
+      ],
+      "api_contract": "GET /ws/ioeti/admin/business-lines",
+      "interaction": "ADMIN_WORKSPACE",
+      "state": "NOT_IMPLEMENTED",
+      "negative_acceptance": "No uncontrolled arbitrary scripts and action permissions",
+      "depends_on": "SEC-003",
+      "notes": "Custom admin retains original global nav"
+    },
+    {
+      "surface_id": "ADM-002",
+      "capability_ids": [
+        "ADM-002",
+        "ADM-012"
+      ],
+      "source_entities": [
+        "studio:MetaJsonField"
+      ],
+      "api_contract": "POST /ws/ioeti/admin/schema/publish",
+      "interaction": "REVIEW_WORKFLOW",
+      "state": "NOT_IMPLEMENTED",
+      "negative_acceptance": "Versioned config and existing-record migration dry-run",
+      "depends_on": "ENG-001",
+      "notes": "Metadata not whole external domain replacement"
+    },
+    {
+      "surface_id": "AUTO-001",
+      "capability_ids": [
+        "AUTO-001",
+        "AUTO-014"
+      ],
+      "source_entities": [
+        "studio:WkfProcess",
+        "studio:WkfDmnModel"
+      ],
+      "api_contract": "GET /ws/ioeti/automations",
+      "interaction": "ADMIN_WORKSPACE",
+      "state": "NOT_IMPLEMENTED",
+      "negative_acceptance": "Safe scheduled rules outbox and conditional data scopes",
+      "depends_on": "SEC-003",
+      "notes": "No hidden jobs"
+    },
+    {
+      "surface_id": "ANA-001",
+      "capability_ids": [
+        "ANA-001",
+        "ANA-002",
+        "ANA-010"
+      ],
+      "source_entities": [
+        "crm:Opportunity",
+        "account:Invoice"
+      ],
+      "api_contract": "GET /ws/ioeti/reports/overview",
+      "interaction": "ANALYTICS_PAGE",
+      "state": "NOT_IMPLEMENTED",
+      "negative_acceptance": "No fake KPIs or overbroad aggregate leakage",
+      "depends_on": "SEC-003",
+      "notes": "Separate booked invoiced collected metrics"
+    },
+    {
+      "surface_id": "DOC-001",
+      "capability_ids": [
+        "DOC-001",
+        "DOC-004",
+        "DOC-008"
+      ],
+      "source_entities": [
+        "base:File"
+      ],
+      "api_contract": "GET /ws/ioeti/records/{id}/files",
+      "interaction": "RECORD_SECTION",
+      "state": "NOT_IMPLEMENTED",
+      "negative_acceptance": "Attachment per-source permissions and safe downloads",
+      "depends_on": "SEC-003",
+      "notes": "Documents never fetched by generic unchecked model API"
+    }
+  ]
+}
