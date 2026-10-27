@@ -1702,6 +1702,20 @@
     "RecommendationsView.recommendations": "BUSINESS",
     "AppliedView.applied": "REFERENCE",
     "RecommendationView.fields": "BUSINESS",
-    "SessionIdentity.pages": "REFERENCE"
+    "SessionIdentity.pages": "REFERENCE",
+    "CreateOpportunity.accountId": "REFERENCE",
+    "CreateOpportunity.amount": "BUSINESS",
+    "CreateOpportunity.currencyCode": "REFERENCE",
+    "CreateOpportunity.expectedCloseDate": "BUSINESS",
+    "CreateOpportunity.probability": "BUSINESS",
+    "BoardCard.opportunity": "BUSINESS",
+    "BoardCard.accountName": "BUSINESS",
+    "BoardCard.accountId": "REFERENCE",
+    "BoardCard.ownerName": "PERSONAL",
+    "BoardCard.mine": "REFERENCE",
+    "CheckedEstimate.amount": "BUSINESS",
+    "CheckedEstimate.currency": "BUSINESS",
+    "CheckedEstimate.close": "BUSINESS",
+    "CheckedEstimate.probability": "BUSINESS"
   }
 }

@@ -10,7 +10,9 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
 import com.axelor.apps.crm.service.OpportunityService;
+import com.axelor.apps.base.db.Partner;
 import com.axelor.auth.AuthUtils;
+import com.axelor.auth.db.User;
 import com.axelor.db.JpaSecurity;
 import com.axelor.db.Query;
 import com.axelor.inject.Beans;
@@ -49,6 +51,7 @@ import java.util.List;
 public class OpportunityRestController {
 
   private static final int MAX_PAGE_SIZE = 50;
+  private static final int BOARD_LIMIT = 500;
 
   @GET
   @Operation(summary = "List visible opportunities (bounded result)", tags = {"IOETI opportunities"})
@@ -63,6 +66,32 @@ public class OpportunityRestController {
     Query<Opportunity> query = readableOpportunities().order("-id");
     List<OpportunityView> items = query.fetch(limit, offset).stream().map(OpportunityRestController::view).toList();
     return ResponseConstructor.build(Response.Status.OK, "Opportunities", items);
+  }
+
+  @GET
+  @Path("/board")
+  @Operation(summary = "The pipeline board: every readable open opportunity, plus those won or lost in the last 30 days (at most 500)", tags = {"IOETI opportunities"})
+  @IoetiEndpoint
+  public Response board(@QueryParam("line") String lineCode, @QueryParam("mine") Boolean mine) {
+    new SecurityCheck().readAccess(Opportunity.class).check();
+    OpportunityStages stages = Beans.get(OpportunityStages.class);
+    JpaSecurity security = Beans.get(JpaSecurity.class);
+    User me = AuthUtils.getUser();
+    java.time.LocalDateTime since = java.time.LocalDateTime.now().minusDays(30);
+    List<BoardCard> cards = new java.util.ArrayList<>();
+    for (Opportunity o : readableOpportunities().order("expectedCloseDate").order("-id").fetch(BOARD_LIMIT)) {
+      String kind = stages.kind(o.getOpportunityStatus());
+      boolean recent = o.getUpdatedOn() != null ? o.getUpdatedOn().isAfter(since) : o.getCreatedOn() != null && o.getCreatedOn().isAfter(since);
+      if (!"OPEN".equals(kind) && !recent) continue;
+      if (lineCode != null && !lineCode.isBlank() && (o.getIoetiBusinessLine() == null || !lineCode.equals(o.getIoetiBusinessLine().getCode()))) continue;
+      boolean own = o.getUser() != null && o.getUser().equals(me);
+      if (Boolean.TRUE.equals(mine) && !own) continue;
+      Partner account = o.getPartner();
+      boolean seeAccount = account != null && security.isPermitted(JpaSecurity.CAN_READ, Partner.class, account.getId());
+      cards.add(new BoardCard(view(o), seeAccount ? account.getName() : null, seeAccount ? account.getId() : null,
+          o.getUser() == null ? null : o.getUser().getName(), own));
+    }
+    return ResponseConstructor.build(Response.Status.OK, "Pipeline board", cards);
   }
 
   @GET
@@ -85,13 +114,25 @@ public class OpportunityRestController {
     String name = checkName(command == null ? null : command.name());
     String code = command == null ? null : command.businessLineCode();
     BusinessLine line = LineSelection.eligible(code);
+    // the client account, when given: one the caller may read, and a client account (not a contact person)
+    Partner account = null;
+    if (command.accountId() != null) {
+      account = RecordAccess.readable(Partner.class, command.accountId());
+      if (!AccountRestController.isClientAccount(account)) throw ApiException.invalidField("accountId", "UNAVAILABLE", "Choose a client account.");
+    }
+    CheckedEstimate plan = plan(command.amount(), command.currencyCode(), command.expectedCloseDate(), command.probability());
     Opportunity opportunity = new Opportunity();
     opportunity.setName(name);
     opportunity.setIoetiBusinessLine(line);
     opportunity.setUser(AuthUtils.getUser());
+    opportunity.setPartner(account);
     // Calls the existing Axelor service, not a direct generic REST create.
     // Existing IOETI JPA listener rejects suspended lines at persistence time.
     Beans.get(OpportunityService.class).saveOpportunity(opportunity);
+    if (command.amount() != null || command.currencyCode() != null || command.expectedCloseDate() != null || command.probability() != null) {
+      Beans.get(OpportunityStages.class).plan(opportunity, plan.amount(), plan.currency(), plan.close(), plan.probability(),
+          command.amount() != null, command.currencyCode() != null, command.expectedCloseDate() != null, command.probability() != null);
+    }
     return ResponseConstructor.build(Response.Status.CREATED, "Opportunity created", view(opportunity));
   }
 
@@ -198,29 +239,33 @@ public class OpportunityRestController {
   @IoetiEndpoint
   public Response plan(@PathParam("id") Long id, PlanOpportunity command) {
     Opportunity opportunity = versioned(id, command == null ? null : command.version());
-    BigDecimal amount = command.amount();
+    CheckedEstimate plan = plan(command.amount(), command.currencyCode(), command.expectedCloseDate(), command.probability());
+    OptimisticLockConflicts.translate(() -> Beans.get(OpportunityStages.class).plan(opportunity, plan.amount(), plan.currency(), plan.close(), plan.probability(),
+        command.amount() != null, command.currencyCode() != null, command.expectedCloseDate() != null, command.probability() != null));
+    return ResponseConstructor.build(Response.Status.OK, "Plan saved", view(RecordAccess.readable(Opportunity.class, id)));
+  }
+
+  /** The salesperson's estimate, checked: amount, currency, expected close date, probability (each optional). */
+  record CheckedEstimate(BigDecimal amount, Currency currency, LocalDate close, BigDecimal probability) {}
+
+  static CheckedEstimate plan(BigDecimal amount, String currencyCode, String expectedCloseDate, BigDecimal probability) {
     if (amount != null && (amount.signum() < 0 || amount.compareTo(new BigDecimal("1000000000000")) >= 0 || amount.scale() > 2)) {
       throw ApiException.invalidField("amount", "RANGE", "Enter an amount of zero or more with at most two decimals.");
     }
     Currency currency = null;
-    if (command.currencyCode() != null && !command.currencyCode().isBlank()) {
-      currency = Query.of(Currency.class).filter("self.codeISO = ?1", command.currencyCode().strip().toUpperCase()).fetchOne();
+    if (currencyCode != null && !currencyCode.isBlank()) {
+      currency = Query.of(Currency.class).filter("self.codeISO = ?1", currencyCode.strip().toUpperCase()).fetchOne();
       if (currency == null) throw ApiException.invalidField("currencyCode", "UNKNOWN", "Choose an existing currency.");
     }
     LocalDate close = null;
-    if (command.expectedCloseDate() != null && !command.expectedCloseDate().isBlank()) {
-      try { close = LocalDate.parse(command.expectedCloseDate()); }
+    if (expectedCloseDate != null && !expectedCloseDate.isBlank()) {
+      try { close = LocalDate.parse(expectedCloseDate); }
       catch (DateTimeParseException e) { throw ApiException.invalidField("expectedCloseDate", "FORMAT", "Use a date like 2026-12-31."); }
     }
-    BigDecimal probability = command.probability();
     if (probability != null && (probability.signum() < 0 || probability.compareTo(new BigDecimal(100)) > 0)) {
       throw ApiException.invalidField("probability", "RANGE", "Use a probability from 0 to 100.");
     }
-    Currency chosen = currency;
-    LocalDate expected = close;
-    OptimisticLockConflicts.translate(() -> Beans.get(OpportunityStages.class).plan(opportunity, amount, chosen, expected, probability,
-        command.amount() != null, command.currencyCode() != null, command.expectedCloseDate() != null, command.probability() != null));
-    return ResponseConstructor.build(Response.Status.OK, "Plan saved", view(RecordAccess.readable(Opportunity.class, id)));
+    return new CheckedEstimate(amount, currency, close, probability);
   }
 
   private static Opportunity versioned(Long id, Integer version) {
@@ -265,7 +310,10 @@ public class OpportunityRestController {
       opportunity.getLostReason() == null ? null : opportunity.getLostReason().getName());
   }
 
-  public record CreateOpportunity(String name, String businessLineCode) {}
+  /** Only the name and line are required; the account and the estimate can be given at once or later. */
+  public record CreateOpportunity(String name, String businessLineCode, Long accountId, BigDecimal amount, String currencyCode,
+      String expectedCloseDate, BigDecimal probability) {}
+  public record BoardCard(OpportunityView opportunity, String accountName, Long accountId, String ownerName, boolean mine) {}
   public record RenameOpportunity(String name, Integer version) {}
   public record OpportunityView(
     Long id, Integer version, String name, String reference,

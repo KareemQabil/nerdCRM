@@ -1,6 +1,10 @@
 import { useCreateIntent } from "./createIntent";
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
-import { ArrowLeft, ArrowRight, CircleAlert, Plus, RefreshCw, Save, Search, ShieldCheck, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, CircleAlert, Columns3, List, Plus, RefreshCw, Save, Search, ShieldCheck, X } from "lucide-react";
+import { PipelineBoard } from "./PipelineBoard";
+import { DEMO_MODE } from "./demo";
+import { searchEverything, type SearchHit } from "./dailyApi";
+import type { CreatePrefill } from "./createIntent";
 import {
   ApiError, createOpportunity, getCreatableBusinessLines, getOpportunities, getOpportunity, renameOpportunity,
   type BusinessLine, type Opportunity,
@@ -9,6 +13,7 @@ import { type Language } from "./preferences";
 import { OpportunityRecordWorkspace } from "./OpportunityRecordWorkspace";
 import { ErrorBanner, PageHeader } from "./ui";
 import { problem } from "./dailyApi";
+import "./daily.css";
 import { DataTable, tableLabels } from "./DataTable";
 import { amount, day, quantity } from "./format";
 import { stageLabel } from "./labels";
@@ -35,6 +40,19 @@ export function OpportunitiesPage({ language, labels }: Props) {
   const [name, setName] = useState("");
   const [businessLineCode, setBusinessLineCode] = useState("");
   const [saving, setSaving] = useState(false);
+  // the optional part of a new opportunity: its client account and the estimate
+  const [account, setAccount] = useState<{ id: number; name: string } | null>(null);
+  const [accountQuery, setAccountQuery] = useState("");
+  const [accountHits, setAccountHits] = useState<SearchHit[]>([]);
+  const [estimate, setEstimate] = useState({ amount: "", currencyCode: "EGP", expectedCloseDate: "", probability: "" });
+  // list or board, remembered per browser
+  const [view, setViewState] = useState<"list" | "board">(() => { try { return localStorage.getItem("ioeti.opportunities.view") === "board" ? "board" : "list"; } catch { return "list"; } });
+  const setView = (v: "list" | "board") => { setViewState(v); try { localStorage.setItem("ioeti.opportunities.view", v); } catch { /* per-viewer convenience */ } };
+  useEffect(() => {
+    if (account || accountQuery.trim().length < 2) { setAccountHits([]); return; }
+    const t = window.setTimeout(() => void searchEverything(accountQuery.trim()).then(r => setAccountHits(r.filter(h => h.type === "ACCOUNT").slice(0, 6))).catch(() => setAccountHits([])), 250);
+    return () => window.clearTimeout(t);
+  }, [accountQuery, account]);
   const [formError, setFormError] = useState("");
   const closeRef = useRef<HTMLButtonElement>(null);
   const dialogRef = useRef<HTMLElement>(null);
@@ -144,10 +162,12 @@ export function OpportunitiesPage({ language, labels }: Props) {
     else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
   }
 
-  useCreateIntent("opportunity", () => openCreate());
-  function openCreate(event?: React.MouseEvent<HTMLButtonElement>) {
+  useCreateIntent("opportunity", prefill => openCreate(undefined, prefill));
+  function openCreate(event?: React.MouseEvent<HTMLButtonElement>, prefill?: CreatePrefill) {
     previousFocus.current = event?.currentTarget ?? (document.activeElement as HTMLElement | null);
     setName(""); setBusinessLineCode(""); setCreatable(null);
+    setAccount(prefill?.accountId ? { id: prefill.accountId, name: prefill.accountName ?? "#" + prefill.accountId } : null); setAccountQuery("");
+    setEstimate({ amount: "", currencyCode: "EGP", expectedCloseDate: "", probability: "" });
     setFormError(""); setMode({ type: "create" });
     void getCreatableBusinessLines()
       .then(values => { setCreatable(values); setBusinessLineCode(values[0]?.code || ""); })
@@ -168,7 +188,13 @@ export function OpportunitiesPage({ language, labels }: Props) {
     try {
       if (mode.type === "create") {
         if (!businessLineCode) { setFormError(labels.chooseLine); return; }
-        await createOpportunity(name.trim(), businessLineCode);
+        const created = await createOpportunity(name.trim(), businessLineCode, { accountId: account?.id,
+          ...(estimate.amount ? { amount: estimate.amount, currencyCode: estimate.currencyCode } : {}),
+          expectedCloseDate: estimate.expectedCloseDate || undefined, probability: estimate.probability || undefined });
+        setMode(null);
+        await reload();
+        void openRecord(created.id);
+        return;
       } else {
         const updated = await renameOpportunity(mode.item.id, name.trim(), mode.item.version);
         if (selected?.id === updated.id) setSelected(updated);
@@ -182,7 +208,9 @@ export function OpportunitiesPage({ language, labels }: Props) {
         // server validation (IOETI error contract): localize by field, never show raw server text
         const field = reason.fields[0]?.field;
         setFormError(field === "name" ? labels.invalidName
-          : field === "businessLineCode" ? labels.lineUnavailable : labels.unavailable);
+          : field === "businessLineCode" ? labels.lineUnavailable
+          : field === "amount" || field === "probability" ? (isRTL ? "القيمة أو الاحتمال خارج الحدود." : "The value or probability is out of range.")
+          : field === "accountId" ? (isRTL ? "اختار حساب عميل متاح لك." : "Choose a client account you can open.") : labels.unavailable);
       }
       else setFormError(problem(reason, isRTL));
     } finally { setSaving(false); }
@@ -216,7 +244,11 @@ export function OpportunitiesPage({ language, labels }: Props) {
       : <div className="opportunities-list">
 
     <PageHeader eyebrow={labels.sales} title={labels.opportunities} description={labels.opportunitiesDescription}
-      actions={<button type="button" className="btn btn-primary" onClick={openCreate}><Plus size={17}/>{labels.newOpportunity}</button>}/>
+      actions={<>{!DEMO_MODE && <div className="segmented" role="group" aria-label={isRTL ? "طريقة العرض" : "View"}>
+        <button type="button" className={view === "list" ? "chosen" : ""} aria-pressed={view === "list"} onClick={() => setView("list")}><List size={15}/>{isRTL ? "قائمة" : "List"}</button>
+        <button type="button" className={view === "board" ? "chosen" : ""} aria-pressed={view === "board"} onClick={() => setView("board")}><Columns3 size={15}/>{isRTL ? "لوحة" : "Board"}</button></div>}
+        <button type="button" className="btn btn-primary" onClick={e => openCreate(e)}><Plus size={17}/>{labels.newOpportunity}</button></>}/>
+    {view === "board" && !DEMO_MODE ? <PipelineBoard language={language} onOpen={id => void openRecord(id)}/> : <>
     <div className="list-toolbar"><label className="search-field"><Search size={18}/><span className="sr-only">{labels.searchOpportunities}</span><input value={filter} onChange={e => setFilter(e.target.value)} placeholder={labels.searchOpportunities}/></label><button className="icon-button" type="button" aria-label={labels.retry} onClick={() => void reload()}><RefreshCw size={17}/></button></div>
     <ErrorBanner message={error} onRetry={() => void reload()} retryLabel={labels.retry}/>
     <div className="data-panel">
@@ -242,6 +274,7 @@ export function OpportunitiesPage({ language, labels }: Props) {
         ]}/>}
     </div>
     {more && <div className="load-more"><button type="button" className="btn btn-secondary" disabled={loadingMore} onClick={() => void loadMore()}>{loadingMore ? labels.loading : labels.moreRecords}</button></div>}
+    </>}
     <p className="scope-note"><ShieldCheck size={16}/>{labels.permissionNotice}</p>
     </div>)}
     {mode && <div className="drawer-overlay action-modal-overlay" onMouseDown={e => { if (!saving && e.target === e.currentTarget) setMode(null); }}>
@@ -252,10 +285,21 @@ export function OpportunitiesPage({ language, labels }: Props) {
             <label><span>{labels.opportunityName}</span><input ref={inputRef} maxLength={160} value={name} onChange={e => setName(e.target.value)} required minLength={3}/></label>
             {mode.type === "create" && <label><span>{labels.businessLines}</span><select required value={businessLineCode} disabled={creatable === null} onChange={e => setBusinessLineCode(e.target.value)}><option value="">{creatable === null ? labels.loading : labels.chooseLine}</option>{(creatable || []).map(line => <option key={line.id} value={line.code}>{isRTL ? line.nameAr : line.nameEn}</option>)}</select></label>}
             {mode.type === "create" && creatable !== null && creatable.length === 0 && !formError && <div className="login-error" role="status"><CircleAlert size={17}/>{labels.noCreatableLines}</div>}
+            {mode.type === "create" && <fieldset className="opportunity-extras"><legend>{isRTL ? "تفاصيل تقدر تضيفها دلوقتي أو بعدين" : "Details you can add now or later"}</legend>
+              <div className="opportunity-account"><label><span>{isRTL ? "حساب العميل" : "Client account"}</span>
+                {account ? <span className="calendar-linked"><b>{account.name}</b><button type="button" className="text-action" onClick={() => setAccount(null)}>{isRTL ? "تغيير" : "Change"}</button></span>
+                  : <input value={accountQuery} placeholder={isRTL ? "اكتب حرفين من اسم الحساب" : "Type two letters of the account"} onChange={e => setAccountQuery(e.target.value)}/>}</label>
+                {!account && accountHits.length > 0 && <ul className="calendar-hits">{accountHits.map(h => <li key={h.id}><button type="button" onClick={() => setAccount({ id: h.id, name: h.title })}><b>{h.title}</b><small>{h.subtitle ?? ""}</small></button></li>)}</ul>}</div>
+              <div className="opportunity-estimate">
+                <label><span>{isRTL ? "القيمة المتوقعة" : "Expected value"}</span><input type="number" min={0} step="0.01" inputMode="decimal" dir="ltr" value={estimate.amount} onChange={e => setEstimate(x => ({ ...x, amount: e.target.value }))}/></label>
+                <label><span>{isRTL ? "العملة" : "Currency"}</span><select value={estimate.currencyCode} onChange={e => setEstimate(x => ({ ...x, currencyCode: e.target.value }))}>{["EGP", "USD", "EUR", "SAR", "AED", "GBP"].map(c => <option key={c} value={c}>{c}</option>)}</select></label>
+                <label><span>{isRTL ? "الإغلاق المتوقع" : "Expected close"}</span><input type="date" value={estimate.expectedCloseDate} onChange={e => setEstimate(x => ({ ...x, expectedCloseDate: e.target.value }))}/></label>
+                <label><span>{isRTL ? "الاحتمال %" : "Probability %"}</span><input type="number" min={0} max={100} step={5} dir="ltr" value={estimate.probability} onChange={e => setEstimate(x => ({ ...x, probability: e.target.value }))}/></label>
+              </div></fieldset>}
             {formError && <div className="login-error" role="alert"><CircleAlert size={17}/>{formError}</div>}
           </form>
         </div>
-        <footer className="drawer-footer drawer-actions"><button className="btn btn-secondary" type="button" disabled={saving} onClick={() => setMode(null)}>{labels.back}</button><button className="btn btn-primary" type="submit" form="opportunity-form" disabled={saving || (mode.type === "create" && !creatable?.length)}><Save size={16}/>{saving ? labels.loading : labels.save}</button></footer>
+        <footer className="drawer-footer drawer-actions"><button className="btn btn-secondary" type="button" disabled={saving} onClick={() => setMode(null)}>{isRTL ? "إلغاء" : "Cancel"}</button><button className="btn btn-primary" type="submit" form="opportunity-form" disabled={saving || (mode.type === "create" && !creatable?.length)}><Save size={16}/>{saving ? labels.loading : mode.type === "create" ? (isRTL ? "إنشاء الفرصة" : "Create opportunity") : labels.save}</button></footer>
       </section>
     </div>}
   </section>;

@@ -1517,3 +1517,47 @@ html[dir="rtl"] :is(dd, td, th, p, small, div.stat-value)[dir="ltr"] { text-alig
 .quick-create-menu button span { flex: 1; }
 .quick-create-menu kbd { padding: 0 6px; border-radius: 5px; border: 1px solid var(--outline-variant); font-family: inherit; font-size: 11px; color: var(--on-surface-variant); }
 @media (max-width: 720px) { .quick-create-button span { display: none; } .quick-create-button { padding-inline: 10px; } }
+
+/* the pipeline board */
+.pipeline-board-wrap { display: grid; gap: 12px; }
+.pipeline-filters { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.pipeline-filters small { color: var(--on-surface-variant); font-size: 12px; }
+.pipeline-search, .pipeline-filters select { min-height: 38px; padding: 6px 10px; border-radius: var(--radius); border: 1px solid var(--outline-variant); background: var(--surface); color: var(--on-surface); font: inherit; }
+.pipeline-search { flex: 1 1 220px; max-width: 360px; }
+.pipeline-mine { display: inline-flex; align-items: center; gap: 6px; font-size: 13.5px; }
+.pipeline-board { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(250px, 1fr); gap: 12px; overflow-x: auto; padding-bottom: 6px; align-items: start; }
+.pipeline-column { display: grid; gap: 8px; align-content: start; min-height: 220px; padding: 10px; border-radius: var(--radius-lg, 14px); background: var(--surface-variant);
+  border: 1px solid transparent; transition: border-color .12s, background .12s; }
+.pipeline-column.is-over { border-color: var(--primary); background: color-mix(in srgb, var(--primary-container) 45%, var(--surface-variant)); }
+.pipeline-column header { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 2px 4px 6px; border-bottom: 1px solid var(--outline-variant); }
+.pipeline-column header strong { font-size: 14px; }
+.pipeline-column.kind-won header svg { color: var(--success); }
+.pipeline-column.kind-lost header svg { color: var(--error); }
+.pipeline-count { min-width: 22px; padding: 0 7px; border-radius: 999px; background: var(--surface); font-size: 12px; text-align: center; font-variant-numeric: tabular-nums; }
+.pipeline-sum { inline-size: 100%; font-size: 12px; font-weight: 700; color: var(--on-surface-variant); font-variant-numeric: tabular-nums; text-align: start; }
+html[dir="rtl"] .pipeline-sum { text-align: right; }
+.pipeline-column ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.pipeline-card { display: grid; gap: 6px; padding: 10px 12px; border-radius: 11px; background: var(--surface); border: 1px solid var(--outline-variant); box-shadow: 0 1px 2px rgba(0,0,0,.05); }
+.pipeline-card[draggable="true"] { cursor: grab; }
+.pipeline-card.is-dragging { opacity: .5; }
+.pipeline-card-top { display: flex; align-items: flex-start; gap: 4px; }
+.pipeline-grip { flex: 0 0 auto; margin-top: 3px; color: var(--on-surface-variant); }
+.pipeline-card-name { padding: 0; border: 0; background: transparent; color: var(--on-surface); font: inherit; font-weight: 700; font-size: 14px; text-align: start; cursor: pointer; line-height: 1.4; }
+.pipeline-card-name:hover { color: var(--primary); text-decoration: underline; }
+.pipeline-meta, .pipeline-card-facts span { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: var(--on-surface-variant); }
+.pipeline-card-facts { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; }
+.pipeline-card-facts b { font-size: 13px; font-variant-numeric: tabular-nums; }
+.pipeline-card-facts .is-late { color: var(--error); font-weight: 700; }
+.pipeline-move select { inline-size: 100%; min-height: 32px; padding: 3px 8px; border-radius: 8px; border: 1px dashed var(--outline-variant); background: transparent; color: var(--on-surface-variant); font: inherit; font-size: 12.5px; }
+.pipeline-empty { padding: 14px 6px; text-align: center; font-size: 12.5px; color: var(--on-surface-variant); }
+.page-head .segmented button { display: inline-flex; align-items: center; gap: 6px; }
+
+/* the new-opportunity form: the optional account and estimate */
+.opportunity-extras { display: grid; gap: 10px; margin: 6px 0 0; padding: 12px; border-radius: var(--radius); border: 1px dashed var(--outline-variant); }
+.opportunity-extras legend { padding: 0 6px; font-size: 12.5px; font-weight: 700; color: var(--on-surface-variant); }
+.opportunity-account, .opportunity-account label { display: grid; gap: 6px; }
+.opportunity-estimate { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.opportunity-estimate label { display: grid; gap: 5px; }
+.opportunity-extras :is(input, select) { min-height: 40px; padding: 6px 10px; border-radius: var(--radius); border: 1px solid var(--outline-variant); background: var(--surface); color: var(--on-surface); font: inherit; }
+.opportunity-extras label > span { font-size: 12.5px; font-weight: 700; color: var(--on-surface-variant); }
+@media (max-width: 720px) { .pipeline-board { grid-auto-columns: minmax(78vw, 1fr); scroll-snap-type: x mandatory; } .pipeline-column { scroll-snap-align: start; } .opportunity-estimate { grid-template-columns: 1fr; } }

@@ -17,6 +17,7 @@ Checks:
   agenda: the caller's planned items only, other reps' items excluded, range limit
   search: Arabic-normalised, only readable records, minimum length, anonymous refused
   menu: the session lists only the pages whose records the person may read
+  board: a new opportunity with its account and estimate; the pipeline board follows read access
 Report: logs/daily-work-probe.json.
 """
 import json
@@ -288,6 +289,28 @@ def main():
               and not any(i.get("title") == "مكالمة لسارة" for i in items), [(i["type"], i.get("title")) for i in items])
         s, _ = a.call("GET", f"{WS}/agenda?from=2026-01-01&to=2026-06-30")
         check("an agenda range over 62 days → 400", s == 400, s)
+
+        # --- a complete new opportunity, and the pipeline board -------------------------------------------
+        close2 = (date.today() + timedelta(days=60)).isoformat()
+        s, body = a.call("POST", OP, {"name": f"عقد صيانة سنوي {tag}", "businessLineCode": line["code"], "accountId": account.get("id"),
+                                      "amount": 45000, "currencyCode": "EGP", "expectedCloseDate": close2, "probability": 60})
+        full = obj(body)
+        if full.get("id"):
+            created.append((OPP, full["id"]))
+        check("a new opportunity can carry its client account and estimate at once",
+              s == 201 and float(full.get("amount") or 0) == 45000 and full.get("currencyCode") == "EGP" and full.get("expectedCloseDate") == close2
+              and float(full.get("probability") or 0) == 60, (s, full))
+        s1, b1 = a.call("POST", OP, {"name": f"فرصة لجهة اتصال {tag}", "businessLineCode": line["code"], "accountId": contact.get("id")})
+        s2, b2 = a.call("POST", OP, {"name": f"فرصة بقيمة سالبة {tag}", "businessLineCode": line["code"], "amount": -5})
+        check("the account must be a client account (a contact person → 422) and the estimate is checked (422 RANGE)",
+              (s1, err(b1)[1], s2, err(b2)[1]) == (422, "UNAVAILABLE", 422, "RANGE"), (s1, err(b1), s2, err(b2)))
+        s, body = a.call("GET", OP + "/board")
+        mine_card = next((c for c in rows(body) if c["opportunity"]["id"] == full.get("id")), {})
+        s_b, body_b = b.call("GET", OP + "/board")
+        check("the board has the rep's open opportunity with its account and owner; another rep's board does not",
+              s == 200 and mine_card.get("accountName", "").startswith("شركة الأمل") and mine_card.get("mine") is True
+              and mine_card.get("ownerName") == f"Daily RepA {tag}" and s_b == 200 and not any(c["opportunity"]["id"] == full.get("id") for c in rows(body_b)),
+              (s, mine_card, s_b))
 
         # --- the menu: the session lists the pages whose records the person may read ----------------------
         _, me_a = a.call("GET", "/ws/ioeti/session")

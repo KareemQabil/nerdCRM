@@ -1,35 +1,41 @@
 import { useEffect, useRef } from "react";
+
 /**
- * "+ New" from anywhere: the top bar records what the person wants to create and opens that page, which opens its own
- * create form once it is on screen. Session storage only carries the intent across the page change; nothing is created
- * until the person fills the form, and the server checks the create as always.
+ * "+ New" from anywhere: the top bar (or a record, such as an account starting an opportunity) records what the person
+ * wants to create and opens that page, which opens its own create form once it is on screen. Session storage only carries
+ * the intent across the page change; nothing is created until the person fills the form, and the server checks the create.
  */
 export type CreateKind = "lead" | "account" | "opportunity" | "calendar" | "visit";
+/** What the form can start with, e.g. the account an opportunity is for. */
+export type CreatePrefill = { accountId?: number; accountName?: string };
 const KEY = "ioeti.create";
 
-export function requestCreate(kind: CreateKind, page: string) {
-  try { sessionStorage.setItem(KEY, kind); } catch { /* the page simply opens without its form */ }
-  if (window.location.hash === "#/" + page) window.dispatchEvent(new HashChangeEvent("hashchange"));
-  else window.location.hash = "#/" + page;
+export function requestCreate(kind: CreateKind, page: string, prefill?: CreatePrefill) {
+  try { sessionStorage.setItem(KEY, JSON.stringify({ kind, prefill: prefill ?? null })); } catch { /* the page simply opens without its form */ }
+  if (window.location.hash !== "#/" + page) window.location.hash = "#/" + page;
   window.dispatchEvent(new CustomEvent("ioeti:create", { detail: kind }));
 }
 
-/** True once when the person asked to create this kind of record; the request is used up. */
-export function takeCreate(kind: CreateKind): boolean {
+/** The prefill (or {}) once when the person asked to create this kind of record; the request is used up. Null otherwise. */
+export function takeCreate(kind: CreateKind): CreatePrefill | null {
   try {
-    if (sessionStorage.getItem(KEY) !== kind) return false;
+    const raw = sessionStorage.getItem(KEY);
+    if (!raw) return null;
+    const intent = JSON.parse(raw) as { kind: string; prefill: CreatePrefill | null };
+    if (intent.kind !== kind) return null;
     sessionStorage.removeItem(KEY);
-    return true;
-  } catch { return false; }
+    return intent.prefill ?? {};
+  } catch { return null; }
 }
 
 /** Opens the page's create form when "+ New" asked for it: on arrival, or while the page is already open. */
-export function useCreateIntent(kind: CreateKind, open: () => void) {
+export function useCreateIntent(kind: CreateKind, open: (prefill: CreatePrefill) => void) {
   const latest = useRef(open);
   latest.current = open;
   useEffect(() => {
-    if (takeCreate(kind)) latest.current();
-    const on = (e: Event) => { if ((e as CustomEvent).detail === kind && takeCreate(kind)) latest.current(); };
+    const first = takeCreate(kind);
+    if (first) latest.current(first);
+    const on = (e: Event) => { if ((e as CustomEvent).detail !== kind) return; const p = takeCreate(kind); if (p) latest.current(p); };
     window.addEventListener("ioeti:create", on);
     return () => window.removeEventListener("ioeti:create", on);
   }, [kind]);
