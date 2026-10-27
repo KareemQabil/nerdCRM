@@ -13,6 +13,7 @@ TRACE_BACK = "com.axelor.apps.base.db.TraceBack"
 # Wave 7b: in-app notices and outbox drafts point at users (absent before the module exists: no-op)
 INBOX_NOTICE = "com.ioeti.automation.db.InboxNotice"
 OUTBOUND = "com.ioeti.automation.db.OutboundMessage"
+META_FILE = "com.axelor.meta.db.MetaFile"
 
 
 def _delete_where(admin, model, domain):
@@ -40,6 +41,8 @@ def delete_record(admin, model, rid):
         _delete_where(admin, TRACE_BACK, f"self.createdBy.id = {int(rid)}")  # errors logged during its requests
         _delete_where(admin, INBOX_NOTICE, f"self.recipient.id = {int(rid)} OR self.actor.id = {int(rid)}")
         _delete_where(admin, OUTBOUND, f"self.author.id = {int(rid)}")
+        # files Axelor generated during its requests (e.g. a product's barcode image)
+        _delete_where(admin, META_FILE, f"self.createdBy.id = {int(rid)}")
         if ok(admin.call("DELETE", f"/ws/rest/{model}/{rid}")[1]):
             return True
         time.sleep(1 + attempt)
