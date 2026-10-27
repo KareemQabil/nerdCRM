@@ -1497,5 +1497,8 @@ th[aria-sort="ascending"], th[aria-sort="descending"] { color: var(--on-surface)
 
 /* Figures written left-to-right inside Arabic pages: the digits stay LTR, but the cell keeps the page's alignment so a
    figure lines up under its label (a dd/dt pair, a stat row). Inline figures are unaffected. */
-html[dir="rtl"] dd[dir="ltr"], html[dir="rtl"] p[dir="ltr"], html[dir="rtl"] div[dir="ltr"].stat-value { text-align: right; }
+/* Figures are written left to right (dir="ltr"), but in a right-to-left page their cell still lines up with its label:
+   right. Without this, "text-align: start" inside an ltr cell means left, away from the heading above it. */
+html[dir="rtl"] :is(dd, td, th, p, small, div.stat-value)[dir="ltr"] { text-align: right; }
+:is(td, th)[dir="ltr"] { font-variant-numeric: tabular-nums; white-space: nowrap; }
 .cockpit-funnel dd, .cockpit-bar-count, .cockpit-tile-value { font-variant-numeric: tabular-nums; }

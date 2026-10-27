@@ -5,7 +5,7 @@ import {
 } from "lucide-react";
 import { getAccount, getLead, getOpportunity } from "./api";
 import {
-  cancelActivity, finishActivity, getAgenda, getCalendarPeople, localDate, moveActivity, planItem, problem, recordHref, searchEverything, wallClock,
+  cancelActivity, finishActivity, getAgenda, getCalendarPeople, getOverdue, localDate, moveActivity, planItem, problem, recordHref, searchEverything, wallClock,
   type ActivityKind, type AgendaItem, type CalendarPerson, type RecordType, type SearchHit,
 } from "./dailyApi";
 import { Dialog } from "./Dialog";
@@ -47,7 +47,8 @@ const L = {
     pastNote: "الميعاد ده فات، فهيتسجل إنه حصل.",
     markDone: "تم", outcome: "حصل إيه؟ (اختياري، مش بيتعرض تاني)", reschedule: "تغيير الميعاد", save: "حفظ", cancelItem: "إلغاء الموعد",
     cancelConfirm: "تلغي الموعد ده؟ بيفضل في السجل كملغي.", moved: "اتنقل الموعد.", finished: "اتسجل إنه تم.", cancelledNote: "اتلغى الموعد.", added: "اتضاف الموعد.",
-    dragHint: "اسحب مواعيدك المخططة لوقت تاني، أو افتحها وغيّر الميعاد.", keys: "اختصارات: T النهارده · ← → السابق/التالي · M/W/D/L العروض",
+    dragHint: "اسحب مواعيدك المخططة لوقت تاني، أو افتحها وغيّر الميعاد.", overdueTitle: (n: number) => `${n} ${n === 1 ? "موعد فات ميعاده" : "مواعيد فات ميعادها"} ومتعلّمتش إنها تمت`,
+    snooze: "بكرة 10 الصبح", snoozeWeek: "الأسبوع الجاي", snoozed: "اتأجل الموعد.", keys: "اختصارات: T النهارده · ← → السابق/التالي · M/W/D/L العروض",
     week0: 6,
   },
   en: {
@@ -68,7 +69,8 @@ const L = {
     pastNote: "This time has passed, so it is recorded as having happened.",
     markDone: "Done", outcome: "What came of it? (optional, never shown again)", reschedule: "Reschedule", save: "Save", cancelItem: "Cancel item",
     cancelConfirm: "Cancel this item? It stays in the history as cancelled.", moved: "Moved.", finished: "Marked done.", cancelledNote: "Cancelled.", added: "Added.",
-    dragHint: "Drag your planned items to another time, or open one and reschedule it.", keys: "Shortcuts: T today · ← → previous/next · M/W/D/L views",
+    dragHint: "Drag your planned items to another time, or open one and reschedule it.", overdueTitle: (n: number) => `${n} planned ${n === 1 ? "item is" : "items are"} past their time and not marked done`,
+    snooze: "Tomorrow 10:00", snoozeWeek: "Next week", snoozed: "Postponed.", keys: "Shortcuts: T today · ← → previous/next · M/W/D/L views",
     week0: 6,
   },
 };
@@ -121,6 +123,7 @@ export function AgendaPage({ language }: { language: Language }) {
   const [view, setViewState] = useState<View>(readView);
   const [anchor, setAnchor] = useState(() => startOfDay(new Date()));
   const [items, setItems] = useState<AgendaItem[] | null>(null);
+  const [late, setLate] = useState<AgendaItem[]>([]);
   const [people, setPeople] = useState<CalendarPerson[]>([]);
   const [person, setPerson] = useState<number | null>(null);
   const [hidden, setHidden] = useState<Set<ItemType>>(new Set());
@@ -139,6 +142,7 @@ export function AgendaPage({ language }: { language: Language }) {
   const own = person === null || people.find(p => p.id === person)?.me === true;
   const load = useCallback(() => {
     setError("");
+    if (own) void getOverdue().then(setLate).catch(() => setLate([])); else setLate([]);
     return getAgenda(localDate(from), localDate(to), own ? null : person).then(setItems).catch(e => { setItems([]); setError(problem(e, ar)); });
   }, [from.getTime(), to.getTime(), person, own, ar]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { setItems(null); void load(); }, [load]);
@@ -203,6 +207,11 @@ export function AgendaPage({ language }: { language: Language }) {
       className={"calendar-chip type-" + t.toLowerCase() + (hidden.has(t) ? " is-off" : "")}
       onClick={() => setHidden(h => { const n = new Set(h); if (n.has(t)) n.delete(t); else n.add(t); return n; })}>
       <i aria-hidden="true"/>{l.types[t]}{counts.get(t) ? <b dir="ltr">{counts.get(t)}</b> : null}</button>)}</div>
+    {own && late.length > 0 && <section className="calendar-late" aria-label={l.overdue}>
+      <strong><CircleAlert size={16}/>{l.overdueTitle(late.length)}</strong>
+      <div>{late.slice(0, 8).map(i => <ItemChip key={"late" + i.id} item={i} l={l} locale={locale} compact late onOpen={setOpened}/>)}
+        {late.length > 8 && <span className="calendar-muted">{l.more(late.length - 8)}</span>}</div>
+    </section>}
     {!own && <p className="daily-note" role="note"><UsersRound size={15}/>{l.readOnly}</p>}
     {notice && <p className="daily-note" role="status"><Check size={15}/>{notice}</p>}
     {error && <div className="error-banner" role="alert"><CircleAlert size={17}/><span>{error}</span><button type="button" className="btn btn-secondary" onClick={() => void load()}>{l.refresh}</button></div>}
@@ -227,13 +236,13 @@ function nextSlot(day: Date): Date {
   return new Date(now.getFullYear(), now.getMonth(), now.getDate(), Math.floor(m / 60), m % 60);
 }
 
-function ItemChip({ item, l, locale, compact, onOpen }: { item: AgendaItem; l: Labels; locale: string; compact?: boolean; onOpen: (i: AgendaItem) => void }) {
+function ItemChip({ item, l, locale, compact, late, onOpen }: { item: AgendaItem; l: Labels; locale: string; compact?: boolean; late?: boolean; onOpen: (i: AgendaItem) => void }) {
   const Icon = icon(item);
   const s = startOf(item);
   const title = item.title || (item.type === "AUDIT" ? l.audit : l.types[item.type]);
-  return <button type="button" className={"calendar-item type-" + item.type.toLowerCase() + (item.status === "DONE" ? " is-done" : "") + (compact ? " is-compact" : "")}
+  return <button type="button" className={"calendar-item type-" + item.type.toLowerCase() + (item.status === "DONE" ? " is-done" : "") + (overdue(item) ? " is-overdue" : "") + (compact ? " is-compact" : "")}
     onClick={() => onOpen(item)} title={title}>
-    <Icon size={13} aria-hidden="true"/>{!allDay(item) && s && <time>{s.toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" })}</time>}<span>{title}</span>
+    <Icon size={13} aria-hidden="true"/>{!allDay(item) && s && <time>{late ? s.toLocaleDateString(locale, { day: "numeric", month: "short" }) + " " : ""}{s.toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" })}</time>}<span>{title}</span>
   </button>;
 }
 
@@ -356,7 +365,7 @@ function TimeGrid({ l, locale, days, byDay, own, onOpen, onCreate, onMove }: {
               const dragging = drag?.item === item;
               const title = item.title || l.types[item.type];
               return <button key={item.type + item.id} type="button"
-                className={"calendar-event type-" + item.type.toLowerCase() + (item.status === "DONE" ? " is-done" : "") + (item.movable && own ? " is-movable" : "") + (dragging ? " is-dragging" : "")}
+                className={"calendar-event type-" + item.type.toLowerCase() + (item.status === "DONE" ? " is-done" : "") + (overdue(item) ? " is-overdue" : "") + (item.movable && own ? " is-movable" : "") + (dragging ? " is-dragging" : "")}
                 style={{ insetBlockStart: top, blockSize: height, zIndex: 2 + lane, insetInlineStart: `calc(${lane} * 100% / ${of})`,
                   // overlapping items cascade: each but the last reaches into the next lane, so titles stay readable in a narrow week column
                   inlineSize: lane < of - 1 ? `calc(100% / ${of} * 1.7 - 4px)` : `calc(100% / ${of} - 4px)`,
@@ -392,6 +401,9 @@ function statusText(item: AgendaItem, l: Labels) {
   return item.type === "ACTIVITY" ? l.planned : "";
 }
 
+/** 10:00 a number of days from today, for postponing an item in one click. */
+const snooze = (days: number) => `${localDate(addDays(new Date(), days))}T10:00`;
+
 /** One item: what and when, the record it belongs to, and for your own planned activity: done, reschedule or cancel. */
 function ItemDialog({ l, locale, item, onClose, onChanged }: { l: Labels; locale: string; item: AgendaItem; onClose: () => void; onChanged: (msg: string) => void }) {
   const s = startOf(item), e = endOf(item);
@@ -420,6 +432,8 @@ function ItemDialog({ l, locale, item, onClose, onChanged }: { l: Labels; locale
     {editable && mode === "" && <div className="calendar-actions">
       <button type="button" className="btn btn-primary" onClick={() => setMode("done")}><Check size={15}/>{l.markDone}</button>
       <button type="button" className="btn btn-secondary" onClick={() => setMode("move")}><Clock3 size={15}/>{l.reschedule}</button>
+      <button type="button" className="btn btn-secondary" disabled={busy} onClick={() => void run(() => moveActivity(item.id, item.version!, snooze(1)), l.snoozed)}>{l.snooze}</button>
+      <button type="button" className="btn btn-secondary" disabled={busy} onClick={() => void run(() => moveActivity(item.id, item.version!, snooze(7)), l.snoozed)}>{l.snoozeWeek}</button>
       <button type="button" className="btn btn-danger-quiet" onClick={() => setMode("cancel")}><X size={15}/>{l.cancelItem}</button>
     </div>}
     {mode === "done" && <form className="daily-form" onSubmit={ev => { ev.preventDefault(); void run(() => finishActivity(item.id, item.version!, outcome.trim()), l.finished); }}>

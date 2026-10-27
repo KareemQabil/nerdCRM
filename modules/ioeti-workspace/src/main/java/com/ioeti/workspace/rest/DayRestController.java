@@ -241,6 +241,21 @@ public class DayRestController {
   // --- the caller's agenda ---------------------------------------------------------------------------
 
   @GET
+  @Path("/agenda/overdue")
+  @Operation(summary = "The caller's own planned activities whose time has passed (oldest first, at most 100), so none falls off the calendar", tags = {"IOETI workspace"})
+  @IoetiEndpoint
+  public Response overdue(@QueryParam("zone") String zone) {
+    User me = AuthUtils.getUser();
+    List<AgendaItem> items = new ArrayList<>();
+    if (Beans.get(JpaSecurity.class).isPermitted(JpaSecurity.CAN_READ, Event.class)) {
+      readable(Event.class, new JPQLFilter("self.user = ? AND self.statusSelect = ? AND self.startDateTime < ?", me, EventRepository.STATUS_PLANNED, now(zone)))
+          .order("startDateTime").fetch(100).forEach(e -> items.add(new AgendaItem("ACTIVITY", e.getId(), e.getSubject(), e.getStartDateTime(),
+              e.getEndDateTime(), kindName(e.getTypeSelect()), statusName(e.getStatusSelect()), linkType(e), linkId(e), e.getVersion(), true)));
+    }
+    return ResponseConstructor.build(Response.Status.OK, "Overdue", items);
+  }
+
+  @GET
   @Path("/agenda")
   @Operation(summary = "The caller's own agenda across domains: follow-ups and activities, sessions they coordinate, audits they lead or manage, interviews for their job orders, field visits assigned to them, open corrective actions they own falling due", tags = {"IOETI workspace"})
   @IoetiEndpoint

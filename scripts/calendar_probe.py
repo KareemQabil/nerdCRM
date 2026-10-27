@@ -8,6 +8,7 @@ Checks:
   move: to another time keeping its length, or with a new length; stale version → 409; into the past → 422 PAST;
   another person's item → 404; a done item → 422 NOT_PLANNED
   done and cancel: done with an outcome (never returned), not twice; a cancelled item leaves the calendar
+  overdue: the owner's planned items whose time passed are listed (only theirs) until done or postponed
   whose calendar: the people list is the caller and their teammates; a teammate's calendar shows only what the caller's
   own rights let them read, and nothing in it can be moved; someone outside the team → 404; anonymous → 401
 Report: logs/calendar-probe.json.
@@ -165,6 +166,22 @@ def main():
         check("a cancelled item leaves the calendar", s == 200 and not any(i["id"] == to_cancel.get("id") for i in items), (s, [i["id"] for i in items]))
         s, _ = b.call("POST", f"{WS}/activities/{done_item.get('id')}/cancel", {"version": 0})
         check("a teammate cannot cancel another's item (404)", s == 404, s)
+
+        # --- overdue: a planned item whose time has passed stays in view ------------------------------
+        s, body = add(a, subject=f"متابعة فات ميعادها {tag}", at=at, planned=True)
+        stale = obj(body)
+        # the clock moves on: the fixture's time is put in the past directly (a planned item cannot be created there)
+        _, fetched = admin.call("POST", f"/ws/rest/{EVENT}/{stale.get('id')}/fetch", {"fields": ["version"]})
+        admin.call("POST", f"/ws/rest/{EVENT}/{stale.get('id')}", {"data": {"id": stale.get("id"), "version": (fetched.get("data") or [{}])[0].get("version"),
+                                                                       "startDateTime": f"{past}:00", "endDateTime": f"{past[:11]}09:30:00"}})
+        s1, b1 = a.call("GET", f"{WS}/agenda/overdue?zone={ZONE}")
+        s2, b2 = b.call("GET", f"{WS}/agenda/overdue?zone={ZONE}")
+        late = next((i for i in rows(b1) if i["id"] == stale.get("id")), {})
+        check("the overdue list has the owner's planned item whose time passed (movable), and only theirs",
+              s1 == 200 and late.get("movable") is True and late.get("status") == "PLANNED" and s2 == 200 and not any(i["id"] == stale.get("id") for i in rows(b2)), (s1, rows(b1), s2))
+        s, body = a.call("POST", f"{WS}/activities/{stale.get('id')}/move", {"version": late.get("version"), "at": at, "zone": ZONE})
+        _, b1 = a.call("GET", f"{WS}/agenda/overdue?zone={ZONE}")
+        check("postponing it to a future time takes it off the overdue list", s == 200 and not any(i["id"] == stale.get("id") for i in rows(b1)), (s, rows(b1)))
 
         # --- whose calendar -----------------------------------------------------------------------------
         s, body = a.call("GET", WS + "/agenda/people")

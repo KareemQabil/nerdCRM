@@ -90,6 +90,8 @@ function browserZone(): string | undefined {
 }
 export const getAgenda = (from: string, to: string, userId?: number | null) =>
   list<AgendaItem>(`/ws/ioeti/workspace/agenda?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}${userId ? `&userId=${id(userId)}` : ""}`);
+/** The caller's own planned activities whose time has passed, so none falls off the calendar. */
+export const getOverdue = () => list<AgendaItem>(`/ws/ioeti/workspace/agenda/overdue${browserZone() ? `?zone=${encodeURIComponent(browserZone()!)}` : ""}`);
 export const searchEverything = (q: string) => list<SearchHit>(`/ws/ioeti/workspace/search?q=${encodeURIComponent(q)}`);
 
 /** Where a record opens in the web app. */

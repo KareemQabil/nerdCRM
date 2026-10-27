@@ -30,6 +30,9 @@ async function mockCalendar(page: Page, options: { people?: { id: number; name: 
       route.fulfill({ status: code, contentType: "application/json", body: JSON.stringify({ codeStatus: code, messageStatus: "ok", object }) });
     if (path === "/session") return route.fulfill({ status: 200, contentType: "application/json",
       body: JSON.stringify({ code: "sara.mansour", name: "سارة منصور", language: "ar", administrator: false }) });
+    if (path === "/workspace/agenda/overdue") return result([
+      { type: "ACTIVITY", id: 290, version: 2, movable: true, title: "مكالمة متابعة مصنع الدلتا", at: at(-3, 10), endsAt: at(-3, 10, 30), kind: "CALL", status: "PLANNED", recordType: "LEAD", recordId: 50 },
+    ]);
     if (path === "/workspace/agenda/people") return result(options.people ?? [{ id: 7, name: "سارة منصور", me: true }]);
     if (path === "/workspace/agenda") {
       asked.push(url.search);
@@ -212,4 +215,18 @@ test("the calendar passes axe's WCAG 2.1 A and AA rules in light and dark, week 
     await expect(page.locator(".calendar-legend")).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
   }
+});
+
+test("planned items whose time has passed stay in view above the calendar and can be postponed to tomorrow in one click", async ({ page }) => {
+  const { posted } = await mockCalendar(page);
+  await page.goto("/#/agenda");
+  const late = page.locator(".calendar-late");
+  await expect(late).toContainText("1 موعد فات ميعاده ومتعلّمتش إنها تمت");
+  await late.getByRole("button", { name: /مكالمة متابعة مصنع الدلتا/ }).click();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog).toContainText("متأخر");
+  await dialog.getByRole("button", { name: "بكرة 10 الصبح" }).click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(page.locator(".calendar-page").getByRole("status")).toContainText("اتأجل الموعد.");
+  expect(posted.find(p => p.path === "/workspace/activities/290/move")!.body).toMatchObject({ version: 2, at: at(1, 10) });
 });

@@ -295,3 +295,15 @@
 .agenda-item.type-activity, .agenda-item.type-session, .agenda-item.type-audit, .agenda-item.type-interview, .agenda-item.type-visit, .agenda-item.type-action { border-inline-start-color: var(--cal); }
 .agenda-item .agenda-icon { color: var(--cal); }
 .agenda-item.is-overdue { border-inline-start-color: var(--error); }
+.calendar-late { display: grid; gap: 8px; padding: 12px 14px; border-radius: var(--radius-lg); border: 1px solid color-mix(in srgb, var(--error) 40%, var(--outline-variant));
+  background: color-mix(in srgb, var(--error-container) 45%, var(--surface)); }
+.calendar-late > strong { display: flex; align-items: center; gap: 8px; font-size: 13.5px; color: var(--on-error-container, var(--on-surface)); }
+.calendar-late > strong svg { color: var(--error); }
+.calendar-late > div { display: flex; flex-wrap: wrap; gap: 6px; }
+.calendar-late .calendar-item { inline-size: auto; max-inline-size: 280px; }
+.calendar-item.is-overdue, .calendar-event.is-overdue { border-inline-start-color: var(--error); }
+.calendar-event.is-overdue .calendar-event-time svg { color: var(--error); }
+@media (max-width: 720px) {
+  .calendar-grid:not(.is-day) .calendar-event-time { display: none; }
+  .calendar-grid:not(.is-day) .calendar-event-title { white-space: normal; overflow-wrap: anywhere; line-height: 1.25; }
+}
