@@ -18,6 +18,7 @@ import com.axelor.team.db.Team;
 import com.google.inject.persist.Transactional;
 import com.ioeti.businessline.db.BusinessLine;
 import com.ioeti.core.api.ApiException;
+import com.ioeti.core.api.Locks;
 import com.ioeti.operations.db.HandoverEvent;
 import com.ioeti.operations.db.HandoverItem;
 import com.ioeti.operations.db.HandoverRequest;
@@ -233,7 +234,7 @@ public class OperationsService {
 
   @Transactional(rollbackOn = {Exception.class})
   public ProjectTask completeTask(ProjectTask task) {
-    JPA.em().lock(task.getProject(), LockModeType.PESSIMISTIC_FORCE_INCREMENT);
+    Locks.parent(task.getProject());
     if (isDone(task)) {
       throw new ApiException(422, "TASK_DONE", "This task is already done.", null);
     }

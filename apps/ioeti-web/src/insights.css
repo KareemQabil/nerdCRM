@@ -8,7 +8,7 @@
 .rp-card h2{margin:0;font-size:16px;}
 .rp-card h3{margin:6px 0 0;font-size:14px;}
 .rp-head{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;}
-.rp-scroll{overflow-x:auto;max-width:100%;}
+.rp-scroll{overflow-x:auto;max-width:100%;min-width:0;position:relative;}
 .rp-table{border-collapse:collapse;width:100%;font-size:13px;font-variant-numeric:tabular-nums;}
 .rp-table th,.rp-table td{text-align:start;padding:8px 10px;border-bottom:1px solid var(--outline-variant);vertical-align:top;}
 .rp-table th{font-size:12px;color:var(--on-surface-variant);font-weight:600;}

@@ -100,7 +100,7 @@ export function OpportunityRecordWorkspace({record,language,onBack,onRename,onPr
       </div>
     </div>
     <div className="record-section-label"><strong className="record-label-active">{c.overview}</strong><span>{c.source}: Axelor CRM · Opportunity</span></div>
-    <div className="record-content-grid">
+    <div className={"record-content-grid"+(DEMO_MODE?"":" is-single")}>
       <section className="record-content-card" aria-labelledby="opportunity-facts-title">
         <div className="record-section-header"><div className="record-section-icon"><Layers3 size={20}/></div><div>
           <h2 id="opportunity-facts-title">{c.context}</h2><p>{c.real}</p>
@@ -108,7 +108,7 @@ export function OpportunityRecordWorkspace({record,language,onBack,onRename,onPr
         <dl className="record-properties">{facts.map(f=><div key={f.label}><dt>{f.label}</dt><dd>{f.value}</dd></div>)}</dl>
         <p className="record-security-note"><LockKeyhole size={15}/>{c.permission}</p>
       </section>
-      <section className="record-content-card" aria-labelledby="opportunity-related-title">
+      {DEMO_MODE&&<section className="record-content-card" aria-labelledby="opportunity-related-title">
         <div className="record-section-header"><div className="record-section-icon"><Network size={20}/></div><div>
           <h2 id="opportunity-related-title">{c.linked}</h2><p>{c.linkedDesc}</p>
         </div></div>
@@ -121,19 +121,19 @@ export function OpportunityRecordWorkspace({record,language,onBack,onRename,onPr
             <Icon size={19}/><div><strong>{section.name}</strong><p>{section.detail}</p></div><span className="opportunity-link-pending" aria-label={c.missing}>—</span>
           </div>})}
         </div>
-      </section>
+      </section>}
     </div>
     {!DEMO_MODE&&<QuotesPanel opportunityId={record.id} opportunityVersion={record.version} language={language} onOpportunityChanged={onRecordChanged}/>}
     {!DEMO_MODE&&<ContractPanel opportunityId={record.id} opportunityVersion={record.version} language={language} onOpportunityChanged={onRecordChanged}/>}
     {!DEMO_MODE&&<section className="record-content-card record-documents"><DocumentsPanel subject="OPPORTUNITY" subjectId={record.id} language={language}/>
       <MentionForm subject="OPPORTUNITY" subjectId={record.id} language={language}/></section>}
-    <section className="record-flow-card" aria-labelledby="opportunity-journey-title">
+    {DEMO_MODE&&<section className="record-flow-card" aria-labelledby="opportunity-journey-title">
       <div className="record-flow-title"><div className="record-section-icon"><Workflow size={20}/></div><div>
         <h2 id="opportunity-journey-title">{c.stepsTitle}</h2><p>{c.stepsDesc}</p>
       </div></div>
       <div className="record-flow-stages">
         {c.steps.map((step,i)=><div className="record-flow-stage" key={step}><span className="record-flow-step">{String(i+1).padStart(2,"0")}</span><strong>{step}</strong><small className="record-flow-pending">{c.missing}</small></div>)}
       </div>
-    </section>
+    </section>}
   </article>;
 }

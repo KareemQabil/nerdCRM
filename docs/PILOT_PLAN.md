@@ -53,6 +53,8 @@ npm test                      # mocked-API browser interaction, distinct from pi
 
 Open http://127.0.0.1:5173. Only run on loopback / test network.
 
+**Writes need one origin and a readable CSRF cookie.** Axelor sets `CSRF-TOKEN` with `Path=/axelor-erp` and refuses every unsafe request that does not echo it (403). The Vite dev server rewrites the cookie path to `/`, so the app at `/` can read it. Any staging or production host must do the same: keep the app and `/axelor-erp` on one origin, and either rewrite the cookie path at the reverse proxy or serve the app under `/axelor-erp/`. The live browser scenario (`tests/live.spec.ts`, see `docs/slices/R1-release-scenarios.md`) fails if this is wrong.
+
 ## Manual pilot role tests
 
 - Admin: create, fetch, rename and verify persistence.

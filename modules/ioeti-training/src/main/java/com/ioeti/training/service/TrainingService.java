@@ -6,6 +6,7 @@ import com.axelor.db.Model;
 import com.axelor.db.Query;
 import com.google.inject.persist.Transactional;
 import com.ioeti.core.api.ApiException;
+import com.ioeti.core.api.Locks;
 import com.ioeti.training.db.CohortSession;
 import com.ioeti.training.db.TrainingAttendance;
 import com.ioeti.training.db.TrainingCohort;
@@ -63,8 +64,7 @@ public class TrainingService {
   /** Cancels an enrolment; a freed seat goes to the first trainee on the waitlist. */
   @Transactional(rollbackOn = {Exception.class})
   public TrainingEnrollment cancel(TrainingEnrollment enrollment) {
-    TrainingCohort cohort = enrollment.getCohort();
-    JPA.em().lock(cohort, LockModeType.PESSIMISTIC_FORCE_INCREMENT);
+    TrainingCohort cohort = Locks.parent(enrollment.getCohort());
     if (Integer.valueOf(TrainingEnrollmentRepository.STATUS_CANCELLED).equals(enrollment.getStatusSelect())) {
       throw new ApiException(422, "ALREADY_CANCELLED", "This enrolment is already cancelled.", null);
     }
