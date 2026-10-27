@@ -114,6 +114,36 @@ Signer: the project owner, answering a structured interview in the engineering s
     quality manager.
   - The public check runs only while `channels.enabled` contains CERTIFICATE_CHECK (D-10).
   - See `docs/slices/M1-certification.md`.
+- **D-04 implemented (2026-10-27, M1):**
+  - The client agreement (`recruitment.agreement`, per client or a default) is copied onto each placement. On its trigger,
+    the fee (feePercent × the offered annual salary) becomes one fee request for finance. The salary is restricted:
+    it is write-only and used on the server.
+  - The guarantee runs from the recorded start. An exit within it applies REPLACE (a free replacement on the job order),
+    PARTIAL_REFUND (a credit request for finance) or NONE. Without the agreement the answer is POLICY_NOT_SET.
+  - The CV and contact details stay unshared until the client portal (D-10) exists.
+  - The fee request is recruitment's own: the workspace InvoiceRequest needs a sales order. Issuing it in accounting is a
+    finance follow-up.
+  - See `docs/slices/M1-recruitment.md`.
+- **D-05 implemented (2026-10-27, M1):**
+  - Only finance (native rights on receipts) issues a receipt, only for a recorded collection, one in force per
+    collection. Receipts are numbered `DR-<year>-<n>`; they are voided with a reason, and a reissue gets a new number.
+  - Restrictions map to native analytic accounts. A restricted commitment is allocated once, and its collections record
+    that account, with a balance report per restriction.
+  - Collections are **not posted** to the ledger yet, so the analytic allocation is recorded, not posted.
+  - Engineering choice to confirm: an anonymous donor's receipt carries the account name, and is visible to finance only.
+  - See `docs/slices/M1-fundraising.md`.
+
+- **D-03 implemented (2026-10-27, M1 training):**
+  - Certificates follow `training.certificate` per course: attendance counted over every scheduled session, plus the
+    pass mark where one is set. The coordinator issues them with a serial from the native sequence
+    `ioetiTrainingCertificate`, and revokes them with a reason.
+  - National IDs follow `training.national-id` per course. They are kept in their own restricted entity and are input only.
+  - Refunds come from `training.cancellation` and from what was actually received for the enrolment. Finance links the
+    enrolment to its issued invoice, then approves the refund with a credit note issued through the D-06 service. Nothing
+    is refunded without that credit note.
+  - Engineering added the optional field `cohortCancelledRefundPercent`, for a cohort IOETI cancels. The recommended value
+    is 100%.
+  - See `docs/slices/M1-training.md`.
 
 ## Related, owner-only actions (not engineering decisions)
 

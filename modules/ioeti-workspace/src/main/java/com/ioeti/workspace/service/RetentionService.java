@@ -291,6 +291,10 @@ public class RetentionService {
         UPDATE ioeti_rec_candidate_private SET email = NULL, phone = NULL, expected_salary = NULL, cv_reference = NULL,
           version = version + 1
         WHERE candidate = ?1""", id);
+    // the offered salary is restricted personal money: kept as zero (the column is required), any fee already requested keeps its amount
+    update("""
+        UPDATE ioeti_rec_offer_private SET annual_salary = 0, version = version + 1
+        WHERE application IN (SELECT a.id FROM ioeti_rec_application a WHERE a.candidate = ?1)""", id);
     scrubMessages(CANDIDATE_MODEL, id);
     update("UPDATE ioeti_auto_notification SET title = ?2, version = version + 1 WHERE subject = 'CANDIDATE' AND subject_id = ?1",
         id, ANONYMIZED_TEXT);
