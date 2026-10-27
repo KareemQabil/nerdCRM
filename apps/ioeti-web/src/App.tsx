@@ -247,7 +247,7 @@ export function App() {
   const navGroups: { id: string; label: string; items: NavItem[] }[] = [
     { id: "workspace", label: labels.workspace, items: [
       { id: "home", label: labels.home, icon: House },
-      ...(DEMO_MODE ? [] : [{ id: "agenda", label: isRTL ? "أجندتي" : "My agenda", icon: CalendarDays }]),
+      ...(DEMO_MODE ? [] : [{ id: "agenda", label: isRTL ? "التقويم" : "Calendar", icon: CalendarDays }]),
       ...(DEMO_MODE ? [] : [{ id: "inbox", label: labels.inbox, icon: Bell, badge: unread }]),
       ...(DEMO_MODE ? [] : [{ id: "reports", label: labels.reports, icon: BarChart3 }]),
       ...(DEMO_MODE ? [] : [{ id: "knowledge", label: labels.knowledge, icon: BookOpen }]),

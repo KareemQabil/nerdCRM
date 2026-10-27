@@ -17,7 +17,10 @@ export type Activity = {
 export type AgendaItem = {
   type: "ACTIVITY" | "SESSION" | "AUDIT" | "INTERVIEW" | "VISIT" | "ACTION"; id: number; title: string | null; at: string | null; endsAt: string | null;
   kind: ActivityKind | null; status: string | null; recordType: string | null; recordId: number | null;
+  /** the caller's own activities: the calendar can move, finish or cancel them */
+  version?: number | null; movable?: boolean;
 };
+export type CalendarPerson = { id: number; name: string; me: boolean };
 /** Search covers leads, accounts and opportunities, and field visits and quality issues. */
 export type SearchHit = { type: RecordType | "VISIT" | "QUALITY"; id: number; title: string; subtitle: string | null };
 export type AccountInput = { name: string; website?: string; phone?: string; email?: string; confirmNotDuplicate?: boolean };
@@ -68,14 +71,25 @@ export const planOpportunity = (oppId: number, version: number, plan: {
 export const getActivities = (record: RecordType, recordId: number) =>
   list<Activity>(`/ws/ioeti/workspace/activities?record=${record}&recordId=${id(recordId)}`);
 export const logActivity = (input: {
-  record: RecordType; recordId: number; version: number; kind: ActivityKind; subject: string; at?: string; outcome?: string; planned: boolean;
+  record: RecordType; recordId: number; version: number; kind: ActivityKind; subject: string; at?: string; outcome?: string; planned: boolean; minutes?: number;
 }) => post<Activity>("/ws/ioeti/workspace/activities", { ...input, zone: browserZone() });
+/** A calendar item: linked to a record, or personal (only on its owner's calendar). */
+export const planItem = (input: {
+  record?: RecordType; recordId?: number; version?: number; kind: ActivityKind; subject: string; at: string; minutes: number; planned: boolean;
+}) => post<Activity>("/ws/ioeti/workspace/activities", { ...input, record: input.record ?? "SELF", zone: browserZone() });
+export const moveActivity = (activityId: number, version: number, at: string, minutes?: number) =>
+  post<Activity>(`/ws/ioeti/workspace/activities/${id(activityId)}/move`, { version, at, minutes, zone: browserZone() });
+export const finishActivity = (activityId: number, version: number, outcome?: string) =>
+  post<Activity>(`/ws/ioeti/workspace/activities/${id(activityId)}/done`, { version, outcome: outcome || undefined });
+export const cancelActivity = (activityId: number, version: number) =>
+  post<Activity>(`/ws/ioeti/workspace/activities/${id(activityId)}/cancel`, { version });
+export const getCalendarPeople = () => list<CalendarPerson>("/ws/ioeti/workspace/agenda/people");
 /** The browser's IANA time zone, so the server judges "already happened" on the person's own clock. */
 function browserZone(): string | undefined {
   try { return Intl.DateTimeFormat().resolvedOptions().timeZone || undefined; } catch { return undefined; }
 }
-export const getAgenda = (from: string, to: string) =>
-  list<AgendaItem>(`/ws/ioeti/workspace/agenda?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`);
+export const getAgenda = (from: string, to: string, userId?: number | null) =>
+  list<AgendaItem>(`/ws/ioeti/workspace/agenda?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}${userId ? `&userId=${id(userId)}` : ""}`);
 export const searchEverything = (q: string) => list<SearchHit>(`/ws/ioeti/workspace/search?q=${encodeURIComponent(q)}`);
 
 /** Where a record opens in the web app. */

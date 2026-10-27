@@ -1494,3 +1494,8 @@ th[aria-sort="ascending"], th[aria-sort="descending"] { color: var(--on-surface)
 .stage-chip.kind-late { background: var(--warning-container); color: var(--on-surface); }
 .stage-chip.kind-none { background: var(--surface-variant); color: var(--on-surface-variant); }
 .response-missing { display: block; color: var(--on-surface-variant); font-size: 12px; margin-top: 3px; }
+
+/* Figures written left-to-right inside Arabic pages: the digits stay LTR, but the cell keeps the page's alignment so a
+   figure lines up under its label (a dd/dt pair, a stat row). Inline figures are unaffected. */
+html[dir="rtl"] dd[dir="ltr"], html[dir="rtl"] p[dir="ltr"], html[dir="rtl"] div[dir="ltr"].stat-value { text-align: right; }
+.cockpit-funnel dd, .cockpit-bar-count, .cockpit-tile-value { font-variant-numeric: tabular-nums; }
