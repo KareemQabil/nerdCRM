@@ -166,3 +166,14 @@
 .admin-numbering-example { padding: 2px 8px; border-radius: 6px; background: var(--surface-variant); font-size: 12.5px; }
 .admin-numbering-preview { margin: 0; font-size: 13px; color: var(--on-surface-variant); }
 .admin-numbering-preview code { font-size: 15px; color: var(--on-surface); font-weight: 700; }
+
+/* quality set-up */
+.admin-list-add:has(select) { flex-wrap: wrap; min-width: 0; }
+.admin-list-add:has(select) input { flex: 1 1 160px; }
+.admin-list-add select { min-height: var(--control-height); padding: 8px 10px; border: 1px solid var(--outline); border-radius: var(--radius);
+  background: var(--surface); color: var(--on-surface); font: inherit; }
+.admin-quality-intro { display: flex; align-items: flex-start; gap: 6px; margin: 0 0 12px; }
+.admin-quality-kind { font: inherit; font-size: 12px; padding: 3px 8px; border-radius: 999px; border: 1px solid var(--outline-variant); background: var(--surface-variant); color: var(--on-surface); }
+.admin-quality-kind.is-open, .admin-quality-kind.is-internal { background: var(--primary-container); color: var(--on-primary-container); }
+.admin-quality-kind.is-closed { background: var(--success-container); color: var(--success); }
+.admin-quality-kind.is-customer, .admin-quality-kind.is-supplier { background: var(--warning-container); color: var(--warning); }

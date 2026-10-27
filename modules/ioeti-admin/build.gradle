@@ -21,6 +21,8 @@ dependencies {
 	api project(":modules:ioeti-business-lines")
 	// campaign types are one of the reference lists administrators manage
 	implementation project(":modules:axelor-marketing")
+	// the quality set-up (statuses, detections, issue and action types) is native axelor-quality data
+	implementation project(":modules:axelor-quality")
 
 	implementation libs.swagger_jaxrs
 }

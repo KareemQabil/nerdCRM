@@ -23,6 +23,8 @@ dependencies {
 	api project(":modules:axelor-project")
 	// field visits are the native axelor-intervention Intervention
 	api project(":modules:axelor-intervention")
+	// quality issues are the native axelor-quality QualityImprovement
+	api project(":modules:axelor-quality")
 
 	implementation libs.swagger_jaxrs
 }

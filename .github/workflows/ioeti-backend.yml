@@ -142,6 +142,9 @@ jobs:
           # Field visits on the native intervention: numbering set by an administrator (none ships), planning
           # in the caller's time zone, native start/pause/finish rules, the visit log, the field person's agenda
           python3 scripts/visit_probe.py
+          # Quality issues and corrective actions on the native quality improvement: the company's own set-up
+          # (none shipped, fail closed), company numbering, plan, actions with progress, effectiveness, closing
+          python3 scripts/quality_probe.py
           # Release scenarios: one ISO client from intake to certification across every team (exact figures,
           # notices, permission removed mid-session, backup restored mid-scenario); training, recruitment
           # and fundraising under concurrent load; 5000 leads and 1000 opportunities with 20 concurrent users
@@ -196,6 +199,7 @@ jobs:
             logs/catalog-probe.json
             logs/campaign-probe.json
             logs/visit-probe.json
+            logs/quality-probe.json
           if-no-files-found: ignore
       - name: Attach Axelor integration logs
         if: failure()
