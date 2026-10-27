@@ -8,8 +8,8 @@
   <!-- Wave 4E: fundraising and partnerships. A donor is a native Partner; the campaign is a native marketing Campaign.
        Explicit ioeti_ table names keep every object under the migration gate (G-008).
        Money is tracked in separate stages that never add up into each other: proposed (opportunity), committed
-       (commitment), scheduled (installments), collected (collections). Receipts, restricted-fund accounting,
-       invoices and posting wait for D-05 and D-06. -->
+       (commitment), scheduled (installments), collected (collections). D-05 (signed 2026-10-25): finance issues
+       donation receipts on recorded collections only, and each fund restriction maps to a native analytic account. -->
   <entity name="DonorProfile" table="ioeti_fund_donor">
     <many-to-one name="partner" ref="com.axelor.apps.base.db.Partner" title="Donor" required="true" unique="true"/>
     <integer name="donorTypeSelect" title="Donor type" required="true"/>
@@ -69,6 +69,10 @@
     <boolean name="restricted" title="Restricted funding"/>
     <string name="restrictionPurpose" title="Restricted to"/>
     <string name="agreementReference" title="Agreement reference"/>
+    <!-- D-05: the restriction (and so the analytic account) finance assigned to a restricted commitment -->
+    <many-to-one name="fundRestriction" ref="FundRestriction" title="Fund restriction"/>
+    <datetime name="allocatedAt" title="Allocated at"/>
+    <many-to-one name="allocatedBy" ref="com.axelor.auth.db.User" title="Allocated by"/>
   </entity>
 
   <entity name="PledgeInstallment" table="ioeti_fund_installment">
@@ -86,7 +90,8 @@
     ]]></extra-code>
   </entity>
 
-  <!-- Money actually received, recorded by a person against a bank reference. Never posted to accounting here (D-06). -->
+  <!-- Money actually received, recorded by a person against a bank reference. Not posted to accounting here: a restricted
+       collection records the analytic account of its restriction (D-05), for finance's postings and the balance report. -->
   <entity name="DonationCollection" table="ioeti_fund_collection">
     <many-to-one name="installment" ref="PledgeInstallment" title="Installment" required="true"/>
     <decimal name="amount" title="Amount" precision="20" scale="2" required="true"/>
@@ -96,6 +101,9 @@
     <integer name="voidReasonSelect" title="Void reason"/>
     <datetime name="voidedAt" title="Voided at"/>
     <many-to-one name="voidedBy" ref="com.axelor.auth.db.User" title="Voided by"/>
+    <many-to-one name="fundRestriction" ref="FundRestriction" title="Fund restriction"/>
+    <many-to-one name="analyticAccount" ref="com.axelor.apps.account.db.AnalyticAccount" title="Analytic account"/>
+    <datetime name="allocatedAt" title="Allocated at"/>
 
     <extra-code><![CDATA[
       public static final int STATUS_RECORDED = 1;
@@ -103,6 +111,41 @@
       public static final int VOID_DUPLICATE_ENTRY = 1;
       public static final int VOID_WRONG_AMOUNT = 2;
       public static final int VOID_PAYMENT_RETURNED = 3;
+    ]]></extra-code>
+  </entity>
+
+  <!-- D-05: a donor restriction finance maps to a native analytic account; restricted commitments are allocated to one. -->
+  <entity name="FundRestriction" table="ioeti_fund_restriction">
+    <string name="code" title="Code" required="true" unique="true" max="30"/>
+    <string name="name" title="Name" required="true"/>
+    <many-to-one name="analyticAccount" ref="com.axelor.apps.account.db.AnalyticAccount" title="Analytic account" required="true"/>
+    <boolean name="active" title="Active"/>
+  </entity>
+
+  <!-- D-05: a donation receipt finance issued for one recorded collection. Numbered once, never deleted; a voided receipt
+       keeps its number and a reissue gets a new one. -->
+  <entity name="DonationReceipt" table="ioeti_fund_receipt">
+    <string name="number" title="Receipt number" required="true" unique="true" max="30"/>
+    <many-to-one name="collection" ref="DonationCollection" title="Collection" required="true"/>
+    <decimal name="amount" title="Amount" precision="20" scale="2" required="true"/>
+    <many-to-one name="currency" ref="com.axelor.apps.base.db.Currency" title="Currency" required="true"/>
+    <string name="donorName" title="Donor"/>
+    <date name="receivedOn" title="Received on" required="true"/>
+    <date name="issuedOn" title="Issued on" required="true"/>
+    <many-to-one name="issuedBy" ref="com.axelor.auth.db.User" title="Issued by"/>
+    <integer name="statusSelect" title="Status" required="true"/>
+    <integer name="voidReasonSelect" title="Void reason"/>
+    <datetime name="voidedAt" title="Voided at"/>
+    <many-to-one name="voidedBy" ref="com.axelor.auth.db.User" title="Voided by"/>
+    <many-to-one name="replaces" ref="DonationReceipt" title="Replaces receipt"/>
+
+    <extra-code><![CDATA[
+      public static final int STATUS_ISSUED = 1;
+      public static final int STATUS_VOIDED = 2;
+      public static final int VOID_WRONG_DONOR_DETAILS = 1;
+      public static final int VOID_WRONG_AMOUNT = 2;
+      public static final int VOID_COLLECTION_CORRECTED = 3;
+      public static final int VOID_DUPLICATE = 4;
     ]]></extra-code>
   </entity>
 

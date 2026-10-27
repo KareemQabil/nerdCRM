@@ -136,7 +136,8 @@ public final class PolicyCatalog {
         List.of(list("steps", true, 10, List.of(
             integer("daysBeforeStart", true, 0, 365, "قبل البداية بـ (أيام) أو أكتر", "At least (days) before start"),
             of("refundPercent", Kind.PERCENT, true, "نسبة الاسترداد", "Refund")),
-            "خطوات الاسترداد", "Refund steps")),
+            "خطوات الاسترداد", "Refund steps"),
+            of("cohortCancelledRefundPercent", Kind.PERCENT, false, "نسبة الاسترداد لو إحنا لغينا الدفعة", "Refund when we cancel the cohort")),
         "إلغاء التدريب والاسترداد", "Training cancellation and refunds",
         "المبلغ بيتحسب من هنا، والمالية بتوافق، وبيطلع إشعار دائن.", "The amount comes from here; finance approves it and a credit note is issued."));
 

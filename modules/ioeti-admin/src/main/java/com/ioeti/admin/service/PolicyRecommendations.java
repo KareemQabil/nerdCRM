@@ -144,8 +144,10 @@ public class PolicyRecommendations {
     out.add(r("training.national-id", null, null, "{'collect':'OPTIONAL'}", Basis.PRACTICE,
         "اختياري: بيتطلب بس لو الشهادة محتاجاه، وبيتخزن كبيانات محظورة.", "Optional: asked only where a certificate needs it, and stored as restricted data."));
     out.add(r("training.cancellation", null, null,
-        "{'steps':[{'daysBeforeStart':14,'refundPercent':100},{'daysBeforeStart':7,'refundPercent':50},{'daysBeforeStart':0,'refundPercent':0}]}", Basis.PRACTICE,
-        "استرداد كامل قبل البداية بأسبوعين، النص قبلها بأسبوع، وبعد كده مفيش.", "A full refund two weeks before the start, half one week before, nothing after."));
+        "{'steps':[{'daysBeforeStart':14,'refundPercent':100},{'daysBeforeStart':7,'refundPercent':50},{'daysBeforeStart':0,'refundPercent':0}],'cohortCancelledRefundPercent':100}",
+        Basis.PRACTICE,
+        "استرداد كامل قبل البداية بأسبوعين، النص قبلها بأسبوع، وبعد كده مفيش. ولو إحنا اللي لغينا الدفعة، استرداد كامل.",
+        "A full refund two weeks before the start, half one week before, nothing after; a full refund when we cancel the cohort."));
     // --- D-04 recruitment
     out.add(r("recruitment.agreement", null, null, "{'feePercent':15,'invoiceOn':'START_DATE','guaranteeDays':90,'replacement':'REPLACE'}", Basis.PRACTICE,
         "15% من الراتب السنوي (حوالي شهرين)، الفاتورة يوم استلام الشغل، وضمان 90 يوم ببديل مجاني. ممكن تغيّرها لكل عميل.",

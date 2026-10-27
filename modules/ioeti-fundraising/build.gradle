@@ -7,8 +7,8 @@ apply from: new File(projectDir.canonicalFile, "../../gradle/ioeti-module.gradle
 // IOETI fundraising and partnerships (Wave 4E): donor profiles on native partners, grants and
 // pledges, commitments, payment schedules, collections, deliverables and stewardship. A native sales
 // opportunity is not a grants system, so this is a new bounded context; native marketing campaigns
-// are reused for attribution. Receipts, restricted-fund accounting, invoices and posting wait for
-// D-05 and D-06.
+// are reused for attribution. D-05 (signed 2026-10-25): finance issues donation receipts on recorded
+// collections, and restricted funds map to native analytic accounts (axelor-account) per restriction.
 axelor {
 	title "IOETI Fundraising"
 	description "IOETI fundraising: donors, grants, pledges, schedules, collections, stewardship"
@@ -20,6 +20,8 @@ dependencies {
 	api project(":modules:ioeti-core")
 	// fundraising opportunities are attributed to native marketing campaigns
 	api project(":modules:axelor-marketing")
+	// D-05: each fund restriction maps to a native analytic account
+	api project(":modules:axelor-account")
 
 	implementation libs.swagger_jaxrs
 }

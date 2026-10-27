@@ -16,12 +16,15 @@ import com.axelor.utils.api.ResponseConstructor;
 import com.axelor.utils.api.SecurityCheck;
 import com.ioeti.businessline.db.BusinessLine;
 import com.ioeti.certification.db.AuditorQualification;
+import com.ioeti.certification.db.ClientCertificate;
 import com.ioeti.certification.db.CertificationAudit;
 import com.ioeti.certification.db.CertificationCycle;
 import com.ioeti.certification.db.Nonconformity;
 import com.ioeti.certification.db.repo.CertificationAuditRepository;
 import com.ioeti.certification.db.repo.NonconformityRepository;
+import com.ioeti.certification.service.CertificationDecisionService;
 import com.ioeti.certification.service.CertificationService;
+import com.ioeti.certification.service.DecisionRules;
 import com.ioeti.core.api.ApiException;
 import com.ioeti.core.api.IoetiEndpoint;
 import com.ioeti.core.api.RecordAccess;
@@ -50,9 +53,11 @@ import java.util.regex.Pattern;
  * Stage 2 audit programme and nonconformities. Every record goes through native permissions and
  * record filters; unknown and unreadable ids answer the same 404.
  *
- * <p>Fail closed until policy D-02 is signed: the certification decision, certificate issue and
- * numbering, surveillance and recertification audits (their intervals depend on the scheme), and
- * impartiality rules beyond the competence check.
+ * <p>D-02 (signed 2026-10-25): the certification decision (independent reviewer or committee, per the
+ * scheme's {@code cert.decision} policy), the certificate it issues (validity and surveillance from
+ * {@code cert.cycle}), its suspension, restoration and withdrawal, and surveillance and recertification
+ * audits. Everything fails closed (422 POLICY_NOT_SET) while the scheme's policies are not set. Decision
+ * data is part of the cycle: whoever can read the cycle reads it; only eligible decision makers change it.
  */
 @Path("/ioeti/certification")
 @Produces(MediaType.APPLICATION_JSON)
@@ -60,8 +65,10 @@ public class CertificationRestController {
 
   static final Pattern REFERENCE = Pattern.compile("[A-Z0-9][A-Z0-9-]{1,29}");
   static final Map<String, Integer> AUDIT_TYPES = Map.of(
-      "STAGE1", CertificationAuditRepository.TYPE_STAGE1, "STAGE2", CertificationAuditRepository.TYPE_STAGE2);
-  static final List<String> POLICY_AUDIT_TYPES = List.of("SURVEILLANCE", "RECERTIFICATION");
+      "STAGE1", CertificationAuditRepository.TYPE_STAGE1, "STAGE2", CertificationAuditRepository.TYPE_STAGE2,
+      "SURVEILLANCE", CertificationAuditRepository.TYPE_SURVEILLANCE,
+      "RECERTIFICATION", CertificationAuditRepository.TYPE_RECERTIFICATION);
+  static final String[] AUDIT_TYPE_NAMES = {"STAGE1", "STAGE2", "SURVEILLANCE", "RECERTIFICATION"};
   static final Map<String, Integer> GRADES = Map.of(
       "MAJOR", NonconformityRepository.GRADE_MAJOR, "MINOR", NonconformityRepository.GRADE_MINOR,
       "OBSERVATION", NonconformityRepository.GRADE_OBSERVATION);
@@ -123,7 +130,7 @@ public class CertificationRestController {
 
   // --- cycles --------------------------------------------------------------------------------------
 
-  static final List<String> PHASES = List.of("STAGE1_PENDING", "STAGE2_PENDING", "FINDINGS_OPEN", "READY_FOR_DECISION");
+  static final List<String> PHASES = List.of("STAGE1_PENDING", "STAGE2_PENDING", "FINDINGS_OPEN", "READY_FOR_DECISION", "CERTIFIED");
 
   @GET
   @Path("/cycles")
@@ -193,7 +200,7 @@ public class CertificationRestController {
     events.add(new TimelineEvent(cycle.getCreatedOn(), "CYCLE_OPENED", cycle.getReference(), null));
     if (security.isPermitted(JpaSecurity.CAN_READ, CertificationAudit.class)) {
       for (CertificationAudit audit : readable(CertificationAudit.class, new JPQLFilter("self.cycle.id = " + cycle.getId())).fetch(100)) {
-        String stage = name(audit.getTypeSelect(), "STAGE1", "STAGE2");
+        String stage = name(audit.getTypeSelect(), AUDIT_TYPE_NAMES);
         events.add(new TimelineEvent(audit.getCreatedOn(), "AUDIT_PLANNED", stage, audit.getAuditor().getName()));
         if (audit.getStatusSelect() == CertificationAuditRepository.STATUS_COMPLETED && audit.getCompletedOn() != null) {
           events.add(new TimelineEvent(audit.getCompletedOn().atStartOfDay(), "AUDIT_COMPLETED", stage, audit.getAuditor().getName()));
@@ -211,6 +218,7 @@ public class CertificationRestController {
         if (nc.getClosedAt() != null) events.add(new TimelineEvent(nc.getClosedAt(), "NC_CLOSED", label, null));
       }
     }
+    DecisionViews.timeline(cycle, events);
     events.sort(Comparator.comparing(TimelineEvent::at, Comparator.nullsLast(Comparator.naturalOrder())).reversed());
     return ResponseConstructor.build(Response.Status.OK, "Timeline", events);
   }
@@ -257,23 +265,55 @@ public class CertificationRestController {
     return ResponseConstructor.build(Response.Status.CREATED, "Cycle opened", view(saved[0]));
   }
 
-  @POST
+  // --- D-02 decision and certificate (views in DecisionViews) ----------------------------------------------
+
+  @GET
   @Path("/cycles/{id}/decision")
-  @Operation(summary = "Certification decision: blocked until the certification policy (D-02)", tags = {"IOETI certification"})
+  @Operation(summary = "The cycle's certification decision: mode, who may decide, votes, certificate (D-02)", tags = {"IOETI certification"})
   @IoetiEndpoint
-  public Response decision(@PathParam("id") Long id) {
-    RecordAccess.writable(CertificationCycle.class, id);
-    throw ApiException.policyBlocked("D-02");
+  public Response decisionPanel(@PathParam("id") Long id) {
+    CertificationCycle cycle = RecordAccess.readable(CertificationCycle.class, id);
+    return ResponseConstructor.build(Response.Status.OK, "Decision", DecisionViews.panel(cycle));
   }
 
   @POST
-  @Path("/cycles/{id}/certificate")
-  @Operation(summary = "Issue a certificate: blocked until the certification policy (D-02)", tags = {"IOETI certification"})
+  @Path("/cycles/{id}/decision")
+  @Consumes(MediaType.APPLICATION_JSON)
+  @Operation(summary = "Record a certification decision or a committee vote: GRANT or REFUSE with the reason (D-02)", tags = {"IOETI certification"})
   @IoetiEndpoint
-  public Response certificate(@PathParam("id") Long id) {
-    RecordAccess.writable(CertificationCycle.class, id);
-    throw ApiException.policyBlocked("D-02");
+  public Response decision(@PathParam("id") Long id, DecisionViews.CertDecisionCommand command) {
+    if (command == null) throw ApiException.badRequest("Decision details are required.");
+    // decision makers read the cycle but do not manage it: the cycle's version, not its write right, guards the vote
+    CertificationCycle cycle = RecordAccess.readable(CertificationCycle.class, id);
+    if (command.version() == null) throw ApiException.badRequest("Record version is required.");
+    ConflictChecker.checkVersion(cycle, command.version());
+    String vote = command.vote() == null ? null : command.vote().strip().toUpperCase();
+    if (!DecisionRules.VOTES.contains(vote)) throw ApiException.invalidField("vote", "UNAVAILABLE", "Use GRANT or REFUSE.");
+    String reason = checkedText("reason", command.reason(), MAX_TEXT, true);
+    User me = AuthUtils.getUser();
+    write(() -> Beans.get(CertificationDecisionService.class).vote(cycle, me, vote, reason, CertificationDecisionService.today()));
+    return ResponseConstructor.build(Response.Status.OK, "Decision recorded", DecisionViews.panel(JPA.find(CertificationCycle.class, id)));
   }
+
+  @POST
+  @Path("/cycles/{id}/certificate/{action}")
+  @Consumes(MediaType.APPLICATION_JSON)
+  @Operation(summary = "Suspend, restore or withdraw (final) the cycle's certificate, with the reason (D-02)", tags = {"IOETI certification"})
+  @IoetiEndpoint
+  public Response certificateAction(@PathParam("id") Long id, @PathParam("action") String action, DecisionViews.CertActionCommand command) {
+    if (!DecisionRules.EVENTS.containsKey(action)) throw ApiException.notFound();
+    if (command == null) throw ApiException.badRequest("Details are required.");
+    CertificationCycle cycle = RecordAccess.readable(CertificationCycle.class, id);
+    ClientCertificate certificate = CertificationDecisionService.certificate(cycle);
+    if (certificate == null) throw new ApiException(422, "NO_CERTIFICATE", "This cycle has no certificate.", null);
+    if (command.version() == null) throw ApiException.badRequest("Record version is required.");
+    ConflictChecker.checkVersion(certificate, command.version());
+    String reason = checkedText("reason", command.reason(), MAX_TEXT, true);
+    User me = AuthUtils.getUser();
+    write(() -> Beans.get(CertificationDecisionService.class).change(certificate, action, reason, me, CertificationDecisionService.today()));
+    return ResponseConstructor.build(Response.Status.OK, "Certificate updated", DecisionViews.panel(JPA.find(CertificationCycle.class, id)));
+  }
+
 
   // --- audit programme -----------------------------------------------------------------------------
 
@@ -297,12 +337,12 @@ public class CertificationRestController {
   public Response planAudit(@PathParam("id") Long id, PlanAudit command) {
     CertificationCycle cycle = writable(CertificationCycle.class, id, command == null ? null : command.version());
     new SecurityCheck().createAccess(CertificationAudit.class).check();
-    if (command.type() != null && POLICY_AUDIT_TYPES.contains(command.type())) {
-      // their timing depends on the scheme and on an issued certificate
-      throw ApiException.policyBlocked("D-02");
-    }
     Integer type = command.type() == null ? null : AUDIT_TYPES.get(command.type());
-    if (type == null) throw ApiException.invalidField("type", "UNAVAILABLE", "Use STAGE1 or STAGE2.");
+    if (type == null) throw ApiException.invalidField("type", "UNAVAILABLE", "Use STAGE1, STAGE2, SURVEILLANCE or RECERTIFICATION.");
+    if (type >= CertificationAuditRepository.TYPE_SURVEILLANCE) {
+      // D-02: they follow a certificate in force, under the scheme's cert.cycle policy
+      Beans.get(CertificationDecisionService.class).requireCertificateForFollowUp(cycle, CertificationDecisionService.today());
+    }
     LocalDate planned = requiredDate("plannedDate", command.plannedDate());
     User auditor = command.auditorId() == null || command.auditorId() <= 0 ? null : JPA.find(User.class, command.auditorId());
     if (auditor == null || Boolean.TRUE.equals(auditor.getBlocked())) {
@@ -454,17 +494,22 @@ public class CertificationRestController {
     JpaSecurity security = Beans.get(JpaSecurity.class);
     Partner client = cycle.getClient();
     boolean canReadClient = security.isPermitted(JpaSecurity.CAN_READ, Partner.class, client.getId());
+    CertificationDecisionService decisions = Beans.get(CertificationDecisionService.class);
+    LocalDate today = CertificationDecisionService.today();
+    ClientCertificate certificate = CertificationDecisionService.certificate(cycle);
     return new CycleView(cycle.getId(), cycle.getVersion(), cycle.getReference(),
         canReadClient ? client.getId() : null, canReadClient ? client.getName() : null,
         cycle.getBusinessLine().getCode(), cycle.getScope(), cycle.getSiteCount(),
-        CertificationService.openMajors(cycle), CertificationService.readyForDecision(cycle), "BLOCKED_BY_POLICY",
+        CertificationService.openMajors(cycle), CertificationService.readyForDecision(cycle), decisions.status(cycle, today),
         cycle.getManager() != null && cycle.getManager().equals(AuthUtils.getUser()),
         CertificationService.phase(cycle), CertificationService.decisionBlockers(cycle),
-        cycle.getManager() == null ? null : cycle.getManager().getName());
+        cycle.getManager() == null ? null : cycle.getManager().getName(),
+        certificate == null ? null : certificate.getNumber(),
+        certificate == null ? null : DecisionRules.effectiveStatus(certificate.getStatus(), certificate.getExpiresOn(), today));
   }
 
   static AuditView view(CertificationAudit audit) {
-    return new AuditView(audit.getId(), audit.getVersion(), name(audit.getTypeSelect(), "STAGE1", "STAGE2"),
+    return new AuditView(audit.getId(), audit.getVersion(), name(audit.getTypeSelect(), AUDIT_TYPE_NAMES),
         audit.getPlannedDate(), audit.getAuditor().getId(), audit.getAuditor().getName(),
         name(audit.getStatusSelect(), "PLANNED", "COMPLETED", "CANCELLED"), audit.getCompletedOn());
   }
@@ -489,7 +534,7 @@ public class CertificationRestController {
   public record CycleView(
       Long id, Integer version, String reference, Long clientId, String clientName, String standardCode, String scope,
       Integer siteCount, long openMajors, boolean readyForDecision, String decisionStatus, boolean managedByMe,
-      String phase, List<String> decisionBlockers, String managerName) {}
+      String phase, List<String> decisionBlockers, String managerName, String certificateNumber, String certificateStatus) {}
   public record AuditorView(Long id, String name) {}
   public record TimelineEvent(LocalDateTime at, String kind, String label, String actorName) {}
   public record AuditView(

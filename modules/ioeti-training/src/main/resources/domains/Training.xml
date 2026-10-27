@@ -31,6 +31,7 @@
       public static final int STATUS_PLANNED = 1;
       public static final int STATUS_OPEN = 2;
       public static final int STATUS_CLOSED = 3;
+      public static final int STATUS_CANCELLED = 4;
     ]]></extra-code>
   </entity>
 
@@ -40,6 +41,12 @@
     <many-to-one name="client" ref="com.axelor.apps.base.db.Partner" title="Sponsoring client"/>
     <integer name="statusSelect" title="Status" required="true"/>
     <integer name="waitlistPosition" title="Waitlist position"/>
+    <!-- D-03: the coordinator's assessment score (0-100) where the course has a pass mark -->
+    <decimal name="assessmentScore" title="Assessment score" precision="5" scale="2" nullable="true"/>
+    <many-to-one name="assessedBy" ref="com.axelor.auth.db.User" title="Assessed by"/>
+    <date name="assessedOn" title="Assessed on"/>
+    <!-- the day it was cancelled: the refund is computed from the days left before the cohort's start -->
+    <date name="cancelledOn" title="Cancelled on"/>
 
     <extra-code><![CDATA[
       public static final int STATUS_CONFIRMED = 1;

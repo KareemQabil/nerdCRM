@@ -1,5 +1,7 @@
 package com.ioeti.fundraising.service;
 
+import com.axelor.apps.account.db.AnalyticAccount;
+import com.axelor.apps.base.db.Partner;
 import com.axelor.auth.AuthUtils;
 import com.axelor.db.JPA;
 import com.axelor.db.Model;
@@ -8,13 +10,16 @@ import com.google.inject.persist.Transactional;
 import com.ioeti.core.api.ApiException;
 import com.ioeti.core.api.Locks;
 import com.ioeti.fundraising.db.DonationCollection;
+import com.ioeti.fundraising.db.DonationReceipt;
 import com.ioeti.fundraising.db.DonorProfile;
 import com.ioeti.fundraising.db.DonorSensitiveProfile;
 import com.ioeti.fundraising.db.FundingCommitment;
+import com.ioeti.fundraising.db.FundRestriction;
 import com.ioeti.fundraising.db.FundingOpportunity;
 import com.ioeti.fundraising.db.GrantDeliverable;
 import com.ioeti.fundraising.db.PledgeInstallment;
 import com.ioeti.fundraising.db.repo.DonationCollectionRepository;
+import com.ioeti.fundraising.db.repo.DonationReceiptRepository;
 import com.ioeti.fundraising.db.repo.FundingOpportunityRepository;
 import com.ioeti.fundraising.db.repo.GrantDeliverableRepository;
 import com.ioeti.fundraising.db.repo.PledgeInstallmentRepository;
@@ -39,7 +44,12 @@ import java.util.Set;
  *   <li>A collection belongs to one installment, never exceeds what is still due on it, and its bank
  *       reference is unique, so recording the same payment twice is refused (409).
  *   <li>Collections are voided, never deleted; opportunities are archived, never deleted.
- *   <li>Receipts, restricted-fund allocation, invoices and posting to accounting wait for D-05/D-06.
+ *   <li>D-05 (signed 2026-10-25): finance issues a donation receipt for a recorded collection only, one in force per
+ *       collection, uniquely numbered; a receipt is voided with a reason and a reissue gets a new number. A collection
+ *       with a receipt in force cannot be voided until the receipt is.
+ *   <li>D-05: finance maps each donor restriction to a native analytic account and allocates a restricted commitment
+ *       to a restriction; each collection on it records that analytic account. Posting collections to the ledger
+ *       is not done here (the posting endpoint stays closed).
  * </ul>
  *
  * <p>Writers on a commitment (approval, schedule, collections, deliverables) lock the commitment row
@@ -172,6 +182,7 @@ public class FundraisingService {
     collection.setReceivedOn(receivedOn);
     collection.setBankReference(bankReference);
     collection.setStatusSelect(DonationCollectionRepository.STATUS_RECORDED);
+    allocate(collection, installment.getCommitment().getFundRestriction());
     return JPA.save(collection);
   }
 
@@ -181,6 +192,9 @@ public class FundraisingService {
     Locks.parent(collection.getInstallment().getCommitment());
     if (collection.getStatusSelect() == DonationCollectionRepository.STATUS_VOIDED) {
       throw new ApiException(422, "ALREADY_VOIDED", "This collection is already voided.", null);
+    }
+    if (receiptInForce(collection) != null) {
+      throw new ApiException(422, "RECEIPT_ISSUED", "A donation receipt is in force for this collection; finance voids it first.", null);
     }
     collection.setStatusSelect(DonationCollectionRepository.STATUS_VOIDED);
     collection.setVoidReasonSelect(reason);
@@ -209,6 +223,115 @@ public class FundraisingService {
     deliverable.setStatusSelect(status);
     if (status == GrantDeliverableRepository.STATUS_SUBMITTED) deliverable.setSubmittedOn(on);
     return JPA.save(deliverable);
+  }
+
+  // --- D-05: receipts ------------------------------------------------------------------------------
+
+  /** Finance issues the receipt of a recorded collection: its amount, the donor's name, the day received; numbered once. */
+  @Transactional(rollbackOn = {Exception.class})
+  public DonationReceipt issueReceipt(DonationCollection collection, LocalDate today) {
+    // one receipt in force per collection: concurrent issuers take turns and the second sees the first
+    Locks.key("ioeti.receipt", String.valueOf(collection.getId()));
+    JPA.em().refresh(collection);
+    String refusal = ReceiptRules.refusal(collection.getStatusSelect() == DonationCollectionRepository.STATUS_VOIDED,
+        receiptInForce(collection) != null);
+    if ("COLLECTION_VOIDED".equals(refusal)) {
+      throw new ApiException(422, "COLLECTION_VOIDED", "A voided collection gets no receipt.", null);
+    }
+    if (refusal != null) {
+      throw new ApiException(409, "RECEIPT_EXISTS", "A receipt is already in force for this collection.", null);
+    }
+    int year = today.getYear();
+    Locks.key("ioeti.receipt-number", String.valueOf(year));
+    String highest = JPA.em().createQuery("SELECT MAX(r.number) FROM DonationReceipt r WHERE r.number LIKE :p", String.class)
+        .setParameter("p", "DR-" + year + "-%").getSingleResult();
+    FundingOpportunity opportunity = collection.getInstallment().getCommitment().getOpportunity();
+    Partner donor = opportunity.getDonor().getPartner();
+    DonationReceipt receipt = new DonationReceipt();
+    receipt.setNumber(ReceiptRules.next(year, highest));
+    receipt.setCollection(collection);
+    receipt.setAmount(collection.getAmount());
+    receipt.setCurrency(opportunity.getCurrency());
+    receipt.setDonorName(donor.getName());
+    receipt.setReceivedOn(collection.getReceivedOn());
+    receipt.setIssuedOn(today);
+    receipt.setIssuedBy(AuthUtils.getUser());
+    receipt.setStatusSelect(DonationReceiptRepository.STATUS_ISSUED);
+    receipt.setReplaces(Query.of(DonationReceipt.class).filter("self.collection = ?1 AND self.statusSelect = ?2", collection,
+        DonationReceiptRepository.STATUS_VOIDED).order("-id").fetchOne());
+    return JPA.save(receipt);
+  }
+
+  /** Voids a receipt with a reason; it keeps its number, and a new receipt for the collection gets a new one. */
+  @Transactional(rollbackOn = {Exception.class})
+  public DonationReceipt voidReceipt(DonationReceipt receipt, int reason) {
+    Locks.key("ioeti.receipt", String.valueOf(receipt.getCollection().getId()));
+    JPA.em().lock(receipt, LockModeType.PESSIMISTIC_FORCE_INCREMENT);
+    if (receipt.getStatusSelect() == DonationReceiptRepository.STATUS_VOIDED) {
+      throw new ApiException(422, "RECEIPT_VOIDED", "This receipt is already voided.", null);
+    }
+    receipt.setStatusSelect(DonationReceiptRepository.STATUS_VOIDED);
+    receipt.setVoidReasonSelect(reason);
+    receipt.setVoidedAt(LocalDateTime.now());
+    receipt.setVoidedBy(AuthUtils.getUser());
+    return JPA.save(receipt);
+  }
+
+  public static DonationReceipt receiptInForce(DonationCollection collection) {
+    return Query.of(DonationReceipt.class).filter("self.collection = ?1 AND self.statusSelect = ?2", collection,
+        DonationReceiptRepository.STATUS_ISSUED).fetchOne();
+  }
+
+  public static long voidedReceipts(DonationCollection collection) {
+    return Query.of(DonationReceipt.class).filter("self.collection = ?1 AND self.statusSelect = ?2", collection,
+        DonationReceiptRepository.STATUS_VOIDED).count();
+  }
+
+  // --- D-05: restricted funds ----------------------------------------------------------------------
+
+  /** Finance's mapping of a donor restriction to an active native analytic account. */
+  @Transactional(rollbackOn = {Exception.class})
+  public FundRestriction saveRestriction(FundRestriction restriction, String name, AnalyticAccount account, Boolean active) {
+    if (restriction.getId() != null) JPA.em().lock(restriction, LockModeType.PESSIMISTIC_FORCE_INCREMENT);
+    if (name != null) restriction.setName(name);
+    if (account != null) restriction.setAnalyticAccount(account);
+    if (active != null) restriction.setActive(active);
+    return JPA.save(restriction);
+  }
+
+  /**
+   * Finance allocates a restricted commitment to a restriction, once. Every recorded collection already on it, and every
+   * later one, records the restriction's analytic account.
+   */
+  @Transactional(rollbackOn = {Exception.class})
+  public FundingCommitment allocate(FundingCommitment commitment, FundRestriction restriction) {
+    JPA.em().lock(commitment, LockModeType.PESSIMISTIC_FORCE_INCREMENT);
+    if (!Boolean.TRUE.equals(commitment.getRestricted())) {
+      throw new ApiException(422, "NOT_RESTRICTED", "Only restricted funding is allocated to a restriction.", null);
+    }
+    if (commitment.getFundRestriction() != null) {
+      throw new ApiException(409, "ALREADY_ALLOCATED", "This commitment is already allocated to a restriction.", null);
+    }
+    if (!Boolean.TRUE.equals(restriction.getActive())) {
+      throw ApiException.invalidField("restrictionId", "INACTIVE", "Choose an active restriction.");
+    }
+    commitment.setFundRestriction(restriction);
+    commitment.setAllocatedAt(LocalDateTime.now());
+    commitment.setAllocatedBy(AuthUtils.getUser());
+    for (DonationCollection k : Query.of(DonationCollection.class).filter(
+        "self.installment.commitment = ?1 AND self.fundRestriction IS NULL", commitment).fetch()) {
+      allocate(k, restriction);
+      JPA.save(k);
+    }
+    return JPA.save(commitment);
+  }
+
+  /** The analytic account a collection is allocated to is the restriction's account at the time it is allocated. */
+  static void allocate(DonationCollection collection, FundRestriction restriction) {
+    if (restriction == null || collection.getFundRestriction() != null) return;
+    collection.setFundRestriction(restriction);
+    collection.setAnalyticAccount(restriction.getAnalyticAccount());
+    collection.setAllocatedAt(LocalDateTime.now());
   }
 
   // --- reads ---------------------------------------------------------------------------------------
