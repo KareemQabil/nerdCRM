@@ -133,6 +133,8 @@ export async function getSession(): Promise<SessionIdentity> {
 }
 /** Thrown when Axelor asks for a new password (temporary password set by an administrator). */
 export const PASSWORD_CHANGE_REQUIRED = "PASSWORD_CHANGE_REQUIRED";
+/** D-07: the person turned on two-step sign-in; the callback asks for a code before it opens a session. */
+export const MFA_REQUIRED = "MFA_REQUIRED";
 export async function signIn(username: string, password: string, newPassword?: string): Promise<SessionIdentity> {
   if (DEMO_MODE) throw new ApiError(403, "Preview mode does not accept credentials");
   const response = await request("/callback", {
@@ -148,6 +150,23 @@ export async function signIn(username: string, password: string, newPassword?: s
   if (body.route?.path === "/change-password") {
     throw new ApiError(428, body.route.state?.error || body.route.state?.passwordRequirements || "Password change required", PASSWORD_CHANGE_REQUIRED);
   }
+  if (body.route?.path === "/mfa") throw new ApiError(428, "Two-step sign-in code required", MFA_REQUIRED);
+  return getSession();
+}
+/** The second step of a two-step sign-in: a code from the authenticator app, or a recovery code. */
+export async function signInWithCode(username: string, code: string, recovery: boolean): Promise<SessionIdentity> {
+  if (DEMO_MODE) throw new ApiError(403, "Preview mode does not accept credentials");
+  // the native MFA client takes the second step (pac4j picks the client by name)
+  const response = await request("/callback?client_name=MfaClient", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ username, mfaCode: code.trim(), mfaMethod: recovery ? "RECOVERY" : "TOTP" }),
+  });
+  if (!response.ok) throw new ApiError(response.status, "Authentication failed");
+  let body: { route?: { path?: string } } = {};
+  try { body = await response.json(); } catch { body = {}; }
+  // a wrong code answers with the code step again, without a session
+  if (body.route?.path === "/mfa") throw new ApiError(401, "Wrong code", MFA_REQUIRED);
   return getSession();
 }
 /** Ends the server session (pac4j /logout); the old session cookie is then refused. */

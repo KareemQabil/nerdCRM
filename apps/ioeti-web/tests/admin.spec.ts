@@ -226,3 +226,94 @@ test("D-07: a profile starts from a template with no rights; each right saves at
   await expect(page.getByText("صلاحية كاملة على المنصة.")).toBeVisible();
   await expect(page.getByRole("checkbox")).toHaveCount(0);
 });
+
+test("D-07: with two-step sign-in on, the password alone opens nothing; a wrong code is explained, the right code or a recovery code signs in", async ({ page }) => {
+  let signedIn = false;
+  const callbacks: Record<string, unknown>[] = [];
+  await page.route("**/axelor-erp/callback*", async route => {
+    const body = route.request().postDataJSON() as Record<string, unknown>;
+    callbacks.push({ ...body, client: new URL(route.request().url()).searchParams.get("client_name") });
+    const askAgain = () => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ route: { path: "/mfa", state: {} } }) });
+    if (body.password) return askAgain();
+    if (body.mfaCode === "123456" || body.mfaCode === "ABCD-EFGH") { signedIn = true; return route.fulfill({ status: 200, contentType: "application/json", body: "{}" }); }
+    return askAgain();
+  });
+  await page.route("**/axelor-erp/ws/ioeti/**", async route => {
+    const path = new URL(route.request().url()).pathname;
+    if (path.endsWith("/session")) return signedIn
+      ? route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ code: "hoda.samir", name: "هدى سمير", language: "ar", administrator: false }) })
+      : route.fulfill({ status: 401, body: "" });
+    return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ codeStatus: 200, object: [] }) });
+  });
+  await page.goto("/");
+  await page.getByLabel("اسم المستخدم").fill("hoda.samir");
+  await page.getByLabel("كلمة المرور").fill("Hoda-Own-Pass-2026");
+  await page.getByRole("button", { name: /دخول/ }).click();
+  await expect(page.getByRole("heading", { name: "الدخول بخطوتين" })).toBeVisible();
+  await page.getByLabel("الكود من التطبيق").fill("000000");
+  await page.getByRole("button", { name: "تأكيد والدخول" }).click();
+  await expect(page.getByRole("alert")).toContainText("الكود مش مطابق");
+  await expect(page.getByRole("heading", { name: /^مرحبًا/ })).toHaveCount(0);
+  // no phone: a recovery code
+  await page.getByLabel("معاييش الموبايل: هستخدم كود استرجاع").check();
+  await page.getByLabel("كود الاسترجاع").fill("ABCD-EFGH");
+  await page.getByRole("button", { name: "تأكيد والدخول" }).click();
+  await expect(page.getByRole("heading", { name: /^مرحبًا/ })).toBeVisible();
+  expect(callbacks).toEqual([
+    { username: "hoda.samir", password: "Hoda-Own-Pass-2026", client: null },
+    { username: "hoda.samir", mfaCode: "000000", mfaMethod: "TOTP", client: "MfaClient" },
+    { username: "hoda.samir", mfaCode: "ABCD-EFGH", mfaMethod: "RECOVERY", client: "MfaClient" },
+  ]);
+});
+
+test("D-07: two-step sign-in is turned on from Settings with a code, recovery codes are shown once, and turning it off needs a code", async ({ page }) => {
+  let enabled = false;
+  const posted: { path: string; body: Record<string, unknown> }[] = [];
+  await page.route("**/axelor-erp/ws/ioeti/**", async route => {
+    const path = new URL(route.request().url()).pathname.replace(/^.*\/ws\/ioeti/, "");
+    const method = route.request().method();
+    const result = (object: unknown, code = 200) => route.fulfill({ status: code, contentType: "application/json", body: JSON.stringify({ codeStatus: code, object }) });
+    if (path === "/session") return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ code: "hoda.samir", name: "هدى سمير", language: "ar" }) });
+    if (path === "/me/mfa") return result({ enabled, method: enabled ? "TOTP" : null });
+    if (method === "POST" && path.startsWith("/me/mfa/")) {
+      const body = (route.request().postDataJSON() ?? {}) as Record<string, unknown>;
+      posted.push({ path, body });
+      const invalid = () => route.fulfill({ status: 422, contentType: "application/json",
+        body: JSON.stringify({ codeStatus: 422, error: { code: "VALIDATION_FAILED", fields: [{ field: "code", code: "INVALID" }] } }) });
+      if (path === "/me/mfa/start") return result({ secret: "JBSWY3DPEHPK3PXP", qrCode: "data:image/png;base64,iVBORw0KGgo=" });
+      if (path === "/me/mfa/confirm") {
+        if (body.code !== "654321") return invalid();
+        enabled = true;
+        return result({ status: { enabled: true, method: "TOTP" }, recoveryCodes: ["AAAA-1111", "BBBB-2222", "CCCC-3333", "DDDD-4444", "EEEE-5555"] });
+      }
+      if (path === "/me/mfa/disable") { enabled = false; return result({ enabled: false, method: null }); }
+    }
+    if (path === "/marketing/sources") return result([]);
+    return route.fulfill({ status: 403, contentType: "application/json", body: "{}" });
+  });
+  await page.goto("/#/settings");
+  const card = page.locator(".mfa-card");
+  await expect(card).toContainText("مش مفعّل.");
+  await card.getByRole("button", { name: "تفعيل بتطبيق مصادقة" }).click();
+  await expect(card.getByRole("img", { name: /JBSWY3DPEHPK3PXP/ })).toBeVisible();
+  await expect(card).toContainText("JBSWY3DPEHPK3PXP");
+  await card.getByLabel("الكود من التطبيق").fill("111111");
+  await card.getByRole("button", { name: "تأكيد وتفعيل" }).click();
+  await expect(card.getByRole("alert")).toContainText("الكود مش مطابق");
+  await card.getByLabel("الكود من التطبيق").fill("654321");
+  await card.getByRole("button", { name: "تأكيد وتفعيل" }).click();
+  await expect(card).toContainText("مفعّل بتطبيق مصادقة.");
+  const codes = card.getByRole("region", { name: "أكواد الاسترجاع" });
+  await expect(codes.getByRole("listitem")).toHaveCount(5);
+  await codes.getByRole("button", { name: "تمام، حفظتها" }).click();
+  await expect(card.getByRole("region", { name: "أكواد الاسترجاع" })).toHaveCount(0);
+  await card.getByRole("button", { name: "إيقاف الدخول بخطوتين" }).click();
+  await card.getByLabel("استخدم كود استرجاع بدل التطبيق").check();
+  await card.getByLabel("كود حالي للتأكيد").fill("AAAA-1111");
+  await card.getByRole("button", { name: "تأكيد" }).click();
+  await expect(card).toContainText("مش مفعّل.");
+  expect(posted.map(p => [p.path, p.body])).toEqual([
+    ["/me/mfa/start", {}], ["/me/mfa/confirm", { code: "111111" }], ["/me/mfa/confirm", { code: "654321" }],
+    ["/me/mfa/disable", { code: "AAAA-1111", recovery: true }],
+  ]);
+});

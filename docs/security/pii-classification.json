@@ -1603,6 +1603,14 @@
     "TemplateView.code": "REFERENCE",
     "TemplateView.role": "REFERENCE",
     "TemplateView.nameAr": "REFERENCE",
-    "TemplateView.nameEn": "REFERENCE"
+    "TemplateView.nameEn": "REFERENCE",
+    "MfaCode.code": "RESTRICTED",
+    "MfaCode.recovery": "REFERENCE",
+    "MfaEnabled.status": "REFERENCE",
+    "MfaEnabled.recoveryCodes": "RESTRICTED",
+    "MfaView.enabled": "REFERENCE",
+    "MfaView.method": "REFERENCE",
+    "MfaSetup.secret": "RESTRICTED",
+    "MfaSetup.qrCode": "RESTRICTED"
   }
 }

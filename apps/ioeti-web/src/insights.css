@@ -14,3 +14,16 @@
 .rp-table th{font-size:12px;color:var(--on-surface-variant);font-weight:600;}
 .rp-bar{display:block;block-size:6px;border-radius:3px;background:var(--primary);opacity:.5;margin-bottom:4px;max-inline-size:100%;}
 .in-badge{display:inline-flex;min-inline-size:18px;block-size:18px;padding:0 5px;border-radius:999px;background:var(--error);color:#fff;font-size:11px;font-weight:700;align-items:center;justify-content:center;margin-inline-start:auto;}
+
+/* D-07 two-step sign-in */
+.mfa-card h2 { display: flex; align-items: center; gap: 8px; }
+.mfa-state { display: inline-flex; align-items: center; gap: 7px; font-weight: 700; color: var(--on-surface-variant); }
+.mfa-state.is-on { color: color-mix(in srgb, var(--success) 75%, var(--on-surface)); }
+.mfa-form { display: grid; gap: 12px; max-width: 420px; margin-top: 10px; }
+.mfa-form label { display: grid; gap: 6px; }
+.mfa-form .mfa-recovery { display: flex; align-items: center; gap: 8px; }
+.mfa-qr { border-radius: 10px; background: #fff; padding: 8px; }
+.mfa-secret code { word-break: break-all; }
+.mfa-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.mfa-codes { margin: 10px 0; padding: 14px; border: 1px dashed var(--outline); border-radius: var(--radius); }
+.mfa-codes ol { columns: 2; margin: 8px 0 12px; padding-inline-start: 18px; font-variant-numeric: tabular-nums; }

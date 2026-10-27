@@ -184,6 +184,15 @@ public class AdminRestController {
     return ResponseConstructor.build(Response.Status.OK, "Profile", access(group));
   }
 
+  @POST
+  @Path("/users/{id}/mfa/reset")
+  @Operation(summary = "Reset a person's two-step sign-in (lost device); they sign in with their password (administrators)", tags = {"IOETI admin"})
+  @IoetiEndpoint
+  public Response resetMfa(@PathParam("id") Long id) {
+    admin();
+    return ResponseConstructor.build(Response.Status.OK, "MFA reset", MfaRestController.reset(existing(id)));
+  }
+
   @GET
   @Path("/role-templates")
   @Operation(summary = "D-07 role templates and the record types a profile can be granted, with their scopes (administrators)", tags = {"IOETI admin"})
