@@ -1670,6 +1670,18 @@
     "SetAway.from": "PERSONAL",
     "SetAway.until": "PERSONAL",
     "UserView.awayFrom": "PERSONAL",
-    "UserView.awayUntil": "PERSONAL"
+    "UserView.awayUntil": "PERSONAL",
+    "AgendaItem.version": "REFERENCE",
+    "AgendaItem.movable": "BUSINESS",
+    "FinishActivity.version": "REFERENCE",
+    "FinishActivity.outcome": "RESTRICTED",
+    "LogActivity.minutes": "BUSINESS",
+    "MoveActivity.version": "REFERENCE",
+    "MoveActivity.at": "BUSINESS",
+    "MoveActivity.minutes": "BUSINESS",
+    "MoveActivity.zone": "REFERENCE",
+    "PersonView.id": "REFERENCE",
+    "PersonView.name": "PERSONAL",
+    "PersonView.me": "REFERENCE"
   }
 }

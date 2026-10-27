@@ -145,6 +145,9 @@ jobs:
           # D-12: routing by the line's rules (governorate and source → team), round robin inside the team skipping people
           # away, outside the line or at the cap; unroutable → unassigned + manager notice; never reassigns; away dates (admin)
           python3 scripts/lead_routing_probe.py
+          # The calendar: personal items, move (keeping the length), done and cancel for the owner only, and a
+          # teammate's calendar limited to what the caller's own rights let them read
+          python3 scripts/calendar_probe.py
           # Journeys plan, phase 2: daily work (lead edit, accounts and contacts, opportunity stages with
           # won blocked by D-11 and lost only with a reason, activities, the personal agenda, global search)
           python3 scripts/daily_work_probe.py

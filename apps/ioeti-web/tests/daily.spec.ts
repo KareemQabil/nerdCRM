@@ -205,7 +205,7 @@ test("a rep edits a lead with one name field; phone and e-mail are never prefill
 test("Ctrl+K also jumps to a page the person can open, whatever the hamza or taa marbuta; pages come before records", async ({ page }) => {
   await mockDaily(page);
   await page.goto("/#/agenda");
-  await expect(page.getByRole("heading", { name: "أجندتي" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "التقويم" })).toBeVisible();
   await page.keyboard.press("Control+k");
   const palette = page.getByRole("dialog");
   // written without the hamza, "الاشعارات" still finds the notifications page
@@ -225,10 +225,11 @@ test("Ctrl+K also jumps to a page the person can open, whatever the hamza or taa
   await expect(page).toHaveTitle("الفواتير والتحصيل · IOETI");
 });
 
-test("my agenda groups the week by day, and Ctrl+K finds and opens a record", async ({ page }) => {
+test("the calendar list groups the fortnight by day, and Ctrl+K finds and opens a record", async ({ page }) => {
   await mockDaily(page);
   await page.goto("/#/agenda");
-  await expect(page.getByRole("heading", { name: "أجندتي" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "التقويم" })).toBeVisible();
+  await page.getByRole("button", { name: "قائمة", exact: true }).click();
   await expect(page.locator(".agenda-day")).toHaveCount(3);
   await expect(page.locator(".agenda-day.is-today")).toContainText("اجتماع مراجعة العرض");
   await expect(page.getByText("تدقيق مخطط")).toBeVisible();
@@ -276,6 +277,7 @@ test("visits and quality on the shared surfaces: a corrective action due on my a
     sections: [{ key: "FIELD_VISITS", count: 2, permitted: true }, { key: "QUALITY_ISSUES", count: 1, permitted: true }], money: [] })));
 
   await page.goto("/#/agenda");
+  await page.getByRole("button", { name: "قائمة", exact: true }).click();
   const action = page.locator(".agenda-item.is-action");
   await expect(action).toContainText("قالب تقرير موحد");
   await expect(action).toContainText("إجراء تصحيحي مستحق");
