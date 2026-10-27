@@ -31,4 +31,13 @@ class ArabicNormalizerTest {
   void emailsCompareCaseInsensitively() {
     assertEquals("sara@example.com", ArabicNormalizer.emailKey(" Sara@Example.com "));
   }
+
+  @Test
+  void sqlFoldingAgreesWithNormalize() {
+    String from = ArabicNormalizer.FOLD_FROM, to = ArabicNormalizer.FOLD_TO;
+    for (int i = 0; i < from.length(); i++) {
+      String folded = i < to.length() ? String.valueOf(to.charAt(i)) : "";
+      assertEquals(ArabicNormalizer.normalize("ب" + from.charAt(i) + "ب"), ArabicNormalizer.normalize("ب" + folded + "ب"), "position " + i);
+    }
+  }
 }

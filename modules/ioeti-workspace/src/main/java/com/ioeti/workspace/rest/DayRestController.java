@@ -348,24 +348,30 @@ public class DayRestController {
               l.getEnterpriseName())));
     }
     if (security.isPermitted(JpaSecurity.CAN_READ, Partner.class)) {
-      readable(Partner.class, new JPQLFilter("(self.isCustomer = true OR self.isProspect = true) AND (self.isInternal IS NULL OR self.isInternal = false)"
-          + " AND (self.isEmployee IS NULL OR self.isEmployee = false) AND (self.isContact IS NULL OR self.isContact = false)"))
-          .order("-id").fetch(1000).stream().filter(p -> ArabicNormalizer.normalize(p.getName()).contains(key)).limit(8)
-          .forEach(p -> hits.add(new SearchHit("ACCOUNT", p.getId(), p.getName(), p.getPartnerSeq())));
+      List<Object> params = new ArrayList<>();
+      Query<Partner> accounts = readable(Partner.class, new JPQLFilter("(self.isCustomer = true OR self.isProspect = true) AND (self.isInternal IS NULL OR self.isInternal = false)"
+          + " AND (self.isEmployee IS NULL OR self.isEmployee = false) AND (self.isContact IS NULL OR self.isContact = false)"
+          + " AND " + eachWord(key, params, "self.name"), params.toArray())).order("-id");
+      firstMatches(accounts, p -> ArabicNormalizer.normalize(p.getName()).contains(key) ? new SearchHit("ACCOUNT", p.getId(), p.getName(), p.getPartnerSeq()) : null)
+          .forEach(hits::add);
     }
     if (security.isPermitted(JpaSecurity.CAN_READ, Opportunity.class)) {
-      readable(Opportunity.class, null).order("-id").fetch(1000).stream()
-          .filter(o -> ArabicNormalizer.normalize(o.getName() + " " + o.getOpportunitySeq()).contains(key)).limit(8)
-          .forEach(o -> hits.add(new SearchHit("OPPORTUNITY", o.getId(), o.getName(), o.getOpportunitySeq())));
+      List<Object> params = new ArrayList<>();
+      firstMatches(readable(Opportunity.class, new JPQLFilter(eachWord(key, params, "self.name", "self.opportunitySeq"), params.toArray())).order("-id"),
+          o -> ArabicNormalizer.normalize(o.getName() + " " + o.getOpportunitySeq()).contains(key)
+              ? new SearchHit("OPPORTUNITY", o.getId(), o.getName(), o.getOpportunitySeq()) : null).forEach(hits::add);
     }
     if (security.isPermitted(JpaSecurity.CAN_READ, Intervention.class)) {
       // a visit matches its reference, or its client's name only when the caller may read the client
-      readable(Intervention.class, null).order("-id").fetch(1000).stream().map(v -> {
+      List<Object> params = new ArrayList<>();
+      Query<Intervention> visits = readable(Intervention.class, new JPQLFilter(
+          eachWord(key, params, "self.sequence", "SELECT p.id FROM Partner p WHERE self.deliveredPartner.id = p.id AND %s"), params.toArray())).order("-id");
+      firstMatches(visits, v -> {
         Partner client = v.getDeliveredPartner();
         String name = client != null && security.isPermitted(JpaSecurity.CAN_READ, Partner.class, client.getId()) ? client.getName() : null;
         return ArabicNormalizer.normalize(java.util.Objects.toString(v.getSequence(), "") + " " + (name == null ? "" : name)).contains(key)
             ? new SearchHit("VISIT", v.getId(), name == null ? v.getSequence() : name, v.getSequence()) : null;
-      }).filter(java.util.Objects::nonNull).limit(8).forEach(hits::add);
+      }).forEach(hits::add);
     }
     if (security.isPermitted(JpaSecurity.CAN_READ, QualityImprovement.class)) {
       readable(QualityImprovement.class, new JPQLFilter("self.type = ?", QualityImprovementRepository.TYPE_SYSTEM)).order("-id").fetch(1000).stream()
@@ -455,6 +461,47 @@ public class DayRestController {
     }
     if (text.length() > max) throw ApiException.invalidField(field, "TOO_LONG", "This field can have at most " + max + " characters.");
     return text;
+  }
+
+  /**
+   * Every word of the normalized key appears in one of the fields, folded in SQL as {@link ArabicNormalizer} folds it. A
+   * field written as a subquery with %s (on p.name) matches through a related client. This only narrows the records; the
+   * exact check stays in Java.
+   */
+  private static String eachWord(String key, List<Object> params, String... fields) {
+    List<String> words = new ArrayList<>();
+    for (String word : key.split(" ")) {
+      List<String> any = new ArrayList<>();
+      for (String field : fields) {
+        boolean sub = field.startsWith("SELECT ");
+        String like = "cast(function('translate', lower(" + (sub ? "p.name" : field) + "), ?, ?) as String) LIKE ?";
+        any.add(sub ? "EXISTS (" + field.formatted(like) + ")" : like);
+        params.add(ArabicNormalizer.FOLD_FROM);
+        params.add(ArabicNormalizer.FOLD_TO);
+        params.add("%" + word.replace("%", "").replace("_", "") + "%");
+      }
+      words.add("(" + String.join(" OR ", any) + ")");
+    }
+    return String.join(" AND ", words);
+  }
+
+  private static final int SEARCH_HITS = 8, SCAN_PAGE = 500, SCAN_LIMIT = 20_000;
+
+  /**
+   * The first {@value #SEARCH_HITS} exact matches, newest first, reading the narrowed records page by page. Stopping at a fixed
+   * number of records instead would miss an older match whenever a common word narrows little.
+   */
+  private static <T extends Model> List<SearchHit> firstMatches(Query<T> query, java.util.function.Function<T, SearchHit> exact) {
+    List<SearchHit> out = new ArrayList<>();
+    for (int offset = 0; offset < SCAN_LIMIT; offset += SCAN_PAGE) {
+      List<T> page = query.fetch(SCAN_PAGE, offset);
+      for (T record : page) {
+        SearchHit hit = exact.apply(record);
+        if (hit != null && out.add(hit) && out.size() == SEARCH_HITS) return out;
+      }
+      if (page.size() < SCAN_PAGE) break;
+    }
+    return out;
   }
 
   private static <T extends Model> Query<T> readable(Class<T> type, Filter condition) {

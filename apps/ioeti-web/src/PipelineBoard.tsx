@@ -12,16 +12,19 @@ import type { Language } from "./preferences";
  * Won and lost are not set by dropping: they need the line's evidence (D-11) or a lost reason, so the card opens its record
  * where those steps are.
  */
+/** The server's cap on board cards (OpportunityRestController.BOARD_LIMIT). */
+const BOARD_LIMIT = 500;
+
 const L = {
   ar: {
     all: "كل الخطوط", mine: "فرصي بس", search: "دوّر في اللوحة", empty: "مفيش فرص هنا.", total: "الإجمالي", won: "مكسوبة (آخر 30 يوم)", lost: "خسرانة (آخر 30 يوم)",
     move: "نقل إلى", moved: "اتنقلت الفرصة.", closeHere: "المكسب والخسارة بيتسجلوا من صفحة الفرصة (فيها الدليل أو السبب). فتحتها لك.", late: "ميعاد الإغلاق فات",
-    dropHint: "اسحب الكارت لمرحلة تانية، أو اختار المرحلة من القائمة اللي على الكارت.", loading: "جاري التحميل…", owner: "المسؤول", count: (n: number) => `${n} فرصة`,
+    dropHint: "اسحب الكارت لمرحلة تانية، أو اختار المرحلة من القائمة اللي على الكارت.", capped: `اللوحة بتعرض أول ${BOARD_LIMIT} فرصة (الأقرب في ميعاد الإغلاق)، والإجماليات للي ظاهر بس. للأرقام الكاملة شوف تقرير المبيعات.`, loading: "جاري التحميل…", owner: "المسؤول", count: (n: number) => `${n} فرصة`,
   },
   en: {
     all: "All lines", mine: "Mine only", search: "Search the board", empty: "No opportunities here.", total: "Total", won: "Won (last 30 days)", lost: "Lost (last 30 days)",
     move: "Move to", moved: "Moved.", closeHere: "Won and lost are recorded on the opportunity (with its evidence or reason); it is open for you.", late: "Close date passed",
-    dropHint: "Drag a card to another stage, or pick the stage from the card's own list.", loading: "Loading…", owner: "Owner", count: (n: number) => `${n} opportunities`,
+    dropHint: "Drag a card to another stage, or pick the stage from the card's own list.", capped: `The board shows the first ${BOARD_LIMIT} opportunities (closest close date first), and the totals cover those only. See the sales report for full figures.`, loading: "Loading…", owner: "Owner", count: (n: number) => `${n} opportunities`,
   },
 };
 
@@ -85,6 +88,7 @@ export function PipelineBoard({ language, onOpen }: { language: Language; onOpen
       <label className="pipeline-mine"><input type="checkbox" checked={mine} onChange={e => setMine(e.target.checked)}/>{l.mine}</label>
       <small>{l.dropHint}</small>
     </div>
+    {cards !== null && cards.length >= BOARD_LIMIT && <p className="daily-note" role="status">{l.capped}</p>}
     {notice && <p className="daily-note" role="status">{notice}</p>}
     {error && <p className="daily-error" role="alert"><CircleAlert size={15}/>{error}</p>}
     {cards === null ? <div className="empty-state" role="status">{l.loading}</div> :

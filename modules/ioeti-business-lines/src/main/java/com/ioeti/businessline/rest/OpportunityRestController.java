@@ -17,6 +17,7 @@ import com.axelor.db.JpaSecurity;
 import com.axelor.db.Query;
 import com.axelor.inject.Beans;
 import com.axelor.rpc.filter.Filter;
+import com.axelor.rpc.filter.JPQLFilter;
 import com.axelor.utils.api.ConflictChecker;
 import com.axelor.utils.api.ResponseConstructor;
 import com.axelor.utils.api.SecurityCheck;
@@ -78,14 +79,28 @@ public class OpportunityRestController {
     JpaSecurity security = Beans.get(JpaSecurity.class);
     User me = AuthUtils.getUser();
     java.time.LocalDateTime since = java.time.LocalDateTime.now().minusDays(30);
+    // the filters run in the query: applied after a bounded fetch, a long closed history would push open cards off the board
+    List<String> conditions = new java.util.ArrayList<>();
+    List<Object> params = new java.util.ArrayList<>();
+    List<OpportunityStatus> closed = stages.closed();
+    if (!closed.isEmpty()) {
+      conditions.add("(self.opportunityStatus IS NULL OR self.opportunityStatus NOT IN (?) OR self.updatedOn >= ? OR (self.updatedOn IS NULL AND self.createdOn >= ?))");
+      params.add(closed);
+      params.add(since);
+      params.add(since);
+    }
+    if (lineCode != null && !lineCode.isBlank()) {
+      conditions.add("self.ioetiBusinessLine.code = ?");
+      params.add(lineCode.strip());
+    }
+    if (Boolean.TRUE.equals(mine)) {
+      conditions.add("self.user = ?");
+      params.add(me);
+    }
     List<BoardCard> cards = new java.util.ArrayList<>();
-    for (Opportunity o : readableOpportunities().order("expectedCloseDate").order("-id").fetch(BOARD_LIMIT)) {
-      String kind = stages.kind(o.getOpportunityStatus());
-      boolean recent = o.getUpdatedOn() != null ? o.getUpdatedOn().isAfter(since) : o.getCreatedOn() != null && o.getCreatedOn().isAfter(since);
-      if (!"OPEN".equals(kind) && !recent) continue;
-      if (lineCode != null && !lineCode.isBlank() && (o.getIoetiBusinessLine() == null || !lineCode.equals(o.getIoetiBusinessLine().getCode()))) continue;
+    for (Opportunity o : readableOpportunities(conditions.isEmpty() ? null : new JPQLFilter(String.join(" AND ", conditions), params.toArray()))
+        .order("expectedCloseDate").order("-id").fetch(BOARD_LIMIT)) {
       boolean own = o.getUser() != null && o.getUser().equals(me);
-      if (Boolean.TRUE.equals(mine) && !own) continue;
       Partner account = o.getPartner();
       boolean seeAccount = account != null && security.isPermitted(JpaSecurity.CAN_READ, Partner.class, account.getId());
       cards.add(new BoardCard(view(o), seeAccount ? account.getName() : null, seeAccount ? account.getId() : null,
@@ -284,8 +299,13 @@ public class OpportunityRestController {
   }
 
   private Query<Opportunity> readableOpportunities() {
-    Filter filter = Beans.get(JpaSecurity.class).getFilter(JpaSecurity.CAN_READ, Opportunity.class);
-    return filter == null ? Query.of(Opportunity.class) : filter.build(Opportunity.class);
+    return readableOpportunities(null);
+  }
+
+  private Query<Opportunity> readableOpportunities(Filter condition) {
+    Filter security = Beans.get(JpaSecurity.class).getFilter(JpaSecurity.CAN_READ, Opportunity.class);
+    Filter combined = security == null ? condition : condition == null ? security : Filter.and(security, condition);
+    return combined == null ? Query.of(Opportunity.class) : combined.build(Opportunity.class);
   }
 
   static OpportunityView view(Opportunity opportunity) {
