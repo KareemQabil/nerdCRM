@@ -1460,3 +1460,26 @@ th[aria-sort="ascending"], th[aria-sort="descending"] { color: var(--on-surface)
 .directory-cell .directory-record small { color: var(--on-surface-variant); }
 .data-table.is-dense .directory-cell .line-monogram { width: 26px; height: 26px; font-size: 12px; }
 .stage-chip.kind-converted { background: var(--success-container); color: var(--success); }
+
+/* UX-5 outcome bar: one total split into open / converted / lost (colours validated for CVD on both surfaces) */
+:root { --outcome-open: #2563eb; --outcome-converted: #047857; --outcome-lost: #b91c1c; }
+[data-theme="dark"], [data-theme="luxury"] { --outcome-open: #3b82f6; --outcome-converted: #059669; --outcome-lost: #ef4444; }
+.outcome-bar { margin: 14px 0 10px; display: grid; gap: 10px; }
+.outcome-track { display: flex; gap: 2px; height: 12px; border-radius: 4px; overflow: hidden; background: var(--surface-sunken); }
+.outcome-seg { min-width: 4px; flex-basis: 0; }
+.outcome-seg:first-child { border-start-start-radius: 4px; border-end-start-radius: 4px; }
+.outcome-seg:last-child { border-start-end-radius: 4px; border-end-end-radius: 4px; }
+.outcome-seg.is-open, .outcome-dot.is-open { background: var(--outcome-open); }
+.outcome-seg.is-converted, .outcome-dot.is-converted { background: var(--outcome-converted); }
+.outcome-seg.is-lost, .outcome-dot.is-lost { background: var(--outcome-lost); }
+.outcome-empty { flex: 1; }
+.outcome-legend { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 12.5px; color: var(--on-surface-variant); }
+.outcome-key { display: inline-flex; align-items: center; gap: 6px; }
+.outcome-key strong { color: var(--on-surface); font-variant-numeric: tabular-nums; }
+.outcome-key small { color: var(--on-surface-variant); }
+.outcome-dot { width: 9px; height: 9px; border-radius: 2px; display: inline-block; }
+.outcome-seg:hover { filter: brightness(1.1); }
+/* home: panels keep their own height instead of stretching to the taller one */
+.cockpit-grid { align-items: start; }
+.outcome-bar.is-captioned { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--outline-variant); }
+.outcome-title { font-size: 13px; font-weight: 700; color: var(--on-surface); }

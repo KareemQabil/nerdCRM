@@ -6,6 +6,7 @@ import { download, getAreasReport, getSalesReport, toCsv, type AreasReport, type
 import type { Language } from "./preferences";
 import "./insights.css";
 import { amount } from "./format";
+import { OutcomeBar } from "./OutcomeBar";
 
 const strings = {
   ar: {
@@ -89,6 +90,7 @@ export function ReportsPage({language}:{language:Language}){
       <div className="rp-head"><h2 id="rp-leads">{l.leads}</h2>
         <button type="button" className="btn btn-secondary" disabled={sales.leads.bySource.length===0} onClick={()=>download(`leads_${suffix}.csv`,toCsv([l.source,l.total,l.open,l.converted,l.lost],
           sales.leads!.bySource.map(r=>[r.source??l.noSource,r.total,r.open,r.converted,r.lost])))}><Download size={15}/>{l.csv}</button></div>
+      <OutcomeBar title={l.leads} outcomes={[{key:"open",label:l.open,value:sales.leads.open},{key:"converted",label:l.converted,value:sales.leads.converted},{key:"lost",label:l.lost,value:sales.leads.lost}]}/>
       <ul className="wf-cards"><li><div><strong>{num(sales.leads.total)}</strong><span>{l.total}</span></div></li><li><div><strong>{num(sales.leads.open)}</strong><span>{l.open}</span></div></li>
         <li><div><strong>{num(sales.leads.converted)}</strong><span>{l.converted}</span></div></li><li><div><strong>{num(sales.leads.lost)}</strong><span>{l.lost}</span></div></li>
         <li><div><strong>{pct(sales.leads.converted,sales.leads.total)}</strong><span>{l.rate}</span></div></li></ul>

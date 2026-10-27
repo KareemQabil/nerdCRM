@@ -2353,6 +2353,11 @@ test("reports: values stay per currency; hidden sections are absent; CSV export 
   await expect(pipeline).not.toContainText("1,500");
   await expect(page.getByRole("heading", { name: "الحملات" })).toHaveCount(0);
   await expect(page.locator(".rp-card").filter({ hasText: "العملاء المحتملون حسب المصدر" })).toContainText("25%");
+  // the outcome bar: one segment per non-empty outcome, sized by the server's counts, every segment named in the legend
+  const outcome = page.locator(".rp-card").filter({ hasText: "العملاء المحتملون حسب المصدر" }).locator(".outcome-bar");
+  await expect(outcome.getByRole("img")).toHaveAttribute("aria-label", "العملاء المحتملون حسب المصدر: مفتوحة 2 (50%)، تم تحويلهم 1 (25%)، خسارة 1 (25%)");
+  await expect(outcome.locator(".outcome-seg")).toHaveCount(3);
+  await expect(outcome.locator(".outcome-key")).toHaveText(["مفتوحة250%", "تم تحويلهم125%", "خسارة125%"]);
   await expect(page.locator(".rp-card").filter({ hasText: "السجلات في كل قسم" })).toContainText("طلبات التسليم");
   const [file] = await Promise.all([page.waitForEvent("download"),
     page.locator(".rp-card").filter({ hasText: "العملاء المحتملون حسب المصدر" }).getByRole("button", { name: "تصدير CSV" }).click()]);
