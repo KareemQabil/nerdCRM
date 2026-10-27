@@ -1,0 +1,18 @@
+PASS admin login
+PASS GET /ws/ioeti/business-lines returns the 5 seeded lines  [http=200 codes=['ISO9001', 'ISO22000', 'TRAINING', 'RECRUITMENT', 'FUNDRAISING']]
+PASS GET /ws/ioeti/business-lines/{code} is case-insensitive and returns Arabic name  [http=200 body={'id': 2, 'code': 'ISO22000', 'nameEn': 'ISO 22000', 'nameAr': 'أيزو 22000', 'status': 2, 'sequence': 20, 'responsibleTeam': None}]
+PASS generic API rejects invalid business line (repository validation)  [http=200 body={"status": -1, "data": {"causeStack": "jakarta.persistence.PersistenceException: Code must be 2-20 characters: an upper-case letter followed by letters, digits ]
+PASS generic API creates a suspended test line and normalises its code  [http=200 code=TST_SUSP_5FADFE]
+PASS opportunity on a suspended business line is rejected (JPA listener)  [http=200]
+PASS opportunity on an active business line is accepted  [http=200 body={"status": 0, "data": [{"importOrigin": null, "eventList": null, "lostReason": null, "description": null, "memo": null, "customerDescription": null, "source": n]
+PASS test viewer user created in group ioeti-bl-viewer  [http=200 body={"status": 0, "data": [{"localization": null, "transientPassword": null, "isIncludeSubProjects": false, "favouriteFolderSet": null, "language": "en", "sendEmail]
+PASS viewer login
+PASS NEG viewer list via IOETI API hides the suspended line (record-level condition)  [http=200 codes=['ISO9001', 'ISO22000', 'TRAINING', 'RECRUITMENT', 'FUNDRAISING']]
+PASS NEG viewer cannot fetch the suspended line by code  [http=404 body={"codeStatus": 404, "messageStatus": "Not found.", "error": {"code": "NOT_FOUND", "message": "Not found.", "correlationId": "998d9b5d-f23b-4fd4-89a1-5f7a3eea688f", "fields": []}}]
+PASS NEG generic /ws/rest is closed to non-maintenance users (SEC-002)  [http=403]
+PASS NEG viewer cannot update a business line (no write permission)  [http=403 body={"codeStatus": 403, "messageStatus": "You do not have access to this action.", "error": {"code": "FORBIDDEN", "message":]
+PASS NEG viewer cannot read opportunities (deny by default)  [http=403 body={"codeStatus": 403, "messageStatus": "You do not have access to this action.", "error": {"code": "FORBIDDEN", "message":]
+PASS NEG anonymous call to IOETI API is refused  [http=401]
+PASS cleanup of test records  [Opportunity:ok, BusinessLine:ok, User:ok]
+
+16/16 checks passed

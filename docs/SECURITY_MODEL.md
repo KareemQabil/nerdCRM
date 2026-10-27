@@ -36,6 +36,7 @@ request). Details and suggested upstream fix: `docs/upstream-issues/AOP-thread-b
   (`scripts/support/HashPassword.java`). Never create users with plaintext passwords via the API.
 - `/ws/rest/*` exposes **every** model the user may read, with any field. With field rules not
   enforced on read, the generic API must not be the integration surface for restricted roles.
+  **SEC-002:** `com.ioeti.core.api.GenericApiExposureFilter` now answers 403 on every generic `/ws` route for users outside `ioeti.security.maintenance-groups` (default: the administrator and `admins`). See `docs/security/SEC-002-api-contract.md`.
 
 ## 2. IOETI record scopes mapped to Axelor
 

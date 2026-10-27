@@ -100,6 +100,27 @@ test("opportunity create and rename use typed application endpoints", async ({ p
   await expect(page.getByText("New customer opportunity updated")).toBeVisible();
 });
 
+test("server validation errors are localized from the IOETI error contract, not shown raw", async ({ page }) => {
+  await intercept(page);
+  // registered after intercept(), so it takes precedence for this request
+  await page.route("**/axelor-erp/ws/ioeti/opportunities", async (route: Route) => {
+    if (route.request().method() !== "POST") return route.fallback();
+    return route.fulfill({ status: 422, contentType: "application/json", body: JSON.stringify({
+      codeStatus: 422, messageStatus: "Choose an active business line you can access.",
+      error: { code: "VALIDATION_FAILED", message: "Choose an active business line you can access.",
+        correlationId: "test-correlation-1", fields: [{ field: "businessLineCode", code: "UNAVAILABLE", message: "x" }] },
+    }) });
+  });
+  await page.goto("/");
+  await page.getByRole("button", { name: "المبيعات" }).click();
+  await page.getByRole("button", { name: "فرصة جديدة" }).click();
+  await page.getByRole("textbox", { name: "اسم الفرصة" }).fill("Opportunity on a closed line");
+  await page.getByLabel("خطوط الأعمال").selectOption("TRAINING");
+  await page.getByRole("button", { name: "حفظ التغييرات" }).click();
+  await expect(page.getByText("خط الأعمال غير متاح لك أو غير نشط؛ اختر خطًا آخر")).toBeVisible();
+  await expect(page.getByText("Choose an active business line you can access.")).toHaveCount(0);
+});
+
 test("lack of BusinessLine permissions is not treated as failed session login", async ({ page }) => {
   await intercept(page, { businessLineDenied: true });
   await page.goto("/");

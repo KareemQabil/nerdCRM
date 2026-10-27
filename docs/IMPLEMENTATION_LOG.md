@@ -90,3 +90,35 @@ JUnit: 34/34, including the deterministic reproduction on the real 8.2.5 classes
 - The pac4j authorizer path is covered by filter ordering, with no failing-before live case.
 - The result is a finite sample, not a proof.
 - Adjacent work proposed as SEC-002 to SEC-004 (see the PR).
+
+## 2026-10-19 · SEC-002 part 1 · Error contract, existence oracle, generic API exposure
+
+Branch `claude/ioeti-sec-002-api-contract` (stacked on the integration base, PR #14). Status: **LIVE_INTEGRATION_PASS** and **NEGATIVE_SECURITY_PASS** for the existing endpoints.
+
+Full report: `docs/security/SEC-002-api-contract.md`. Executed-test matrix: `docs/SECURITY_TEST_MATRIX.md`.
+
+### Change
+- `@IoetiEndpoint` with a typed `ApiException` and one JSON error contract, including a correlation id. It replaces the AOS `@HttpExceptionHandler`, which maps other 4xx to 409 and echoes 500 messages.
+- `RecordAccess`: a hidden record and a missing record give the same 404.
+- `GenericApiExposureFilter`: non-maintenance users get 403 from the generic Axelor APIs.
+- Account list filters client accounts in the query, so pages are full.
+- UI: `ApiError.code` and `ApiError.fields`, plus localized 422 messages.
+
+### Evidence
+| Check | Result |
+|---|---|
+| Contract probe | 31/31 |
+| API smoke | 16/16 |
+| Identity probe | 0/310,904 leaks |
+| Two-writer | 20/20 |
+| Pilot | PASS |
+| JUnit | 41/41 |
+| Web mocked | 18/18 |
+| Web demo | 14/14 |
+
+### Not done
+- Rate limiting.
+- Role-scope matrix (SEC-003).
+- Session/CSRF (SEC-004).
+- Export, attachment and PDF parity.
+- Structural PII isolation.

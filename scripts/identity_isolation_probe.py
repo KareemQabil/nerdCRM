@@ -191,11 +191,11 @@ def main():
             tally.record(label, "ioeti_lines_scope", seen != exp["lines"],
                          f"http={status} extra={sorted((seen or set()) - exp['lines'])}"
                          f" missing={sorted(exp['lines'] - (seen or set()))}")
+            # SEC-002: generic Axelor APIs are closed to non-maintenance users. Returned data means
+            # the gate evaluated someone else's identity (or was bypassed).
             status, body = client.call("POST", f"/ws/rest/{BL}/search", {"fields": ["code"], "limit": 100})
-            rows = data(body)
-            seen = {r["code"] for r in rows or []}
-            tally.record(label, "native_rest_lines_scope", seen != exp["lines"],
-                         f"extra={sorted(seen - exp['lines'])} missing={sorted(exp['lines'] - seen)}")
+            tally.record(label, "native_rest_refused", status != 403 or data(body) is not None,
+                         f"http={status}")
             status, body = client.call("GET", "/ws/ioeti/opportunities?limit=50")
             if exp["opps"] is None:
                 denied = status in (401, 403) or body.get("codeStatus") in (401, 403)
@@ -208,10 +208,8 @@ def main():
             status, body = client.call("POST", f"/ws/rest/{OPP}/search",
                                        {"fields": ["name"], "limit": 100,
                                         "data": {"_domain": f"self.id in ({','.join(map(str, all_opps))})"}})
-            seen = {r["id"] for r in data(body) or []}
-            allowed = exp["opps"] or set()
-            tally.record(label, "native_rest_opportunity_scope", seen != allowed,
-                         f"foreign={len(seen - allowed)} missing={len(allowed - seen)}")
+            tally.record(label, "native_rest_opportunity_refused",
+                         status != 403 or data(body) is not None, f"http={status}")
             # denied writes, sent with the record's real version
             target = opps["B" if label == "A" else "A"]
             status, body = client.call("PUT", f"/ws/ioeti/opportunities/{target['id']}",

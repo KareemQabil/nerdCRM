@@ -1,0 +1,160 @@
+{
+  "results": [
+    {
+      "check": "no existence oracle: GET opportunity",
+      "result": "PASS",
+      "detail": "hidden=404 missing=404"
+    },
+    {
+      "check": "no existence oracle: GET lead",
+      "result": "PASS",
+      "detail": "hidden=404 missing=404"
+    },
+    {
+      "check": "no existence oracle: GET account",
+      "result": "PASS",
+      "detail": "hidden=404 missing=404"
+    },
+    {
+      "check": "no existence oracle: GET business line",
+      "result": "PASS",
+      "detail": "hidden=404 missing=404"
+    },
+    {
+      "check": "no existence oracle: PUT opportunity",
+      "result": "PASS",
+      "detail": "hidden=404 missing=404"
+    },
+    {
+      "check": "readable but not writable: 403 FORBIDDEN (existence already known)",
+      "result": "PASS",
+      "detail": "http=403"
+    },
+    {
+      "check": "own record still readable",
+      "result": "PASS",
+      "detail": "http=200"
+    },
+    {
+      "check": "error contract: missing id",
+      "result": "PASS",
+      "detail": "http=404 code=NOT_FOUND"
+    },
+    {
+      "check": "error contract: malformed JSON",
+      "result": "PASS",
+      "detail": "http=400 code=INVALID_REQUEST"
+    },
+    {
+      "check": "error contract: wrong content type",
+      "result": "PASS",
+      "detail": "http=415 code=UNSUPPORTED_MEDIA_TYPE"
+    },
+    {
+      "check": "error contract: unknown IOETI path",
+      "result": "PASS",
+      "detail": "http=404 code=NOT_FOUND"
+    },
+    {
+      "check": "error contract: method not allowed",
+      "result": "PASS",
+      "detail": "http=405 code=METHOD_NOT_ALLOWED"
+    },
+    {
+      "check": "error contract: bad pagination",
+      "result": "PASS",
+      "detail": "http=400 code=INVALID_REQUEST"
+    },
+    {
+      "check": "error contract: missing version",
+      "result": "PASS",
+      "detail": "http=400 code=INVALID_REQUEST"
+    },
+    {
+      "check": "error contract: stale version",
+      "result": "PASS",
+      "detail": "http=409 code=CONFLICT"
+    },
+    {
+      "check": "error contract: model-level denied",
+      "result": "PASS",
+      "detail": "http=401"
+    },
+    {
+      "check": "validation: field error for name",
+      "result": "PASS",
+      "detail": "http=422"
+    },
+    {
+      "check": "validation: inactive and unknown line rejected identically",
+      "result": "PASS",
+      "detail": "inactive=422 unknown=422"
+    },
+    {
+      "check": "success responses carry X-Correlation-Id",
+      "result": "PASS",
+      "detail": "http=200"
+    },
+    {
+      "check": "generic API closed to ordinary users: rest search",
+      "result": "PASS",
+      "detail": "http=403"
+    },
+    {
+      "check": "generic API closed to ordinary users: rest fetch",
+      "result": "PASS",
+      "detail": "http=403"
+    },
+    {
+      "check": "generic API closed to ordinary users: rest update",
+      "result": "PASS",
+      "detail": "http=403"
+    },
+    {
+      "check": "generic API closed to ordinary users: action",
+      "result": "PASS",
+      "detail": "http=403"
+    },
+    {
+      "check": "generic API closed to ordinary users: meta",
+      "result": "PASS",
+      "detail": "http=403"
+    },
+    {
+      "check": "generic API closed to ordinary users: app info",
+      "result": "PASS",
+      "detail": "http=403"
+    },
+    {
+      "check": "generic API still available to the administrator",
+      "result": "PASS",
+      "detail": "http=200"
+    },
+    {
+      "check": "refused generic write left the record unchanged",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "check": "account list returns a full page",
+      "result": "PASS",
+      "detail": "returned=5"
+    },
+    {
+      "check": "account list contains client accounts only",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "check": "DTO allowlist: /ws/ioeti/accounts",
+      "result": "PASS",
+      "detail": ""
+    },
+    {
+      "check": "DTO allowlist: /ws/ioeti/opportunities",
+      "result": "PASS",
+      "detail": ""
+    }
+  ],
+  "cleanup_complete": true
+}
