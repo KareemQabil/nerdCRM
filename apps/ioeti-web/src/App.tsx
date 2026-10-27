@@ -13,6 +13,7 @@ import { DirectoryPage } from "./DirectoryPage";
 import { TrainingPage } from "./TrainingPage";
 import { CertificationPage } from "./CertificationPage";
 import { RecruitmentPage } from "./RecruitmentPage";
+import { FundraisingPage } from "./FundraisingPage";
 import { DEMO_MODE } from "./demo";
 import { DEMO_AREAS, type DemoArea } from "./demoAreas";
 const DemoBusinessWorkspace = lazy(() => import("./DemoBusinessWorkspace"));
@@ -32,7 +33,7 @@ function getPageFromDemoArea(area: DemoArea): Page {
 const allPages: Page[] = ["home","businessLines","opportunities","leads","accounts","capabilities","design","demo","certification","training","recruitment","fundraising","settings"];
 function getPageFromLocation(): Page {
   const segment = window.location.hash.match(/^#\/([^/]+)/)?.[1];
-  if (!DEMO_MODE && ["demo","fundraising","settings"].includes(segment||"")) return "home";
+  if (!DEMO_MODE && ["demo","settings"].includes(segment||"")) return "home";
   return allPages.includes(segment as Page) ? segment as Page : "home";
 }
 
@@ -199,7 +200,7 @@ export function App() {
     { id: "certification", label: labels.certification, icon: BadgeCheck },
     { id: "training", label: labels.training, icon: GraduationCap },
     { id: "recruitment", label: labels.recruitment, icon: BriefcaseBusiness },
-    { id: "fundraising", label: labels.fundraising, icon: HeartHandshake, disabled: !DEMO_MODE },
+    { id: "fundraising", label: labels.fundraising, icon: HeartHandshake },
   ];
   const secondaryNav: { id: Page | string; label: string; icon: IconType; disabled?: boolean }[] = [
     { id: "design", label: labels.design, icon: Palette },
@@ -237,7 +238,7 @@ export function App() {
       <header className="top-bar">
         <div className="top-start">
           <IconButton className="mobile-menu" label={labels.navigation} onClick={() => setMobileNav(true)}><Menu size={19}/></IconButton>
-          <div className="breadcrumb"><span>{labels.workspace}</span><span className="crumb-separator">/</span><strong>{page === "home" ? labels.home : page === "businessLines" ? labels.businessLines : page === "opportunities" ? labels.opportunities : page === "leads" ? labels.leads : page === "accounts" ? labels.accountDirectory : page === "capabilities" ? labels.capabilityMap : page === "training" && !DEMO_MODE ? labels.training : page === "certification" && !DEMO_MODE ? labels.certification : page === "recruitment" && !DEMO_MODE ? labels.recruitment : activeDemoArea ? (isRTL ? {quotes:"عروض الأسعار",catalog:"كتالوج الخدمات",contracts:"العقود",finance:"المالية",projects:"المشروعات",visits:"الزيارات",quality:"الجودة",marketing:"التسويق",learning:"التدريب",recruiting:"التوظيف",certification:"الشهادات",fundraising:"التمويل",documents:"المستندات",automations:"الأتمتة",reports:"التقارير",admin:"الإعدادات"}[activeDemoArea] : {quotes:"Quotations",catalog:"Service catalog",contracts:"Contracts",finance:"Finance",projects:"Projects",visits:"Visits",quality:"Quality",marketing:"Marketing",learning:"Training",recruiting:"Recruitment",certification:"Certification",fundraising:"Fundraising",documents:"Documents",automations:"Automations",reports:"Reports",admin:"Settings"}[activeDemoArea]) : labels.design}</strong></div>
+          <div className="breadcrumb"><span>{labels.workspace}</span><span className="crumb-separator">/</span><strong>{page === "home" ? labels.home : page === "businessLines" ? labels.businessLines : page === "opportunities" ? labels.opportunities : page === "leads" ? labels.leads : page === "accounts" ? labels.accountDirectory : page === "capabilities" ? labels.capabilityMap : page === "training" && !DEMO_MODE ? labels.training : page === "certification" && !DEMO_MODE ? labels.certification : page === "recruitment" && !DEMO_MODE ? labels.recruitment : page === "fundraising" && !DEMO_MODE ? labels.fundraising : activeDemoArea ? (isRTL ? {quotes:"عروض الأسعار",catalog:"كتالوج الخدمات",contracts:"العقود",finance:"المالية",projects:"المشروعات",visits:"الزيارات",quality:"الجودة",marketing:"التسويق",learning:"التدريب",recruiting:"التوظيف",certification:"الشهادات",fundraising:"التمويل",documents:"المستندات",automations:"الأتمتة",reports:"التقارير",admin:"الإعدادات"}[activeDemoArea] : {quotes:"Quotations",catalog:"Service catalog",contracts:"Contracts",finance:"Finance",projects:"Projects",visits:"Visits",quality:"Quality",marketing:"Marketing",learning:"Training",recruiting:"Recruitment",certification:"Certification",fundraising:"Fundraising",documents:"Documents",automations:"Automations",reports:"Reports",admin:"Settings"}[activeDemoArea]) : labels.design}</strong></div>
         </div>
         <div className="top-actions">
           <span className="server-status"><span className="live-pulse"/>{DEMO_MODE ? (isRTL ? "بيانات افتراضية" : "Sample data") : labels.connected}</span>
@@ -278,6 +279,7 @@ export function App() {
         {page === "training" && !DEMO_MODE && <TrainingPage language={prefs.language} />}
         {page === "certification" && !DEMO_MODE && <CertificationPage language={prefs.language} lines={lines} />}
         {page === "recruitment" && !DEMO_MODE && <RecruitmentPage language={prefs.language} />}
+        {page === "fundraising" && !DEMO_MODE && <FundraisingPage language={prefs.language} />}
         {page === "capabilities" && <NativeModules language={prefs.language} onOpen={navigate} onOpenDemo={navigateDemo} />}
         {page === "businessLines" && !selected && <section className="page-enter">
           <PageTitle eyebrow={labels.workspace} title={labels.businessLines} description={labels.description} />

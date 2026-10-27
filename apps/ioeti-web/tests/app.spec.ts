@@ -399,7 +399,7 @@ test("real authenticated mode never mounts fictional operating workspaces",async
   await page.goto("/#/demo/quotes");
   await expect(page.locator(".demo-business")).toHaveCount(0);
   await expect(page.getByRole("heading",{name:"أهلًا بك في IOETI"})).toBeVisible();
-  await expect(page.locator("button.nav-item").filter({hasText:"التمويل"})).toBeDisabled();
+  await expect(page.locator("button.nav-item").filter({hasText:"الإعدادات"})).toBeDisabled();
 });
 
 test("real mode never downloads multi-domain demo workspace chunks or fixtures",async ({page})=>{
@@ -408,7 +408,7 @@ test("real mode never downloads multi-domain demo workspace chunks or fixtures",
   await intercept(page);
   await page.goto("/");
   await page.getByRole("button",{name:"خريطة النظام"}).click();
-  await expect(page.locator("button.nav-item").filter({hasText:"التمويل"})).toBeDisabled();
+  await expect(page.locator("button.nav-item").filter({hasText:"الإعدادات"})).toBeDisabled();
   expect(fetched.filter(url=>/DemoBusinessWorkspace|DemoExecutiveOverview|DemoDomainWorkbench|demoBusiness\.(ts|js)/.test(url))).toEqual([]);
 });
 
@@ -1135,4 +1135,205 @@ test("recruitment: someone else's job order is read only; the board stacks on mo
   await page.goto("/#/recruitment/candidates/51");
   await expect(page.getByRole("button", { name: "تسجيل البيانات المقيّدة" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "تسجيل موافقة" })).toHaveCount(0);
+});
+
+async function fundraisingMocks(page: Page, options: { mine?: boolean; failOverview?: number; empty?: boolean } = {}) {
+  await intercept(page);
+  const mine = options.mine ?? true;
+  const ok = (object: unknown, code = 200) => ({ status: code, contentType: "application/json", body: JSON.stringify({ codeStatus: code, messageStatus: "ok", object }) });
+  const fail = (status: number, code: string, field?: string) => ({ status, contentType: "application/json", body: JSON.stringify({
+    codeStatus: status, messageStatus: "x", error: { code, message: "raw server text", correlationId: "c0ffee03", fields: field ? [{ field, code: "INVALID", message: "x" }] : [] } }) });
+  let failures = options.failOverview ?? 0;
+  const s = { donorVersion: 0, sensitive: false, oppVersion: 0, stage: "IDENTIFIED", commitVersion: 0, committed: 0, restricted: false, purpose: null as string | null,
+    installments: [] as Record<string, unknown>[], collections: [] as Record<string, unknown>[], deliverables: [] as Record<string, unknown>[],
+    events: [{ at: "2026-10-01T09:00:00", kind: "OPPORTUNITY_OPENED", label: "GR-NILE", actorName: "Hana" }] as Record<string, unknown>[] };
+  const donor = () => ({ id: 21, version: s.donorVersion, partnerId: 901, name: "Nile Delta Foundation", anonymous: false, donorType: "FOUNDATION",
+    managedByMe: mine, managerName: "Hana", sensitiveOnFile: s.sensitive, openOpportunities: 1 });
+  const anonymous = { id: 22, version: 0, partnerId: null, name: null, anonymous: true, donorType: "INDIVIDUAL", managedByMe: false, managerName: "Omar", sensitiveOnFile: false, openOpportunities: 0 };
+  const collected = () => s.collections.filter(k => k.status === "RECORDED").reduce((t, k) => t + Number(k.amount), 0);
+  const scheduled = () => s.installments.filter(i => i.status !== "CANCELLED").reduce((t, i) => t + Number(i.amount), 0);
+  const opp = () => ({ id: 31, version: s.oppVersion, reference: "GR-NILE", donorId: 21, donorName: "Nile Delta Foundation", title: "STEM scholarships for girls",
+    purpose: "Scholarships", kind: "GRANT", stage: s.stage, proposedAmount: "500000.00", currency: "EGP", deadline: "2026-12-31", campaignId: 5,
+    campaignName: "Scholarships 2026", renewalOf: null, commitmentId: s.committed ? 41 : null, archived: false, managedByMe: mine });
+  const commitment = () => ({ id: 41, version: s.commitVersion, opportunityId: 31, reference: "GR-NILE", title: "STEM scholarships for girls", donorName: "Nile Delta Foundation",
+    currency: "EGP", committed: s.committed, scheduled: scheduled(), collected: collected(), outstanding: s.committed - collected(), unscheduled: s.committed - scheduled(),
+    restricted: s.restricted, restrictionPurpose: s.purpose, agreementReference: "AGR-7", approvedOn: "2026-10-01", periodEnd: "2027-09-30",
+    pendingDeliverables: 0, receiptStatus: "BLOCKED_BY_POLICY", accountingStatus: "BLOCKED_BY_POLICY", managedByMe: mine });
+  const totals = () => options.empty ? [] : [{ currency: "EGP", proposed: s.committed ? 0 : 500000, committed: s.committed, scheduled: scheduled(), collected: collected(),
+    outstanding: s.committed - collected(), restrictedCommitted: s.restricted ? s.committed : 0 }];
+  const instView = (i: Record<string, unknown>) => {
+    const c = s.collections.filter(k => k.installmentId === i.id && k.status === "RECORDED").reduce((t, k) => t + Number(k.amount), 0);
+    return { ...i, collected: c, status: i.status === "CANCELLED" ? "CANCELLED" : c >= Number(i.amount) ? "COLLECTED" : c > 0 ? "PARTIAL" : i.dueDate as string < "2026-10-20" ? "OVERDUE" : "DUE" };
+  };
+  const requests: { method: string; path: string; body: Record<string, unknown> }[] = [];
+  const answers: ReturnType<typeof fail>[] = [];
+  await page.route(/\/axelor-erp\/ws\/ioeti\/accounts\?/, route => route.fulfill(ok([{ id: 901, name: "Nile Delta Foundation", reference: "AC-901", customer: false, prospect: true }])));
+  await page.route(/\/axelor-erp\/ws\/ioeti\/fundraising\//, route => {
+    const url = new URL(route.request().url());
+    const path = url.pathname.replace(/.*\/ws\/ioeti\/fundraising/, "") + url.search;
+    const method = route.request().method();
+    const body = (method === "POST" || method === "PUT") ? route.request().postDataJSON() as Record<string, unknown> : {};
+    requests.push({ method, path, body });
+    const refusal = method !== "GET" ? answers.shift() : undefined;
+    if (refusal) return route.fulfill(refusal);
+    if (path === "/overview") {
+      if (failures > 0) { failures--; return route.fulfill({ status: 500, body: "{}" }); }
+      const attention = s.installments.map(instView).filter(i => i.status === "OVERDUE").map(i => ({ ...i, commitmentId: 41, reference: "GR-NILE", donorName: "Nile Delta Foundation", currency: "EGP" }));
+      return route.fulfill(ok({ totals: totals(), stages: { IDENTIFIED: s.stage === "IDENTIFIED" ? 1 : 0, PROPOSAL: 0, SUBMITTED: 0, APPROVED: s.committed ? 1 : 0, DECLINED: 0, WITHDRAWN: 0 },
+        attention: options.empty ? [] : attention.length ? attention : [{ id: 99, commitmentId: 41, reference: "GR-NILE", donorName: null, sequence: 1, dueDate: "2026-10-01",
+          amount: 1000, collected: 0, currency: "EGP", status: "OVERDUE" }], opportunities: options.empty ? 0 : 1 }));
+    }
+    if (path.startsWith("/collections?") || path === "/collections") return route.fulfill(ok([]));
+    if (path === "/campaigns") return route.fulfill(ok([{ id: 5, name: "Scholarships 2026" }]));
+    if (path.startsWith("/donors") && method === "GET" && !/\d/.test(path.split("?")[0])) return route.fulfill(ok(options.empty ? [] : [donor(), anonymous]));
+    if (path === "/donors" && method === "POST") return route.fulfill(ok(donor(), 201));
+    if (path === "/donors/21") return route.fulfill(ok({ donor: donor(), totals: totals() }));
+    if (path === "/donors/21/sensitive") { s.sensitive = true; s.donorVersion++; return route.fulfill(ok(donor())); }
+    if (path === "/donors/21/timeline") return route.fulfill(ok(s.events));
+    if (path === "/donors/21/stewardship") { s.events.unshift({ at: body.occurredOn + "T00:00:00", kind: body.kind, label: body.subject, actorName: "Hana" }); s.donorVersion++; return route.fulfill(ok(donor(), 201)); }
+    if (path.startsWith("/opportunities?")) return route.fulfill(ok([opp()]));
+    if (path === "/opportunities/31") return route.fulfill(ok(opp()));
+    if (path === "/opportunities/31/stage") { s.stage = body.stage as string; s.oppVersion++; return route.fulfill(ok(opp())); }
+    if (path === "/opportunities/31/approve") {
+      s.stage = "APPROVED"; s.committed = Number(body.committedAmount); s.restricted = body.restricted === true; s.purpose = (body.restrictionPurpose as string) ?? null; s.oppVersion++;
+      s.events.unshift({ at: "2026-10-01T00:00:00", kind: "COMMITMENT_APPROVED", label: "GR-NILE", actorName: "Hana" });
+      return route.fulfill(ok(commitment(), 201));
+    }
+    if (path === "/commitments/41") return route.fulfill(ok(commitment()));
+    if (path === "/commitments/41/installments" && method === "GET") return route.fulfill(ok(s.installments.map(instView)));
+    if (path === "/commitments/41/installments") {
+      if (scheduled() + Number(body.amount) > s.committed) return route.fulfill(fail(422, "SCHEDULE_EXCEEDS_COMMITMENT"));
+      const i = { id: 50 + s.installments.length, version: 0, sequence: s.installments.length + 1, dueDate: body.dueDate, amount: Number(body.amount), status: "SCHEDULED" };
+      s.installments.push(i); s.commitVersion++; return route.fulfill(ok(instView(i), 201));
+    }
+    if (path === "/commitments/41/deliverables" && method === "GET") return route.fulfill(ok(s.deliverables));
+    const inst = path.match(/^\/installments\/(\d+)\/collections$/);
+    if (inst && method === "GET") return route.fulfill(ok(s.collections.filter(k => k.installmentId === Number(inst[1])).map(({ installmentId, ref, ...k }) => k)));
+    if (inst) {
+      if (s.collections.some(k => k.ref === body.bankReference)) return route.fulfill(fail(409, "DUPLICATE_COLLECTION"));
+      const k = { id: 70 + s.collections.length, version: 0, installmentId: Number(inst[1]), ref: body.bankReference, amount: Number(body.amount), receivedOn: body.receivedOn,
+        status: "RECORDED", voidReason: null, recordedBy: "Hana", receiptStatus: "BLOCKED_BY_POLICY" };
+      s.collections.push(k); const i = s.installments.find(x => x.id === Number(inst[1]))!; i.version = (i.version as number) + 1; s.commitVersion++;
+      const { installmentId, ref, ...view } = k; return route.fulfill(ok(view, 201));
+    }
+    const voiding = path.match(/^\/collections\/(\d+)\/void$/);
+    if (voiding) {
+      const k = s.collections.find(x => x.id === Number(voiding[1]))!; Object.assign(k, { status: "VOIDED", voidReason: body.reason, version: (k.version as number) + 1 });
+      const { installmentId, ref, ...view } = k; return route.fulfill(ok(view));
+    }
+    return route.fulfill({ status: 404, body: "{}" });
+  });
+  return { requests, answers, fail };
+}
+
+test("fundraising: overview keeps proposed, committed and collected apart; retry and attention list", async ({page}) => {
+  await fundraisingMocks(page, { failOverview: 2 });
+  await page.goto("/");
+  await page.locator("button.nav-item").filter({ hasText: "التمويل" }).click();
+  await expect(page.getByRole("heading", { name: "التمويل والشراكات" })).toBeVisible();
+  await expect(page.getByRole("alert")).toContainText("تعذّر تنفيذ الطلب");
+  await page.getByRole("button", { name: "إعادة المحاولة" }).click();
+  const money = page.locator(".fund-money").first();
+  await expect(money.locator(".fund-money-proposed dd")).toContainText("500");
+  await expect(money.locator(".fund-money-collected dd")).toContainText("0");
+  await expect(page.locator(".fund-note").first()).toContainText("التعهد ليس تحصيلًا");
+  await expect(page.locator(".fund-table")).toContainText("مانح مجهول الاسم");
+  await expect(page.locator(".fund-table .fund-state-overdue")).toHaveText("متأخر");
+});
+
+test("fundraising: empty real data shows no invented figures", async ({page}) => {
+  await fundraisingMocks(page, { empty: true });
+  await page.goto("/#/fundraising");
+  await expect(page.getByText("لا توجد مبالغ مسجلة بعد")).toBeVisible();
+  await expect(page.getByText("لا توجد أقساط تحتاج متابعة")).toBeVisible();
+  await expect(page.locator(".fund-money")).toHaveCount(0);
+  await page.getByRole("tab", { name: "المانحون" }).click();
+  await expect(page.getByText("لا يوجد مانحون")).toBeVisible();
+});
+
+test("fundraising: donor 360 with write-only sensitive data, stewardship timeline and anonymous donors", async ({page}) => {
+  const { requests } = await fundraisingMocks(page);
+  await page.goto("/#/fundraising/donors");
+  await expect(page.locator(".fund-row").nth(1)).toContainText("مانح مجهول الاسم");
+  await page.getByRole("button", { name: "مانح جديد" }).click();
+  await page.getByLabel("الحساب").selectOption("901");
+  await page.getByLabel("طلب عدم ذكر اسمه").check();
+  await page.getByRole("button", { name: "حفظ" }).click();
+  await expect(page).toHaveURL(/#\/fundraising\/donors\/21$/);
+  expect(requests.find(r => r.path === "/donors" && r.method === "POST")!.body).toEqual({ partnerId: 901, donorType: "FOUNDATION", anonymous: true });
+  await expect(page.getByRole("heading", { name: "Nile Delta Foundation" })).toBeVisible();
+  await page.getByLabel("القدرة المتوقعة على العطاء").fill("7777777.77");
+  await page.getByLabel("ملاحظة العلاقة").fill("Board chair prefers calls after 9pm");
+  await page.getByRole("button", { name: "تسجيل البيانات الحساسة" }).click();
+  await expect(page.locator(".fund-sensitive .record-section-header p")).toHaveText("مسجلة (لا تُعرض)");
+  await expect(page.getByLabel("القدرة المتوقعة على العطاء")).toHaveValue("");
+  expect(requests.find(r => r.method === "PUT")!.body).toEqual({ version: 0, givingCapacity: "7777777.77", relationshipNote: "Board chair prefers calls after 9pm" });
+  expect(requests.some(r => r.method === "GET" && r.path.endsWith("/sensitive"))).toBe(false);
+  await expect(page.locator("body")).not.toContainText("Board chair prefers");
+  await page.getByLabel("الموضوع").fill("Thank-you call to the board");
+  await page.getByRole("button", { name: "تسجيل", exact: true }).click();
+  await expect(page.locator(".fund-timeline li").first()).toContainText("Thank-you call to the board");
+  await expect(page.locator(".fund-timeline")).toContainText("فُتحت فرصة");
+});
+
+test("fundraising: grant from proposal to commitment, schedule within the commitment, collections without duplicates, D-05/D-06 blocked", async ({page}) => {
+  const { requests, answers, fail } = await fundraisingMocks(page);
+  await page.goto("/#/fundraising/opportunities/31");
+  await expect(page.getByRole("heading", { name: "STEM scholarships for girls" })).toBeVisible();
+  answers.push(fail(409, "CONFLICT"));
+  await page.getByRole("button", { name: "بدء إعداد المقترح" }).click();
+  await expect(page.getByRole("alert")).toHaveText(/تم تعديل البيانات من مكان آخر/);
+  await page.getByRole("button", { name: "بدء إعداد المقترح" }).click();
+  await page.getByRole("button", { name: "تسجيل التقديم للمانح" }).click();
+  await expect(page.locator(".record-tags .fund-stage")).toHaveText("مقدم للمانح");
+  await page.getByLabel("المبلغ الملتزم به").fill("400000");
+  await page.getByLabel("تمويل مقيّد بغرض").check();
+  await page.getByLabel("الغرض المقيّد").fill("Girls' STEM scholarships");
+  await page.getByRole("button", { name: "تسجيل الاعتماد" }).click();
+  const money = page.locator(".fund-money");
+  await expect(money.locator(".fund-money-committed dd")).toContainText("400");
+  await expect(money.locator(".fund-money-collected dd")).toContainText("0");
+  await expect(page.locator(".fund-restricted")).toContainText("Girls' STEM scholarships");
+  for (const label of ["توزيع الأموال المقيدة", "إصدار فاتورة", "إصدار إيصال تبرع", "ترحيل للحسابات"]) await expect(page.getByRole("button", { name: label })).toBeDisabled();
+  await expect(page.locator("#fund-blocked-note")).toContainText("D-05");
+  await page.getByLabel("تاريخ الاستحقاق").first().fill("2026-10-15");
+  await page.getByLabel("المبلغ", { exact: true }).fill("500000");
+  await page.getByRole("button", { name: "إضافة قسط" }).click();
+  await expect(page.getByRole("alert")).toHaveText(/مجموع الأقساط سيتجاوز المبلغ الملتزم به/);
+  await page.getByLabel("المبلغ", { exact: true }).fill("150000");
+  await page.getByRole("button", { name: "إضافة قسط" }).click();
+  await page.locator(".fund-installment-head").first().click();
+  const inst = page.locator(".fund-installment").first();
+  await inst.getByLabel("المبلغ", { exact: true }).fill("100000");
+  await inst.getByLabel("مرجع التحويل البنكي").fill("NBE-2026-0001");
+  await inst.getByRole("button", { name: "تسجيل تحصيل" }).click();
+  await expect(inst.locator(".fund-state")).toHaveText("محصل جزئيًا");
+  await expect(money.locator(".fund-money-collected dd")).toContainText("100");
+  await inst.getByLabel("المبلغ", { exact: true }).fill("50000");
+  await inst.getByLabel("مرجع التحويل البنكي").fill("NBE-2026-0001");
+  await inst.getByRole("button", { name: "تسجيل تحصيل" }).click();
+  await expect(page.getByRole("alert")).toHaveText(/هذا التحويل مسجل بالفعل/);
+  await inst.getByRole("button", { name: "إلغاء التحصيل: مبلغ خاطئ" }).click();
+  await expect(inst.locator(".fund-list li.is-voided")).toContainText("ملغى (مبلغ خاطئ)");
+  await expect(money.locator(".fund-money-collected dd")).not.toContainText("100");
+  await expect(page.locator("body")).not.toContainText("NBE-2026-0001");
+  expect(requests.find(r => r.path === "/opportunities/31/approve")!.body).toEqual({ version: 2, committedAmount: "400000", approvedOn: expect.any(String), restricted: true, restrictionPurpose: "Girls' STEM scholarships" });
+  expect(requests.some(r => /receipt|post|invoice|allocate/.test(r.path))).toBe(false);
+  await page.screenshot({ path: "test-results/ioeti-fundraising.png", fullPage: true });
+  await expect(page.locator("body")).not.toContainText("raw server text");
+});
+
+test("fundraising: read-only for others; collection status filter; mobile without horizontal scroll", async ({page}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const { requests } = await fundraisingMocks(page, { mine: false });
+  await page.goto("/#/fundraising/opportunities/31");
+  await expect(page.getByText("عرض فقط: مسؤول العلاقة وحده يعدّل هذا السجل.")).toBeVisible();
+  await expect(page.getByRole("button", { name: "بدء إعداد المقترح" })).toHaveCount(0);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
+  await page.goto("/#/fundraising/donors/21");
+  await expect(page.getByRole("button", { name: "تسجيل البيانات الحساسة" })).toHaveCount(0);
+  await page.goto("/#/fundraising/collections");
+  await page.getByLabel("كل الحالات").selectOption("OVERDUE");
+  await expect.poll(() => requests.filter(r => r.path.startsWith("/collections")).at(-1)?.path).toBe("/collections?status=OVERDUE");
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
 });

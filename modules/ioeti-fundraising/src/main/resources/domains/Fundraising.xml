@@ -1,0 +1,139 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<domain-models xmlns="http://axelor.com/xml/ns/domain-models"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://axelor.com/xml/ns/domain-models https://axelor.com/xml/ns/domain-models/domain-models_8.2.xsd">
+
+  <module name="ioeti" package="com.ioeti.fundraising.db"/>
+
+  <!-- Wave 4E: fundraising and partnerships. A donor is a native Partner; the campaign is a native marketing Campaign.
+       Explicit ioeti_ table names keep every object under the migration gate (G-008).
+       Money is tracked in separate stages that never add up into each other: proposed (opportunity), committed
+       (commitment), scheduled (installments), collected (collections). Receipts, restricted-fund accounting,
+       invoices and posting wait for D-05 and D-06. -->
+  <entity name="DonorProfile" table="ioeti_fund_donor">
+    <many-to-one name="partner" ref="com.axelor.apps.base.db.Partner" title="Donor" required="true" unique="true"/>
+    <integer name="donorTypeSelect" title="Donor type" required="true"/>
+    <boolean name="anonymous" title="Asked to stay anonymous"/>
+    <many-to-one name="relationshipManager" ref="com.axelor.auth.db.User" title="Relationship manager"/>
+
+    <extra-code><![CDATA[
+      public static final int TYPE_INDIVIDUAL = 1;
+      public static final int TYPE_FOUNDATION = 2;
+      public static final int TYPE_CORPORATE = 3;
+      public static final int TYPE_GOVERNMENT = 4;
+      public static final int TYPE_MULTILATERAL = 5;
+    ]]></extra-code>
+  </entity>
+
+  <!-- RESTRICTED: write-only through the API; reading it waits for D-05 (donor privacy) and D-07. -->
+  <entity name="DonorSensitiveProfile" table="ioeti_fund_donor_private">
+    <many-to-one name="donor" ref="DonorProfile" title="Donor" required="true" unique="true"/>
+    <decimal name="givingCapacity" title="Estimated giving capacity" precision="20" scale="2"/>
+    <string name="contactPreference" title="Contact preference"/>
+    <string name="relationshipNote" title="Relationship note" large="true"/>
+  </entity>
+
+  <entity name="FundingOpportunity" table="ioeti_fund_opportunity">
+    <string name="reference" title="Reference" required="true" unique="true" max="30"/>
+    <many-to-one name="donor" ref="DonorProfile" title="Donor" required="true"/>
+    <string name="title" title="Title" required="true"/>
+    <string name="purpose" title="Programme or purpose"/>
+    <integer name="kindSelect" title="Kind" required="true"/>
+    <integer name="stageSelect" title="Stage" required="true"/>
+    <decimal name="proposedAmount" title="Proposed amount" precision="20" scale="2"/>
+    <many-to-one name="currency" ref="com.axelor.apps.base.db.Currency" title="Currency" required="true"/>
+    <date name="deadline" title="Deadline"/>
+    <many-to-one name="campaign" ref="com.axelor.apps.marketing.db.Campaign" title="Campaign"/>
+    <many-to-one name="renewalOf" ref="FundingOpportunity" title="Renewal of"/>
+    <many-to-one name="owner" ref="com.axelor.auth.db.User" title="Owner"/>
+
+    <extra-code><![CDATA[
+      public static final int KIND_GRANT = 1;
+      public static final int KIND_DONATION = 2;
+      public static final int KIND_SPONSORSHIP = 3;
+      public static final int STAGE_IDENTIFIED = 1;
+      public static final int STAGE_PROPOSAL = 2;
+      public static final int STAGE_SUBMITTED = 3;
+      public static final int STAGE_APPROVED = 4;
+      public static final int STAGE_DECLINED = 5;
+      public static final int STAGE_WITHDRAWN = 6;
+    ]]></extra-code>
+  </entity>
+
+  <!-- The donor's approved commitment (grant agreement or pledge). Not revenue and not cash. -->
+  <entity name="FundingCommitment" table="ioeti_fund_commitment">
+    <many-to-one name="opportunity" ref="FundingOpportunity" title="Opportunity" required="true" unique="true"/>
+    <decimal name="committedAmount" title="Committed amount" precision="20" scale="2" required="true"/>
+    <date name="approvedOn" title="Approved on" required="true"/>
+    <date name="periodEnd" title="Grant period end"/>
+    <boolean name="restricted" title="Restricted funding"/>
+    <string name="restrictionPurpose" title="Restricted to"/>
+    <string name="agreementReference" title="Agreement reference"/>
+  </entity>
+
+  <entity name="PledgeInstallment" table="ioeti_fund_installment">
+    <many-to-one name="commitment" ref="FundingCommitment" title="Commitment" required="true"/>
+    <integer name="sequence" title="Number" required="true"/>
+    <date name="dueDate" title="Due date" required="true"/>
+    <decimal name="amount" title="Amount" precision="20" scale="2" required="true"/>
+    <integer name="statusSelect" title="Status" required="true"/>
+
+    <unique-constraint columns="commitment,sequence"/>
+
+    <extra-code><![CDATA[
+      public static final int STATUS_SCHEDULED = 1;
+      public static final int STATUS_CANCELLED = 2;
+    ]]></extra-code>
+  </entity>
+
+  <!-- Money actually received, recorded by a person against a bank reference. Never posted to accounting here (D-06). -->
+  <entity name="DonationCollection" table="ioeti_fund_collection">
+    <many-to-one name="installment" ref="PledgeInstallment" title="Installment" required="true"/>
+    <decimal name="amount" title="Amount" precision="20" scale="2" required="true"/>
+    <date name="receivedOn" title="Received on" required="true"/>
+    <string name="bankReference" title="Bank reference" required="true" unique="true" max="60"/>
+    <integer name="statusSelect" title="Status" required="true"/>
+    <integer name="voidReasonSelect" title="Void reason"/>
+    <datetime name="voidedAt" title="Voided at"/>
+    <many-to-one name="voidedBy" ref="com.axelor.auth.db.User" title="Voided by"/>
+
+    <extra-code><![CDATA[
+      public static final int STATUS_RECORDED = 1;
+      public static final int STATUS_VOIDED = 2;
+      public static final int VOID_DUPLICATE_ENTRY = 1;
+      public static final int VOID_WRONG_AMOUNT = 2;
+      public static final int VOID_PAYMENT_RETURNED = 3;
+    ]]></extra-code>
+  </entity>
+
+  <entity name="GrantDeliverable" table="ioeti_fund_deliverable">
+    <many-to-one name="commitment" ref="FundingCommitment" title="Commitment" required="true"/>
+    <string name="title" title="Deliverable" required="true"/>
+    <date name="dueDate" title="Due date" required="true"/>
+    <integer name="statusSelect" title="Status" required="true"/>
+    <date name="submittedOn" title="Submitted on"/>
+
+    <extra-code><![CDATA[
+      public static final int STATUS_PENDING = 1;
+      public static final int STATUS_SUBMITTED = 2;
+      public static final int STATUS_ACCEPTED = 3;
+    ]]></extra-code>
+  </entity>
+
+  <entity name="StewardshipActivity" table="ioeti_fund_stewardship">
+    <many-to-one name="donor" ref="DonorProfile" title="Donor" required="true"/>
+    <integer name="kindSelect" title="Activity" required="true"/>
+    <date name="occurredOn" title="Date" required="true"/>
+    <string name="subject" title="Subject" required="true"/>
+    <many-to-one name="owner" ref="com.axelor.auth.db.User" title="By"/>
+
+    <extra-code><![CDATA[
+      public static final int KIND_THANK_YOU = 1;
+      public static final int KIND_IMPACT_REPORT = 2;
+      public static final int KIND_MEETING = 3;
+      public static final int KIND_VISIT = 4;
+      public static final int KIND_CALL = 5;
+    ]]></extra-code>
+  </entity>
+
+</domain-models>
