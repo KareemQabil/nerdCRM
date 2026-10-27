@@ -146,7 +146,9 @@ def main():
         s, body, cyc = new_cycle(a, f"cyc-{tag}")
         check("cycle opened (201): manager, not ready for decision, decision blocked by policy",
               s == 201 and cyc.get("reference") == f"CYC-{tag}" and cyc.get("managedByMe") is True
-              and cyc.get("readyForDecision") is False and cyc.get("decisionStatus") == "BLOCKED_BY_POLICY", f"{s} {body}")
+              and cyc.get("readyForDecision") is False and cyc.get("decisionStatus") == "BLOCKED_BY_POLICY"
+              and cyc.get("phase") == "STAGE1_PENDING"
+              and cyc.get("decisionBlockers") == ["STAGE1_NOT_COMPLETED", "STAGE2_NOT_COMPLETED", "POLICY_D02"], f"{s} {body}")
         bad = {}
         for label, (ref, extra) in {"duplicate reference": (f"CYC-{tag}", {}), "bad reference": ("a b", {}),
                                     "unknown client": (f"X1-{tag}", {"clientId": MISSING}),
@@ -164,6 +166,16 @@ def main():
                            {"version": version(CYCLE, cycle_row["id"]), "type": type_, "plannedDate": date, "auditorId": auditor})
             return s, body, track(AUDIT, body)
 
+        def eligible(client, cycle_row, date):
+            s, body = call(client, "GET", f"/cycles/{cycle_row['id']}/eligible-auditors?date={date}")
+            return s, [p["id"] for p in body.get("object") or []]
+
+        s_e1, in_range = eligible(a, cyc, "2026-11-10")
+        s_e2, expired = eligible(a, cyc, "2027-02-01")
+        s_e3, _ = eligible(a, cyc, "11/10/2026")
+        check("eligible auditors come from the server rule: qualified on the date only (unqualified and expired excluded)",
+              s_e1 == s_e2 == 200 and users["AudQ"]["id"] in in_range and users["AudU"]["id"] not in in_range
+              and users["AudQ"]["id"] not in expired and s_e3 == 422, f"{s_e1} {in_range} {s_e2} {expired} {s_e3}")
         s_unq, b_unq, _ = plan(a, cyc, "STAGE1", users["AudU"]["id"])
         s_exp, b_exp, _ = plan(a, cyc, "STAGE1", users["AudQ"]["id"], date="2027-02-01")
         check("unqualified auditor and a date outside the qualification → 422 NOT_QUALIFIED",
@@ -221,6 +233,35 @@ def main():
         check("major closed → ready for decision (a minor may stay open)",
               v.get("readyForDecision") is True and v.get("openMajors") == 0, v)
 
+        check("ready cycle: phase READY_FOR_DECISION, only the D-02 blocker left",
+              v.get("phase") == "READY_FOR_DECISION" and v.get("decisionBlockers") == ["POLICY_D02"], v)
+        _, body = call(a, "GET", f"/cycles/{cyc['id']}/timeline")
+        kinds = [e["kind"] for e in body.get("object") or []]
+        check("timeline: opened, planned, completed, findings raised, responded and closed, newest first",
+              {"CYCLE_OPENED", "AUDIT_PLANNED", "AUDIT_COMPLETED", "NC_RAISED", "NC_RESPONDED", "NC_CLOSED"} <= set(kinds)
+              and kinds[-1] == "CYCLE_OPENED", kinds)
+
+        def listed(client, query):
+            s, body = call(client, "GET", "/cycles?" + query)
+            return s, [c["reference"] for c in body.get("object") or []]
+
+        new_cycle(a, f"F2-{tag}", scope="Second site scope")
+        s1, refs1 = listed(a, f"q=cyc-{tag.lower()}")
+        s2, refs2 = listed(a, f"q={tag}&phase=READY_FOR_DECISION&mine=true")
+        s3, refs3 = listed(a, f"q={tag}&standardCode=ISO22000")
+        s4, refs4 = listed(a, f"q={tag}&limit=1&offset=0")
+        s5, refs5 = listed(b, f"q={tag}")
+        s6, _ = listed(a, "phase=NOPE")
+        s7, _ = listed(a, "limit=500")
+        check("register: search, phase, mine, standard and paging combine with record permissions; bad filters → 400/422",
+              (s1, s2, s3, s4, s5) == (200,) * 5 and refs1 == [f"CYC-{tag}"] and refs2 == [f"CYC-{tag}"] and refs3 == []
+              and len(refs4) == 1 and refs5 == [] and s6 == 422 and s7 == 400, f"{refs1} {refs2} {refs3} {refs4} {refs5} {s6} {s7}")
+        s_dir_ro, _ = call(ro_c, "GET", "/qualifications/candidates")
+        s_dir_a, b_dir_a = call(a, "GET", "/qualifications/candidates")
+        check("internal auditor directory: id and name only, for those who may record qualifications (read-only → 403)",
+              s_dir_ro == 403 and s_dir_a == 200
+              and all(set(p) == {"id", "name"} for p in b_dir_a.get("object") or []), f"{s_dir_ro} {s_dir_a}")
+
         # --- 5. policy, scope and states --------------------------------------------------------------
         s_dec, b_dec = call(a, "POST", f"/cycles/{cyc['id']}/decision")
         s_cert, b_cert = call(a, "POST", f"/cycles/{cyc['id']}/certificate")
@@ -230,10 +271,12 @@ def main():
         s_other, b_other = call(b, "GET", f"/cycles/{cyc['id']}")
         s_missing, b_missing = call(b, "GET", f"/cycles/{MISSING}")
         s_aud_b, _ = call(b, "GET", f"/cycles/{cyc['id']}/audits")
+        s_tl_b, _ = call(b, "GET", f"/cycles/{cyc['id']}/timeline")
+        s_el_b, _ = call(b, "GET", f"/cycles/{cyc['id']}/eligible-auditors?date=2026-11-10")
         s_nc_b, _ = call(b, "POST", f"/audits/{stage1['id']}/nonconformities",
                          {"version": version(AUDIT, stage1["id"]), "grade": "MINOR", "statement": "x"})
         check("another manager: cycle, audits and findings answer like missing ids (404)",
-              s_other == s_missing == s_aud_b == s_nc_b == 404
+              s_other == s_missing == s_aud_b == s_nc_b == s_tl_b == s_el_b == 404
               and error(b_other).get("code") == error(b_missing).get("code"), f"{s_other} {s_missing} {s_aud_b} {s_nc_b}")
         s_ro_get, _ = call(ro_c, "GET", f"/audits/{stage1['id']}/nonconformities")
         s_ro_post, _ = call(ro_c, "POST", f"/nonconformities/{minor['id']}/respond",

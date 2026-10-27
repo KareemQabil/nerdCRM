@@ -399,7 +399,7 @@ test("real authenticated mode never mounts fictional operating workspaces",async
   await page.goto("/#/demo/quotes");
   await expect(page.locator(".demo-business")).toHaveCount(0);
   await expect(page.getByRole("heading",{name:"أهلًا بك في IOETI"})).toBeVisible();
-  await expect(page.getByRole("button",{name:"الشهادات"})).toBeDisabled();
+  await expect(page.locator("button.nav-item").filter({hasText:"التوظيف"})).toBeDisabled();
 });
 
 test("real mode never downloads multi-domain demo workspace chunks or fixtures",async ({page})=>{
@@ -408,7 +408,7 @@ test("real mode never downloads multi-domain demo workspace chunks or fixtures",
   await intercept(page);
   await page.goto("/");
   await page.getByRole("button",{name:"خريطة النظام"}).click();
-  await expect(page.getByRole("button",{name:"الشهادات"})).toBeDisabled();
+  await expect(page.locator("button.nav-item").filter({hasText:"التوظيف"})).toBeDisabled();
   expect(fetched.filter(url=>/DemoBusinessWorkspace|DemoExecutiveOverview|DemoDomainWorkbench|demoBusiness\.(ts|js)/.test(url))).toEqual([]);
 });
 
@@ -777,4 +777,160 @@ test("training: open a cohort, enrol into seats then the waitlist, cancel promot
     "/enrollments/500/cancel", "/sessions/70/attendance"]);
   expect(requests[1].body).toMatchObject({ traineeId: 951, clientId: 902 });
   expect(requests[4].body).toEqual({ version: 0, enrollmentId: 501, status: "PRESENT" });
+});
+
+async function certificationMocks(page: Page, options: { managedByMe?: boolean; failList?: number } = {}) {
+  await intercept(page);
+  const ok = (object: unknown, code = 200) => ({ status: code, contentType: "application/json", body: JSON.stringify({ codeStatus: code, messageStatus: "ok", object }) });
+  const fail = (status: number, code: string, field?: string, fieldCode = "UNAVAILABLE") => ({ status, contentType: "application/json", body: JSON.stringify({
+    codeStatus: status, messageStatus: "x", error: { code, message: "raw server text", correlationId: "c0ffee01", fields: field ? [{ field, code: fieldCode, message: "x" }] : [] } }) });
+  let failures = options.failList ?? 0;
+  const base = { id: 61, reference: "CYC-NILE", clientId: 901, clientName: "Nile Foods", standardCode: "ISO9001", scope: "Packaged foods",
+    siteCount: 2, decisionStatus: "BLOCKED_BY_POLICY", managedByMe: options.managedByMe ?? true, managerName: "Mona" };
+  const state = { version: 3, audits: [] as Record<string, unknown>[], ncs: [] as Record<string, unknown>[] };
+  const cycle = () => {
+    const done = (t: string) => state.audits.some(a => a.type === t && a.status === "COMPLETED");
+    const majors = state.ncs.filter(n => n.grade === "MAJOR" && n.status !== "CLOSED").length;
+    const blockers = [...(done("STAGE1") ? [] : ["STAGE1_NOT_COMPLETED"]), ...(done("STAGE2") ? [] : ["STAGE2_NOT_COMPLETED"]),
+      ...(majors ? ["OPEN_MAJOR_NONCONFORMITIES"] : []), "POLICY_D02"];
+    const phase = !done("STAGE1") ? "STAGE1_PENDING" : !done("STAGE2") ? "STAGE2_PENDING" : majors ? "FINDINGS_OPEN" : "READY_FOR_DECISION";
+    return { ...base, version: state.version, openMajors: majors, readyForDecision: blockers.length === 1, phase, decisionBlockers: blockers };
+  };
+  const requests: { method: string; path: string; body: unknown }[] = [];
+  const answers: ReturnType<typeof fail>[] = [];
+  await page.route(/\/axelor-erp\/ws\/ioeti\/accounts\?/, route => route.fulfill(ok([{ id: 901, name: "Nile Foods", reference: "AC-901", customer: true, prospect: false }])));
+  await page.route(/\/axelor-erp\/ws\/ioeti\/business-lines$/, route => route.fulfill(ok([
+    { id: 1, code: "ISO9001", nameAr: "أيزو 9001", nameEn: "ISO 9001", status: 2, sequence: 10, responsibleTeam: null }])));
+  await page.route(/\/axelor-erp\/ws\/ioeti\/certification\//, route => {
+    const url = new URL(route.request().url());
+    const path = url.pathname.replace(/.*\/ws\/ioeti\/certification/, "") + url.search;
+    const method = route.request().method();
+    const body = method === "POST" ? route.request().postDataJSON() : null;
+    requests.push({ method, path, body });
+    const refusal = method === "POST" ? answers.shift() : undefined;
+    if (refusal) return route.fulfill(refusal);
+    if (path.startsWith("/cycles?")) {
+      if (failures > 0) { failures--; return route.fulfill({ status: 500, body: "{}" }); }
+      return route.fulfill(ok(url.searchParams.get("q") === "none" ? [] : [cycle()]));
+    }
+    if (path === "/cycles/61") return route.fulfill(ok(cycle()));
+    if (path === "/cycles/61/audits" && method === "GET") return route.fulfill(ok(state.audits));
+    if (path === "/cycles/61/timeline") return route.fulfill(ok([{ at: "2026-10-01T09:00:00", kind: "CYCLE_OPENED", label: "CYC-NILE", actorName: null }]));
+    if (path.startsWith("/cycles/61/eligible-auditors")) return route.fulfill(ok(url.searchParams.get("date") === "2027-03-01" ? [] : [{ id: 7, name: "Ahmed Auditor" }]));
+    if (path === "/cycles/61/audits") {
+      const b = body as Record<string, unknown>;
+      const audit = { id: 80 + state.audits.length, version: 0, type: b.type, plannedDate: b.plannedDate, auditorId: b.auditorId,
+        auditorName: "Ahmed Auditor", status: "PLANNED", completedOn: null };
+      state.audits.push(audit); state.version++; return route.fulfill(ok(audit, 201));
+    }
+    const complete = path.match(/^\/audits\/(\d+)\/complete$/);
+    if (complete) {
+      const audit = state.audits.find(a => a.id === Number(complete[1]))!;
+      Object.assign(audit, { status: "COMPLETED", completedOn: (body as Record<string, unknown>).completedOn, version: (audit.version as number) + 1 });
+      state.version++; return route.fulfill(ok(audit));
+    }
+    const ncs = path.match(/^\/audits\/(\d+)\/nonconformities$/);
+    if (ncs && method === "GET") return route.fulfill(ok(state.ncs.filter(n => n.auditId === Number(ncs[1]))));
+    if (ncs) {
+      const b = body as Record<string, unknown>;
+      const nc = { id: 300 + state.ncs.length, version: 0, auditId: Number(ncs[1]), grade: b.grade, clause: b.clause, statement: b.statement,
+        clientResponse: null, status: "OPEN", raisedAt: null, respondedAt: null, closedAt: null };
+      state.ncs.push(nc); const audit = state.audits.find(a => a.id === Number(ncs[1]))!; audit.version = (audit.version as number) + 1;
+      return route.fulfill(ok(nc, 201));
+    }
+    const ncAction = path.match(/^\/nonconformities\/(\d+)\/(respond|close)$/);
+    if (ncAction) {
+      const nc = state.ncs.find(n => n.id === Number(ncAction[1]))!;
+      if (ncAction[2] === "respond") Object.assign(nc, { status: "RESPONDED", clientResponse: (body as Record<string, unknown>).response });
+      else Object.assign(nc, { status: "CLOSED" });
+      nc.version = (nc.version as number) + 1; return route.fulfill(ok(nc));
+    }
+    return route.fulfill({ status: 404, body: "{}" });
+  });
+  return { requests, answers, fail };
+}
+
+test("certification: register filters and paging are sent to the server; empty and retry states", async ({page}) => {
+  const { requests } = await certificationMocks(page, { failList: 1 });
+  await page.goto("/#/certification");
+  await expect(page.getByRole("heading", { name: "شهادات الأيزو للعملاء" })).toBeVisible();
+  await expect(page.getByRole("alert")).toContainText("تعذّر تنفيذ الطلب");
+  await page.getByRole("button", { name: "إعادة المحاولة" }).click();
+  await expect(page.getByText("Nile Foods")).toBeVisible();
+  await expect(page.locator(".cert-row .cert-phase")).toHaveText("بانتظار المرحلة الأولى");
+  await page.getByLabel("كل المراحل").selectOption("FINDINGS_OPEN");
+  await page.getByLabel("دوراتي فقط").check();
+  await page.getByPlaceholder("ابحث بالمرجع أو اسم العميل").fill("none");
+  await page.getByRole("button", { name: "بحث", exact: true }).click();
+  await expect(page.getByText("لا توجد دورات اعتماد مطابقة")).toBeVisible();
+  const last = requests.filter(r => r.path.startsWith("/cycles?")).at(-1)!.path;
+  expect(new URLSearchParams(last.split("?")[1])).toEqual(new URLSearchParams("q=none&phase=FINDINGS_OPEN&mine=true&limit=25&offset=0"));
+  await expect(page.locator("body")).not.toContainText("c0ffee01");
+});
+
+test("certification: Stage 1 and 2 with server-chosen auditors, findings to closure, readiness explained, D-02 blocked", async ({page}) => {
+  const { requests, answers, fail } = await certificationMocks(page);
+  await page.goto("/#/certification/61");
+  await expect(page.getByRole("heading", { name: "Nile Foods" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "قرار الاعتماد" })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "إصدار الشهادة" })).toBeDisabled();
+  // no open major yet: Stage 1, Stage 2 and the policy block the decision
+  await expect(page.locator(".cert-readiness li.is-blocked")).toHaveCount(3);
+  const stage1 = page.locator(".cert-stage").first();
+  await stage1.getByLabel("تاريخ التدقيق المخطط").fill("2027-03-01");
+  await expect(stage1.getByText(/لا يوجد مدقق مؤهل لهذا المعيار/)).toBeVisible();
+  await stage1.getByLabel("تاريخ التدقيق المخطط").fill("2026-11-10");
+  await stage1.getByLabel("المدقق الرئيسي").selectOption("7");
+  answers.push(fail(422, "VALIDATION_FAILED", "auditorId", "NOT_QUALIFIED"));
+  await stage1.getByRole("button", { name: "تخطيط التدقيق" }).click();
+  await expect(page.getByRole("alert")).toHaveText(/المدقق غير مؤهل لهذا المعيار/);
+  await stage1.getByLabel("المدقق الرئيسي").selectOption("7");
+  await stage1.getByRole("button", { name: "تخطيط التدقيق" }).click();
+  await expect(stage1.getByText("Ahmed Auditor")).toBeVisible();
+  expect(requests.filter(r => r.path === "/cycles/61/audits" && r.method === "POST").at(-1)!.body).toEqual({ version: 3, type: "STAGE1", plannedDate: "2026-11-10", auditorId: 7 });
+  const stage2 = page.locator(".cert-stage").nth(1);
+  await expect(stage2.getByText(/لا تُسجل كمكتملة قبل إتمام المرحلة الأولى/)).toBeVisible();
+  await stage1.getByRole("button", { name: "تسجيل الإتمام" }).click();
+  await expect(stage1.getByText("مكتمل")).toBeVisible();
+  await expect(page.locator(".cert-readiness li.is-done")).toHaveCount(2);
+  await stage1.getByLabel("الدرجة").selectOption("MAJOR");
+  await stage1.getByLabel("البند").fill("7.1.5");
+  await stage1.getByLabel("بيان عدم المطابقة").fill("Calibration records missing");
+  await stage1.getByRole("button", { name: "تسجيل ملاحظة" }).click();
+  await expect(stage1.locator(".cert-nc-major")).toContainText("Calibration records missing");
+  await expect(page.locator(".cert-readiness li.is-blocked")).toContainText(["المرحلة الثانية", "عدم المطابقات الجسيمة", "D-02"]);
+  answers.push(fail(422, "RESPONSE_REQUIRED"));
+  await stage1.getByRole("button", { name: "إغلاق بعد التحقق" }).click();
+  await expect(page.getByRole("alert")).toHaveText(/سجّل رد العميل قبل الإغلاق/);
+  await stage1.getByPlaceholder("تصحيح العميل وإجراءه التصحيحي").fill("Scales calibrated");
+  await stage1.getByRole("button", { name: "تسجيل رد العميل" }).click();
+  await expect(stage1.locator(".cert-nc")).toContainText("تم الرد");
+  await stage1.getByRole("button", { name: "إغلاق بعد التحقق" }).click();
+  await expect(stage1.locator(".cert-nc")).toContainText("مغلقة");
+  await stage2.getByLabel("تاريخ التدقيق المخطط").fill("2026-12-01");
+  await stage2.getByLabel("المدقق الرئيسي").selectOption("7");
+  answers.push(fail(409, "CONFLICT"));
+  await stage2.getByRole("button", { name: "تخطيط التدقيق" }).click();
+  await expect(page.getByRole("alert")).toHaveText(/تم تعديل البيانات من مكان آخر/);
+  await stage2.getByLabel("تاريخ التدقيق المخطط").fill("2026-12-02");
+  await stage2.getByLabel("المدقق الرئيسي").selectOption("7");
+  await stage2.getByRole("button", { name: "تخطيط التدقيق" }).click();
+  await stage2.getByRole("button", { name: "تسجيل الإتمام" }).click();
+  await expect(page.locator(".cert-phase").first()).toContainText("جاهزة لقرار الاعتماد");
+  await expect(page.locator(".cert-readiness li.is-blocked")).toHaveCount(1);
+  await expect(page.locator(".cert-readiness li.is-blocked")).toContainText("D-02");
+  await page.screenshot({ path: "test-results/ioeti-certification.png", fullPage: true });
+  await expect(page.locator("body")).not.toContainText("raw server text");
+});
+
+test("certification: a cycle managed by someone else is read only; mobile layout keeps one column", async ({page}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await certificationMocks(page, { managedByMe: false });
+  await page.goto("/#/certification/61");
+  await expect(page.getByText("عرض فقط: مدير البرنامج وحده يعدّل هذه الدورة.")).toBeVisible();
+  await expect(page.getByRole("button", { name: "تخطيط التدقيق" })).toHaveCount(0);
+  const widths = await page.locator(".cert-stage").evaluateAll(els => els.map(e => Math.round(e.getBoundingClientRect().width)));
+  expect(widths.length).toBe(2);
+  expect(Math.abs(widths[0] - widths[1])).toBeLessThan(2);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
 });

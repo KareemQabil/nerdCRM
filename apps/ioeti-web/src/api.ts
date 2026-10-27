@@ -86,7 +86,7 @@ async function request(path: string, options?: RequestInit): Promise<Response> {
   }
   return response;
 }
-async function wrapped<T>(path: string, options?: RequestInit): Promise<T> {
+export async function wrapped<T>(path: string, options?: RequestInit): Promise<T> {
   const response = await request(path, options);
   const body = await response.json() as Envelope<T>;
   if (typeof body.codeStatus === "number" && body.codeStatus >= 400) {

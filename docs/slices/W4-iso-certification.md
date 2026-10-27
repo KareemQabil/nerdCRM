@@ -48,4 +48,28 @@ A cycle outside the caller's scope answers the same 404 as a missing id, and rea
 | Impartiality: separating auditor, technical reviewer and decision maker; conflict-of-interest declarations | D-02 |
 | Audit duration (man-days) and multi-site sampling | scheme rules (D-02) |
 | Link to `Intervention` for field execution and checklists | next slice |
-| UI pages | next slice; the API is ready |
+| Evidence documents attached to findings | documents platform (Wave 7) |
+
+## 6. Wave 4C: the certification workspace (UI) and its server support
+
+`#/certification` (sidebar "Certification", real mode only; the fictional demo is unchanged).
+
+**Register.** Search by reference or client, filter by standard, phase or "my cycles", 25 per page with "load more", and open a cycle. The filters are sent to the server (`GET /cycles?q&standardCode&phase&mine&limit&offset`) and combined there with the caller's record permissions. Search terms are positional parameters; `%` and `_` are stripped.
+
+**Cycle record** (full-page workspace):
+- **hero:** client, reference, standard, phase badge, and a link to the client account;
+- **readiness checklist:** built from the server's `decisionBlockers` (`STAGE1_NOT_COMPLETED`, `STAGE2_NOT_COMPLETED`, `OPEN_MAJOR_NONCONFORMITIES`, `POLICY_D02`). "Certification decision" and "Issue certificate" are disabled, with the D-02 explanation; no audit-day or validity rules are invented;
+- **Stage 1 and Stage 2 cards:** choosing a date asks the server for the auditors qualified on that day (`GET /cycles/{id}/eligible-auditors?date=`). The UI repeats no eligibility rule. The server's answers (`NOT_QUALIFIED`, `STAGE1_REQUIRED`, `STAGE_EXISTS`, 409) are shown as localized messages;
+- **findings per audit:** grade, clause, statement; record the client response, then close (`RESPONSE_REQUIRED` explained);
+- **audit history:** `GET /cycles/{id}/timeline` builds it from the records: cycle opened, audits planned/completed/cancelled, findings raised/responded/closed. `Nonconformity.respondedAt` and `closedAt` were added for this (migration V007).
+
+**Auditor competence.** The qualification register shows expired qualifications. Recording a qualification uses `GET /qualifications/candidates`, an internal directory (id and name only) restricted to callers who may create qualifications.
+
+**Read-only behaviour.** A cycle managed by someone else is read only, and the actions are not shown. The server enforces the same rule (403/404); hiding buttons is not the control.
+
+**Tests:**
+- live `certification_probe.py`, 23 checks;
+- mocked Playwright tests:
+  - filters and paging sent to the server, plus retry and empty states;
+  - the full Stage 1 → Stage 2 → findings flow, including NOT_QUALIFIED, RESPONSE_REQUIRED and 409;
+  - read-only view at phone width with no horizontal scroll.
