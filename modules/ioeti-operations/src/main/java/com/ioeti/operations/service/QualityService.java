@@ -31,6 +31,7 @@ import com.axelor.db.Query;
 import com.axelor.inject.Beans;
 import com.google.inject.persist.Transactional;
 import com.ioeti.core.api.ApiException;
+import com.ioeti.core.notify.Notifier;
 import com.ioeti.operations.db.CorrectiveAction;
 import com.ioeti.operations.db.repo.CorrectiveActionRepository;
 import jakarta.persistence.LockModeType;
@@ -121,9 +122,15 @@ public class QualityService {
     }
   }
 
+  /** In-app notice about a quality issue (never outbound); the title is the issue's reference only. */
+  private static void notice(User recipient, String kind, QualityImprovement qi) {
+    Beans.get(Notifier.class).notify(recipient, kind, "QUALITY", qi.getId(), "Quality issue " + (qi.getSequence() == null ? qi.getId() : qi.getSequence()));
+  }
+
   @Transactional(rollbackOn = {Exception.class})
   public QualityImprovement plan(QualityImprovement qi, User owner, String objective, String criteria, LocalDate earliest, LocalDate latest) {
     QIAnalysis analysis = analysis(qi);
+    if (!java.util.Objects.equals(analysis.getPlanOwner(), owner)) notice(owner, "QUALITY_PLAN_ASSIGNED", qi);
     analysis.setPlanOwner(owner);
     analysis.setObjective(objective);
     analysis.setEfficiencyCriteria(criteria);
@@ -162,6 +169,7 @@ public class QualityService {
     action.setCreatedByUser(AuthUtils.getUser());
     CorrectiveAction saved = JPA.save(action);
     progress(qi);
+    notice(owner, "QUALITY_ACTION_ASSIGNED", qi);
     return saved;
   }
 
