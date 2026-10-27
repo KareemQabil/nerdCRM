@@ -297,12 +297,12 @@ def main():
                                                                "quoteVersion": version(SALE_ORDER, quote_id)})
         ir = obj(b_ir)
         track(INVOICE_REQUEST, ir.get("id"))
-        s_iss, b_iss = a.call("POST", f"{WS}/invoice-requests/{ir.get('id')}/issue")
+        s_iss, b_iss = a.call("POST", f"{WS}/invoice-requests/{ir.get('id')}/issue", {"version": version(INVOICE_REQUEST, ir.get("id"))})
         check("5 handover before activation → 422 CONTRACT_NOT_ACTIVE; deposit invoice request 2,700 EGP (201); "
-              "issuing → BLOCKED_BY_POLICY (D-06), nothing invoiced",
-              (s_early, error(b_early).get("code"), s_ir, num(ir.get("amountBeforeTax")), ir.get("currency"), s_iss,
-               error(b_iss).get("code")) == (422, "CONTRACT_NOT_ACTIVE", 201, 2700.0, "EGP", 422, "BLOCKED_BY_POLICY")
-              and ir.get("invoiceStatus") == "BLOCKED_BY_POLICY", f"{s_early} {b_early} {s_ir} {ir} {s_iss} {b_iss}")
+              "issuing by the salesperson → 403 (D-06: finance issues, with native invoice rights), nothing invoiced",
+              (s_early, error(b_early).get("code"), s_ir, num(ir.get("amountBeforeTax")), ir.get("currency"), s_iss)
+              == (422, "CONTRACT_NOT_ACTIVE", 201, 2700.0, "EGP", 403)
+              and ir.get("invoiceNumber") is None, f"{s_early} {b_early} {s_ir} {ir} {s_iss} {b_iss}")
 
         # --- 6. handover → engagement, with documents ---------------------------------------------------------
         for title, seq in (("Signed contract on file", 10), ("Kick-off meeting planned with the client", 20)):

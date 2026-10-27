@@ -5,12 +5,13 @@ import { expect, test, type Page, type Route } from "@playwright/test";
 type Fx = { policySet: boolean; source: string | null; maxAgeHours: number | null; baseCurrency: string; canChange: boolean;
   currencies: Record<string, unknown>[]; history: Record<string, unknown>[] };
 
-async function mockFinance(page: Page, { invoicesPermitted = false, fx = null as Fx | null, usd = false } = {}) {
+async function mockFinance(page: Page, { invoicesPermitted = false, fx = null as Fx | null, usd = false, canIssue = false, ready = false } = {}) {
   const posted: { path: string; body: Record<string, unknown> }[] = [];
   const queue = [
     { id: 1, version: 0, status: "REQUESTED", orderId: 10, orderReference: "SO0012", accountId: 7, accountName: "مصنع النور", milestoneId: 100,
       milestoneTitle: "دفعة مقدمة", dueDate: "2026-10-21", amountBeforeTax: 12000, currency: "EGP", requestedBy: "سارة منصور",
-      requestedAt: "2026-10-22T10:00:00Z", ageDays: 2, overdue: true, mine: false, invoiceStatus: "BLOCKED_BY_POLICY" },
+      requestedAt: "2026-10-22T10:00:00Z", ageDays: 2, overdue: true, mine: false, canIssue,
+      invoiceNumber: null as string | null, invoiceTotal: null as number | null, invoiceDueDate: null as string | null },
   ];
   const upcoming = [
     { id: 101, title: "تقرير المرحلة الأولى", dueDate: "2026-11-03", amountBeforeTax: 18000, currency: "EGP", orderId: 10, orderVersion: 4,
@@ -52,7 +53,7 @@ async function mockFinance(page: Page, { invoicesPermitted = false, fx = null as
     }
     if (path === "/finance/queue") {
       const state = url.searchParams.get("state");
-      return result(queue.filter(r => state === "all" || (state === "cancelled" ? r.status === "CANCELLED" : r.status === "REQUESTED")));
+      return result(queue.filter(r => state === "all" || r.status === (state === "cancelled" ? "CANCELLED" : state === "issued" ? "ISSUED" : "REQUESTED")));
     }
     if (path === "/finance/milestones") return result(Number(url.searchParams.get("within")) >= 7 ? upcoming : []);
     if (path === "/workspace/invoice-requests" && method === "POST") {
@@ -62,7 +63,16 @@ async function mockFinance(page: Page, { invoicesPermitted = false, fx = null as
       queue.push({ ...queue[0], id: 2, milestoneId: m.id, milestoneTitle: m.title, dueDate: m.dueDate, amountBeforeTax: m.amountBeforeTax!, overdue: false, ageDays: 0, mine: true, requestedBy: "منى" });
       return result({ id: 2 }, 201);
     }
-    if (/\/invoice-requests\/\d+\/issue$/.test(path)) return failure(422, { code: "BLOCKED_BY_POLICY", fields: [] });
+    if (/\/finance\/requests\/\d+\/readiness$/.test(path)) return result(ready ? { ready: true, missing: [] } : { ready: false, missing: [
+      { code: "PAYMENT_TERMS_POLICY", detail: "finance.payment-terms" }, { code: "SALES_JOURNAL", detail: null }, { code: "TAX_ACCOUNT", detail: "IOETI-DEFAULT" }] });
+    const issue = path.match(/\/invoice-requests\/(\d+)\/issue$/);
+    if (issue) {
+      if (!canIssue) return failure(403, { code: "FORBIDDEN", fields: [] });
+      if (!ready) return failure(422, { code: "ACCOUNTING_NOT_READY", fields: [{ field: "accounting", code: "SALES_JOURNAL" }, { field: "accounting", code: "TAX_ACCOUNT" }] });
+      const r = queue.find(x => x.id === Number(issue[1]))!;
+      Object.assign(r, { status: "ISSUED", version: r.version + 1, invoiceNumber: "INV-00001", invoiceTotal: 13680, invoiceDueDate: "2026-11-24" });
+      return result(r);
+    }
     const cancel = path.match(/\/invoice-requests\/(\d+)\/cancel$/);
     if (cancel) {
       const r = queue.find(x => x.id === Number(cancel[1]))!;
@@ -75,11 +85,11 @@ async function mockFinance(page: Page, { invoicesPermitted = false, fx = null as
   return { posted };
 }
 
-test("finance's queue: the held policy is stated, figures are real, and issuing explains D-06 without creating anything", async ({ page }) => {
+test("finance's queue: the D-06 note, real figures; without native invoice rights there is no issue action", async ({ page }) => {
   const { posted } = await mockFinance(page);
   await page.goto("/#/finance");
   await expect(page.getByRole("heading", { name: "الفواتير والتحصيل", level: 1 })).toBeVisible();
-  await expect(page.getByRole("note")).toContainText("إصدار الفواتير في الحسابات لسه جاي (D-06)");
+  await expect(page.getByRole("note")).toContainText("المالية بتصدر الفاتورة في حسابات Axelor");
   // without native rights on exchange rates the panel is not shown
   await expect(page.getByRole("region", { name: "أسعار الصرف للجنيه" })).toHaveCount(0);
   const money = page.locator(".finance-money");
@@ -90,11 +100,40 @@ test("finance's queue: the held policy is stated, figures are real, and issuing 
   const row = page.locator(".finance-row").filter({ hasText: "دفعة مقدمة" });
   await expect(row).toContainText("فات معاده");
   await expect(row).toContainText(/(12,000|١٢٬٠٠٠) EGP/);
-  await row.getByRole("button", { name: "إصدار الفاتورة" }).click();
-  await expect(page.getByRole("alert")).toHaveText("إصدار الفاتورة موقوف لحد اعتماد سياسة المالية والضرائب (D-06). مفيش فاتورة اتعملت.");
+  await expect(row.getByRole("button", { name: "إصدار الفاتورة" })).toHaveCount(0);
   await row.getByRole("button", { name: "إلغاء الطلب: دفعة مقدمة" }).click();
   await expect(page.getByRole("alert")).toHaveText("مش مسموح لك بالإجراء ده.");
-  expect(posted.map(p => p.path)).toEqual(["/workspace/invoice-requests/1/issue", "/workspace/invoice-requests/1/cancel"]);
+  expect(posted.map(p => p.path)).toEqual(["/workspace/invoice-requests/1/cancel"]);
+});
+
+test("issuing: while the owners' terms or the accounting set-up are missing, finance is told exactly what is missing and nothing is created", async ({ page }) => {
+  const { posted } = await mockFinance(page, { canIssue: true });
+  await page.goto("/#/finance");
+  const row = page.locator(".finance-row").filter({ hasText: "دفعة مقدمة" });
+  await row.getByRole("button", { name: "إصدار الفاتورة" }).click();
+  const alert = page.getByRole("alert");
+  await expect(alert).toContainText("مش ممكن تتصدر لسه. الناقص:");
+  await expect(alert.locator("li")).toHaveText(["مالك السياسات لسه ما حددش شروط السداد", "يومية المبيعات", "حساب الضريبة المحصّلة (IOETI-DEFAULT)"]);
+  await expect(row).not.toContainText("INV-");
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(0);
+  await page.screenshot({ path: "test-results/ioeti-finance-missing-phone.png", fullPage: true });
+  expect(posted).toEqual([{ path: "/workspace/invoice-requests/1/issue", body: { version: 0 } }]);
+});
+
+test("issuing: with everything in place finance issues the invoice; it shows its number, total with tax and due date under issued", async ({ page }) => {
+  const { posted } = await mockFinance(page, { canIssue: true, ready: true });
+  await page.goto("/#/finance");
+  await page.locator(".finance-row").filter({ hasText: "دفعة مقدمة" }).getByRole("button", { name: "إصدار الفاتورة" }).click();
+  await expect(page.getByRole("status").filter({ hasText: "اتصدرت الفاتورة INV-00001." })).toBeVisible();
+  await expect(page.locator(".finance-row").filter({ hasText: "دفعة مقدمة" })).toHaveCount(0);
+  await page.getByRole("button", { name: "صدرت فواتيرها" }).click();
+  const issued = page.locator(".finance-row").filter({ hasText: "دفعة مقدمة" });
+  await expect(issued).toContainText("INV-00001");
+  await expect(issued).toContainText(/(13,680|١٣٬٦٨٠) EGP شامل الضريبة/);
+  await expect(issued).toContainText("صادرة");
+  await page.screenshot({ path: "test-results/ioeti-finance-issued.png", fullPage: true });
+  expect(posted).toEqual([{ path: "/workspace/invoice-requests/1/issue", body: { version: 0 } }]);
 });
 
 test("a milestone coming due is requested for invoicing with the order's version, then moves to the queue and can be cancelled", async ({ page }) => {

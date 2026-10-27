@@ -881,3 +881,21 @@ Slice: `docs/slices/P2a-finance-tax-fx.md`.
 - Migration `V020` / rollback `U020`.
 - Probe `scripts/finance_policy_probe.py` 11/11 (backend CI with the stub source); `quote_probe.py` now expects `POLICY_NOT_SET`. Mocked tests in `tests/finance.spec.ts` and `tests/app.spec.ts`.
 - G-007 registry: 1477 fields, 0 problems.
+
+## 2026-10-25 · P2b · D-06 finance issues invoices in Axelor accounting
+
+Slice: `docs/slices/P2b-finance-invoicing.md`.
+
+- `ioeti-workspace` `InvoicingService`:
+  - **Readiness:** what the company's accounting set-up lacks, checked with the native services. The codes cover accounting configuration, customers account, sales journal and its numbering, invoice numbering, print template, open period, supply-chain configuration, payment mode, client address, revenue accounts (tax, VAT system), tax account, the journal's allowed accounts, and active accounts.
+  - **Issue:** requires native invoice rights, the order's owner tax and the `finance.payment-terms` policy. The native invoice comes from the milestone, with a payment condition built from the policy version, and is validated and ventilated.
+- The request becomes `ISSUED` with the invoice, who, when and the payment-terms version (`InvoiceRequest` gains these fields, migration `V021`).
+- Finance queue: an `issued` tab; rows carry `canIssue`, invoice number, total including tax and due date. New `GET /finance/requests/{id}/readiness`.
+- Web:
+  - the issue action is shown to those with native invoice rights;
+  - missing items are listed in plain words;
+  - issued invoices are shown;
+  - global notices name `POLICY_NOT_SET` and `ACCOUNTING_NOT_READY`.
+- Probe `scripts/invoicing_probe.py` 7/7 (backend CI).
+- `finance_probe.py`, `workspace_probe.py` and `scenario_iso_lifecycle_probe.py` now expect 403 for a salesperson issuing, where they expected `BLOCKED_BY_POLICY`. The decision is signed, and issuing is finance's.
+- `probe_fixtures.purge_company_accounting` removes a fixture company's ventilated invoices and journal entries (disposable databases only).

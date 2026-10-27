@@ -1,7 +1,9 @@
 /* Finance's invoicing queue (D-06): a held-policy note, real totals per currency, requests and coming milestones (shared tokens; phone first). */
 .finance-page { display: grid; gap: 16px; }
 .finance-page > .data-panel { padding: 16px 18px; }
-.finance-held-action { border-style: dashed; }
+.finance-missing { margin: 6px 0 0; padding-inline-start: 18px; display: grid; gap: 2px; font-size: 13px; }
+.finance-meta > .finance-invoice { color: var(--success); }
+.finance-invoice b { font-weight: 700; }
 .finance-held { display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-radius: var(--radius-lg); background: var(--surface-variant); color: var(--on-surface); font-size: 13.5px; }
 .finance-held > svg { flex: none; color: var(--on-surface-variant); }
 .finance-held > span:nth-child(2) { flex: 1; }

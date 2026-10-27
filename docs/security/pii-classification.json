@@ -557,7 +557,6 @@
     "InvoiceRequestView.currency": "REFERENCE",
     "InvoiceRequestView.dueDate": "BUSINESS",
     "InvoiceRequestView.id": "REFERENCE",
-    "InvoiceRequestView.invoiceStatus": "REFERENCE",
     "InvoiceRequestView.milestoneId": "REFERENCE",
     "InvoiceRequestView.milestoneTitle": "BUSINESS",
     "InvoiceRequestView.quoteId": "REFERENCE",
@@ -1278,7 +1277,6 @@
     "FinanceRequestView.ageDays": "BUSINESS",
     "FinanceRequestView.overdue": "BUSINESS",
     "FinanceRequestView.mine": "BUSINESS",
-    "FinanceRequestView.invoiceStatus": "REFERENCE",
     "FinanceSummaryView.ordersPermitted": "REFERENCE",
     "FinanceSummaryView.requestsPermitted": "REFERENCE",
     "FinanceSummaryView.invoicesPermitted": "REFERENCE",
@@ -1483,6 +1481,15 @@
     "FxRateView.provider": "BUSINESS",
     "FxRateView.reason": "BUSINESS",
     "FxRateView.enteredBy": "PERSONAL",
-    "FxRateView.recordedAt": "BUSINESS"
+    "FxRateView.recordedAt": "BUSINESS",
+    "FinanceRequestView.canIssue": "BUSINESS",
+    "FinanceRequestView.invoiceNumber": "REFERENCE",
+    "FinanceRequestView.invoiceTotal": "BUSINESS",
+    "FinanceRequestView.invoiceDueDate": "BUSINESS",
+    "InvoiceRequestView.invoiceNumber": "REFERENCE",
+    "ReadinessView.ready": "BUSINESS",
+    "ReadinessView.missing": "BUSINESS",
+    "MissingView.code": "BUSINESS",
+    "MissingView.detail": "BUSINESS"
   }
 }

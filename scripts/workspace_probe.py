@@ -252,16 +252,16 @@ def main():
         psql(DATABASE, f"UPDATE sale_sale_order SET status_select = 3 WHERE id = {int(q_inv['id'])};")
         s_i1, b_i1, ir1 = invoice_request(a, m1, q_inv["id"])
         s_i2, b_i2, _ = invoice_request(a, m1, q_inv["id"])
-        s_iss, b_iss = a.call("POST", f"{WS}/invoice-requests/{ir1.get('id')}/issue")
+        s_iss, b_iss = a.call("POST", f"{WS}/invoice-requests/{ir1.get('id')}/issue", {"version": version(INVOICE_REQUEST, ir1.get("id"))})
         s_b_cancel, _ = b.call("POST", f"{WS}/invoice-requests/{ir1.get('id')}/cancel", {"version": version(INVOICE_REQUEST, ir1.get("id"))})
         s_cn, b_cn = a.call("POST", f"{WS}/invoice-requests/{ir1.get('id')}/cancel", {"version": version(INVOICE_REQUEST, ir1.get("id"))})
         s_i3, _, _ = invoice_request(a, m1, q_inv["id"])
         _, irs = a.call("GET", f"{WS}/invoice-requests?quoteId={q_inv['id']}")
-        check("invoice request: draft order → 422 ORDER_NOT_CONFIRMED; requested with the milestone amount; twice → 409; issue → "
-              "BLOCKED_BY_POLICY (D-06); another salesperson → 404; cancel; request again → 201",
-              (s_nc, error(b_nc).get("code"), s_i1, s_i2, error(b_i2).get("code"), s_iss, error(b_iss).get("code"), s_b_cancel, s_cn, s_i3)
-              == (422, "ORDER_NOT_CONFIRMED", 201, 409, "INVOICE_REQUEST_EXISTS", 422, "BLOCKED_BY_POLICY", 404, 200, 201)
-              and num(ir1.get("amountBeforeTax")) and ir1.get("invoiceStatus") == "BLOCKED_BY_POLICY"
+        check("invoice request: draft order → 422 ORDER_NOT_CONFIRMED; requested with the milestone amount; twice → 409; issue by a "
+              "salesperson → 403 (D-06: finance's, native invoice rights); another salesperson → 404; cancel; request again → 201",
+              (s_nc, error(b_nc).get("code"), s_i1, s_i2, error(b_i2).get("code"), s_iss, s_b_cancel, s_cn, s_i3)
+              == (422, "ORDER_NOT_CONFIRMED", 201, 409, "INVOICE_REQUEST_EXISTS", 403, 404, 200, 201)
+              and num(ir1.get("amountBeforeTax")) and ir1.get("invoiceNumber") is None
               and obj(b_cn).get("status") == "CANCELLED" and sorted(x["status"] for x in obj(irs)) == ["CANCELLED", "REQUESTED"],
               f"{s_nc} {s_i1} {s_i2} {s_iss} {s_b_cancel} {s_cn} {s_i3}")
         outcomes = []

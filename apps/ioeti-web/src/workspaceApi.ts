@@ -14,7 +14,7 @@ export type Review = {
 export type InvoiceRequest = {
   id: number; version: number; quoteId: number; milestoneId: number; milestoneTitle: string | null; dueDate: string | null;
   amountBeforeTax: string | number | null; currency: string; status: "REQUESTED" | "CANCELLED"; requestedBy: string | null;
-  requestedAt: string | null; invoiceStatus: string;
+  requestedAt: string | null; invoiceNumber: string | null;
 };
 export type Section = { key: string; count: number; permitted: boolean };
 export type MoneyRow = {
