@@ -61,6 +61,16 @@ Signer: the project owner, answering a structured interview in the engineering s
 
 - **Lead contact consent (2026-10-20, Wave 6):** `ioeti-marketing` records consent and opt-outs per channel (e-mail, calls) with the method and an evidence reference (required for consent, not for an opt-out). The native do-not-email/do-not-call flags hold the current state. Engineering did **not** decide the lawful basis, the consent wording, how long consent evidence is kept (D-07 retention), or whether an opt-out on one lead must apply to every record of the same person. Nothing is sent from the CRM: outbound channels are D-10, and automatic reminders, routing and escalation are D-12. Duplicate leads are reviewed but not merged, because merging changes ownership and history (D-07).
 
+- **D-11 implemented (2026-10-25, P3a and P3b):** the approval tiers, the validity period, who activates a contract
+  (`sales.contract-signatory`, added so the signatory is a setting like the other D-11 rules) and the won evidence are
+  policies the owners set; nothing is shipped.
+  - Quotations are finalized natively under their tier and recorded as sent by the rep (P3a, `docs/slices/P3a-quote-approvals.md`).
+  - A client's acceptance on uploaded evidence confirms the order natively. A contract is activated natively on its signed
+    copy by the signatory role (P3b, `docs/slices/P3b-commitments.md`).
+  - The operations handover now starts from a contract activated this way. Probes that make a contract active or confirm an
+    order with SQL keep doing so as test fixtures, because they test other steps.
+  - E-signature completion (D-10) is a later channel.
+
 ## Related, owner-only actions (not engineering decisions)
 
 - Send, or decide not to send, the private upstream report for the AOP thread-bound identity issue. The draft is held outside the repository; see PR #9.

@@ -40,6 +40,8 @@ import com.ioeti.recruitment.db.ClientJobOrder;
 import com.ioeti.training.db.TrainingEnrollment;
 import com.ioeti.workspace.db.InvoiceRequest;
 import com.ioeti.commercial.service.QuoteApprovalService;
+import com.ioeti.workspace.service.CommitmentService;
+import com.ioeti.content.db.repo.RecordDocumentRepository;
 import com.ioeti.workspace.db.ReviewEvent;
 import com.ioeti.workspace.db.ReviewRequest;
 import com.ioeti.workspace.db.repo.InvoiceRequestRepository;
@@ -152,7 +154,7 @@ public class WorkspaceRestController {
   @IoetiEndpoint
   public Response approve(@PathParam("id") Long id, Approval command) {
     ReviewRequest review = writable(ReviewRequest.class, id, command == null ? null : command.version());
-    if (review.getQuote() == null) throw ApiException.policyBlocked("D-11");
+    if (review.getQuote() == null) throw contractDecision();
     // finalizing changes the quotation: the approver needs native write access to it
     new SecurityCheck().writeAccess(SaleOrder.class).check();
     RecordAccess.writable(SaleOrder.class, review.getQuote().getId());
@@ -168,11 +170,63 @@ public class WorkspaceRestController {
   @IoetiEndpoint
   public Response reject(@PathParam("id") Long id, Rejection command) {
     ReviewRequest review = writable(ReviewRequest.class, id, command == null ? null : command.version());
-    if (review.getQuote() == null) throw ApiException.policyBlocked("D-11");
+    if (review.getQuote() == null) throw contractDecision();
     RecordAccess.readable(SaleOrder.class, review.getQuote().getId());
     int reason = select("reason", command.reason(), REASONS);
     write(() -> Beans.get(WorkspaceService.class).reject(review, reason, command.rationale()));
     return ResponseConstructor.build(Response.Status.OK, "Rejected", view(review));
+  }
+
+  /** D-11: a contract is not approved through a review; its signatory activates it on signature evidence. */
+  private static ApiException contractDecision() {
+    return new ApiException(422, "USE_CONTRACT_ACTIVATION",
+        "A contract is approved by activating it on its signature evidence, by the business line's signatory.", null);
+  }
+
+  // --- binding commitments (D-11) -----------------------------------------------------------------
+
+  @POST
+  @Path("/quotes/{id}/accept")
+  @Consumes(MediaType.APPLICATION_JSON)
+  @Operation(summary = "Record the client's acceptance of a finalized quotation on its uploaded evidence (a signed quotation or a"
+      + " purchase order filed on the quotation); confirms the order natively (D-11)", tags = {"IOETI workspace"})
+  @IoetiEndpoint
+  public Response accept(@PathParam("id") Long id, AcceptQuote command) {
+    if (command == null || command.version() == null) throw ApiException.badRequest("Record version is required.");
+    new SecurityCheck().writeAccess(SaleOrder.class).check();
+    SaleOrder quote = writable(SaleOrder.class, id, command.version());
+    String kind = acceptanceKind(command.kind());
+    String reference = command.reference() == null ? "" : command.reference().strip();
+    if (reference.length() > 100) throw ApiException.invalidField("reference", "TOO_LONG", "At most 100 characters.");
+    if (CommitmentService.PURCHASE_ORDER.equals(kind) && reference.isEmpty()) {
+      throw ApiException.invalidField("reference", "REQUIRED", "Give the purchase order number.");
+    }
+    CommitmentService.Evidence evidence = CommitmentService.evidence(command.documentId(), RecordDocumentRepository.SUBJECT_QUOTE, quote.getId());
+    CommitmentService.checkAcceptable(quote, command.acceptedOn(), Beans.get(AppBaseService.class).getTodayDate(quote.getCompany()));
+    NativeCommands.run(() -> Beans.get(CommitmentService.class).accept(quote, kind, reference.isEmpty() ? null : reference,
+        command.acceptedOn(), evidence), "QUOTE_REJECTED", "The order cannot be confirmed this way.");
+    return ResponseConstructor.build(Response.Status.OK, "Acceptance recorded", Map.of("quoteId", quote.getId(), "status", "CONFIRMED"));
+  }
+
+  static String acceptanceKind(String value) {
+    if (CommitmentService.SIGNED_QUOTE.equals(value) || CommitmentService.PURCHASE_ORDER.equals(value)) return value;
+    throw ApiException.invalidField("kind", "UNAVAILABLE", "Use SIGNED_QUOTE or PURCHASE_ORDER.");
+  }
+
+  @POST
+  @Path("/contracts/{id}/activate")
+  @Consumes(MediaType.APPLICATION_JSON)
+  @Operation(summary = "Activate a draft contract on its uploaded signature evidence (a signed copy filed on the contract), by a"
+      + " holder of the business line's signatory role; native AOS activation (D-11)", tags = {"IOETI workspace"})
+  @IoetiEndpoint
+  public Response activate(@PathParam("id") Long id, ActivateContract command) {
+    if (command == null || command.version() == null) throw ApiException.badRequest("Record version is required.");
+    new SecurityCheck().writeAccess(Contract.class).check();
+    Contract contract = writable(Contract.class, id, command.version());
+    CommitmentService.Evidence evidence = CommitmentService.evidence(command.documentId(), RecordDocumentRepository.SUBJECT_CONTRACT, contract.getId());
+    NativeCommands.run(() -> Beans.get(CommitmentService.class).activate(contract, command.signedOn(), command.startOn(), evidence),
+        "CONTRACT_REJECTED", "The contract cannot be activated this way.");
+    return ResponseConstructor.build(Response.Status.OK, "Contract activated", Map.of("contractId", contract.getId(), "status", "ACTIVE"));
   }
 
   // --- invoice requests ----------------------------------------------------------------------------
@@ -411,6 +465,10 @@ public class WorkspaceRestController {
   public record Decision(Integer version, String reason) {}
   /** D-11: why the approver decided (optional, at most 500 characters). */
   public record Approval(Integer version, String rationale) {}
+  /** D-11: the client's acceptance: SIGNED_QUOTE or PURCHASE_ORDER (with its number), when, and the evidence document. */
+  public record AcceptQuote(Integer version, String kind, String reference, java.time.LocalDate acceptedOn, Long documentId) {}
+  /** D-11: the signature date, the start date (defaults to the signature date) and the signature evidence document. */
+  public record ActivateContract(Integer version, java.time.LocalDate signedOn, java.time.LocalDate startOn, Long documentId) {}
   public record Rejection(Integer version, String reason, String rationale) {}
   public record RequestInvoice(Long milestoneId, Integer quoteVersion) {}
   public record ReviewEventView(String kind, String reason, String actorName, LocalDateTime at) {}

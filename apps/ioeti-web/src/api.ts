@@ -281,6 +281,9 @@ export type QuoteApproval = {
   status: "NEEDED" | "NOT_NEEDED" | "POLICY_NOT_SET" | "OUTSIDE_APPROVAL_TIERS" | "APPROVED" | null; approver: string | null;
   discountPercent: string | number | null; approvedBy: string | null; approvedAt: string | null; validUntil: string | null; expired: boolean;
   sentAt: string | null; sentBy: string | null; sentVia: string | null;
+  /** D-11: the client's acceptance (a signed quotation or a purchase order) and the evidence revision it was recorded on. */
+  acceptance?: { kind: "SIGNED_QUOTE" | "PURCHASE_ORDER"; reference: string | null; acceptedOn: string; recordedBy: string | null;
+    recordedAt: string | null; documentId: number | null; documentRevision: number | null } | null;
 };
 export type Quote = {
   id: number; version: number; reference: string | null; status: string | null; opportunityId: number | null;
@@ -362,13 +365,21 @@ export async function removeMilestone(quoteId: number, milestoneId: number, vers
   return wrapped<MilestonePlan>(`/ws/ioeti/quotes/${encodeURIComponent(quoteId)}/milestones/${encodeURIComponent(milestoneId)}?version=${encodeURIComponent(version)}`, { method: "DELETE" });
 }
 
-/** Wave 3: draft customer contracts (native AOS Contract). Activation and handover are policy-blocked (D-11). */
+/**
+ * Wave 3: customer contracts (native AOS Contract). D-11: activation on uploaded signature evidence by the business line's
+ * signatory role; activation.status is SIGNED, ACTIVE (before D-11), POLICY_NOT_SET, NOT_SIGNATORY or READY.
+ */
+export type ContractActivationView = {
+  status: "SIGNED" | "ACTIVE" | "POLICY_NOT_SET" | "NOT_SIGNATORY" | "READY"; signatory: string | null; signedOn: string | null;
+  activatedBy: string | null; activatedAt: string | null; documentId: number | null; documentRevision: number | null;
+};
 export type Contract = {
   id: number; version: number; reference: string | null; name: string | null; status: string | null;
   contractType: "BILLING" | "FRAMEWORK" | null; opportunityId: number | null; accountId: number | null;
   accountName: string | null; currency: string | null; activationStatus: string;
   sourceQuoteId?: number | null; totalBeforeTax?: string | null;
   lines?: { id: number; productCode: string | null; name: string; quantity: string; unitPriceBeforeTax: string | null; totalBeforeTax: string | null }[];
+  activation?: ContractActivationView | null;
 };
 export async function getContracts(opportunityId: number): Promise<Contract[]> {
   if (DEMO_MODE) return [];

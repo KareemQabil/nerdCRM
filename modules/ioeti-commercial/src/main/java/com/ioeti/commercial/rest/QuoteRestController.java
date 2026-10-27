@@ -360,8 +360,11 @@ public class QuoteRestController {
     java.time.LocalDate validUntil = quote.getEndOfValidityDate();
     return new ApprovalView(status, approver, discount, quote.getIoetiApprovedBy() == null ? null : quote.getIoetiApprovedBy().getName(),
         quote.getIoetiApprovedAt(), draft ? null : validUntil,
-        !draft && validUntil != null && validUntil.isBefore(Beans.get(AppBaseService.class).getTodayDate(quote.getCompany())),
-        quote.getIoetiSentAt(), quote.getIoetiSentBy() == null ? null : quote.getIoetiSentBy().getName(), quote.getIoetiSentNote());
+        Integer.valueOf(SaleOrderRepository.STATUS_FINALIZED_QUOTATION).equals(quote.getStatusSelect()) && validUntil != null && validUntil.isBefore(Beans.get(AppBaseService.class).getTodayDate(quote.getCompany())),
+        quote.getIoetiSentAt(), quote.getIoetiSentBy() == null ? null : quote.getIoetiSentBy().getName(), quote.getIoetiSentNote(),
+        quote.getIoetiAcceptedOn() == null ? null : new AcceptanceView(quote.getIoetiAcceptanceKind(), quote.getIoetiAcceptanceReference(),
+            quote.getIoetiAcceptedOn(), quote.getIoetiAcceptedBy() == null ? null : quote.getIoetiAcceptedBy().getName(),
+            quote.getIoetiAcceptedAt(), quote.getIoetiAcceptanceDocument(), quote.getIoetiAcceptanceRevision()));
   }
 
   static String status(Integer statusSelect) {
@@ -389,7 +392,11 @@ public class QuoteRestController {
   /** D-11 approval and sending of a quotation; status is NEEDED, NOT_NEEDED, POLICY_NOT_SET, OUTSIDE_APPROVAL_TIERS or APPROVED. */
   public record ApprovalView(
       String status, String approver, BigDecimal discountPercent, String approvedBy, LocalDateTime approvedAt,
-      java.time.LocalDate validUntil, boolean expired, LocalDateTime sentAt, String sentBy, String sentVia) {}
+      java.time.LocalDate validUntil, boolean expired, LocalDateTime sentAt, String sentBy, String sentVia, AcceptanceView acceptance) {}
+  /** D-11: the client's acceptance (SIGNED_QUOTE or PURCHASE_ORDER) and the document revision it was recorded on. */
+  public record AcceptanceView(
+      String kind, String reference, java.time.LocalDate acceptedOn, String recordedBy, LocalDateTime recordedAt, Long documentId,
+      Integer documentRevision) {}
   public record Discount(Integer version, BigDecimal percent) {}
   /** How the rep sent the quotation themselves (e.g. e-mail from their account, WhatsApp, by hand). */
   public record MarkSent(Integer version, String via) {}

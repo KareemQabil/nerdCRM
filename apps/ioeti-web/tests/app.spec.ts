@@ -626,7 +626,7 @@ test("payment milestones: added with the quotation version; booked, invoiced and
   await page.screenshot({ path: "test-results/ioeti-quote-milestones.png", fullPage: true });
 });
 
-test("contract: draft created natively with the chosen type and opportunity version; signature and handover stay blocked", async ({page}) => {
+test("contract: draft created natively with the chosen type and opportunity version; activation waits for the owners' signatory policy (D-11)", async ({page}) => {
   await intercept(page);
   const ok = (object: unknown, code = 200) => ({ status: code, contentType: "application/json", body: JSON.stringify({ codeStatus: code, messageStatus: "ok", object }) });
   const posts: unknown[] = [];
@@ -638,7 +638,8 @@ test("contract: draft created natively with the chosen type and opportunity vers
     const next = answers.shift();
     if (next) return route.fulfill({ status: next.status, contentType: "application/json", body: JSON.stringify(next.body) });
     return route.fulfill(ok({ id: 3, version: 1, reference: "CT0003", name: "Hotel certification", status: "DRAFT", contractType: "FRAMEWORK",
-      opportunityId: 101, accountId: 901, accountName: "Nile View Hotel", currency: "EGP", activationStatus: "BLOCKED_BY_POLICY" }, 201));
+      opportunityId: 101, accountId: 901, accountName: "Nile View Hotel", currency: "EGP", activationStatus: "POLICY_NOT_SET",
+      activation: { status: "POLICY_NOT_SET", signatory: null, signedOn: null, activatedBy: null, activatedAt: null, documentId: null, documentRevision: null } }, 201));
   });
   await page.goto("/#/opportunities/101");
   await expect(page.getByRole("heading", { name: "العقد", exact: true })).toBeVisible();
@@ -653,9 +654,10 @@ test("contract: draft created natively with the chosen type and opportunity vers
     { opportunityId: 101, opportunityVersion: 1, contractType: "FRAMEWORK" },
     { opportunityId: 101, opportunityVersion: 1, contractType: "FRAMEWORK" },
   ]);
-  await expect(page.getByRole("button", { name: "توقيع وتفعيل العقد" })).toBeDisabled();
-  await expect(page.getByRole("button", { name: "التسليم لفريق التنفيذ" })).toBeDisabled();
-  await expect(page.getByText("التوقيع والتفعيل والتسليم للتنفيذ متوقفة حتى اعتماد سياسة الموافقات والاعتماد القانوني (D-11).")).toBeVisible();
+  // D-11: activation waits for the owners' signatory policy; nothing to activate or hand over yet
+  await expect(page.getByText("مالك السياسات لسه ما حددش مين يفعّل عقود خط الأعمال ده (D-11).")).toBeVisible();
+  await expect(page.getByRole("button", { name: "فعّل العقد" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "اطلب التسليم لفريق التنفيذ" })).toHaveCount(0);
 });
 
 test("contract: lines are copied once from the quotation with the contract version; total before tax and lineage shown", async ({page}) => {
@@ -683,6 +685,103 @@ test("contract: lines are copied once from the quotation with the contract versi
   await expect(page.locator(".contract-body tfoot")).toContainText("منسوخة من عرض السعر #7");
   expect(posts).toEqual([{ version: 2, quoteId: 7 }]);
   await expect(page.getByRole("button", { name: "نسخ البنود من عرض السعر" })).toHaveCount(0);
+});
+
+test("contract activation (D-11): the signatory files the signed copy, picks it as evidence and activates; then requests the handover", async ({page}) => {
+  await intercept(page);
+  const ok = (object: unknown, code = 200) => ({ status: code, contentType: "application/json", body: JSON.stringify({ codeStatus: code, messageStatus: "ok", object }) });
+  const fail = (status: number, code: string, field?: string) => ({ status, contentType: "application/json", body: JSON.stringify({
+    codeStatus: status, messageStatus: "x", error: { code, message: "raw server text", correlationId: "c0ffee21", fields: field ? [{ field, code: "RANGE", message: "x" }] : [] } }) });
+  let contract: Record<string, unknown> = { id: 3, version: 2, reference: "CT0003", name: "Hotel certification", status: "DRAFT", contractType: "BILLING",
+    opportunityId: 101, accountId: 901, accountName: "Nile View Hotel", currency: "EGP", activationStatus: "READY", sourceQuoteId: 7, totalBeforeTax: "3000.00",
+    lines: [{ id: 11, productCode: "ISO-AUD-DAY", name: "Audit day", quantity: "2", unitPriceBeforeTax: "1500.00", totalBeforeTax: "3000.00" }],
+    activation: { status: "READY", signatory: "GM", signedOn: null, activatedBy: null, activatedAt: null, documentId: null, documentRevision: null } };
+  const docs = [{ id: 55, version: 0, title: "Signed contract", kind: "CONTRACT", subject: "CONTRACT", subjectId: 3, language: "AR", ownerName: "Mona",
+    currentRevision: 1, archived: false, revisions: [] }];
+  const posts: { path: string; body: unknown }[] = [];
+  const answers: ReturnType<typeof fail>[] = [];
+  await page.route(/\/axelor-erp\/ws\/ioeti\/contracts\?opportunityId=101$/, route => route.fulfill(ok([contract])));
+  await page.route(/\/axelor-erp\/ws\/ioeti\/content\/documents\?subject=CONTRACT&subjectId=3/, route => route.fulfill(ok(docs)));
+  await page.route(/\/axelor-erp\/ws\/ioeti\/workspace\/reviews\?contractId=3/, route => route.fulfill(ok([])));
+  await page.route(/\/axelor-erp\/ws\/ioeti\/(workspace\/contracts\/3\/activate|operations\/handovers)$/, route => {
+    const path = new URL(route.request().url()).pathname.replace(/.*\/ws\/ioeti/, "");
+    posts.push({ path, body: route.request().postDataJSON() });
+    const refusal = answers.shift();
+    if (refusal) return route.fulfill(refusal);
+    if (path.endsWith("/activate")) {
+      contract = { ...contract, version: 3, status: "ACTIVE", activationStatus: "SIGNED",
+        activation: { status: "SIGNED", signatory: null, signedOn: "2026-10-20", activatedBy: "Gamal GM", activatedAt: "2026-10-25T09:00:00", documentId: 55, documentRevision: 1 } };
+      return route.fulfill(ok({ contractId: 3, status: "ACTIVE" }));
+    }
+    return route.fulfill(ok({ id: 41, version: 0, status: "REQUESTED" }, 201));
+  });
+  await page.goto("/#/opportunities/101");
+  const box = page.locator(".commitment").filter({ hasText: "التوقيع والتفعيل" });
+  await expect(box).toContainText("ارفع نسخة العقد الموقّعة");
+  const form = box.getByRole("form", { name: "التوقيع والتفعيل" });
+  await form.getByLabel("تاريخ التوقيع").fill("2026-10-20");
+  await form.getByLabel("المستند الدليل").selectOption("55");
+  answers.push(fail(403, "NOT_SIGNATORY"));
+  await form.getByRole("button", { name: "فعّل العقد" }).click();
+  await expect(box.getByRole("alert")).toHaveText("العقود دي بيفعّلها دور تاني.");
+  await form.getByRole("button", { name: "فعّل العقد" }).click();
+  await expect(box).toContainText("اتوقّع في 2026-10-20، وفعّله Gamal GM في 2026-10-25 09:00.");
+  await expect(box.getByRole("link", { name: /المستند #55/ })).toHaveAttribute("href", /documents\/55\/revisions\/1\/content$/);
+  await box.getByRole("button", { name: "اطلب التسليم لفريق التنفيذ" }).click();
+  await expect(box).toContainText("اتبعت طلب التسليم لفريق التنفيذ.");
+  expect(posts).toEqual([
+    { path: "/workspace/contracts/3/activate", body: { version: 2, signedOn: "2026-10-20", documentId: 55 } },
+    { path: "/workspace/contracts/3/activate", body: { version: 2, signedOn: "2026-10-20", documentId: 55 } },
+    { path: "/operations/handovers", body: { contractId: 3 } },
+  ]);
+});
+
+test("contract activation (D-11): someone without the signatory role sees who activates and can only file the signed copy", async ({page}) => {
+  await intercept(page);
+  const ok = (object: unknown) => ({ status: 200, contentType: "application/json", body: JSON.stringify({ codeStatus: 200, messageStatus: "ok", object }) });
+  await page.route(/\/axelor-erp\/ws\/ioeti\/contracts\?opportunityId=101$/, route => route.fulfill(ok([{ id: 3, version: 2, reference: "CT0003", name: "x",
+    status: "DRAFT", contractType: "BILLING", opportunityId: 101, accountId: 901, accountName: "Nile View Hotel", currency: "EGP", activationStatus: "NOT_SIGNATORY",
+    lines: [], activation: { status: "NOT_SIGNATORY", signatory: "GM", signedOn: null, activatedBy: null, activatedAt: null, documentId: null, documentRevision: null } }])));
+  await page.goto("/#/opportunities/101");
+  await expect(page.getByText("عقود خط الأعمال ده بيفعّلها المدير العام. تقدر ترفع النسخة الموقّعة وهو يفعّل.")).toBeVisible();
+  await expect(page.getByRole("button", { name: "فعّل العقد" })).toHaveCount(0);
+  await expect(page.locator(".commitment").getByRole("button", { name: "إضافة مستند" })).toBeVisible();
+});
+
+test("quote acceptance (D-11): a purchase order needs its number; recording it on the filed evidence confirms the order", async ({page}) => {
+  await intercept(page);
+  const ok = (object: unknown, code = 200) => ({ status: code, contentType: "application/json", body: JSON.stringify({ codeStatus: code, messageStatus: "ok", object }) });
+  const approval = { status: "APPROVED", approver: "SALES_MANAGER", discountPercent: "10", approvedBy: "Mona Manager", approvedAt: "2026-10-21T10:00:00",
+    validUntil: "2026-11-20", expired: false, sentAt: "2026-10-21T11:00:00", sentBy: "Sara Sales", sentVia: "e-mail", acceptance: null as unknown };
+  let quote: Record<string, unknown> = { id: 7, version: 6, reference: "Q-0001", status: "FINALIZED", opportunityId: 101, accountId: 901, accountName: "Nile View Hotel",
+    currency: "EGP", totalBeforeTax: "2700.00", taxStatus: "APPLIED", taxTotal: "378.00", totalWithTax: "3078.00",
+    tax: { name: "VAT", ratePercent: "14", policyVersionId: 12, since: "2026-10-25" }, taxOutdated: false,
+    lines: [{ id: 1, productCode: "ISO-AUD-DAY", name: "Audit day", quantity: "2", unit: "Day", unitPriceBeforeTax: "1500.00", discountPercent: "10", totalBeforeTax: "2700.00" }],
+    approval };
+  const posts: unknown[] = [];
+  await page.route(/\/axelor-erp\/ws\/ioeti\/quotes\?opportunityId=101$/, route => route.fulfill(ok([quote])));
+  await page.route(/\/axelor-erp\/ws\/ioeti\/quotes\/7\/(milestones|versions)$/, route => route.fulfill(ok(route.request().url().endsWith("milestones") ? emptyPlan(6) : [])));
+  await page.route(/\/axelor-erp\/ws\/ioeti\/workspace\/reviews\?quoteId=7/, route => route.fulfill(ok([])));
+  await page.route(/\/axelor-erp\/ws\/ioeti\/content\/documents\?subject=QUOTE&subjectId=7/, route => route.fulfill(ok([{ id: 77, version: 0, title: "PO 4411",
+    kind: "EVIDENCE", subject: "QUOTE", subjectId: 7, language: "EN", ownerName: "Sara", currentRevision: 2, archived: false, revisions: [] }])));
+  await page.route(/\/axelor-erp\/ws\/ioeti\/workspace\/quotes\/7\/accept$/, route => {
+    posts.push(route.request().postDataJSON());
+    quote = { ...quote, version: 7, status: "CONFIRMED", approval: { ...approval, acceptance: { kind: "PURCHASE_ORDER", reference: "PO-4411", acceptedOn: "2026-10-24",
+      recordedBy: "Sara Sales", recordedAt: "2026-10-25T09:00:00", documentId: 77, documentRevision: 2 } } };
+    return route.fulfill(ok({ quoteId: 7, status: "CONFIRMED" }));
+  });
+  await page.goto("/#/opportunities/101");
+  const box = page.locator(".commitment").filter({ hasText: "قبول العميل" });
+  const form = box.getByRole("form", { name: "قبول العميل" });
+  await form.getByLabel("القبول بـ").selectOption("PURCHASE_ORDER");
+  await expect(form.getByLabel("رقم أمر الشراء")).toHaveAttribute("required", "");
+  await form.getByLabel("رقم أمر الشراء").fill("PO-4411");
+  await form.getByLabel("تاريخ القبول").fill("2026-10-24");
+  await form.getByLabel("المستند الدليل").selectOption("77");
+  await form.getByRole("button", { name: "سجّل القبول" }).click();
+  await expect(box).toContainText("العميل قبل (أمر شراء) في 2026-10-24، سجّله Sara Sales. · أمر شراء رقم PO-4411");
+  expect(posts).toEqual([{ version: 6, kind: "PURCHASE_ORDER", reference: "PO-4411", acceptedOn: "2026-10-24", documentId: 77 }]);
+  await expect(page.locator(".quote-head")).toContainText("CONFIRMED");
 });
 
 test("lead qualification: stage, lose, reopen and assign-to-me send the lead version; refusals localized", async ({page}) => {
@@ -1448,7 +1547,7 @@ async function operationsMocks(page: Page, options: { reviewer?: boolean; noRead
   return { requests, answers, fail };
 }
 
-test("operations: request a handover from a ready contract; when none is ready the D-11 gate is explained", async ({page}) => {
+test("operations: request a handover from a ready contract; when none is ready, how a contract becomes active is explained (D-11)", async ({page}) => {
   const { requests } = await operationsMocks(page, { reviewer: false });
   await page.goto("/");
   await page.locator("button.nav-item").filter({ hasText: "التشغيل" }).click();
@@ -1462,7 +1561,7 @@ test("operations: request a handover from a ready contract; when none is ready t
   await page.unroute(/\/axelor-erp\/ws\/ioeti\/operations\//);
   await operationsMocks(page, { reviewer: false, noReady: true });
   await page.goto("/#/operations");
-  await expect(page.getByText(/تفعيل العقد \(التوقيع\) متوقف حتى اعتماد D-11/)).toBeVisible();
+  await expect(page.getByText(/العقد بيبقى ساري لما المسؤول عن التفعيل يفعّله على النسخة الموقّعة \(D-11\)/)).toBeVisible();
 });
 
 test("operations: review against the checklist, rework, acceptance creates one engagement; trail and tasks", async ({page}) => {

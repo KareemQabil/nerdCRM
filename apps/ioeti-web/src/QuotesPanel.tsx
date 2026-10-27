@@ -7,6 +7,7 @@ import {
 import type { Language } from "./preferences";
 import { MilestonesPanel } from "./MilestonesPanel";
 import { QuoteWorkflow } from "./WorkflowPanels";
+import { QuoteAcceptance } from "./CommitmentPanels";
 
 const strings = {
   ar: {
@@ -234,6 +235,7 @@ export function QuotesPanel({opportunityId,opportunityVersion,language,onOpportu
         <button type="submit" className="btn btn-secondary" disabled={busy||!discountLine}><Percent size={16}/>{l.setDiscount}</button>
       </form>}
       <QuoteApprovalBox quote={quote} l={l} busy={busy} run={run} onUpdated={replace}/>
+      <QuoteAcceptance quote={quote} language={language} onChanged={()=>{void load().catch(()=>undefined);onOpportunityChanged?.();}}/>
       <QuoteWorkflow quote={quote} language={language} onChanged={()=>void load().catch(()=>undefined)}/>
       <MilestonesPanel quoteId={quote.id} editable={quote.status==="DRAFT"} language={language}
         onQuoteChanged={()=>void load().catch(()=>undefined)}/>

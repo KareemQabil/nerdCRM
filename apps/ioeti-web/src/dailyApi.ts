@@ -114,6 +114,10 @@ export function problem(error: unknown, ar: boolean): string {
   if (error.statusCode === 403) return ar ? "ليس لديك صلاحية لهذا الإجراء." : "You do not have permission for this.";
   if (error.statusCode === 404) return ar ? "السجل غير موجود أو غير متاح لك." : "The record does not exist or is not available to you.";
   if (error.code === "BLOCKED_BY_POLICY") return ar ? "الإجراء ده موقوف لحين اعتماد سياسة الشركة." : "This action waits for a company policy decision.";
+  if (error.code === "POLICY_NOT_SET") return ar ? "سياسة لازمة لسه مش متحددة؛ مالك السياسات يحددها من صفحة السياسات." : "A required policy is not set yet; a policy owner sets it under Policies.";
+  // D-11: the business line's evidence of a binding commitment
+  if (error.code === "WON_EVIDENCE_MISSING") return ar ? "لسه مفيش دليل التزام: خط الأعمال ده بيحتاج عقد متفعّل بدليل توقيع، أو قبول عميل مسجّل بدليله." : error.message || "The evidence of a binding commitment is missing.";
+  if (error.code === "BUSINESS_LINE_REQUIRED") return ar ? "حدد خط أعمال الفرصة الأول." : "Set the opportunity's business line first.";
   const field = error.fields?.[0];
   if (field) {
     const names: Record<string, [string, string]> = {

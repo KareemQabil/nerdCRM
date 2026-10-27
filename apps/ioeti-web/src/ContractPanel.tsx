@@ -1,16 +1,15 @@
 import { useCallback, useEffect, useState } from "react";
-import { CircleAlert, ClipboardCheck, LockKeyhole, Plus } from "lucide-react";
+import { CircleAlert, ClipboardCheck, Plus } from "lucide-react";
 import { ApiError, createContract, fillContractFromQuote, getContracts, getQuotes, type Contract } from "./api";
 import type { Language } from "./preferences";
 import { ContractWorkflow } from "./WorkflowPanels";
+import { ContractActivation } from "./CommitmentPanels";
 
 const strings = {
   ar: {
     title:"العقد",desc:"عقد العميل لهذه الفرصة: بنوده وقيمته وحالته ومراجعته.",loading:"جار التحميل...",
     empty:"لا يوجد عقد لهذه الفرصة بعد",type:"نوع العقد",billing:"عقد فوترة",framework:"عقد إطاري",
     create:"إنشاء مسودة عقد",creating:"جار الإنشاء...",draft:"مسودة",active:"ساري",closed:"مغلق",
-    activate:"توقيع وتفعيل العقد",handover:"التسليم لفريق التنفيذ",
-    blocked:"التوقيع والتفعيل والتسليم للتنفيذ متوقفة حتى اعتماد سياسة الموافقات والاعتماد القانوني (D-11).",
     exists:"يوجد عقد لهذه الفرصة بالفعل.",accountRequired:"اربط الفرصة بحساب عميل أولًا.",
     setup:"إعداد العقود لهذه الشركة غير مكتمل (مثل تسلسل أرقام العقود)؛ اطلب من المسؤول استكماله.",
     changed:"تم تعديل الفرصة من مكان آخر؛ حدّثنا البيانات، أعد المحاولة.",denied:"ليست لديك صلاحية لهذا الإجراء.",failed:"تعذّر تنفيذ الطلب.",
@@ -23,8 +22,6 @@ const strings = {
     title:"Contract",desc:"The customer contract of this opportunity: its lines, value, status and review.",loading:"Loading...",
     empty:"No contract for this opportunity yet",type:"Contract type",billing:"Billing contract",framework:"Framework contract",
     create:"Create draft contract",creating:"Creating...",draft:"Draft",active:"Active",closed:"Closed",
-    activate:"Sign & activate contract",handover:"Hand over to operations",
-    blocked:"Signature, activation and operations handover are blocked until the approval and legal policy (D-11) is signed.",
     exists:"A contract already exists for this opportunity.",accountRequired:"Link the opportunity to a customer account first.",
     setup:"Contract setup for this company is incomplete (for example the contract number sequence); ask an administrator.",
     changed:"This opportunity changed elsewhere; the data is refreshed, try again.",denied:"You do not have permission for this action.",failed:"The request failed.",
@@ -48,7 +45,7 @@ function message(error: unknown, l: Labels): string {
   return l.failed;
 }
 
-/** The opportunity's contract: a draft can be created; signature and handover stay blocked (D-11). */
+/** The opportunity's contract: a draft is created and filled from a quotation, then activated on signature evidence (D-11). */
 export function ContractPanel({opportunityId,opportunityVersion,language,onOpportunityChanged}:{
   opportunityId:number; opportunityVersion:number; language:Language; onOpportunityChanged?:()=>void;
 }){
@@ -107,11 +104,7 @@ export function ContractPanel({opportunityId,opportunityVersion,language,onOppor
       </table></div>
       :contract.status==="DRAFT"&&<div><button type="button" className="btn btn-secondary" disabled={busy} onClick={()=>void fill(contract)}><Plus size={16}/>{busy?l.filling:l.fill}</button></div>}
       <ContractWorkflow contract={contract} language={language} onChanged={()=>void load().catch(()=>undefined)}/>
-      <div className="quote-finalize">
-        <button type="button" className="btn btn-primary" disabled aria-describedby="contract-blocked">{l.activate}</button>
-        <button type="button" className="btn btn-secondary" disabled aria-describedby="contract-blocked">{l.handover}</button>
-      </div>
+      <ContractActivation contract={contract} language={language} onChanged={()=>{void load().catch(()=>undefined);onOpportunityChanged?.();}}/>
     </div>}
-    <p className="record-security-note" id="contract-blocked"><LockKeyhole size={15}/>{l.blocked}</p>
   </section>;
 }

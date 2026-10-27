@@ -284,12 +284,12 @@ def main():
         s_a_eng, _ = call(a, "GET", "/engagements")
         s_a_task, _ = call(a, "POST", f"/engagements/{eng['id']}/tasks", {"version": version(PROJECT, eng["id"]), "name": "x"})
         _, o_list = call(op, "GET", "/engagements")
-        s_act, b_act = a.call("POST", f"/ws/ioeti/contracts/{c_draft}/activate")
+        s_act, b_act = a.call("POST", f"/ws/ioeti/workspace/contracts/{c_draft}/activate", {"version": version(CONTRACT, c_draft), "signedOn": "2026-01-01"})
         check("another salesperson: handover and trail answer 404 like missing ids, cannot touch items; sales cannot read engagements "
-              "or add tasks (403/404); operations lists the engagement; contract activation still BLOCKED_BY_POLICY (D-11)",
+              "or add tasks (403/404); operations lists the engagement; activating a contract needs its signature evidence (D-11)",
               sb == [404, 404, 404] and sb_item == 404 and h["id"] not in [x["id"] for x in obj(b_list)]
               and s_a_eng == 403 and s_a_task in (403, 404) and eng["id"] in [x["id"] for x in obj(o_list)]
-              and (s_act, error(b_act).get("code")) == (422, "BLOCKED_BY_POLICY"), f"{sb} {sb_item} {s_a_eng} {s_a_task} {s_act}")
+              and s_act == 422 and ((error(b_act).get("fields") or [{}])[0]).get("field") == "documentId", f"{sb} {sb_item} {s_a_eng} {s_a_task} {s_act} {error(b_act)}")
 
         # --- 8. concurrency: simultaneous acceptances create one engagement ----------------------------------
         outcomes = []
