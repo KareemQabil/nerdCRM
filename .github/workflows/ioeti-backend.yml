@@ -124,6 +124,10 @@ jobs:
           # Wave 7b: in-app inbox and mentions, the held outbox (consent re-checked, sending D-10 blocked),
           # reports aggregated inside each caller's read scope, the administrators' system page
           python3 scripts/insights_probe.py
+          # Journeys plan, phase 1: administration from the platform (people, temporary passwords with a
+          # forced change, deactivation ending open sessions, teams, business lines and their members, the
+          # audit trail without e-mail or password); every admin endpoint refuses anonymous and non-admins
+          python3 scripts/admin_probe.py
           # Release scenarios: one ISO client from intake to certification across every team (exact figures,
           # notices, permission removed mid-session, backup restored mid-scenario); training, recruitment
           # and fundraising under concurrent load; 5000 leads and 1000 opportunities with 20 concurrent users
@@ -172,6 +176,7 @@ jobs:
             logs/scenario-iso-lifecycle.json
             logs/scenario-services.json
             logs/scale-load.json
+            logs/admin-probe.json
           if-no-files-found: ignore
       - name: Attach Axelor integration logs
         if: failure()

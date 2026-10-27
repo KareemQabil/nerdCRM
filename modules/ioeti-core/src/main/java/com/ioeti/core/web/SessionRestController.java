@@ -31,8 +31,9 @@ public class SessionRestController {
     if (user == null || !AuthUtils.isActive(user)) {
       return Response.status(Response.Status.UNAUTHORIZED).build();
     }
-    return Response.ok(new SessionIdentity(user.getCode(), user.getName(), user.getLanguage())).build();
+    return Response.ok(new SessionIdentity(user.getCode(), user.getName(), user.getLanguage(), AuthUtils.isAdmin(user))).build();
   }
 
-  public record SessionIdentity(String code, String name, String language) {}
+  /** {@code administrator} only chooses which screens to offer; every admin endpoint checks it again. */
+  public record SessionIdentity(String code, String name, String language, boolean administrator) {}
 }

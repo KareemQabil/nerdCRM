@@ -1,0 +1,124 @@
+/* Admin console (journeys plan, phase 1). Built on the shared tokens so the light, dark and luxury
+   themes and the administration accent apply unchanged. */
+.admin-console { display: grid; gap: 18px; }
+.admin-tabs { justify-self: start; }
+.admin-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.admin-toolbar > .btn-primary { margin-inline-start: auto; }
+.admin-toolbar select, .admin-form select, .admin-form input, .admin-form textarea, .chip-picker select, .admin-password input {
+  min-height: var(--control-height); border: 1px solid var(--outline); border-radius: var(--radius); background: var(--surface);
+  color: var(--on-surface); padding: 8px 12px; font: inherit; }
+.admin-form textarea { resize: vertical; min-height: 84px; }
+.admin-toolbar select:focus-visible, .admin-form :is(input, select, textarea):focus-visible, .chip-picker select:focus-visible, .admin-password input:focus-visible {
+  outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-container); }
+.admin-search { display: flex; align-items: center; gap: 8px; flex: 1 1 260px; min-width: 0; padding-inline: 12px; border: 1px solid var(--outline);
+  border-radius: var(--radius); background: var(--surface); color: var(--on-surface-variant); min-height: var(--control-height); }
+.admin-search:focus-within { border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-container); }
+.admin-search input { flex: 1; min-width: 0; border: 0; background: transparent; color: var(--on-surface); font: inherit; outline: none; }
+
+.admin-table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+.admin-table th { text-align: start; font-size: 12px; font-weight: 700; color: var(--on-surface-variant); padding: 11px 14px; background: var(--surface-variant); white-space: nowrap; }
+.admin-table td { padding: 11px 14px; border-top: 1px solid var(--outline-variant); vertical-align: middle; }
+.admin-table tbody tr { cursor: pointer; transition: background var(--duration-fast, 120ms); }
+.admin-table tbody tr:hover { background: var(--surface-variant); }
+.admin-table tbody tr.is-muted { opacity: .62; }
+.admin-rights tbody tr, .admin-static tbody tr { cursor: default; }
+.admin-rights td:not(:first-child), .admin-rights th:not(:first-child) { text-align: center; }
+
+.admin-person { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.admin-person > span:last-child { display: grid; min-width: 0; }
+.admin-person small { color: var(--on-surface-variant); font-size: 12px; }
+.admin-avatar { display: inline-grid; place-items: center; width: 34px; height: 34px; flex: 0 0 34px; border-radius: 50%; font-weight: 700; font-size: 13px;
+  background: var(--primary-container); color: var(--on-primary-container); }
+.admin-avatar-large { width: 64px; height: 64px; flex-basis: 64px; font-size: 22px; }
+.admin-more { background: var(--surface-variant); color: var(--on-surface-variant); }
+.admin-faces { display: flex; gap: 0; }
+.admin-faces .admin-avatar { width: 30px; height: 30px; flex-basis: 30px; font-size: 12px; border: 2px solid var(--surface); margin-inline-start: -8px; }
+.admin-faces .admin-avatar:first-child { margin-inline-start: 0; }
+
+.admin-chips, .chip-row { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 999px; font-size: 12.5px;
+  background: var(--primary-container); color: var(--on-primary-container); }
+.chip button { display: inline-grid; place-items: center; border: 0; background: transparent; color: inherit; padding: 0; width: 18px; height: 18px; border-radius: 50%; cursor: pointer; }
+.chip button:hover, .chip button:focus-visible { background: rgba(0,0,0,.12); outline: none; }
+.chip-quiet { background: var(--surface-variant); color: var(--on-surface); }
+.chip-empty { color: var(--on-surface-variant); font-size: 13px; }
+.chip-picker { display: grid; gap: 8px; }
+.chip-picker-label, .admin-field > span, .admin-form label > span { font-size: 12.5px; font-weight: 700; color: var(--on-surface-variant); }
+
+.admin-badge { display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px; border-radius: 999px; font-size: 12px; font-weight: 600;
+  background: var(--surface-variant); color: var(--on-surface); }
+.admin-badge.is-admin { background: var(--warning-container); color: var(--warning); }
+.admin-flag { display: inline-flex; align-items: center; gap: 4px; margin-inline-start: 6px; font-size: 11.5px; color: var(--warning); }
+.admin-muted { color: var(--on-surface-variant); }
+.admin-block { display: block; }
+
+.admin-form { display: grid; gap: 15px; margin-top: 8px; }
+.admin-form label, .admin-field { display: grid; gap: 7px; }
+.admin-form small, .admin-field small { color: var(--on-surface-variant); font-size: 12px; line-height: 1.6; }
+.admin-form-two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.admin-form-two .admin-span { grid-column: 1 / -1; }
+.action-modal.action-modal-wide { width: min(100%, 680px); }
+.admin-password { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.admin-password input { flex: 1 1 220px; min-width: 0; font-family: ui-monospace, Menlo, monospace; letter-spacing: .03em; }
+.admin-warning, .admin-note { display: flex; gap: 8px; align-items: flex-start; padding: 10px 12px; border-radius: var(--radius); font-size: 13px; line-height: 1.7; margin: 0; }
+.admin-warning { background: var(--warning-container); color: var(--warning); }
+.admin-note { background: var(--surface-variant); color: var(--on-surface-variant); margin-top: 12px; }
+.admin-warning svg, .admin-note svg { flex: 0 0 auto; margin-top: 3px; }
+.admin-credentials { display: grid; gap: 12px; margin: 14px 0 0; }
+.admin-credentials > div { display: grid; gap: 6px; }
+.admin-credentials dt { font-size: 12.5px; font-weight: 700; color: var(--on-surface-variant); }
+.admin-credentials dd { margin: 0; display: flex; gap: 8px; align-items: center; font-family: ui-monospace, Menlo, monospace; font-size: 15px; }
+.admin-credentials dd input { flex: 1; min-width: 0; min-height: var(--control-height); border: 1px solid var(--outline); border-radius: var(--radius);
+  background: var(--surface-variant); color: var(--on-surface); padding: 8px 12px; font: inherit; }
+
+.admin-person-page { display: grid; gap: 16px; }
+.admin-hero { display: flex; flex-wrap: wrap; align-items: center; gap: 18px; padding: 22px; }
+.admin-hero-text { flex: 1 1 260px; min-width: 0; display: grid; gap: 4px; }
+.admin-hero-text h2 { margin: 0; font-size: 22px; }
+.admin-hero-tags { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 6px; }
+.admin-hero-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.admin-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); gap: 16px; }
+.admin-section { padding: 18px 20px; display: grid; gap: 10px; align-content: start; }
+.admin-section h3 { margin: 6px 0 0; font-size: 15px; display: flex; align-items: center; gap: 7px; }
+.admin-section h3:first-child { margin-top: 0; }
+.admin-section p { margin: 0; }
+.admin-mark { color: var(--on-surface-variant); }
+.admin-mark.is-on { color: var(--success); font-weight: 700; }
+
+.admin-timeline { list-style: none; margin: 0; padding: 0; display: grid; gap: 0; }
+.admin-timeline li { display: grid; grid-template-columns: 18px minmax(0, 1fr); gap: 10px; padding: 10px 0; border-top: 1px solid var(--outline-variant); }
+.admin-timeline li:first-child { border-top: 0; }
+.admin-timeline-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--primary); margin-top: 7px; justify-self: center; }
+.admin-timeline p { margin: 3px 0; font-size: 13px; color: var(--on-surface); overflow-wrap: anywhere; }
+.admin-timeline small { color: var(--on-surface-variant); font-size: 12px; }
+
+.admin-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; }
+.admin-card { display: grid; gap: 8px; padding: 16px 18px; text-align: start; cursor: pointer; color: var(--on-surface); font: inherit;
+  transition: border-color var(--duration-fast, 120ms), transform var(--duration-fast, 120ms); }
+.admin-card:hover, .admin-card:focus-visible { border-color: var(--primary); outline: none; transform: translateY(-1px); }
+.admin-split { display: grid; grid-template-columns: minmax(220px, 1fr) minmax(0, 2fr); gap: 16px; align-items: start; }
+.admin-list { list-style: none; margin: 0; padding: 6px; display: grid; gap: 2px; }
+.admin-list button { width: 100%; display: grid; gap: 3px; text-align: start; padding: 10px 12px; border: 0; border-radius: var(--radius); background: transparent;
+  color: var(--on-surface); font: inherit; cursor: pointer; }
+.admin-list button > span:first-child { display: flex; justify-content: space-between; gap: 8px; }
+.admin-list button:hover, .admin-list button:focus-visible { background: var(--surface-variant); outline: none; }
+.admin-list button.is-chosen { background: var(--primary-container); color: var(--on-primary-container); }
+
+.admin-skeleton { display: grid; gap: 10px; padding: 8px 0; }
+.admin-skeleton span { height: 44px; border-radius: var(--radius); background: linear-gradient(90deg, var(--surface-variant), var(--surface), var(--surface-variant));
+  background-size: 200% 100%; animation: admin-shimmer 1.2s linear infinite; }
+@keyframes admin-shimmer { to { background-position: -200% 0; } }
+@media (prefers-reduced-motion: reduce) { .admin-skeleton span { animation: none; } .admin-card { transition: none; } }
+
+.btn-small { min-height: 32px; padding: 5px 11px; font-size: 12.5px; gap: 5px; }
+.btn-danger { background: var(--error); color: #fff; border-color: transparent; }
+.btn-danger-quiet { background: var(--error-container); color: var(--error); border: 1px solid transparent; }
+.login-hint { margin: -6px 0 0; font-size: 12px; color: var(--on-surface-variant); }
+
+@media (max-width: 860px) {
+  .admin-grid, .admin-split { grid-template-columns: minmax(0, 1fr); }
+  .admin-form-two { grid-template-columns: minmax(0, 1fr); }
+  .admin-toolbar > .btn-primary { margin-inline-start: 0; }
+  .admin-table th:nth-child(3), .admin-table td:nth-child(3), .admin-table th:nth-child(4), .admin-table td:nth-child(4) { display: none; }
+  .admin-rights th:nth-child(3), .admin-rights td:nth-child(3), .admin-rights th:nth-child(4), .admin-rights td:nth-child(4) { display: table-cell; }
+}
