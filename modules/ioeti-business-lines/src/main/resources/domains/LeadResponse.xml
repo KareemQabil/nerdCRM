@@ -20,4 +20,20 @@
     <unique-constraint columns="lead,target"/>
   </entity>
 
+  <!-- D-12 (signed 2026-10-25): one routing of one lead by the line's rules: the rule that matched, the team, and who received
+       it by round robin, or why nobody did. The log is also the round robin's memory (who received a lead from the team
+       least recently). Rows are never changed. -->
+  <entity name="LeadRouting" table="ioeti_lead_routing">
+    <many-to-one name="lead" ref="com.axelor.apps.crm.db.Lead" title="Lead" required="true"/>
+    <!-- ASSIGNED, NO_RULE or NO_ONE_AVAILABLE -->
+    <string name="outcome" title="Outcome" required="true" max="20"/>
+    <integer name="ruleIndex" title="Rule"/>
+    <many-to-one name="team" ref="com.axelor.team.db.Team" title="Team"/>
+    <many-to-one name="assignee" ref="com.axelor.auth.db.User" title="Assigned to"/>
+    <many-to-one name="policyVersion" ref="com.ioeti.core.db.PolicyVersion" title="Policy version" required="true"/>
+    <many-to-one name="routedBy" ref="com.axelor.auth.db.User" title="Routed by"/>
+    <datetime name="routedAt" title="Routed at" required="true"/>
+    <index columns="team,assignee"/>
+  </entity>
+
 </domain-models>

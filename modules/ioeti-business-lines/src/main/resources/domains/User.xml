@@ -12,6 +12,9 @@
     <many-to-many name="ioetiBusinessLines" ref="com.ioeti.businessline.db.BusinessLine"
       title="Business lines" table="ioeti_user_business_line" column="user_id"
       column2="business_line_id"/>
+    <!-- D-12: a person away (leave) in these dates, inclusive, receives no routed leads -->
+    <date name="ioetiAwayFrom" title="Away from"/>
+    <date name="ioetiAwayUntil" title="Away until"/>
   </entity>
 
 </domain-models>

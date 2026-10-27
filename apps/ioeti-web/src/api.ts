@@ -14,6 +14,7 @@ export type LeadSummary = {
   accountId?: number | null; opportunityId?: number | null;
   stageId?: number | null; stageKind?: "OPEN" | "CONVERTED" | "LOST" | null; lostReason?: string | null; assignedToMe?: boolean | null; receivedAt?: string | null;
   response?: LeadResponse | null;
+  governorate?: string | null;
 };
 /** D-12: where a lead stands against its response targets (computed by the server in working hours). */
 export type ResponseStatus = "NOT_SET" | "DUE" | "OVERDUE" | "MET" | "LATE" | "CLOSED";

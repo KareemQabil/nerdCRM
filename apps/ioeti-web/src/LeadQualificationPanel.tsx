@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
 import { ResponseDetails, responseNote } from "./LeadResponse";
-import { CircleAlert, Clock3, RotateCcw, UserCheck, XCircle } from "lucide-react";
+import { CircleAlert, Clock3, RotateCcw, Shuffle, UserCheck, XCircle } from "lucide-react";
 import {
   ApiError, assignLeadToMe, getLeadStages, getLostReasons, loseLead, moveLeadStage, reopenLead,
   type LeadStage, type LeadSummary, type LostReason,
 } from "./api";
+import { governorateName } from "./governorates";
+import { routeLead } from "./marketingApi";
 import type { Language } from "./preferences";
 
 const MAX_NOTE = 500;
@@ -14,7 +16,11 @@ const strings = {
     owner:"المسؤول",mine:"مكلّف بك",notMine:"غير مكلّف بك",assign:"تكليف لي",
     lose:"تسجيل كخسارة",reason:"سبب الخسارة",noReason:"بدون سبب محدد",note:"ملاحظة داخلية (اختياري)",
     confirmLose:"تأكيد الخسارة",cancel:"إلغاء",lost:"خسارة",lostBecause:"سبب الخسارة",
-    reopen:"إعادة فتح العميل المحتمل",
+    reopen:"إعادة فتح العميل المحتمل",unassigned:"مش متكلّف بيه حد",route:"توزيع بالقواعد",routing:"جار التوزيع...",
+    routed:(who:string,team:string)=>`اتوزع على ${who} (${team}).`,routedAway:(team:string)=>`اتوزع على فريق ${team}.`,
+    noRule:"مفيش قاعدة توزيع مطابقة؛ الـ lead فاضل من غير مسؤول ومدير الخط اتبلّغ.",noOne:"مفيش حد متاح في الفريق (إجازة أو وصلوا للحد)؛ فاضل من غير مسؤول ومدير الخط اتبلّغ.",
+    noRules:"خط الأعمال ده مالوش قواعد توزيع لسه؛ مالك السياسات يحددها.",needLine:"حدد خط أعمال الـ lead الأول.",already:"الـ lead ده بقى ليه مسؤول؛ مفيش إعادة توزيع.",
+    governorate:"المحافظة",
     loading:"جار التحميل...",changed:"تم تعديل السجل من مكان آخر؛ حدّث الصفحة وأعد المحاولة.",
     lostLocked:"أعد فتح العميل المحتمل أولًا لتغيير مرحلته.",rejected:"لا يمكن تنفيذ هذا الإجراء على العميل المحتمل في حالته الحالية.",
     noteTooLong:"الملاحظة بحد أقصى 500 حرف.",setup:"إعداد CRM غير مكتمل؛ اطلب من المسؤول استكماله.",
@@ -25,7 +31,11 @@ const strings = {
     owner:"Owner",mine:"Assigned to you",notMine:"Not assigned to you",assign:"Assign to me",
     lose:"Mark as lost",reason:"Lost reason",noReason:"No specific reason",note:"Internal note (optional)",
     confirmLose:"Confirm lost",cancel:"Cancel",lost:"Lost",lostBecause:"Lost reason",
-    reopen:"Reopen lead",
+    reopen:"Reopen lead",unassigned:"Nobody is assigned",route:"Route by the rules",routing:"Routing...",
+    routed:(who:string,team:string)=>`Routed to ${who} (${team}).`,routedAway:(team:string)=>`Routed to the ${team} team.`,
+    noRule:"No routing rule matches; the lead stays unassigned and the line's manager was told.",noOne:"Nobody in the team is available (on leave or at their cap); it stays unassigned and the line's manager was told.",
+    noRules:"This business line has no routing rules yet; a policy owner sets them.",needLine:"Set the lead's business line first.",already:"This lead already has an owner; nothing is reassigned.",
+    governorate:"Governorate",
     loading:"Loading...",changed:"This lead changed elsewhere; refresh and try again.",
     lostLocked:"Reopen this lead before changing its stage.",rejected:"This action is not possible for the lead in its current state.",
     noteTooLong:"The note can have at most 500 characters.",setup:"CRM setup is incomplete; ask an administrator to complete it.",
@@ -37,6 +47,9 @@ type Labels = typeof strings.ar | typeof strings.en;
 function message(error: unknown, l: Labels): string {
   if (!(error instanceof ApiError)) return l.failed;
   if (error.code === "ALREADY_CONVERTED") return l.converted;
+  if (error.code === "ALREADY_ASSIGNED") return l.already;
+  if (error.code === "POLICY_NOT_SET") return l.noRules;
+  if (error.code === "BUSINESS_LINE_REQUIRED") return l.needLine;
   if (error.statusCode === 409) return l.changed;
   if (error.code === "LEAD_LOST") return l.lostLocked;
   if (error.code === "SETUP_REQUIRED") return l.setup;
@@ -59,6 +72,17 @@ export function LeadQualificationPanel({lead,language,onChanged}:{
   const [note,setNote]=useState("");
   const [busy,setBusy]=useState(false);
   const [error,setError]=useState("");
+  const [notice,setNotice]=useState("");
+  async function route(){
+    if(busy)return;
+    setBusy(true);setError("");setNotice("");
+    try{
+      const r=await routeLead(lead.id);
+      setNotice(r.outcome==="ASSIGNED"?(r.lead?l.routed(r.assigneeName??"",r.teamName??""):l.routedAway(r.teamName??"")):r.outcome==="NO_RULE"?l.noRule:l.noOne);
+      if(r.lead)onChanged(r.lead);
+    }catch(e){setError(message(e,l));}
+    finally{setBusy(false);}
+  }
   useEffect(()=>{
     let current=true;
     Promise.all([getLeadStages(),getLostReasons()])
@@ -84,11 +108,13 @@ export function LeadQualificationPanel({lead,language,onChanged}:{
     <dl className="record-properties">
       <div><dt>{l.stage}</dt><dd>{isLost?<span className="lead-lost-tag"><XCircle size={14}/>{l.lost}</span>:lead.stage||"—"}</dd></div>
       <div><dt>{l.received}</dt><dd><Clock3 size={14}/> {received}</dd></div>
-      <div><dt>{l.owner}</dt><dd>{lead.assignedToMe?l.mine:l.notMine}</dd></div>
+      <div><dt>{l.owner}</dt><dd>{lead.assignedToMe?l.mine:lead.assignedToMe===null?l.unassigned:l.notMine}</dd></div>
+      {lead.governorate&&<div><dt>{l.governorate}</dt><dd>{governorateName(lead.governorate,language==="ar")}</dd></div>}
       <ResponseDetails response={lead.response} ar={language==="ar"}/>
       {isLost&&lead.lostReason&&<div><dt>{l.lostBecause}</dt><dd>{lead.lostReason}</dd></div>}
     </dl>
     {error&&<div className="login-error" role="alert"><CircleAlert size={17}/>{error}</div>}
+    {notice&&<p className="daily-note" role="status"><Shuffle size={15}/>{notice}</p>}
     {isLost?<div className="lead-actions">
       <button type="button" className="btn btn-secondary" disabled={busy} onClick={()=>void run(()=>reopenLead(lead.id,version))}><RotateCcw size={16}/>{l.reopen}</button>
     </div>
@@ -102,6 +128,7 @@ export function LeadQualificationPanel({lead,language,onChanged}:{
       </form>
       <div className="lead-actions">
         {!lead.assignedToMe&&<button type="button" className="btn btn-secondary" disabled={busy} onClick={()=>void run(()=>assignLeadToMe(lead.id,version))}><UserCheck size={16}/>{l.assign}</button>}
+        {lead.assignedToMe===null&&<button type="button" className="btn btn-secondary" disabled={busy} onClick={()=>void route()}><Shuffle size={16}/>{busy?l.routing:l.route}</button>}
         {!losing&&<button type="button" className="btn btn-secondary" disabled={busy} onClick={()=>setLosing(true)}><XCircle size={16}/>{l.lose}</button>}
       </div>
       {losing&&<form className="opportunity-form lead-lose-form" onSubmit={e=>{e.preventDefault();void run(()=>loseLead(lead.id,version,reasonId?Number(reasonId):null,note.trim()));}}>

@@ -16,7 +16,7 @@ Checks:
   attribution: campaign write right required; once per campaign (409); concurrent attributions of
   different leads to one campaign are all kept
   follow-ups: native CRM events; overdue queue; done once (422 after); timeline merges activities
-  and consent changes; routing → BLOCKED_BY_POLICY (D-12); isolation → 404
+  and consent changes; routing a lead with an owner → 409 (D-12: never reassigned); isolation → 404
 Env: PROBE_MKT_ROUNDS (default 6). Report: logs/marketing-probe.json.
 """
 import datetime
@@ -344,9 +344,9 @@ def main():
         s_route, b_route = a.call("POST", f"{MK}/leads/{lid}/route")
         s_route_b, _ = b.call("POST", f"{MK}/leads/{lid}/route")
         s_anon, _ = Client().call("GET", f"{MK}/leads")
-        check("routing and response targets → 422 BLOCKED_BY_POLICY (D-12); another's lead → 404; anonymous → 401",
-              (s_route, error(b_route).get("code"), "D-12" in (error(b_route).get("message") or ""),
-               s_route_b, s_anon) == (422, "BLOCKED_BY_POLICY", True, 404, 401), f"{s_route} {b_route} {s_route_b} {s_anon}")
+        # D-12 (signed 2026-10-25, P5b): routing is by the line's rules and never reassigns; this lead has an owner
+        check("routing a lead that has an owner → 409 ALREADY_ASSIGNED (D-12, never reassigned); another's lead → 404; anonymous → 401",
+              (s_route, error(b_route).get("code"), s_route_b, s_anon) == (409, "ALREADY_ASSIGNED", 404, 401), f"{s_route} {b_route} {s_route_b} {s_anon}")
 
         exit_code = 0 if all(r["result"] == "PASS" for r in RESULTS) else 1
         print(f"\n{sum(r['result'] == 'PASS' for r in RESULTS)}/{len(RESULTS)} checks passed")

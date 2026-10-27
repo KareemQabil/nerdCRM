@@ -28,3 +28,7 @@
 .mk-source{margin:0;font-size:13px;}
 .mk-tabs{display:flex;gap:6px;margin:0 0 12px;flex-wrap:wrap;}
 .mk-tabs button[aria-pressed="true"]{border-color:var(--primary);color:var(--primary);}
+/* D-12: keeping a new lead instead of routing it */
+.mk-keep { display: flex; gap: 8px; align-items: flex-start; margin: 4px 0 2px; font-size: 13.5px; }
+.mk-keep span { display: grid; gap: 2px; }
+.mk-keep small { color: var(--on-surface-variant); font-size: 12px; }

@@ -7,7 +7,11 @@ export type LeadQuery = { q?: string; stageId?: number; sourceId?: number; busin
 export type LeadIntake = {
   firstName?: string; name: string; organization?: string; email?: string; phone?: string;
   businessLineCode?: string; sourceId?: number; campaignId?: number; confirmNotDuplicate?: boolean;
+  /** D-12 */ governorate?: string; keepMine?: boolean;
 };
+/** D-12: how a routing came out; the lead only while the caller may still read it. */
+export type Routing = { outcome: "ASSIGNED" | "NO_RULE" | "NO_ONE_AVAILABLE"; ruleIndex: number | null; teamName: string | null; assigneeName: string | null; lead: LeadSummary | null };
+export const routeLead = (leadId: number) => post<Routing>(`${BASE}/leads/${leadId}/route`, {});
 export type SavedView = { id: number; name: string; searchText: string | null; stageId: number | null; sourceId: number | null; businessLineCode: string | null; onlyMine: boolean };
 export type Channel = "EMAIL" | "CALL";
 export type ConsentMethod = "WRITTEN" | "EMAIL" | "WEB_FORM" | "PHONE" | "IN_PERSON";

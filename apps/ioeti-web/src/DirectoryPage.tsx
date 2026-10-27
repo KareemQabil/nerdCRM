@@ -30,7 +30,7 @@ const strings = {
     demo:"هذه السجلات خيالية للمعاينة فقط",noPermission:"ليس لديك صلاحية قراءة هذا الموديول.",
     source:"المصدر", leadSource:"المبيعات", accountSource:"المبيعات",
     serverSearch:"ابحث بالاسم أو الجهة أو البريد أو الهاتف...",newLead:"عميل محتمل جديد",newAccount:"حساب جديد",list:"القائمة",followUps:"المتابعات",
-    next:"تأهيل العملاء المحتملين وتحويلهم من صفحة كل عميل محتمل. زمن الاستجابة بيتحسب بساعات العمل من سياسات الشركة؛ التوزيع على الآخرين لسه مقفول", nextAccounts:"Account 360: الفرص وجهات الاتصال داخل صفحة الحساب",
+    next:"تأهيل العملاء المحتملين وتحويلهم من صفحة كل عميل محتمل. الـ leads الجديدة بتتوزع بقواعد خط الأعمال، وزمن الاستجابة بيتحسب بساعات العمل", nextAccounts:"Account 360: الفرص وجهات الاتصال داخل صفحة الحساب",
   },
   en: {
     leads:"Lead inbox",accounts:"Account directory",
@@ -43,7 +43,7 @@ const strings = {
     demo:"All records are fictional and for visual review only",noPermission:"No permission to read this module.",
     source:"Source",leadSource:"Sales",accountSource:"Sales",
     serverSearch:"Search name, organization, e-mail or phone...",newLead:"New lead",newAccount:"New account",list:"List",followUps:"Follow-ups",
-    next:"Qualify and convert from each lead page. Response times are counted in working hours from the company's policies; routing to others is still closed", nextAccounts:"Account 360: opportunities and contacts on each account page",
+    next:"Qualify and convert from each lead page. New leads are routed by the business line's rules, and response times are counted in working hours", nextAccounts:"Account 360: opportunities and contacts on each account page",
   },
 } as const;
 

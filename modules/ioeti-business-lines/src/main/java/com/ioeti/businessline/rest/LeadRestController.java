@@ -329,7 +329,8 @@ public class LeadRestController {
       lostReason == null ? null : lostReason.getName(),
       lead.getUser() == null ? null : lead.getUser().getId().equals(AuthUtils.getUser().getId()),
       lead.getCreatedOn(),
-      LeadResponseView.of(Beans.get(LeadResponse.class).status(lead, LocalDateTime.now()))
+      LeadResponseView.of(Beans.get(LeadResponse.class).status(lead, LocalDateTime.now())),
+      lead.getIoetiGovernorate()
     );
   }
 
@@ -355,7 +356,7 @@ public class LeadRestController {
   public record LeadView(
     Long id, Integer version, String name, String organization, String stage,
     boolean converted, String businessLineCode, Long accountId, Long opportunityId,
-    Long stageId, String stageKind, String lostReason, Boolean assignedToMe, LocalDateTime receivedAt, LeadResponseView response) {}
+    Long stageId, String stageKind, String lostReason, Boolean assignedToMe, LocalDateTime receivedAt, LeadResponseView response, String governorate) {}
 
   /**
    * Where a lead stands against its response targets (D-12). {@code status} and {@code qualification}: NOT_SET, DUE, OVERDUE,

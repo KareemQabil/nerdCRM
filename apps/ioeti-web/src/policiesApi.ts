@@ -44,6 +44,9 @@ export const setPolicy = (key: string, input: { scope?: string; value: Record<st
   wrapped<PolicyDetail>(`${BASE}/${enc(key)}`, json(input));
 export const retirePolicy = (key: string, input: { scope?: string; effectiveFrom?: string; reason: string }) =>
   wrapped<PolicyDetail>(`${BASE}/${enc(key)}/retire`, json(input));
+/** The teams and lead sources a policy value can name (the routing rules, D-12). */
+export type PolicyReferences = { teams: { id: number; name: string }[]; sources: { id: number; name: string }[] };
+export const getPolicyReferences = () => wrapped<PolicyReferences>(`${BASE}/references`);
 export const getPolicyOwners = () => list<Person>(`${BASE}/owners`);
 export const getPolicyPeople = () => list<Person>(`${BASE}/people`);
 export const appointOwner = (userId: number) => wrapped<Person[]>(`${BASE}/owners`, json({ userId }));

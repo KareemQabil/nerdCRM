@@ -25,6 +25,10 @@ public final class PolicyCatalog {
   public static final List<String> APPROVER_ROLES = List.of("SALES_MANAGER", "GM", "FINANCE");
   public static final List<String> WEEKDAYS = List.of("SAT", "SUN", "MON", "TUE", "WED", "THU", "FRI");
   public static final List<String> DATA_TYPES = List.of("LEADS", "CANDIDATES", "TRAINEES", "DONORS", "CONTACTS");
+  /** Egypt's 27 governorates (a fact, not a rule): a lead's governorate and routing rules use these codes (D-12). */
+  public static final List<String> GOVERNORATES = List.of("CAIRO", "GIZA", "ALEXANDRIA", "QALYUBIA", "SHARQIA", "DAKAHLIA", "GHARBIA",
+      "MONUFIA", "BEHEIRA", "KAFR_EL_SHEIKH", "DAMIETTA", "PORT_SAID", "ISMAILIA", "SUEZ", "NORTH_SINAI", "SOUTH_SINAI", "RED_SEA",
+      "MATROUH", "NEW_VALLEY", "FAIYUM", "BENI_SUEF", "MINYA", "ASYUT", "SOHAG", "QENA", "LUXOR", "ASWAN");
 
   private static final Map<String, PolicyDefinition> ALL = new LinkedHashMap<>();
 
@@ -85,8 +89,8 @@ public final class PolicyCatalog {
     // --- D-12 leads -------------------------------------------------------------------------------------------
     add(new PolicyDefinition("leads.routing", "D-12", "LEADS", Scope.BUSINESS_LINE, false,
         List.of(list("rules", true, 50, List.of(
-            text("governorate", false, 60, "المحافظة (اختياري)", "Governorate (optional)"),
-            text("source", false, 60, "المصدر (اختياري)", "Source (optional)"),
+            choice("governorate", false, GOVERNORATES, "المحافظة (اختياري)", "Governorate (optional)"),
+            of("sourceId", Kind.INTEGER, false, "المصدر (اختياري)", "Source (optional)"),
             of("teamId", Kind.INTEGER, true, "الفريق", "Team")),
             "قواعد التوجيه (أول قاعدة مطابقة)", "Routing rules (first match)"),
             integer("workloadCap", true, 1, 1000, "أقصى عدد leads مفتوحة للشخص", "Most open leads per person")),

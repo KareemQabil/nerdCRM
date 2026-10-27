@@ -24,6 +24,7 @@ export type AccountInput = { name: string; website?: string; phone?: string; ema
 export type ContactInput = { firstName?: string; name: string; phone?: string; email?: string };
 export type LeadEdit = {
   firstName?: string; name?: string; organization?: string; email?: string; phone?: string; businessLineCode?: string; confirmNotDuplicate?: boolean;
+  governorate?: string;
 };
 
 const json = (body: unknown): RequestInit => ({ method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });

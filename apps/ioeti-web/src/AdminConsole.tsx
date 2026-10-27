@@ -5,7 +5,7 @@ import {
 } from "lucide-react";
 import { ApiError } from "./api";
 import {
-  activatePerson, addLine, addPerson, addTeam, changeLine, changePerson, changeTeam, deactivatePerson, getAdminLines, getChanges,
+  activatePerson, setAway, addLine, addPerson, addTeam, changeLine, changePerson, changeTeam, deactivatePerson, getAdminLines, getChanges,
   getLineMembers, getPeople, getPerson, getProfile, getProfiles, getTeams, getRoleCatalog, createProfile, setProfileRight, makeTemporaryPassword, setLineMembers, setTemporaryPassword,
   type AdminChange, type AdminLine, type AdminTeam, type AdminUser, type AdminUserDetail, type PersonRef, type Profile, type ProfileAccess, type RoleCatalog, type RecordTypeInfo, type RightChange, type Scope,
 } from "./adminApi";
@@ -33,7 +33,7 @@ const L = {
     choose: "اختر…", none: "لا شيء", save: "حفظ", cancel: "إلغاء", close: "إغلاق", saving: "جاري الحفظ…", created: "الحساب جاهز",
     createdHint: "ابعت اسم الدخول وكلمة المرور المؤقتة للشخص. عند أول دخول هيختار كلمة مرور خاصة بيه.",
     adminWarning: "ملف مسؤول النظام بيدّي صلاحية كاملة على المنصة، ومنها لوحة الإدارة.",
-    back: "كل الأشخاص", edit: "تعديل البيانات", deactivate: "إيقاف الحساب", activate: "تفعيل الحساب", reset: "كلمة مرور مؤقتة جديدة",
+    back: "كل الأشخاص", away: "الإجازات", awayHint: "في الأيام دي مفيش leads بتتوزع عليه (التوزيع بالدور بيتخطاه). الأيام شاملة البداية والنهاية.", awayNone: "مش في إجازة.", awayFrom: "من يوم", awayUntil: "لحد يوم", awaySet: "تحديد الإجازة", awayClear: "إلغاء الإجازة", awayNow: "في إجازة دلوقتي", edit: "تعديل البيانات", deactivate: "إيقاف الحساب", activate: "تفعيل الحساب", reset: "كلمة مرور مؤقتة جديدة",
     deactivateHint: "الشخص مش هيقدر يدخل، وأي جلسة مفتوحة له هتتقفل مع أول طلب. سجلاته بتفضل زي ما هي.",
     activateHint: "الشخص هيقدر يدخل تاني بنفس كلمة المرور.", resetHint: "كلمة المرور الحالية هتتلغي، والشخص هيختار واحدة جديدة عند الدخول.",
     access: "الوصول", accessHint: "اللي ملف الصلاحيات بيسمح بيه، لكل نوع سجل. الشرط معناه إن القاعدة مقصورة على سجلات معيّنة (زي سجلاته هو).",
@@ -86,7 +86,7 @@ const L = {
     choose: "Choose…", none: "None", save: "Save", cancel: "Cancel", close: "Close", saving: "Saving…", created: "The account is ready",
     createdHint: "Give the person the sign-in name and the temporary password. They choose their own at the first sign-in.",
     adminWarning: "The administrator profile gives full access to the platform, including this console.",
-    back: "All people", edit: "Edit details", deactivate: "Deactivate", activate: "Activate", reset: "New temporary password",
+    back: "All people", away: "Leave", awayHint: "On these days no leads are routed to them (round robin skips them). Both days are included.", awayNone: "Not on leave.", awayFrom: "From", awayUntil: "Until", awaySet: "Set leave", awayClear: "Clear leave", awayNow: "On leave now", edit: "Edit details", deactivate: "Deactivate", activate: "Activate", reset: "New temporary password",
     deactivateHint: "The person can no longer sign in and any open session ends at its next request. Their records stay.",
     activateHint: "The person can sign in again with the same password.", resetHint: "The current password stops working; the person chooses a new one at sign-in.",
     access: "Access", accessHint: "What the profile allows per record type. Conditional means the rule covers some records only (for example their own).",
@@ -353,7 +353,7 @@ function PersonPage({ id, l, ar, lines, teams, profiles, myCode, onBack, onChang
   const [detail, setDetail] = useState<AdminUserDetail | null>(null);
   const [history, setHistory] = useState<AdminChange[] | null>(null);
   const [error, setError] = useState("");
-  const [dialog, setDialog] = useState<null | "edit" | "status" | "password">(null);
+  const [dialog, setDialog] = useState<null | "edit" | "status" | "password" | "away">(null);
   async function load() {
     try {
       const [d, h] = await Promise.all([getPerson(id), getChanges({ subject: "USER", subjectId: id, limit: 30 })]);
@@ -388,6 +388,11 @@ function PersonPage({ id, l, ar, lines, teams, profiles, myCode, onBack, onChang
         <h3>{l.teams}</h3>
         <div className="admin-chips">{u.teams.length ? u.teams.map(t => <span key={t.id} className="chip chip-quiet"><UsersRound size={12}/>{t.name}</span>) : <span className="admin-muted">{l.none}</span>}</div>
         <h3>{l.language}</h3><p>{u.language === "en" ? "English" : "العربية"}</p>
+        <h3>{l.away}</h3>
+        <p className="admin-away">{u.awayFrom || u.awayUntil
+          ? <><span dir="ltr">{u.awayFrom ?? "…"} → {u.awayUntil ?? "…"}</span>{awayNow(u) && <span className="admin-flag">{l.awayNow}</span>}</>
+          : <span className="admin-muted">{l.awayNone}</span>}
+          <button type="button" className="btn btn-small btn-secondary" onClick={() => setDialog("away")}>{l.awaySet}</button></p>
       </div>
       <div className="data-panel admin-section"><h3>{l.access} · {u.profileName || l.noProfile}</h3><p className="admin-muted">{l.accessHint}</p>
         <RightsTable access={detail.access} l={l} ar={ar}/></div>
@@ -396,6 +401,7 @@ function PersonPage({ id, l, ar, lines, teams, profiles, myCode, onBack, onChang
     {dialog === "edit" && <EditPersonDialog u={u} l={l} ar={ar} lines={lines} teams={teams} profiles={profiles} me={me} onClose={() => setDialog(null)} onSaved={refresh}/>}
     {dialog === "status" && <StatusDialog u={u} l={l} onClose={() => setDialog(null)} onSaved={refresh}/>}
     {dialog === "password" && <PasswordDialog u={u} l={l} onClose={() => setDialog(null)} onSaved={refresh}/>}
+    {dialog === "away" && <AwayDialog u={u} l={l} onClose={() => setDialog(null)} onSaved={refresh}/>}
   </div>;
 }
 
@@ -434,6 +440,33 @@ function EditPersonDialog({ u, l, ar, lines, teams, profiles, me, onClose, onSav
       {chosenProfile?.administrator && !u.administrator && <p className="admin-warning" role="status"><ShieldCheck size={15}/>{l.adminWarning}</p>}
       <ChipPicker label={l.lines} items={lines} selected={chosenLines} keyOf={x => x.code} labelOf={x => ar ? x.nameAr : x.nameEn} onChange={setChosenLines} placeholder={l.choose} emptyText={l.none}/>
       <ChipPicker label={l.teams} items={teams} selected={chosenTeams} keyOf={x => x.id} labelOf={x => x.name} onChange={setChosenTeams} placeholder={l.choose} emptyText={l.none}/>
+      {error && <div className="login-error" role="alert"><CircleAlert size={17}/>{error}</div>}
+    </form>
+  </Dialog>;
+}
+
+const today = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
+const awayNow = (u: AdminUser) => !!(u.awayFrom || u.awayUntil) && (!u.awayFrom || u.awayFrom <= today()) && (!u.awayUntil || today() <= u.awayUntil);
+
+/** D-12: the dates a person is away; routing skips them then. */
+function AwayDialog({ u, l, onClose, onSaved }: { u: AdminUser; l: Labels; onClose: () => void; onSaved: () => void }) {
+  const [from, setFrom] = useState(u.awayFrom ?? "");
+  const [until, setUntil] = useState(u.awayUntil ?? "");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  async function save(f: string, t: string) {
+    setBusy(true); setError("");
+    try { await setAway(u.id, u.version, f, t); onSaved(); onClose(); }
+    catch (failure) { setError(errorText(failure, l)); }
+    finally { setBusy(false); }
+  }
+  return <Dialog title={l.away} description={l.awayHint} kicker={u.name} busy={busy} onClose={onClose}
+    footer={<>{(u.awayFrom || u.awayUntil) && <button type="button" className="btn btn-secondary" disabled={busy} onClick={() => void save("", "")}>{l.awayClear}</button>}
+      <button type="button" className="btn btn-secondary" disabled={busy} onClick={onClose}>{l.cancel}</button>
+      <button type="submit" form="away-form" className="btn btn-primary" disabled={busy || (!from && !until) || (!!from && !!until && until < from)}>{busy ? l.saving : l.awaySet}</button></>}>
+    <form id="away-form" className="daily-form" onSubmit={e => { e.preventDefault(); void save(from, until); }}>
+      <label><span>{l.awayFrom}</span><input type="date" value={from} onChange={e => setFrom(e.target.value)}/></label>
+      <label><span>{l.awayUntil}</span><input type="date" value={until} min={from || undefined} onChange={e => setUntil(e.target.value)}/></label>
       {error && <div className="login-error" role="alert"><CircleAlert size={17}/>{error}</div>}
     </form>
   </Dialog>;

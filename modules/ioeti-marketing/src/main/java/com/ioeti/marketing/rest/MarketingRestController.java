@@ -6,6 +6,7 @@ import com.axelor.apps.crm.db.Lead;
 import com.axelor.apps.crm.db.LeadStatus;
 import com.axelor.apps.crm.db.repo.EventRepository;
 import com.axelor.apps.marketing.db.Campaign;
+import com.axelor.apps.base.service.app.AppBaseService;
 import com.axelor.auth.AuthUtils;
 import com.axelor.auth.db.AuditableModel;
 import com.axelor.auth.db.User;
@@ -19,6 +20,8 @@ import com.axelor.rpc.filter.JPQLFilter;
 import com.axelor.utils.api.ConflictChecker;
 import com.axelor.utils.api.ResponseConstructor;
 import com.axelor.utils.api.SecurityCheck;
+import com.ioeti.businessline.service.LeadRouter;
+import com.ioeti.core.policy.PolicyCatalog;
 import com.ioeti.businessline.db.BusinessLine;
 import com.ioeti.businessline.rest.LeadRestController;
 import com.ioeti.core.api.ApiException;
@@ -39,6 +42,7 @@ import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
@@ -107,8 +111,9 @@ public class MarketingRestController {
         && !MarketingService.duplicates(lead.getFirstName(), lead.getName(), lead.getEnterpriseName(), email, phone).isEmpty()) {
       throw new ApiException(409, "POSSIBLE_DUPLICATE", "Similar leads exist; review them before recording a new one.", null);
     }
+    lead.setIoetiGovernorate(governorate(command.governorate()));
     Lead[] saved = new Lead[1];
-    write(() -> saved[0] = Beans.get(MarketingService.class).intake(lead, email, campaign));
+    write(() -> saved[0] = Beans.get(MarketingService.class).intake(lead, email, campaign, Boolean.TRUE.equals(command.keepMine()), today()));
     return ResponseConstructor.build(Response.Status.CREATED, "Lead recorded", LeadRestController.project(saved[0]));
   }
 
@@ -140,6 +145,7 @@ public class MarketingRestController {
       if (command.sourceId() > 0 && source == null) throw ApiException.invalidField("sourceId", "UNAVAILABLE", "Choose a configured source.");
       lead.setSource(source);
     }
+    if (command.governorate() != null) lead.setIoetiGovernorate(governorate(command.governorate()));
     if (!Boolean.TRUE.equals(command.confirmNotDuplicate())) {
       String currentEmail = email != null ? email : lead.getEmailAddress() == null ? null : lead.getEmailAddress().getAddress();
       boolean others = MarketingService.duplicates(lead.getFirstName(), lead.getName(), lead.getEnterpriseName(), currentEmail, lead.getMobilePhone())
@@ -410,11 +416,34 @@ public class MarketingRestController {
 
   @POST
   @Path("/leads/{id}/route")
-  @Operation(summary = "Route the lead automatically: blocked until the routing rules are wired (D-12; response targets already run)", tags = {"IOETI marketing"})
+  @Operation(summary = "Route an unassigned lead by its line's rules (D-12): a team, then round robin; never reassigns (409 if it has an owner)",
+      tags = {"IOETI marketing"})
   @IoetiEndpoint
   public Response route(@PathParam("id") Long id) {
-    RecordAccess.writable(Lead.class, id);
-    throw ApiException.policyBlocked("D-12");
+    Lead lead = RecordAccess.writable(Lead.class, id);
+    if (Boolean.TRUE.equals(lead.getIsConverted())) {
+      throw new ApiException(422, "LEAD_CONVERTED", "A converted lead is not routed.", null);
+    }
+    LeadRouter.Routed[] routed = new LeadRouter.Routed[1];
+    write(() -> routed[0] = Beans.get(MarketingService.class).route(lead, today()));
+    LeadRouter.Routed r = routed[0];
+    // the lead may now belong to someone the caller cannot read: only what the caller may see is returned
+    boolean readable = Beans.get(JpaSecurity.class).isPermitted(JpaSecurity.CAN_READ, Lead.class, id);
+    return ResponseConstructor.build(Response.Status.OK, "Lead routed", new LeadRoutingView(r.outcome(), r.ruleIndex(),
+        r.team() == null ? null : r.team().getName(), r.assignee() == null ? null : r.assignee().getName(),
+        readable ? LeadRestController.project(JPA.find(Lead.class, id)) : null));
+  }
+
+  /** One of Egypt's governorates, or none ({@code ""} clears it). */
+  static String governorate(String raw) {
+    if (raw == null || raw.isBlank()) return null;
+    if (!PolicyCatalog.GOVERNORATES.contains(raw.strip())) throw ApiException.invalidField("governorate", "UNAVAILABLE", "Choose a governorate.");
+    return raw.strip();
+  }
+
+  private static LocalDate today() {
+    User me = AuthUtils.getUser();
+    return Beans.get(AppBaseService.class).getTodayDate(me == null ? null : me.getActiveCompany());
   }
 
   // --- helpers -------------------------------------------------------------------------------------
@@ -512,10 +541,12 @@ public class MarketingRestController {
   public record VersionOnly(Integer version) {}
   public record Intake(
       String firstName, String name, String organization, String email, String phone, String businessLineCode, Long sourceId,
-      Long campaignId, Boolean confirmNotDuplicate) {}
+      Long campaignId, Boolean confirmNotDuplicate, String governorate, Boolean keepMine) {}
   public record EditLead(
       Integer version, String firstName, String name, String organization, String email, String phone, String businessLineCode,
-      Long sourceId, Boolean confirmNotDuplicate) {}
+      Long sourceId, Boolean confirmNotDuplicate, String governorate) {}
+  /** D-12: how a routing came out (ASSIGNED, NO_RULE or NO_ONE_AVAILABLE); the lead only when the caller may still read it. */
+  public record LeadRoutingView(String outcome, Integer ruleIndex, String teamName, String assigneeName, LeadRestController.LeadView lead) {}
   public record SaveView(String name, String searchText, Long stageId, Long sourceId, String businessLineCode, Boolean onlyMine) {}
   public record RecordLeadConsent(Integer version, String channel, Boolean allowed, String method, String evidenceReference) {}
   public record Attribute(Integer version, Long campaignId) {}
