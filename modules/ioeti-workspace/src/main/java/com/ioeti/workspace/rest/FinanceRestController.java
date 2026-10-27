@@ -116,6 +116,9 @@ public class FinanceRestController {
     return ResponseConstructor.build(Response.Status.OK, "Milestones", rows);
   }
 
+  /** Payment kinds that are money received (a payment, or an advance payment applied); not refunds, imputations or write-offs. */
+  static final java.util.Set<Integer> COLLECTED_TYPES = java.util.Set.of(InvoicePaymentRepository.TYPE_PAYMENT, InvoicePaymentRepository.TYPE_ADVANCEPAYMENT);
+
   @GET
   @Path("/summary")
   @Operation(summary = "Booked, requested, invoiced and collected per currency from real records within the caller's read scope", tags = {"IOETI finance"})
@@ -138,11 +141,24 @@ public class FinanceRestController {
       }
     }
     if (invoices) {
-      // invoices finance has issued and validated in the accounting module, and what was paid on them, as recorded there
+      // invoices finance has issued and validated in the accounting module, net of the credit notes issued against them
       for (Invoice i : readable(Invoice.class, new JPQLFilter("self.operationTypeSelect = ? AND self.statusSelect = ?",
           InvoiceRepository.OPERATION_TYPE_CLIENT_SALE, InvoiceRepository.STATUS_VENTILATED)).fetch(5000)) {
         add(rows, code(i.getCurrency()), 2, i.getInTaxTotal());
-        add(rows, code(i.getCurrency()), 3, i.getAmountPaid());
+        // collected is money received: validated payments only. Axelor also records a credit note against its invoice as a
+        // "payment" (refund imputation), which raises amountPaid; that is not cash and is not counted here.
+        if (i.getInvoicePaymentList() != null) {
+          for (InvoicePayment p : i.getInvoicePaymentList()) {
+            if (Integer.valueOf(InvoicePaymentRepository.STATUS_VALIDATED).equals(p.getStatusSelect())
+                && COLLECTED_TYPES.contains(p.getTypeSelect())) {
+              add(rows, code(i.getCurrency()), 3, p.getAmount());
+            }
+          }
+        }
+      }
+      for (Invoice c : readable(Invoice.class, new JPQLFilter("self.operationTypeSelect = ? AND self.statusSelect = ?",
+          InvoiceRepository.OPERATION_TYPE_CLIENT_REFUND, InvoiceRepository.STATUS_VENTILATED)).fetch(5000)) {
+        add(rows, code(c.getCurrency()), 2, c.getInTaxTotal().negate());
       }
     }
     // each currency's figures in the company currency at the rate in use; none when the rate is missing or too old
