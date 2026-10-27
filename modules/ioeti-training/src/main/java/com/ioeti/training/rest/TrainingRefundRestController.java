@@ -239,7 +239,8 @@ public class TrainingRefundRestController {
         invoice.getId(), invoice.getInvoiceId(), invoice.getVersion(), currency(invoice), invoice.getInTaxTotal(), r.getPaidAmount(),
         r.getDaysBeforeStart(), r.getRefundPercent(), r.getAmount(), r.getCreditPercent(),
         r.getRequestedAt(), name(r.getRequestedBy()), r.getDecidedAt(), name(r.getDecidedBy()), r.getRejectReason(),
-        credit == null ? null : credit.getId(), credit == null ? null : credit.getInvoiceId(), r.getCreditedAmount(), canDecide);
+        credit == null ? null : credit.getId(), credit == null ? null : credit.getInvoiceId(), r.getCreditedAmount(), canDecide,
+        canDecide ? RefundService.pendingCredit(r) : null);
   }
 
   static String name(User user) {
@@ -270,5 +271,5 @@ public class TrainingRefundRestController {
       String courseName, String cause, String status, Long invoiceId, String invoiceNumber, Integer invoiceVersion, String currency,
       BigDecimal invoiceTotal, BigDecimal paidAmount, Integer daysBeforeStart, BigDecimal refundPercent, BigDecimal amount,
       BigDecimal creditPercent, LocalDateTime requestedAt, String requestedBy, LocalDateTime decidedAt, String decidedBy,
-      String rejectReason, Long creditId, String creditNumber, BigDecimal creditedAmount, boolean canDecide) {}
+      String rejectReason, Long creditId, String creditNumber, BigDecimal creditedAmount, boolean canDecide, Long pendingCreditId) {}
 }

@@ -356,6 +356,23 @@ public class RefundService {
     return decide(refund, TrainingRefundRepository.STATUS_REJECTED, "TRAINING_REFUND_REJECTED");
   }
 
+  /** The reason the web app gives the credit note it issues for a refund (D-06 keeps it on the credit note). */
+  public static String creditReason(TrainingRefund refund) {
+    return "Training refund #" + refund.getId() + " · " + refund.getEnrollment().getCohort().getCode();
+  }
+
+  /**
+   * A credit note already issued for this refund (by its reason) but not recorded on it yet, e.g. when approving was
+   * interrupted after the credit note: finance then records it instead of issuing a second one.
+   */
+  public static Long pendingCredit(TrainingRefund refund) {
+    Invoice credit = Query.of(Invoice.class).filter("self.originalInvoice = ?1 AND self.operationTypeSelect = ?2 AND self.statusSelect = ?3"
+            + " AND self.note = ?4 AND NOT EXISTS (SELECT r FROM TrainingRefund r WHERE r.creditNote = self)",
+        refund.getInvoice(), InvoiceRepository.OPERATION_TYPE_CLIENT_REFUND, InvoiceRepository.STATUS_VENTILATED, creditReason(refund))
+        .order("-id").fetchOne();
+    return credit == null ? null : credit.getId();
+  }
+
   private static void requested(TrainingRefund refund) {
     if (!Integer.valueOf(TrainingRefundRepository.STATUS_REQUESTED).equals(refund.getStatusSelect())) {
       throw new ApiException(422, "REFUND_STATE", "This refund was already decided.", null);

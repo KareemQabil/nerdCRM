@@ -596,6 +596,7 @@
     "TrainingRefundView.creditNumber": "REFERENCE",
     "TrainingRefundView.creditedAmount": "BUSINESS",
     "TrainingRefundView.canDecide": "REFERENCE",
+    "TrainingRefundView.pendingCreditId": "REFERENCE",
     "EventView.actorName": "PERSONAL",
     "EventView.at": "BUSINESS",
     "EventView.fromUser": "PERSONAL",

@@ -51,6 +51,8 @@ export type Refund = {
   currency: string | null; invoiceTotal: number; paidAmount: number; daysBeforeStart: number | null; refundPercent: number; amount: number;
   creditPercent: number; requestedAt: string; requestedBy: string | null; decidedAt: string | null; decidedBy: string | null;
   rejectReason: string | null; creditId: number | null; creditNumber: string | null; creditedAmount: number | null; canDecide: boolean;
+  /** a credit note already issued for this refund but not recorded on it (an interrupted approval) */
+  pendingCreditId: number | null;
 };
 export type CancellationOutcome = "REFUND" | "NO_REFUND_DUE" | "NOT_INVOICED" | "NOTHING_PAID" | "POLICY_NOT_SET" | "START_DATE_MISSING" | "ALREADY_REQUESTED";
 export type Cancellation = {
@@ -63,6 +65,9 @@ export type CohortCancellation = {
   currency: string | null; refundPercent: number | null; outcome: "REFUND" | "NO_REFUND" | "POLICY_NOT_SET"; certificatesIssued: number;
 };
 
+/** Enrols with the national ID where the course asks for it (input only: the server never returns it). */
+export const enrollTraineeWithId = (cohortId: number, version: number, traineeId: number, clientId?: number, nationalId?: string) =>
+  post<unknown>(`${T}/cohorts/${id(cohortId)}/enrollments`, { version, traineeId, ...(clientId ? { clientId } : {}), ...(nationalId ? { nationalId } : {}) });
 export const getCohortRules = (cohortId: number) => wrapped<CohortRules>(`${T}/cohorts/${id(cohortId)}/rules`);
 export const getEligibility = (cohortId: number) => wrapped<Eligibility>(`${T}/cohorts/${id(cohortId)}/eligibility`);
 export const recordScore = (enrollmentId: number, version: number, score: number) =>
@@ -98,6 +103,7 @@ type CreditedInvoice = { refunds: { id: number; reason: string | null }[] };
  * service (native rights and accounting set-up are checked there). Returns the new credit note's id.
  */
 export async function issueRefundCreditNote(refund: Refund): Promise<number> {
+  if (refund.pendingCreditId) return refund.pendingCreditId;
   const reason = refundReason(refund);
   const invoice = await post<CreditedInvoice>(`/ws/ioeti/finance/invoices/${id(refund.invoiceId)}/credit-notes`,
     { version: refund.invoiceVersion, percent: refund.creditPercent, reason });
