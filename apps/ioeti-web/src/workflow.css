@@ -24,3 +24,9 @@
 .wf-reviewer { margin-top: 14px; padding: 14px 16px; border: 1px solid color-mix(in srgb, var(--warning) 35%, transparent); border-radius: var(--radius); background: var(--warning-container); }
 .wf-reviewer strong { display: block; margin-bottom: 2px; }
 .wf-inline-field { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; }
+/* D-11: a tier holder approves (finalized natively) or rejects a quotation */
+.wf-decide { display: grid; gap: 8px; margin-top: 12px; padding-top: 12px; border-top: 1px solid color-mix(in srgb, var(--warning) 35%, transparent); }
+.wf-decide .wf-inline-field { flex-wrap: wrap; }
+.wf-decide input { min-inline-size: min(280px, 100%); }
+.wf-status-approved { background: var(--success-container); color: var(--success); }
+.wf-status-rejected { background: var(--error-container, var(--surface-variant)); color: var(--error); }

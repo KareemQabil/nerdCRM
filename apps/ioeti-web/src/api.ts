@@ -272,14 +272,23 @@ export async function getAccountOpportunities(id: number): Promise<Opportunity[]
 
 /** Wave 3: catalog and draft quotations (native AOS SaleOrder). Tax comes from the finance.tax policy (D-06). */
 export type CatalogProduct = { id: number; code: string | null; name: string; unit: string | null; salePrice: string | null; currency: string | null };
-export type QuoteLine = { id: number; productCode: string | null; name: string; quantity: string; unit: string | null; unitPriceBeforeTax: string | null; totalBeforeTax: string | null };
+export type QuoteLine = { id: number; productCode: string | null; name: string; quantity: string; unit: string | null; unitPriceBeforeTax: string | null; discountPercent?: string | null; totalBeforeTax: string | null };
+/**
+ * D-11: a draft's approval tier today (NEEDED with the approver, NOT_NEEDED, POLICY_NOT_SET or OUTSIDE_APPROVAL_TIERS),
+ * or, once finalized, APPROVED with who approved, the end of validity and when the rep recorded sending it.
+ */
+export type QuoteApproval = {
+  status: "NEEDED" | "NOT_NEEDED" | "POLICY_NOT_SET" | "OUTSIDE_APPROVAL_TIERS" | "APPROVED" | null; approver: string | null;
+  discountPercent: string | number | null; approvedBy: string | null; approvedAt: string | null; validUntil: string | null; expired: boolean;
+  sentAt: string | null; sentBy: string | null; sentVia: string | null;
+};
 export type Quote = {
   id: number; version: number; reference: string | null; status: string | null; opportunityId: number | null;
   accountId: number | null; accountName: string | null; currency: string | null; totalBeforeTax: string | null;
   /** APPLIED, or POLICY_NOT_SET when the owners have not set a tax for the quotation's business line. */
   taxStatus: string; taxTotal?: string | null; totalWithTax?: string | null;
   tax?: { name: string; ratePercent: string; policyVersionId: number; since: string } | null; taxOutdated?: boolean;
-  versionNumber?: number | null; lines: QuoteLine[];
+  versionNumber?: number | null; lines: QuoteLine[]; approval?: QuoteApproval | null;
 };
 export async function getCatalog(search = ""): Promise<CatalogProduct[]> {
   if (DEMO_MODE) return [];
@@ -316,6 +325,19 @@ export async function refreshQuoteTax(id: number, version: number): Promise<Quot
     method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ version }),
   });
 }
+const quotePost = async (id: number, path: string, body: Record<string, unknown>): Promise<Quote> => {
+  if (DEMO_MODE) throw new ApiError(403, "Preview mode is read-only");
+  return wrapped<Quote>(`/ws/ioeti/quotes/${encodeURIComponent(id)}/${path}`, {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+  });
+};
+/** D-11: a line's discount in %; the quotation's approval tier follows it. */
+export const setLineDiscount = (q: Quote, lineId: number, percent: string) =>
+  quotePost(q.id, `lines/${encodeURIComponent(lineId)}/discount`, { version: q.version, percent });
+/** D-11: finalizes when the tier needs no approval; otherwise 422 APPROVAL_REQUIRED. */
+export const finalizeQuote = (q: Quote) => quotePost(q.id, "finalize", { version: q.version });
+/** D-11: the rep records sending the finalized quotation themselves (nothing is e-mailed). */
+export const markQuoteSent = (q: Quote, via: string) => quotePost(q.id, "sent", { version: q.version, via });
 
 /** Wave 3: payment milestones (native Timetable). Booked, invoiced and collected are separate figures. */
 export type Milestone = { id: number; title: string; percentage: string; amountBeforeTax: string | null; dueDate: string | null; state: string; invoiceReference: string | null };

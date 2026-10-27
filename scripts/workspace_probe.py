@@ -7,7 +7,9 @@ reviews quotations and contracts. Confirming an order and activating a contract 
 blocked in the API, so they are done with SQL in the disposable database as stand-ins: TEST FIXTURE ONLY.
 Checks:
   native quotation versions: save, list, restore; unknown version → 422; stale → 409; empty → 422
-  review requests: one pending per record (409); approve and reject → BLOCKED_BY_POLICY (D-11);
+  review requests: one pending per record (409); approving finalizes, so a read-only reviewer → 403; rejecting without the
+  owners' policies → POLICY_NOT_SET (D-11, fail closed; scripts/quote_approval_probe.py covers the decisions); contracts →
+  BLOCKED_BY_POLICY;
   changes requested with a reason; withdraw; history with actors; contract reviews
   invoice requests: only for a confirmed order; one open per milestone (409, also when concurrent);
   issue → BLOCKED_BY_POLICY (D-06); cancel and request again
@@ -196,8 +198,8 @@ def main():
         s_e, b_e, _ = review(a, quoteId=q_empty["id"])
         s1, b1, r1 = review(a, quoteId=q["id"])
         s2, b2, _ = review(a, quoteId=q["id"])
-        s_ap, b_ap = mgr_c.call("POST", f"{WS}/reviews/{r1.get('id')}/approve")
-        s_rj, b_rj = mgr_c.call("POST", f"{WS}/reviews/{r1.get('id')}/reject")
+        s_ap, b_ap = mgr_c.call("POST", f"{WS}/reviews/{r1.get('id')}/approve", {"version": version(REVIEW, r1.get("id"))})
+        s_rj, b_rj = mgr_c.call("POST", f"{WS}/reviews/{r1.get('id')}/reject", {"version": version(REVIEW, r1.get("id")), "reason": "PRICING"})
         s_rep_ch, _ = b.call("POST", f"{WS}/reviews/{r1.get('id')}/changes", {"version": version(REVIEW, r1.get("id")), "reason": "PRICING"})
         s_ch, b_ch = mgr_c.call("POST", f"{WS}/reviews/{r1.get('id')}/changes", {"version": version(REVIEW, r1.get("id")), "reason": "PRICING"})
         s_wd, b_wd = a.call("POST", f"{WS}/reviews/{r1.get('id')}/withdraw", {"version": version(REVIEW, r1.get("id"))})
@@ -207,6 +209,7 @@ def main():
         c_draft = new_contract(a, opportunity("contract"))
         s_c, _, rc = review(a, contractId=c_draft)
         _, chist = mgr_c.call("GET", f"{WS}/reviews?contractId={c_draft}")
+        s_cap, b_cap = mgr_c.call("POST", f"{WS}/reviews/{rc.get('id')}/approve", {"version": version(REVIEW, rc.get("id"))})
         first = next((h for h in obj(hist) if h["id"] == r1.get("id")), {})
         # Wave 7b: the requester is told in the app (linked to the opportunity); the reviewer gets nothing
         _, inbox_a = a.call("GET", "/ws/ioeti/automation/inbox")
@@ -215,11 +218,14 @@ def main():
         check("notices: changes requested reach the requester in the app, linked to the opportunity; none for the reviewer",
               notes_a.count(("REVIEW_CHANGES_REQUESTED", "OPPORTUNITY", opp1["id"])) == 1 and not (inbox_m.get("object") or []),
               f"{notes_a} {inbox_m}")
-        check("review: empty quotation → 422; pending with the quotation version; twice → 409; approve/reject → BLOCKED_BY_POLICY (D-11)",
-              (s_e, error(b_e).get("code"), s1, r1.get("status"), r1.get("quoteVersionNumber"), s2, error(b2).get("code"), s_ap, s_rj)
-              == (422, "NO_LINES", 201, "PENDING", obj(b_r).get("versionNumber"), 409, "REVIEW_PENDING", 422, 422)
-              and error(b_ap).get("code") == error(b_rj).get("code") == "BLOCKED_BY_POLICY" and "D-11" in error(b_ap).get("message", ""),
-              f"{s_e} {s1} {r1} {s2} {s_ap} {s_rj}")
+        check("review: empty quotation → 422; pending with the quotation version; twice → 409; approving finalizes, so a reviewer with"
+              " read-only rights on quotations → 403; rejecting without the owners' policies → POLICY_NOT_SET (D-11, fail closed);"
+              " a contract's approval → BLOCKED_BY_POLICY",
+              (s_e, error(b_e).get("code"), s1, r1.get("status"), r1.get("quoteVersionNumber"), s2, error(b2).get("code"), s_ap, s_rj, s_cap)
+              == (422, "NO_LINES", 201, "PENDING", obj(b_r).get("versionNumber"), 409, "REVIEW_PENDING", 403, 422, 422)
+              and error(b_rj).get("code") == "POLICY_NOT_SET" and r1.get("approver") is None
+              and error(b_cap).get("code") == "BLOCKED_BY_POLICY" and "D-11" in error(b_cap).get("message", ""),
+              f"{s_e} {s1} {r1} {s2} {s_ap} {error(b_ap)} {s_rj} {error(b_rj)} {s_cap} {error(b_cap)}")
         check("review: another salesperson → 404; manager sends back with a reason; withdraw of a decided review → 422; "
               "a new review can be withdrawn; history lists every step with its actor; contract reviews too",
               s_rep_ch == 404 and s_ch == 200 and obj(b_ch).get("status") == "CHANGES_REQUESTED" and obj(b_ch).get("reason") == "PRICING"

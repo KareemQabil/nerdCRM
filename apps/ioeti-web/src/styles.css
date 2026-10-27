@@ -761,6 +761,17 @@ td code { display: inline-block; font: 11px Inter,monospace; color: var(--on-sur
 .quote-line-form{grid-template-columns:minmax(0,2fr) minmax(0,1fr) auto;align-items:end;margin-top:0;}
 .quote-finalize{display:flex;flex-wrap:wrap;align-items:center;gap:12px;}
 .quote-finalize small{font-size:11px;color:var(--on-surface-variant);max-width:420px;}
+/* D-11: a quotation's approval tier, finalizing, validity and recorded sending */
+.quote-approval{display:grid;gap:10px;padding:14px 16px;border:1px solid var(--outline-variant);border-radius:var(--radius);background:var(--surface);}
+.quote-approval h3{display:flex;align-items:center;gap:6px;margin:0;font-size:15px;}
+.quote-approval .btn{justify-self:start;}
+.quote-approval-note{display:flex;align-items:flex-start;gap:6px;margin:0;padding:10px 12px;border-radius:var(--radius);background:var(--surface-variant);font-size:13.5px;overflow-wrap:anywhere;}
+.quote-approval-note.is-ok{background:var(--success-container);color:var(--success);}
+.quote-approval-note.is-late{background:var(--error-container,var(--surface-variant));color:var(--error);}
+.quote-send{display:grid;gap:6px;}
+.quote-send small{color:var(--on-surface-variant);font-size:12.5px;}
+.quote-send label{display:grid;gap:4px;font-size:13px;}
+.quote-send input{min-inline-size:0;inline-size:100%;}
 .quote-lines tfoot .quote-tax-row th{font-weight:500;color:var(--on-surface-variant);}
 .quote-tax-outdated{display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding:10px 12px;border-radius:var(--radius);border:1px solid color-mix(in srgb,var(--warning) 50%,transparent);background:color-mix(in srgb,var(--warning-container) 40%,var(--surface));font-size:13px;}
 .quote-tax-outdated svg{color:var(--warning);flex-shrink:0;}

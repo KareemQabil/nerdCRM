@@ -39,6 +39,7 @@ import com.ioeti.operations.db.HandoverRequest;
 import com.ioeti.recruitment.db.ClientJobOrder;
 import com.ioeti.training.db.TrainingEnrollment;
 import com.ioeti.workspace.db.InvoiceRequest;
+import com.ioeti.commercial.service.QuoteApprovalService;
 import com.ioeti.workspace.db.ReviewEvent;
 import com.ioeti.workspace.db.ReviewRequest;
 import com.ioeti.workspace.db.repo.InvoiceRequestRepository;
@@ -71,8 +72,8 @@ import java.util.TreeMap;
 @Produces(MediaType.APPLICATION_JSON)
 public class WorkspaceRestController {
 
-  static final String[] REVIEW_STATUSES = {"PENDING", "CHANGES_REQUESTED", "WITHDRAWN"};
-  static final String[] REVIEW_EVENTS = {"REQUESTED", "CHANGES_REQUESTED", "WITHDRAWN"};
+  static final String[] REVIEW_STATUSES = {"PENDING", "CHANGES_REQUESTED", "WITHDRAWN", "APPROVED", "REJECTED"};
+  static final String[] REVIEW_EVENTS = {"REQUESTED", "CHANGES_REQUESTED", "WITHDRAWN", "APPROVED", "REJECTED"};
   static final String[] REASONS = {"PRICING", "SCOPE", "TERMS", "DOCUMENTS", "OTHER"};
 
   // --- review requests -----------------------------------------------------------------------------
@@ -145,20 +146,33 @@ public class WorkspaceRestController {
 
   @POST
   @Path("/reviews/{id}/approve")
-  @Operation(summary = "Approve: blocked until the approval matrix (D-11)", tags = {"IOETI workspace"})
+  @Consumes(MediaType.APPLICATION_JSON)
+  @Operation(summary = "Approve a quotation review and finalize the quotation natively under its approval tier (D-11);"
+      + " contracts stay closed until contract activation", tags = {"IOETI workspace"})
   @IoetiEndpoint
-  public Response approve(@PathParam("id") Long id) {
-    RecordAccess.writable(ReviewRequest.class, id);
-    throw ApiException.policyBlocked("D-11");
+  public Response approve(@PathParam("id") Long id, Approval command) {
+    ReviewRequest review = writable(ReviewRequest.class, id, command == null ? null : command.version());
+    if (review.getQuote() == null) throw ApiException.policyBlocked("D-11");
+    // finalizing changes the quotation: the approver needs native write access to it
+    new SecurityCheck().writeAccess(SaleOrder.class).check();
+    RecordAccess.writable(SaleOrder.class, review.getQuote().getId());
+    NativeCommands.run(() -> Beans.get(WorkspaceService.class).approve(review, command.rationale()), "QUOTE_REJECTED",
+        "The quotation cannot be finalized this way.");
+    return ResponseConstructor.build(Response.Status.OK, "Approved", view(review));
   }
 
   @POST
   @Path("/reviews/{id}/reject")
-  @Operation(summary = "Reject: blocked until the approval matrix (D-11)", tags = {"IOETI workspace"})
+  @Consumes(MediaType.APPLICATION_JSON)
+  @Operation(summary = "Reject a quotation review with a reason (D-11); the quotation stays a draft", tags = {"IOETI workspace"})
   @IoetiEndpoint
-  public Response reject(@PathParam("id") Long id) {
-    RecordAccess.writable(ReviewRequest.class, id);
-    throw ApiException.policyBlocked("D-11");
+  public Response reject(@PathParam("id") Long id, Rejection command) {
+    ReviewRequest review = writable(ReviewRequest.class, id, command == null ? null : command.version());
+    if (review.getQuote() == null) throw ApiException.policyBlocked("D-11");
+    RecordAccess.readable(SaleOrder.class, review.getQuote().getId());
+    int reason = select("reason", command.reason(), REASONS);
+    write(() -> Beans.get(WorkspaceService.class).reject(review, reason, command.rationale()));
+    return ResponseConstructor.build(Response.Status.OK, "Rejected", view(review));
   }
 
   // --- invoice requests ----------------------------------------------------------------------------
@@ -362,10 +376,19 @@ public class WorkspaceRestController {
     return new ReviewView(r.getId(), r.getVersion(), r.getQuote() == null ? null : r.getQuote().getId(),
         r.getContract() == null ? null : r.getContract().getId(), r.getSubjectVersionNumber(), name(r.getStatusSelect(), REVIEW_STATUSES),
         userName(r.getRequestedBy()), r.getRequestedAt(), userName(r.getReviewedBy()), name(r.getReasonSelect(), REASONS),
-        "BLOCKED_BY_POLICY", r.getRequestedBy() != null && r.getRequestedBy().equals(AuthUtils.getUser()), events,
+        r.getQuote() == null ? "BLOCKED_BY_POLICY" : "OPEN", r.getRequestedBy() != null && r.getRequestedBy().equals(AuthUtils.getUser()), events,
         r.getQuote() != null && r.getQuote().getOpportunity() != null ? r.getQuote().getOpportunity().getId()
             : r.getContract() != null && r.getContract().getOpportunity() != null ? r.getContract().getOpportunity().getId() : null,
-        r.getQuote() != null ? r.getQuote().getSaleOrderSeq() : r.getContract() != null ? r.getContract().getContractId() : null);
+        r.getQuote() != null ? r.getQuote().getSaleOrderSeq() : r.getContract() != null ? r.getContract().getContractId() : null,
+        r.getApproverCode(), canDecide(r), r.getDecidedAt(), r.getDecisionNote());
+  }
+
+  /** D-11: whether the caller may approve or reject this review (pending quotation, not theirs, holds the tier's role). */
+  static boolean canDecide(ReviewRequest r) {
+    User me = AuthUtils.getUser();
+    return r.getQuote() != null && r.getStatusSelect() == ReviewRequestRepository.STATUS_PENDING && r.getApproverCode() != null
+        && (r.getRequestedBy() == null || !r.getRequestedBy().equals(me))
+        && (QuoteApprovalService.NONE.equals(r.getApproverCode()) || QuoteApprovalService.holds(me, r.getApproverCode()));
   }
 
   static InvoiceRequestView view(InvoiceRequest r) {
@@ -386,12 +409,16 @@ public class WorkspaceRestController {
   public record VersionOnly(Integer version) {}
   public record RequestReview(Long quoteId, Long contractId, Integer version) {}
   public record Decision(Integer version, String reason) {}
+  /** D-11: why the approver decided (optional, at most 500 characters). */
+  public record Approval(Integer version, String rationale) {}
+  public record Rejection(Integer version, String reason, String rationale) {}
   public record RequestInvoice(Long milestoneId, Integer quoteVersion) {}
   public record ReviewEventView(String kind, String reason, String actorName, LocalDateTime at) {}
   public record ReviewView(
       Long id, Integer version, Long quoteId, Long contractId, Integer quoteVersionNumber, String status, String requestedBy,
       LocalDateTime requestedAt, String reviewedBy, String reason, String decisionStatus, boolean requestedByMe,
-      List<ReviewEventView> events, Long opportunityId, String subjectReference) {}
+      List<ReviewEventView> events, Long opportunityId, String subjectReference, String approver, boolean canDecide,
+      LocalDateTime decidedAt, String rationale) {}
   public record InvoiceRequestView(
       Long id, Integer version, Long quoteId, Long milestoneId, String milestoneTitle, java.time.LocalDate dueDate,
       BigDecimal amountBeforeTax, String currency, String status, String requestedBy, LocalDateTime requestedAt, String invoiceNumber) {}

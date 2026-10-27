@@ -6,7 +6,9 @@ import com.axelor.apps.base.db.Product;
 import com.axelor.apps.base.db.repo.CompanyRepository;
 import com.axelor.apps.crm.db.Opportunity;
 import com.axelor.apps.base.service.app.AppBaseService;
+import com.axelor.apps.base.db.repo.PriceListLineRepository;
 import com.axelor.apps.sale.db.SaleOrder;
+import com.axelor.apps.sale.db.SaleOrderLine;
 import com.axelor.apps.sale.service.saleorder.SaleOrderVersionService;
 import com.axelor.apps.sale.service.saleorder.opportunity.OpportunitySaleOrderService;
 import com.axelor.apps.sale.service.saleorderline.creation.SaleOrderLineGeneratorService;
@@ -90,6 +92,20 @@ public class QuoteService {
     applyTax(quote);
     // the native form does this on line change; the line generator does not: keep payment
     // milestones (Timetable) at their percentage of the new total
+    saleOrderSupplychainService.updateTimetableAmounts(quote);
+    saleOrderSupplychainService.updateAmountToBeSpreadOverTheTimetable(quote);
+    return quote;
+  }
+
+  /**
+   * Sets a line's discount in % with the native line discount (the price list's own discount is replaced), then
+   * recomputes the line, tax and milestones. The quotation's approval tier (D-11) follows the discount.
+   */
+  @Transactional(rollbackOn = {Exception.class})
+  public SaleOrder discount(SaleOrder quote, SaleOrderLine line, BigDecimal percent) throws AxelorException {
+    line.setDiscountTypeSelect(percent.signum() == 0 ? PriceListLineRepository.AMOUNT_TYPE_NONE : PriceListLineRepository.AMOUNT_TYPE_PERCENT);
+    line.setDiscountAmount(percent);
+    applyTax(quote);
     saleOrderSupplychainService.updateTimetableAmounts(quote);
     saleOrderSupplychainService.updateAmountToBeSpreadOverTheTimetable(quote);
     return quote;

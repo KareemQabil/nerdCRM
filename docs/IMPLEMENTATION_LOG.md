@@ -915,3 +915,27 @@ Slice: `docs/slices/P2c-finance-collections.md`.
 - Web: an "Issued invoices & collection" panel with payment and credit-note dialogs, each showing what is missing when refused.
 - `scripts/invoicing_probe.py` 12/12 (5 new). `probe_fixtures.purge_company_accounting` now also removes payments, reconciliations and reconcile groups.
 - G-007 registry: 1520 fields, 0 problems.
+
+## 2026-10-25 · P3a · D-11 quotation approval tiers, finalizing, validity and sending
+
+Slice: `docs/slices/P3a-quote-approvals.md`.
+
+- `ioeti-commercial` `QuoteApprovalService`:
+  - **Tier:** chosen from `sales.quote-approval` by the quotation's discount and value. Above every tier the answer is `OUTSIDE_APPROVAL_TIERS`.
+  - **Checks before finalizing:** lines, current tax, `sales.quote-validity` and the company's quotation sequence.
+  - **Finalize:** the native finalize, with the end of validity and the approval recorded on the quotation.
+  - **Mark sent:** records who, when and how; nothing is e-mailed.
+- Quotes API:
+  - `POST /quotes/{id}/lines/{lineId}/discount` (native line discount);
+  - `POST /quotes/{id}/finalize`: tier `NONE` finalizes, any other tier answers `APPROVAL_REQUIRED`;
+  - `POST /quotes/{id}/sent`;
+  - the quote view gains `approval` and per-line `discountPercent`.
+- Workspace reviews:
+  - A quotation review records the record version and the tier's approver, and notifies the role's holders.
+  - Approve and reject now decide for quotations. The approver must hold the tier's role and must not be the requester, and the quotation must be unchanged. Approving finalizes natively. The requester is told.
+  - Contract decisions stay `BLOCKED_BY_POLICY` until P3b.
+- Web: the discount column and form, an approval and sending box, approve and reject for tier holders, and the inbox kinds.
+- Migration `V022`/`U022`. Probe `scripts/quote_approval_probe.py` (backend CI).
+- `workspace_probe.py`, `scenario_iso_lifecycle_probe.py` and `quote_probe.py` no longer expect `BLOCKED_BY_POLICY`:
+  - approving, by their read-only reviewers, now answers `403`, because approving finalizes the quotation;
+  - rejecting and finalizing answer `POLICY_NOT_SET` (signed, values not set).
