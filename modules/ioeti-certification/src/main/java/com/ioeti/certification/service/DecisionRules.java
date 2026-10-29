@@ -28,6 +28,9 @@ import java.util.stream.Stream;
  *       issue, before expiry; recertification is due by expiry.
  *   <li><b>Certificate states.</b> ACTIVE ↔ SUSPENDED (suspend / restore), ACTIVE or SUSPENDED → WITHDRAWN (final). A
  *       certificate past its expiry reads as EXPIRED and cannot change state any more.
+ *   <li><b>Certificate changes</b> (owner decision 2026-10-29) follow the same mode: an independent reviewer acts alone; a
+ *       committee of N votes APPROVE or REJECT on the change, a strict majority of the N approves, a tie or a majority
+ *       against rejects. One change round may be open per certificate; a different change meanwhile is 409 CHANGE_PENDING.
  * </ul>
  */
 public final class DecisionRules {
@@ -54,6 +57,21 @@ public final class DecisionRules {
   public static final String WITHDRAW = "withdraw";
   /** Certificate action (path segment) → the event it records. */
   public static final Map<String, String> EVENTS = Map.of(SUSPEND, "SUSPENDED", RESTORE, "RESTORED", WITHDRAW, "WITHDRAWN");
+  /** Certificate action (path segment) → the action a change round records. */
+  public static final Map<String, String> CHANGE_ACTIONS = Map.of(SUSPEND, "SUSPEND", RESTORE, "RESTORE", WITHDRAW, "WITHDRAW");
+
+  /** Votes and outcomes of a certificate change round. */
+  public static final String APPROVE = "APPROVE";
+  public static final String REJECT = "REJECT";
+  public static final List<String> CHANGE_VOTES = List.of(APPROVE, REJECT);
+  public static final String APPROVED = "APPROVED";
+  public static final String REJECTED = "REJECTED";
+
+  /** What a suspend / restore / withdraw request does. */
+  public static final String CHANGE_APPLY = "APPLY";
+  public static final String CHANGE_OPEN = "OPEN";
+  public static final String CHANGE_VOTE = "VOTE";
+  public static final String CHANGE_PENDING = "CHANGE_PENDING";
 
   /** Why someone cannot decide on a cycle, in the order they are checked. */
   public static final String NO_DECISION_RIGHT = "NO_DECISION_RIGHT";
@@ -86,6 +104,36 @@ public final class DecisionRules {
     if (votes.size() < required) return null;
     long grants = votes.stream().filter(GRANT::equals).count();
     return grants * 2 > votes.size() ? GRANT : REFUSE;
+  }
+
+  /**
+   * The outcome of a certificate change round once {@code required} votes are in, else null: the same rule as a grant
+   * ({@link #tally}), APPROVE counting as GRANT. A strict majority approves; a tie or a majority against rejects.
+   */
+  public static String changeTally(int required, List<String> votes) {
+    String outcome = tally(required, votes.stream().map(v -> APPROVE.equals(v) ? GRANT : REFUSE).toList());
+    return outcome == null ? null : GRANT.equals(outcome) ? APPROVED : REJECTED;
+  }
+
+  /**
+   * What a request to change a certificate does. With a change round open: the same action records the person's APPROVE
+   * vote ({@value #CHANGE_VOTE}); another action is refused with 409 {@value #CHANGE_PENDING}, whatever the policy now says
+   * (a round keeps the mode it was opened with). Without one: an independent reviewer applies it at once
+   * ({@value #CHANGE_APPLY}); a committee opens a round ({@value #CHANGE_OPEN}).
+   *
+   * @param policyMode the scheme's mode now (only read when no round is open)
+   * @param openAction the action of the open change round, or null
+   * @param action the requested action (SUSPEND, RESTORE or WITHDRAW)
+   */
+  public static String changeStep(String policyMode, String openAction, String action) {
+    if (openAction != null) {
+      if (openAction.equals(action)) return CHANGE_VOTE;
+      throw new ApiException(409, CHANGE_PENDING,
+          "A committee vote on another change to this certificate (" + openAction + ") is still open; it must finish first.", null);
+    }
+    if (COMMITTEE.equals(policyMode)) return CHANGE_OPEN;
+    if (INDEPENDENT_REVIEWER.equals(policyMode)) return CHANGE_APPLY;
+    throw new ApiException(422, "POLICY_NOT_SET", "The policy 'cert.decision' does not name a usable decision mode.", null);
   }
 
   /** Whether a person holds the decision role, directly or through their group. */

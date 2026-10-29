@@ -1,14 +1,14 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ArrowLeft, ArrowRight, Award, Ban, BadgeCheck, CalendarCheck, CalendarClock, CheckCircle2, CircleAlert, CircleDashed, CirclePause,
-  CirclePlay, ClipboardList, Gavel, History, LockKeyhole, Plus, RefreshCw, Search, ShieldCheck, UserCheck, Users, XCircle,
+  CirclePlay, ClipboardList, Gavel, History, LockKeyhole, Plus, RefreshCw, Search, ShieldCheck, ThumbsDown, ThumbsUp, UserCheck, Users, XCircle,
 } from "lucide-react";
 import { ApiError, getAccounts, type AccountSummary, type BusinessLine } from "./api";
 import {
   cancelAudit, changeCertificate, closeNonconformity, completeAudit, createCycle, createQualification, getAuditorCandidates, getAudits,
   getCycle, getCycles, getDecision, getEligibleAuditors, getNonconformities, getQualifications, getTimeline, planAudit,
-  raiseNonconformity, recordDecision, respondNonconformity,
-  type AuditType, type CertificateAction, type CertificationAudit, type CertificationCycle, type CyclePhase, type DecisionBlocker,
+  raiseNonconformity, recordDecision, respondNonconformity, voteOnChange,
+  type AuditType, type CertificateAction, type ChangeRound, type ChangeVote, type CertificationAudit, type CertificationCycle, type CyclePhase, type DecisionBlocker,
   type DecisionPanel, type DecisionRound, type IsoCertificate, type NcGrade, type Nonconformity, type Person, type Qualification,
   type TimelineEvent, type Vote,
 } from "./certificationApi";
@@ -38,11 +38,11 @@ const strings = {
     findings:"عدم المطابقات والملاحظات",noFindings:"لا توجد ملاحظات مسجلة",grade:"الدرجة",grades:{MAJOR:"جسيمة",MINOR:"بسيطة",OBSERVATION:"ملاحظة"},
     clause:"البند",statement:"بيان عدم المطابقة",raise:"تسجيل ملاحظة",response:"تصحيح العميل وإجراءه التصحيحي",respond:"تسجيل رد العميل",
     close:"إغلاق بعد التحقق",timeline:"سجل التدقيق",noTimeline:"لا توجد أحداث بعد",
-    events:{CYCLE_OPENED:"فُتحت دورة الاعتماد",AUDIT_PLANNED:"خُطط تدقيق",AUDIT_COMPLETED:"اكتمل تدقيق",AUDIT_CANCELLED:"أُلغي تدقيق",NC_RAISED:"سُجلت ملاحظة",NC_RESPONDED:"رد العميل",NC_CLOSED:"أُغلقت ملاحظة",DECISION_VOTE:"اتسجل صوت في قرار الاعتماد",DECISION_GRANT:"اتاخد قرار بمنح الشهادة",DECISION_REFUSE:"اتاخد قرار برفض المنح",CERTIFICATE_ISSUED:"صدرت الشهادة",CERTIFICATE_SUSPENDED:"اتوقفت الشهادة",CERTIFICATE_RESTORED:"الشهادة اتفعلت تاني",CERTIFICATE_WITHDRAWN:"اتسحبت الشهادة"},
+    events:{CYCLE_OPENED:"فُتحت دورة الاعتماد",AUDIT_PLANNED:"خُطط تدقيق",AUDIT_COMPLETED:"اكتمل تدقيق",AUDIT_CANCELLED:"أُلغي تدقيق",NC_RAISED:"سُجلت ملاحظة",NC_RESPONDED:"رد العميل",NC_CLOSED:"أُغلقت ملاحظة",DECISION_VOTE:"اتسجل صوت في قرار الاعتماد",DECISION_GRANT:"اتاخد قرار بمنح الشهادة",DECISION_REFUSE:"اتاخد قرار برفض المنح",CERTIFICATE_ISSUED:"صدرت الشهادة",CERTIFICATE_SUSPENDED:"اتوقفت الشهادة",CERTIFICATE_RESTORED:"الشهادة اتفعلت تاني",CERTIFICATE_WITHDRAWN:"اتسحبت الشهادة",CERTIFICATE_CHANGE_VOTE:"اتسجل صوت في تصويت اللجنة على تغيير الشهادة",CERTIFICATE_CHANGE_REJECTED:"اللجنة رفضت تغيير الشهادة، ومفيش حاجة اتغيرت"},
     qualifications:"سجل كفاءة المدققين",noQualifications:"لا توجد كفاءات مسجلة",validFrom:"صالحة من",validUntil:"صالحة حتى",
     evidence:"مرجع الإثبات",addQualification:"تسجيل كفاءة",expired:"منتهية",candidatesDenied:"تسجيل الكفاءات متاح لمن يملك صلاحية ذلك فقط.",
     readonly:"عرض فقط: مدير البرنامج وحده يعدّل هذه الدورة.",
-    errors:{NOT_QUALIFIED:"المدقق غير مؤهل لهذا المعيار في التاريخ المخطط.",STAGE_EXISTS:"هذه المرحلة مخطط لها بالفعل في الدورة.",STAGE1_REQUIRED:"أتمّ تدقيق المرحلة الأولى قبل الثانية.",AUDIT_STATE:"لا يمكن تعديل إلا تدقيق مخطط.",AUDIT_CANCELLED:"لا تُسجل ملاحظات على تدقيق ملغى.",RESPONSE_REQUIRED:"سجّل رد العميل قبل الإغلاق.",NC_CLOSED:"هذه الملاحظة مغلقة بالفعل.",BLOCKED_BY_POLICY:"متوقف حتى اعتماد السياسة D-02.",POLICY_NOT_SET:"سياسات الاعتماد لمعيار الدورة مش متظبطة؛ صاحب السياسات يظبطها من صفحة السياسات.",NO_DECISION_RIGHT:"معندكش صلاحية قرار الاعتماد.",AUDITED_CLIENT:"إنت كنت مدقق عند العميل ده، فمينفعش تاخد قرار اعتماده (الحيادية).",ALREADY_VOTED:"إنت صوّت خلاص في القرار ده.",ALREADY_CERTIFIED:"الدورة دي صدرت لها شهادة خلاص.",NOT_READY:"الدورة مش جاهزة للمنح: لازم التدقيق يخلص وكل عدم المطابقات الجسيمة تتقفل.",CERTIFICATE_STATE:"الإجراء ده مش مناسب لحالة الشهادة دلوقتي.",CERTIFICATE_EXPIRED:"الشهادة انتهت ومينفعش تتغير.",CERTIFICATE_REQUIRED:"تدقيق المراقبة وإعادة الاعتماد بيتخطط بعد ما الشهادة تصدر وتكون سارية.",NO_CERTIFICATE:"الدورة دي ملهاش شهادة.",conflict:"تم تعديل البيانات من مكان آخر؛ حدّثناها، أعد المحاولة.",invalid:"راجع الحقول المطلوبة وقيمها.",denied:"ليست لديك صلاحية لهذا الإجراء.",failed:"تعذّر تنفيذ الطلب."},
+    errors:{NOT_QUALIFIED:"المدقق غير مؤهل لهذا المعيار في التاريخ المخطط.",STAGE_EXISTS:"هذه المرحلة مخطط لها بالفعل في الدورة.",STAGE1_REQUIRED:"أتمّ تدقيق المرحلة الأولى قبل الثانية.",AUDIT_STATE:"لا يمكن تعديل إلا تدقيق مخطط.",AUDIT_CANCELLED:"لا تُسجل ملاحظات على تدقيق ملغى.",RESPONSE_REQUIRED:"سجّل رد العميل قبل الإغلاق.",NC_CLOSED:"هذه الملاحظة مغلقة بالفعل.",BLOCKED_BY_POLICY:"متوقف حتى اعتماد السياسة D-02.",POLICY_NOT_SET:"سياسات الاعتماد لمعيار الدورة مش متظبطة؛ صاحب السياسات يظبطها من صفحة السياسات.",NO_DECISION_RIGHT:"معندكش صلاحية قرار الاعتماد.",AUDITED_CLIENT:"إنت كنت مدقق عند العميل ده، فمينفعش تاخد قرار اعتماده (الحيادية).",ALREADY_VOTED:"إنت صوّت خلاص في القرار ده.",ALREADY_CERTIFIED:"الدورة دي صدرت لها شهادة خلاص.",NOT_READY:"الدورة مش جاهزة للمنح: لازم التدقيق يخلص وكل عدم المطابقات الجسيمة تتقفل.",CERTIFICATE_STATE:"الإجراء ده مش مناسب لحالة الشهادة دلوقتي.",CERTIFICATE_EXPIRED:"الشهادة انتهت ومينفعش تتغير.",CERTIFICATE_REQUIRED:"تدقيق المراقبة وإعادة الاعتماد بيتخطط بعد ما الشهادة تصدر وتكون سارية.",NO_CERTIFICATE:"الدورة دي ملهاش شهادة.",CHANGE_PENDING:"فيه تصويت لجنة مفتوح على تغيير تاني للشهادة؛ لازم يخلص الأول قبل ما تطلب تغيير جديد.",NO_CHANGE_PENDING:"مفيش تصويت مفتوح على تغيير الشهادة دلوقتي؛ حدّثنا الصفحة.",conflict:"تم تعديل البيانات من مكان آخر؛ حدّثناها، أعد المحاولة.",invalid:"راجع الحقول المطلوبة وقيمها.",denied:"ليست لديك صلاحية لهذا الإجراء.",failed:"تعذّر تنفيذ الطلب."},
   },
   en: {
     title:"Client ISO certification",desc:"Certification cycles, audit programme, auditor competence and nonconformities, within your permissions.",
@@ -63,11 +63,11 @@ const strings = {
     findings:"Nonconformities and observations",noFindings:"No findings recorded",grade:"Grade",grades:{MAJOR:"Major",MINOR:"Minor",OBSERVATION:"Observation"},
     clause:"Clause",statement:"Nonconformity statement",raise:"Record finding",response:"Client correction and corrective action",respond:"Record client response",
     close:"Close after verification",timeline:"Audit history",noTimeline:"No events yet",
-    events:{CYCLE_OPENED:"Cycle opened",AUDIT_PLANNED:"Audit planned",AUDIT_COMPLETED:"Audit completed",AUDIT_CANCELLED:"Audit cancelled",NC_RAISED:"Finding recorded",NC_RESPONDED:"Client responded",NC_CLOSED:"Finding closed",DECISION_VOTE:"Decision vote recorded",DECISION_GRANT:"Decision taken: certification granted",DECISION_REFUSE:"Decision taken: certification refused",CERTIFICATE_ISSUED:"Certificate issued",CERTIFICATE_SUSPENDED:"Certificate suspended",CERTIFICATE_RESTORED:"Certificate restored",CERTIFICATE_WITHDRAWN:"Certificate withdrawn"},
+    events:{CYCLE_OPENED:"Cycle opened",AUDIT_PLANNED:"Audit planned",AUDIT_COMPLETED:"Audit completed",AUDIT_CANCELLED:"Audit cancelled",NC_RAISED:"Finding recorded",NC_RESPONDED:"Client responded",NC_CLOSED:"Finding closed",DECISION_VOTE:"Decision vote recorded",DECISION_GRANT:"Decision taken: certification granted",DECISION_REFUSE:"Decision taken: certification refused",CERTIFICATE_ISSUED:"Certificate issued",CERTIFICATE_SUSPENDED:"Certificate suspended",CERTIFICATE_RESTORED:"Certificate restored",CERTIFICATE_WITHDRAWN:"Certificate withdrawn",CERTIFICATE_CHANGE_VOTE:"Committee vote recorded on a certificate change",CERTIFICATE_CHANGE_REJECTED:"The committee rejected a certificate change; nothing changed"},
     qualifications:"Auditor competence register",noQualifications:"No qualifications recorded",validFrom:"Valid from",validUntil:"Valid until",
     evidence:"Evidence reference",addQualification:"Record qualification",expired:"Expired",candidatesDenied:"Only people allowed to record qualifications can add them.",
     readonly:"Read only: only the programme manager changes this cycle.",
-    errors:{NOT_QUALIFIED:"The auditor is not qualified for this standard on the planned date.",STAGE_EXISTS:"This stage is already planned for the cycle.",STAGE1_REQUIRED:"Complete the Stage 1 audit before Stage 2.",AUDIT_STATE:"Only a planned audit can be changed.",AUDIT_CANCELLED:"A cancelled audit cannot record findings.",RESPONSE_REQUIRED:"Record the client's response before closing.",NC_CLOSED:"This finding is already closed.",BLOCKED_BY_POLICY:"Blocked until policy D-02 is signed.",POLICY_NOT_SET:"The certification policies for this standard are not set; a policy owner sets them under Policies.",NO_DECISION_RIGHT:"You do not have the certification decision right.",AUDITED_CLIENT:"You audited this client, so you cannot take its certification decisions (impartiality).",ALREADY_VOTED:"You already voted in this decision.",ALREADY_CERTIFIED:"This cycle already has its certificate.",NOT_READY:"Not ready to grant: the audits must be completed and every major nonconformity closed.",CERTIFICATE_STATE:"This action does not apply to the certificate's current status.",CERTIFICATE_EXPIRED:"The certificate has expired and can no longer change.",CERTIFICATE_REQUIRED:"Surveillance and recertification audits are planned once a certificate is issued and in force.",NO_CERTIFICATE:"This cycle has no certificate.",conflict:"The data changed elsewhere; it is refreshed, try again.",invalid:"Check the required fields and their values.",denied:"You do not have permission for this action.",failed:"The request failed."},
+    errors:{NOT_QUALIFIED:"The auditor is not qualified for this standard on the planned date.",STAGE_EXISTS:"This stage is already planned for the cycle.",STAGE1_REQUIRED:"Complete the Stage 1 audit before Stage 2.",AUDIT_STATE:"Only a planned audit can be changed.",AUDIT_CANCELLED:"A cancelled audit cannot record findings.",RESPONSE_REQUIRED:"Record the client's response before closing.",NC_CLOSED:"This finding is already closed.",BLOCKED_BY_POLICY:"Blocked until policy D-02 is signed.",POLICY_NOT_SET:"The certification policies for this standard are not set; a policy owner sets them under Policies.",NO_DECISION_RIGHT:"You do not have the certification decision right.",AUDITED_CLIENT:"You audited this client, so you cannot take its certification decisions (impartiality).",ALREADY_VOTED:"You already voted in this decision.",ALREADY_CERTIFIED:"This cycle already has its certificate.",NOT_READY:"Not ready to grant: the audits must be completed and every major nonconformity closed.",CERTIFICATE_STATE:"This action does not apply to the certificate's current status.",CERTIFICATE_EXPIRED:"The certificate has expired and can no longer change.",CERTIFICATE_REQUIRED:"Surveillance and recertification audits are planned once a certificate is issued and in force.",NO_CERTIFICATE:"This cycle has no certificate.",CHANGE_PENDING:"A committee vote on another change to this certificate is still open; it must finish before a new change is asked for.",NO_CHANGE_PENDING:"No committee vote on a certificate change is open now; the page is refreshed.",conflict:"The data changed elsewhere; it is refreshed, try again.",invalid:"Check the required fields and their values.",denied:"You do not have permission for this action.",failed:"The request failed."},
   },
 } as const;
 type Labels = typeof strings.ar | typeof strings.en;
@@ -407,6 +407,20 @@ const decisionLabels = {
     actionHint:{suspend:"الشهادة هتظهر موقوفة في التحقق العام لحد ما تتفعل تاني.",restore:"الشهادة هترجع سارية.",withdraw:"السحب نهائي ومينفعش يترجع فيه. الشهادة هتظهر مسحوبة في التحقق العام."},
     actionReason:"السبب (بيتسجل في سجل الشهادة)",confirm:"تأكيد",cancel:"إلغاء",
     manageOnly:"الإيقاف وإعادة التفعيل والسحب لصاحب صلاحية القرار اللي ما دققش عند العميل ده بس.",
+    actionsCommittee:{suspend:"اطلب إيقاف الشهادة (تصويت لجنة)",restore:"اطلب إعادة تفعيل الشهادة (تصويت لجنة)",withdraw:"اطلب سحب الشهادة (تصويت لجنة)"},
+    committeeHint:(n:number)=>`في المعيار ده القرار بلجنة من ${n} أعضاء، فالإيقاف وإعادة التفعيل والسحب كمان بيحتاجوا تصويت اللجنة.`,
+    committeeActionHint:(n:number)=>`الطلب ده هيفتح تصويت للجنة من ${n} أعضاء، وصوتك بالموافقة هيتسجل أول صوت. الشهادة مش هتتغير غير لما أغلبية اللجنة توافق؛ لو التصويت اتعادل أو الأغلبية رفضت، مفيش حاجة هتتغير.`,
+    startVote:"ابدأ تصويت اللجنة",
+    changeAction:{SUSPEND:"إيقاف الشهادة",RESTORE:"إعادة تفعيل الشهادة",WITHDRAW:"سحب الشهادة (نهائي)"},
+    changeOpenTitle:(a:string)=>`تصويت لجنة مفتوح: ${a}`,requestedBy:"طلبه",requestReason:"سبب الطلب",
+    changeExplain:"الشهادة لسه زي ما هي. التغيير هيتنفذ بس لما كل أعضاء اللجنة يصوتوا والأغلبية توافق؛ لو التصويت اتعادل أو الأغلبية رفضت، الطلب بيتقفل ومفيش حاجة بتتغير.",
+    changeBlocked:"مينفعش حد يطلب تغيير تاني على الشهادة لحد ما التصويت ده يخلص.",
+    changeYourVote:"صوتك على الطلب ده",approve:"موافق على التغيير",reject:"رافض التغيير",changeReason:"سبب صوتك",
+    changeReasonHint:"اكتب ليه موافق أو رافض (الأسباب بتظهر لما التصويت يخلص).",submitChangeVote:"سجّل صوتك",
+    changeVoteLabel:{APPROVE:"موافق",REJECT:"رافض"},
+    changeCannot:{NO_DECISION_RIGHT:"معندكش صلاحية قرار الاعتماد، فالتصويت ده للعرض بس.",AUDITED_CLIENT:"إنت كنت مدقق عند العميل ده، فمينفعش تصوت على شهادته (الحيادية).",ALREADY_VOTED:"إنت صوّت خلاص على الطلب ده؛ مستنيين باقي أعضاء اللجنة.",POLICY_NOT_SET:"سياسة طريقة القرار لمعيار الدورة مش متظبطة دلوقتي، فمحدش يقدر يصوت لحد ما تتظبط."},
+    pastChanges:"تصويتات سابقة على تغيير الشهادة",changeOutcome:{APPROVED:"اتوافق عليه واتنفذ",REJECTED:"اترفض، والشهادة متغيرتش"},
+    changeTally:(a:number,r:number)=>`${a} موافق · ${r} رافض`,
     history:"سجل الشهادة",events:{ISSUED:"صدرت",SUSPENDED:"اتوقفت",RESTORED:"اتفعلت تاني",WITHDRAWN:"اتسحبت"},
     followUps:"تدقيقات المراقبة وإعادة الاعتماد",followUpsLocked:"بتتخطط بعد ما الشهادة تصدر وطول ما هي سارية أو موقوفة.",
     nextSurveillance:(date:string)=>`الموعد المقترح للمراقبة الجاية: ${date}`,recertHint:(date:string)=>`لازم يخلص قبل انتهاء الشهادة: ${date}`,
@@ -449,6 +463,20 @@ const decisionLabels = {
     actionHint:{suspend:"The certificate shows as suspended in the public check until it is restored.",restore:"The certificate becomes active again.",withdraw:"Withdrawal is final and cannot be undone. The certificate shows as withdrawn in the public check."},
     actionReason:"Reason (kept in the certificate's history)",confirm:"Confirm",cancel:"Cancel",
     manageOnly:"Suspending, restoring and withdrawing are for holders of the decision right who never audited this client.",
+    actionsCommittee:{suspend:"Propose suspension (committee vote)",restore:"Propose restoring (committee vote)",withdraw:"Propose withdrawal (committee vote)"},
+    committeeHint:(n:number)=>`For this standard a committee of ${n} decides, so suspending, restoring and withdrawing also need the committee's vote.`,
+    committeeActionHint:(n:number)=>`This opens a vote for a committee of ${n} members, with your approval as the first vote. The certificate changes only when most of the committee approves; a tie or a majority against means nothing changes.`,
+    startVote:"Start the committee vote",
+    changeAction:{SUSPEND:"Suspend the certificate",RESTORE:"Restore the certificate",WITHDRAW:"Withdraw the certificate (final)"},
+    changeOpenTitle:(a:string)=>`Open committee vote: ${a}`,requestedBy:"Asked by",requestReason:"Reason for the request",
+    changeExplain:"The certificate is unchanged for now. The change applies only once every committee member has voted and most approve; a tie or a majority against closes the request and nothing changes.",
+    changeBlocked:"Nobody can ask for another change to this certificate until this vote finishes.",
+    changeYourVote:"Your vote on this request",approve:"Approve the change",reject:"Reject the change",changeReason:"Reason for your vote",
+    changeReasonHint:"Say why you approve or reject (reasons are shown once the vote is over).",submitChangeVote:"Record your vote",
+    changeVoteLabel:{APPROVE:"Approve",REJECT:"Reject"},
+    changeCannot:{NO_DECISION_RIGHT:"You do not have the certification decision right; this vote is for reading only.",AUDITED_CLIENT:"You audited this client, so you cannot vote on its certificate (impartiality).",ALREADY_VOTED:"You have voted on this request; waiting for the other committee members.",POLICY_NOT_SET:"The decision-mode policy for this standard is not set now, so nobody can vote until it is."},
+    pastChanges:"Earlier committee votes on certificate changes",changeOutcome:{APPROVED:"Approved and applied",REJECTED:"Rejected; the certificate did not change"},
+    changeTally:(a:number,r:number)=>`${a} approve · ${r} reject`,
     history:"Certificate history",events:{ISSUED:"Issued",SUSPENDED:"Suspended",RESTORED:"Restored",WITHDRAWN:"Withdrawn"},
     followUps:"Surveillance and recertification audits",followUpsLocked:"Planned once the certificate is issued, while it is active or suspended.",
     nextSurveillance:(date:string)=>`Suggested date for the next surveillance: ${date}`,recertHint:(date:string)=>`Must be done before the certificate expires: ${date}`,
@@ -512,7 +540,8 @@ function DecisionSection({cycle,panel,error,l,d,language,onChanged,onRetry}:{cyc
           <Gavel size={16}/>{committee?d.submitVote:d.submit}</button></div>
       </form>
       :panel.cannotDecideReason&&<p className="record-security-note"><LockKeyhole size={15}/>{d.cannot[panel.cannotDecideReason]}</p>)}
-    {panel.certificate&&<CertificateCard cycle={cycle} certificate={panel.certificate} canManage={panel.canManageCertificate} l={l} d={d} ar={ar} onChanged={onChanged}/>}
+    {panel.certificate&&<CertificateCard cycle={cycle} certificate={panel.certificate} canManage={panel.canManageCertificate} l={l} d={d} ar={ar}
+      committeeSize={panel.mode==="COMMITTEE"?panel.requiredVotes:null} openChange={panel.openChange??null} pastChanges={panel.pastChanges??[]} onChanged={onChanged}/>}
     {panel.pastRounds.length>0&&<div className="cert-past-rounds"><h3>{d.pastRounds}</h3>
       {panel.pastRounds.map(r=><RoundCard key={r.id} round={r} d={d} ar={ar}/>)}</div>}
   </section>;
@@ -536,8 +565,9 @@ function RoundCard({round,d,ar,open}:{round:DecisionRound;d:DecisionLabels;ar:bo
   </div>;
 }
 
-function CertificateCard({cycle,certificate,canManage,l,d,ar,onChanged}:{cycle:CertificationCycle;certificate:IsoCertificate;canManage:boolean;
-  l:Labels;d:DecisionLabels;ar:boolean;onChanged:()=>Promise<void>}){
+function CertificateCard({cycle,certificate,canManage,l,d,ar,committeeSize,openChange,pastChanges,onChanged}:{cycle:CertificationCycle;
+  certificate:IsoCertificate;canManage:boolean;l:Labels;d:DecisionLabels;ar:boolean;committeeSize:number|null;openChange:ChangeRound|null;
+  pastChanges:ChangeRound[];onChanged:()=>Promise<void>}){
   const [action,setAction]=useState<CertificateAction|null>(null);const [reason,setReason]=useState("");
   const [busy,setBusy]=useState(false);const [error,setError]=useState("");
   const available:CertificateAction[]=certificate.status==="ACTIVE"?["suspend","withdraw"]:certificate.status==="SUSPENDED"?["restore","withdraw"]:[];
@@ -565,21 +595,85 @@ function CertificateCard({cycle,certificate,canManage,l,d,ar,onChanged}:{cycle:C
         <span>{d.due(s.index)}</span><span>{day(s.dueOn,ar)}</span>
         <span className="cert-hint">{s.done?d.done:s.overdue?d.overdue:d.upcoming}</span></li>)}
         <li><span>{d.recertBy}</span><span>{day(certificate.recertificationDueBy,ar)}</span><span/></li></ol></div>
-    {available.length>0&&(canManage
-      ?<div className="lead-actions cert-card-actions">{available.map(a=><button key={a} type="button"
-          className={"btn btn-secondary"+(a==="withdraw"?" cert-withdraw":"")} onClick={()=>setAction(a)}>{icon[a]}{d.actions[a]}</button>)}</div>
+    {openChange&&<ChangeRoundCard cycle={cycle} certificate={certificate} round={openChange} l={l} d={d} ar={ar} onChanged={onChanged}/>}
+    {openChange&&available.length>0&&<p className="cert-hint"><LockKeyhole size={14}/> {d.changeBlocked}</p>}
+    {!openChange&&available.length>0&&(canManage
+      ?<>{committeeSize!=null&&<p className="cert-hint"><Users size={14}/> {d.committeeHint(committeeSize)}</p>}
+        <div className="lead-actions cert-card-actions">{available.map(a=><button key={a} type="button"
+          className={"btn btn-secondary"+(a==="withdraw"?" cert-withdraw":"")} onClick={()=>setAction(a)}>{icon[a]}
+          {committeeSize!=null?d.actionsCommittee[a]:d.actions[a]}</button>)}</div></>
       :<p className="record-security-note"><LockKeyhole size={15}/>{d.manageOnly}</p>)}
     {certificate.events.length>0&&<div className="cert-card-history"><h4>{d.history}</h4>
       <ol className="cert-timeline">{certificate.events.map((e,i)=><li key={i}><span className="cert-timeline-dot"/>
         <div><strong>{d.events[e.action]}</strong>{e.actorName?` · ${e.actorName}`:""}{e.reason&&<p>{e.reason}</p>}
           <small dir="ltr">{e.at?e.at.replace("T"," ").slice(0,16):""}</small></div></li>)}</ol></div>}
-    {action&&<Dialog title={d.actions[action]} description={d.actionHint[action]} kicker={certificate.number} busy={busy} onClose={close}
+    {pastChanges.length>0&&<div className="cert-past-rounds"><h4>{d.pastChanges}</h4>
+      {pastChanges.map(r=><ChangeRoundCard key={r.id} cycle={cycle} certificate={certificate} round={r} l={l} d={d} ar={ar} onChanged={onChanged}/>)}</div>}
+    {action&&<Dialog title={committeeSize!=null?d.actionsCommittee[action]:d.actions[action]} description={d.actionHint[action]} kicker={certificate.number}
+      busy={busy} onClose={close}
       footer={<><button type="button" className="btn btn-secondary" disabled={busy} onClick={close}>{d.cancel}</button>
-        <button type="button" className="btn btn-primary" disabled={busy||!reason.trim()} onClick={()=>void confirm()}>{icon[action]}{d.confirm}</button></>}>
+        <button type="button" className="btn btn-primary" disabled={busy||!reason.trim()} onClick={()=>void confirm()}>{icon[action]}
+          {committeeSize!=null?d.startVote:d.confirm}</button></>}>
+      {committeeSize!=null&&<p className="cert-hint cert-committee-note"><Users size={14}/> {d.committeeActionHint(committeeSize)}</p>}
       {error&&<div className="login-error" role="alert"><CircleAlert size={17}/>{error}</div>}
       <label className="cert-dialog-field"><span>{d.actionReason}</span>
         <textarea rows={3} maxLength={4000} value={reason} onChange={e=>setReason(e.target.value)}/></label>
     </Dialog>}
+  </div>;
+}
+
+/** A committee vote on a certificate change: open (votes hidden, Approve / Reject for members who may vote) or decided. */
+function ChangeRoundCard({cycle,certificate,round,l,d,ar,onChanged}:{cycle:CertificationCycle;certificate:IsoCertificate;round:ChangeRound;
+  l:Labels;d:DecisionLabels;ar:boolean;onChanged:()=>Promise<void>}){
+  const [vote,setVote]=useState<ChangeVote|"">("");const [reason,setReason]=useState("");const [busy,setBusy]=useState(false);const [error,setError]=useState("");
+  const open=round.status==="OPEN";
+  const submit=async()=>{
+    if(busy||!vote||!reason.trim())return;
+    setBusy(true);setError("");
+    try{await voteOnChange(cycle.id,certificate.version,vote,reason.trim());setVote("");setReason("");}
+    catch(e){setError(message(e,l));}
+    finally{await onChanged();setBusy(false);}
+  };
+  const tone=round.outcome==="APPROVED"?" is-grant":round.outcome==="REJECTED"?" is-refuse":"";
+  return <div className={"cert-round cert-change-round"+tone} aria-label={d.changeAction[round.action]}>
+    <div className="cert-round-head">
+      <strong>{open?d.changeOpenTitle(d.changeAction[round.action]):d.changeAction[round.action]}</strong>
+      {open?<span className="cert-hint">{d.votesSoFar(round.votesCast,round.requiredVotes)}</span>
+        :round.outcome&&<span className={"cert-vote-tag"+tone}>{d.changeOutcome[round.outcome]}</span>}
+      {round.decidedAt&&<span className="cert-hint">{d.decidedOn} {day(round.decidedAt,ar)}</span>}
+      {!open&&round.approveVotes!=null&&round.rejectVotes!=null&&<span className="cert-hint">{d.changeTally(round.approveVotes,round.rejectVotes)}</span>}
+    </div>
+    {open&&<div className="cert-meter" aria-hidden="true"><span style={{width:`${Math.min(100,round.votesCast*100/Math.max(1,round.requiredVotes))}%`}}/></div>}
+    <dl className="cert-change-request">
+      <div><dt>{d.requestedBy}</dt><dd>{round.requestedByName??"—"}</dd></div>
+      {round.reason&&<div><dt>{d.requestReason}</dt><dd>{round.reason}</dd></div>}
+    </dl>
+    {open&&<p className="cert-hint">{d.changeExplain}</p>}
+    <ul className="cert-votes">{round.votes.map(v=><li key={v.voterId}>
+      <UserCheck size={14}/><strong>{v.voterName}</strong>
+      {v.vote?<span className={"cert-vote-tag "+(v.vote==="APPROVE"?"is-grant":"is-refuse")}>{d.changeVoteLabel[v.vote]}</span>:<span className="cert-hint">{d.votedAt}</span>}
+      {v.reason&&<p>{v.reason}</p>}
+    </li>)}</ul>
+    {open&&<p className="cert-hint">{d.hiddenVotes}</p>}
+    {open&&(round.canVote
+      ?<form className="cert-vote-form" aria-label={d.changeYourVote} onSubmit={e=>{e.preventDefault();void submit();}}>
+        <fieldset><legend>{d.changeYourVote}</legend>
+          <div className="cert-vote-choices" role="radiogroup" aria-label={d.changeYourVote}>
+            <label className={"cert-vote-choice is-grant"+(vote==="APPROVE"?" is-selected":"")}>
+              <input type="radio" name={"cert-change-vote-"+round.id} value="APPROVE" checked={vote==="APPROVE"} onChange={()=>setVote("APPROVE")}/>
+              <ThumbsUp size={16}/>{d.approve}</label>
+            <label className={"cert-vote-choice is-refuse"+(vote==="REJECT"?" is-selected":"")}>
+              <input type="radio" name={"cert-change-vote-"+round.id} value="REJECT" checked={vote==="REJECT"} onChange={()=>setVote("REJECT")}/>
+              <ThumbsDown size={16}/>{d.reject}</label>
+          </div>
+          <label className="cert-wide"><span>{d.changeReason}</span><textarea required rows={3} maxLength={4000} value={reason}
+            placeholder={d.changeReasonHint} onChange={e=>setReason(e.target.value)}/></label>
+        </fieldset>
+        {error&&<div className="login-error" role="alert"><CircleAlert size={17}/>{error}</div>}
+        <div className="lead-actions"><button type="submit" className="btn btn-primary" disabled={busy||!vote||!reason.trim()}>
+          <Gavel size={16}/>{d.submitChangeVote}</button></div>
+      </form>
+      :round.cannotVoteReason&&<p className="record-security-note"><LockKeyhole size={15}/>{d.changeCannot[round.cannotVoteReason]}</p>)}
   </div>;
 }
 

@@ -110,8 +110,8 @@ Signer: the project owner, answering a structured interview in the engineering s
   - Decisions follow `cert.decision` per scheme (independent reviewer, or a committee of N: majority grants, a tie
     refuses); a GRANT issues the certificate (validity and surveillance from `cert.cycle`). Fail closed while either is unset.
   - The decision right is the role `ioeti-cert-decision-maker`; anyone who ever audited the client is refused.
-  - Suspend, restore and withdraw are taken by one eligible decision maker (not by the committee); to confirm with the
-    quality manager.
+  - Suspend, restore and withdraw follow the same mode as granting (owner confirmed 2026-10-29; built: committee change
+    rounds, migration V031).
   - The public check runs only while `channels.enabled` contains CERTIFICATE_CHECK (D-10).
   - See `docs/slices/M1-certification.md`.
 - **D-04 implemented (2026-10-27, M1):**
@@ -144,6 +144,18 @@ Signer: the project owner, answering a structured interview in the engineering s
   - Engineering added the optional field `cohortCancelledRefundPercent`, for a cohort IOETI cancels. The recommended value
     is 100%.
   - See `docs/slices/M1-training.md`.
+
+- **Owner answers (2026-10-29, signed by the owner in the session):**
+  - **PR #35** (lean staging package): merged.
+  - **D-02:** suspending, restoring and withdrawing a certificate follow the scheme's decision mode, the same as granting.
+    One eligible reviewer acts alone, or the committee of N votes (strict majority; a tie rejects).
+  - **D-05:** a donor who asked to stay anonymous gets a receipt with no name. It is printed as "anonymous donor". Finance
+    still finds the donor through the collection in the CRM.
+  - **D-07:** a trainee's national ID is kept until one year after the certificate is issued, or after the cohort ends
+    without one.
+    - It is a retention data type, `NATIONAL_IDS`; the recommended value is 12 months.
+    - When the period runs out, the record is listed for review. The policy owner erases the number in one step; the
+      enrolment and the certificate stay. Nothing is erased automatically.
 
 ## Related, owner-only actions (not engineering decisions)
 

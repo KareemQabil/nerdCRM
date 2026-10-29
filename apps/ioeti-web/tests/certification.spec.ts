@@ -200,3 +200,100 @@ test("surveillance is planned from the certificate's suggested due date; mobile 
   await expect(followUps.locator(".cert-stage", { has: page.getByRole("heading", { name: "تدقيق إعادة الاعتماد" }) })).toContainText("لازم يخلص قبل انتهاء الشهادة");
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
 });
+
+test("committee mode: suspending starts a committee vote; members approve or reject; a rejected change leaves the certificate as it was", async ({ page }) => {
+  const committee = { mode: "COMMITTEE", requiredVotes: 3, status: "GRANTED", canVote: false, canGrant: false, certificate: certificate(),
+    canManageCertificate: true, openChange: null, pastChanges: [] };
+  const openChange = (over: Json = {}) => ({ id: 31, action: "SUSPEND", mode: "COMMITTEE", requiredVotes: 3, status: "OPEN", outcome: null,
+    requestedById: 12, requestedByName: "Rania Reviewer", reason: "Client misused the certification mark", openedAt: "2026-10-29T09:00:00",
+    decidedAt: null, votesCast: 1, approveVotes: null, rejectVotes: null,
+    votes: [{ voterId: 12, voterName: "Rania Reviewer", vote: null, reason: null, castAt: "2026-10-29T09:00:00" }],
+    canVote: false, cannotVoteReason: "ALREADY_VOTED", ...over });
+  const { posted, state } = await mock(page, panel(committee), { cycle: { phase: "CERTIFIED", decisionStatus: "GRANTED" } });
+  state.onPost = (p) => {
+    if (p === "/cycles/61/certificate/suspend") state.panel = panel({ ...committee, openChange: openChange() });
+    if (p === "/cycles/61/certificate/change-vote") {
+      state.panel = panel({ ...committee, pastChanges: [openChange({ status: "DECIDED", outcome: "REJECTED", decidedAt: "2026-10-29T12:00:00", votesCast: 3,
+        approveVotes: 1, rejectVotes: 2, canVote: false, cannotVoteReason: null,
+        votes: [{ voterId: 12, voterName: "Rania Reviewer", vote: "APPROVE", reason: "Mark misuse confirmed", castAt: "2026-10-29T09:00:00" },
+          { voterId: 13, voterName: "Hany Member", vote: "REJECT", reason: "Client already corrected the mark", castAt: "2026-10-29T10:00:00" },
+          { voterId: 14, voterName: "Omar Member", vote: "REJECT", reason: "Evidence of correction received", castAt: "2026-10-29T12:00:00" }] })] });
+    }
+    return state.panel;
+  };
+  await page.goto("/#/certification/61");
+  const card = page.locator(".cert-card");
+  await expect(card).toContainText("في المعيار ده القرار بلجنة من 3 أعضاء، فالإيقاف وإعادة التفعيل والسحب كمان بيحتاجوا تصويت اللجنة.");
+  await expect(page.getByRole("button", { name: "إيقاف الشهادة", exact: true })).toHaveCount(0);
+  await page.getByRole("button", { name: "اطلب إيقاف الشهادة (تصويت لجنة)" }).click();
+  const dialog = page.getByRole("dialog", { name: "اطلب إيقاف الشهادة (تصويت لجنة)" });
+  await expect(dialog).toContainText("الطلب ده هيفتح تصويت للجنة من 3 أعضاء، وصوتك بالموافقة هيتسجل أول صوت.");
+  await dialog.getByLabel("السبب (بيتسجل في سجل الشهادة)").fill("Client misused the certification mark");
+  await dialog.getByRole("button", { name: "ابدأ تصويت اللجنة" }).click();
+  expect(posted[0]).toEqual({ path: "/cycles/61/certificate/suspend", body: { version: 0, reason: "Client misused the certification mark" } });
+
+  // the round is open: the certificate has not changed, the requester waits, no other change can start
+  const round = card.locator(".cert-change-round");
+  await expect(round).toContainText("تصويت لجنة مفتوح: إيقاف الشهادة");
+  await expect(round).toContainText("1 من 3 أصوات");
+  await expect(round).toContainText("Client misused the certification mark");
+  await expect(round).toContainText("إنت صوّت خلاص على الطلب ده؛ مستنيين باقي أعضاء اللجنة.");
+  await expect(round.locator(".cert-vote-tag")).toHaveCount(0);
+  await expect(page.locator(".cert-status-badge")).toHaveText("سارية");
+  await expect(card.locator(".cert-card-actions")).toHaveCount(0);
+  await expect(card).toContainText("مينفعش حد يطلب تغيير تاني على الشهادة لحد ما التصويت ده يخلص.");
+  await page.locator(".cert-card").screenshot({ path: "test-results/ioeti-certification-change-vote.png" });
+
+  // another member may vote: reject with a reason; the server refuses once (409 ALREADY_VOTED), then the vote closes the round
+  state.panel = panel({ ...committee, openChange: openChange({ canVote: true, cannotVoteReason: null }) });
+  state.answers.push({ status: 409, code: "ALREADY_VOTED" });
+  await page.reload();
+  const form = page.getByRole("form", { name: "صوتك على الطلب ده" });
+  const submit = form.getByRole("button", { name: "سجّل صوتك" });
+  await form.getByRole("radio", { name: "رافض التغيير" }).check();
+  await expect(submit).toBeDisabled(); // a reason is required
+  await form.getByLabel("سبب صوتك").fill("Client already corrected the mark");
+  await submit.click();
+  await expect(form.getByRole("alert")).toHaveText(/إنت صوّت خلاص في القرار ده/);
+  await form.getByRole("button", { name: "سجّل صوتك" }).click();
+  expect(posted[2]).toEqual({ path: "/cycles/61/certificate/change-vote", body: { version: 0, vote: "REJECT", reason: "Client already corrected the mark" } });
+  const past = card.locator(".cert-past-rounds");
+  await expect(past).toContainText("اترفض، والشهادة متغيرتش");
+  await expect(past).toContainText("1 موافق · 2 رافض");
+  await expect(past).toContainText("Evidence of correction received");
+  await expect(page.locator(".cert-status-badge")).toHaveText("سارية");
+  await expect(page.getByRole("button", { name: "اطلب سحب الشهادة (تصويت لجنة)" })).toBeVisible();
+
+  // a different change while one is open is refused by the server with a plain explanation
+  state.answers.push({ status: 409, code: "CHANGE_PENDING" });
+  await page.getByRole("button", { name: "اطلب سحب الشهادة (تصويت لجنة)" }).click();
+  const withdraw = page.getByRole("dialog", { name: "اطلب سحب الشهادة (تصويت لجنة)" });
+  await withdraw.getByLabel("السبب (بيتسجل في سجل الشهادة)").fill("Repeated misuse");
+  await withdraw.getByRole("button", { name: "ابدأ تصويت اللجنة" }).click();
+  await expect(withdraw.getByRole("alert")).toHaveText(/فيه تصويت لجنة مفتوح على تغيير تاني للشهادة/);
+  await expect(page.locator("body")).not.toContainText("raw server text");
+});
+
+test("committee mode in English: an approved change shows the new status and every vote with its reason", async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem("ioeti.ui.preferences.v1",
+    JSON.stringify({ theme: "light", language: "en", density: "comfortable", navigation: "expanded" })));
+  const decided = { id: 32, action: "SUSPEND", mode: "COMMITTEE", requiredVotes: 3, status: "DECIDED", outcome: "APPROVED", requestedById: 12,
+    requestedByName: "Rania Reviewer", reason: "Client misused the certification mark", openedAt: "2026-10-29T09:00:00", decidedAt: "2026-10-29T12:00:00",
+    votesCast: 3, approveVotes: 2, rejectVotes: 1, canVote: false, cannotVoteReason: null,
+    votes: [{ voterId: 12, voterName: "Rania Reviewer", vote: "APPROVE", reason: "Mark misuse confirmed", castAt: "2026-10-29T09:00:00" },
+      { voterId: 13, voterName: "Hany Member", vote: "APPROVE", reason: "Agreed", castAt: "2026-10-29T10:00:00" },
+      { voterId: 14, voterName: "Omar Member", vote: "REJECT", reason: "Give one more week", castAt: "2026-10-29T12:00:00" }] };
+  await mock(page, panel({ mode: "COMMITTEE", requiredVotes: 3, status: "GRANTED", canVote: false, canGrant: false,
+    certificate: certificate("SUSPENDED", 1), canManageCertificate: true, openChange: null, pastChanges: [decided] }),
+  { cycle: { phase: "CERTIFIED", decisionStatus: "GRANTED" } });
+  await page.goto("/#/certification/61");
+  const card = page.locator(".cert-card");
+  await expect(page.locator(".cert-status-badge")).toHaveText("Suspended");
+  const past = card.locator(".cert-past-rounds");
+  await expect(past).toContainText("Earlier committee votes on certificate changes");
+  await expect(past).toContainText("Approved and applied");
+  await expect(past).toContainText("2 approve · 1 reject");
+  await expect(past).toContainText("Give one more week");
+  await expect(card.getByRole("button", { name: "Propose restoring (committee vote)" })).toBeVisible();
+  await expect(card).toContainText("For this standard a committee of 3 decides");
+});

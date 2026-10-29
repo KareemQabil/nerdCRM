@@ -34,4 +34,10 @@ class ReceiptRulesTest {
     assertEquals("COLLECTION_VOIDED", ReceiptRules.refusal(true, false));
     assertEquals("COLLECTION_VOIDED", ReceiptRules.refusal(true, true));
   }
+
+  @Test
+  void anAnonymousDonorsReceiptCarriesNoName() {
+    assertNull(ReceiptRules.printedName(true, "Hidden Foundation"));
+    assertEquals("Open Foundation", ReceiptRules.printedName(false, "Open Foundation"));
+  }
 }

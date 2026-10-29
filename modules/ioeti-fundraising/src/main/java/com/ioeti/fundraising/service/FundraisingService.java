@@ -252,7 +252,7 @@ public class FundraisingService {
     receipt.setCollection(collection);
     receipt.setAmount(collection.getAmount());
     receipt.setCurrency(opportunity.getCurrency());
-    receipt.setDonorName(donor.getName());
+    receipt.setDonorName(ReceiptRules.printedName(Boolean.TRUE.equals(opportunity.getDonor().getAnonymous()), donor.getName()));
     receipt.setReceivedOn(collection.getReceivedOn());
     receipt.setIssuedOn(today);
     receipt.setIssuedBy(AuthUtils.getUser());

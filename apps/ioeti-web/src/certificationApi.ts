@@ -29,7 +29,7 @@ export type TimelineEvent = {
   at: string | null; label: string; actorName: string | null;
   kind: "CYCLE_OPENED" | "AUDIT_PLANNED" | "AUDIT_COMPLETED" | "AUDIT_CANCELLED" | "NC_RAISED" | "NC_RESPONDED" | "NC_CLOSED"
     | "DECISION_VOTE" | "DECISION_GRANT" | "DECISION_REFUSE" | "CERTIFICATE_ISSUED" | "CERTIFICATE_SUSPENDED"
-    | "CERTIFICATE_RESTORED" | "CERTIFICATE_WITHDRAWN";
+    | "CERTIFICATE_RESTORED" | "CERTIFICATE_WITHDRAWN" | "CERTIFICATE_CHANGE_VOTE" | "CERTIFICATE_CHANGE_REJECTED";
 };
 
 /** D-02: the cycle's decision, as the server computes it (mode, who may decide, votes, certificate). */
@@ -43,6 +43,16 @@ export type DecisionRound = {
   id: number; mode: DecisionMode; requiredVotes: number; status: "OPEN" | "DECIDED"; outcome: Vote | null; decidedAt: string | null;
   votesCast: number; grantVotes: number | null; refuseVotes: number | null; votes: DecisionVote[];
 };
+/** D-02 (owner decision 2026-10-29): a committee vote on suspending, restoring or withdrawing a certificate. */
+export type ChangeAction = "SUSPEND" | "RESTORE" | "WITHDRAW";
+export type ChangeVote = "APPROVE" | "REJECT";
+export type ChangeVoteRow = { voterId: number; voterName: string; vote: ChangeVote | null; reason: string | null; castAt: string | null };
+export type ChangeRound = {
+  id: number; action: ChangeAction; mode: DecisionMode; requiredVotes: number; status: "OPEN" | "DECIDED"; outcome: "APPROVED" | "REJECTED" | null;
+  requestedById: number | null; requestedByName: string | null; reason: string | null; openedAt: string | null; decidedAt: string | null;
+  votesCast: number; approveVotes: number | null; rejectVotes: number | null; votes: ChangeVoteRow[];
+  canVote: boolean; cannotVoteReason: "NO_DECISION_RIGHT" | "AUDITED_CLIENT" | "ALREADY_VOTED" | "POLICY_NOT_SET" | null;
+};
 export type IsoCertificate = {
   id: number; version: number; number: string; standardCode: string; issuedOn: string; expiresOn: string; status: CertificateStatus;
   surveillanceMonths: number; surveillance: { index: number; dueOn: string; done: boolean; overdue: boolean }[]; recertificationDueBy: string;
@@ -55,6 +65,8 @@ export type DecisionPanel = {
   cannotDecideReason: "NO_DECISION_RIGHT" | "AUDITED_CLIENT" | "ALREADY_VOTED" | null;
   eligibleDeciders: Person[]; nobodyReason: "NO_ROLE_HOLDERS" | "ALL_AUDITED_CLIENT" | "NOT_ENOUGH_ELIGIBLE" | null;
   openRound: DecisionRound | null; pastRounds: DecisionRound[]; certificate: IsoCertificate | null; canManageCertificate: boolean;
+  /** the open committee vote on a certificate change, and earlier ones (absent from servers before the 2026-10-29 change) */
+  openChange?: ChangeRound | null; pastChanges?: ChangeRound[];
 };
 export type CycleFilters = { q?: string; standardCode?: string; phase?: CyclePhase | ""; mine?: boolean; limit?: number; offset?: number };
 
@@ -108,3 +120,6 @@ export const recordDecision = (cycleId: number, version: number, vote: Vote, rea
   post<DecisionPanel>(`/cycles/${id(cycleId)}/decision`, { version, vote, reason });
 export const changeCertificate = (cycleId: number, action: CertificateAction, version: number, reason: string) =>
   post<DecisionPanel>(`/cycles/${id(cycleId)}/certificate/${action}`, { version, reason });
+/** A committee member's vote on the open certificate change; `version` is the certificate's. */
+export const voteOnChange = (cycleId: number, version: number, vote: ChangeVote, reason: string) =>
+  post<DecisionPanel>(`/cycles/${id(cycleId)}/certificate/change-vote`, { version, vote, reason });

@@ -25,7 +25,7 @@ public final class PolicyCatalog {
   /** The role templates approvers and assignees are chosen from (D-07). */
   public static final List<String> APPROVER_ROLES = List.of("SALES_MANAGER", "GM", "FINANCE");
   public static final List<String> WEEKDAYS = List.of("SAT", "SUN", "MON", "TUE", "WED", "THU", "FRI");
-  public static final List<String> DATA_TYPES = List.of("LEADS", "CANDIDATES", "TRAINEES", "DONORS", "CONTACTS");
+  public static final List<String> DATA_TYPES = List.of("LEADS", "CANDIDATES", "TRAINEES", "DONORS", "CONTACTS", "NATIONAL_IDS");
   /** Egypt's 27 governorates (a fact, not a rule): a lead's governorate and routing rules use these codes (D-12). */
   public static final List<String> GOVERNORATES = List.of("CAIRO", "GIZA", "ALEXANDRIA", "QALYUBIA", "SHARQIA", "DAKAHLIA", "GHARBIA",
       "MONUFIA", "BEHEIRA", "KAFR_EL_SHEIKH", "DAMIETTA", "PORT_SAID", "ISMAILIA", "SUEZ", "NORTH_SINAI", "SOUTH_SINAI", "RED_SEA",

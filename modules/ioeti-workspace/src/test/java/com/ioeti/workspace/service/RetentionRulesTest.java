@@ -31,8 +31,9 @@ class RetentionRulesTest {
   }
 
   @Test
-  void onlyLeadsAndCandidatesCanBeAnonymized() {
-    assertEquals(java.util.List.of("LEADS", "CANDIDATES"), RetentionService.ANONYMIZABLE);
+  void onlyLeadsCandidatesAndNationalIdsCanBeAnonymized() {
+    // shared partner records (trainees, donors, contacts) are only kept; a national ID is erased (owner decision 2026-10-29)
+    assertEquals(java.util.List.of("LEADS", "CANDIDATES", "NATIONAL_IDS"), RetentionService.ANONYMIZABLE);
   }
 
   @Test

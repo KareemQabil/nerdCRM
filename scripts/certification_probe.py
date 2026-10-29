@@ -21,7 +21,13 @@ D-02 (signed 2026-10-25), on fixture schemes:
   surveillance every surveillanceMonths); a second decision → 409 ALREADY_CERTIFIED
   committee of 3: votes hidden until the round is decided, one vote per person (409), majority decides and issues; a
   committee of 2 that splits refuses (tie) and a new round can start
-  certificate: suspend / restore / withdraw (final) by eligible people only, with reasons, in its history
+  certificate: suspend / restore / withdraw (final) by eligible people only, with reasons, in its history; an
+  independent reviewer changes it in one step
+  certificate changes in committee mode (owner decision 2026-10-29), committee of 3: suspend opens a change round with
+  the requester's APPROVE (status stays ACTIVE), the others are told in-app; 2 approve + 1 reject → SUSPENDED; a
+  different change while a round is open → 409 CHANGE_PENDING; 403/404/409/422 on the vote; a rejected restore (1 for,
+  2 against) changes nothing and tells the manager; a round keeps its mode after the policy changes; independent again →
+  one step
   surveillance and recertification planning follow a certificate in force
   public check /ws/public/ioeti/certificates/{number}: 404 while CERTIFICATE_CHECK is off (same as unknown), then only
   number, standard, client, status and expiry; no listing
@@ -37,7 +43,7 @@ from datetime import date, timedelta
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from api_smoke_test import BL, ENV, ROOT, Client, axelor_password_hash, ok, rest_create  # noqa: E402
-from probe_fixtures import cleanup  # noqa: E402
+from probe_fixtures import cleanup, delete_record  # noqa: E402
 
 USER, GROUP, PERM = "com.axelor.auth.db.User", "com.axelor.auth.db.Group", "com.axelor.auth.db.Permission"
 PARTNER = "com.axelor.apps.base.db.Partner"
@@ -552,6 +558,96 @@ def main():
               and sorted(v.get("vote") for v in decided.get("votes") or []) == ["GRANT", "GRANT", "REFUSE"]
               and cert2.get("number") == f"{cc}-{issued2.year}-0001" and cert2.get("expiresOn") == str(add_months(issued2, 24))
               and len(cert2.get("surveillance") or []) == 3, f"{s2} {s3} {p_c.get('status')} {decided} {cert2}")
+        # certificate changes follow the scheme's mode (owner decision 2026-10-29): d2's certificate, committee of 3
+        def change_vote(client, row, vote, reason="Committee vote on the change", stale=False):
+            current = ((panel(dec1, row)[1].get("certificate")) or {}).get("version")
+            s_, b_ = call(client, "POST", f"/cycles/{row['id']}/certificate/change-vote",
+                          {"version": (current or 0) - (1 if stale else 0), "vote": vote, "reason": reason})
+            return s_, b_, b_.get("object") or {}
+
+        number2 = cert2.get("number") or "NONE"
+        s_o, b_o = act(dec1, d2, "suspend", reason="Mark misuse reported")
+        p_o = b_o.get("object") or {}
+        ch = p_o.get("openChange") or {}
+        _, b_pub = anon.call("GET", f"{PUBLIC}/{number2}")
+        asked = search(NOTICE, f"self.kind = 'CERT_CHANGE_VOTE_NEEDED' AND self.subjectId = {d2['id']}"
+                               f" AND self.recipient.id IN ({users['Dec1']['id']},{users['Dec2']['id']},{users['Dec3']['id']})", ("id", "recipient"))
+        asked_ids = sorted((x.get("recipient") or {}).get("id") for x in asked)
+        check("committee change: suspend opens a change round with the requester's APPROVE (1 of 3, how hidden); the certificate"
+              " stays ACTIVE (also in the public check); the other members are told in-app",
+              s_o == 200 and (p_o.get("certificate") or {}).get("status") == "ACTIVE"
+              and (ch.get("action"), ch.get("mode"), ch.get("requiredVotes"), ch.get("status"), ch.get("votesCast")) == ("SUSPEND", "COMMITTEE", 3, "OPEN", 1)
+              and ch.get("requestedByName") == "Wave4b Dec1" and ch.get("reason") == "Mark misuse reported"
+              and [v.get("vote") for v in ch.get("votes") or []] == [None] and ch.get("canVote") is False
+              and ch.get("cannotVoteReason") == "ALREADY_VOTED" and (b_pub.get("object") or {}).get("status") == "ACTIVE"
+              and asked_ids == sorted([users["Dec2"]["id"], users["Dec3"]["id"]]),
+              f"{s_o} {error(b_o)} {(p_o.get('certificate') or {}).get('status')} {ch} {b_pub.get('object')} {asked_ids}")
+        s_dup, b_dup = act(dec1, d2, "suspend", reason="again")
+        s_pend, b_pend = act(dec2, d2, "withdraw", reason="Withdraw instead")
+        s_q, b_q, _ = change_vote(audq, d2, "APPROVE")
+        s_m, b_m, _ = change_vote(a, d2, "APPROVE")
+        s_b, _, _ = change_vote(b, d2, "APPROVE")
+        s_bv, b_bv, _ = change_vote(dec2, d2, "MAYBE")
+        s_br, b_br, _ = change_vote(dec2, d2, "APPROVE", reason=" ")
+        s_st, _, _ = change_vote(dec2, d2, "APPROVE", stale=True)
+        _, p_see = panel(dec2, d2)
+        check("committee change: the same request again → 409 ALREADY_VOTED; a different change while it is open → 409 CHANGE_PENDING;"
+              " vote: auditor of the client → 403, no role → 403, another manager → 404, bad vote / empty reason → 422, stale → 409;"
+              " a member who has not voted may vote",
+              (s_dup, error(b_dup).get("code"), s_pend, error(b_pend).get("code")) == (409, "ALREADY_VOTED", 409, "CHANGE_PENDING")
+              and (s_q, error(b_q).get("code"), s_m, error(b_m).get("code"), s_b) == (403, "AUDITED_CLIENT", 403, "NO_DECISION_RIGHT", 404)
+              and (s_bv, field(b_bv), s_br, field(b_br), s_st) == (422, "vote", 422, "reason", 409)
+              and (p_see.get("openChange") or {}).get("canVote") is True,
+              f"{s_dup} {error(b_dup)} {s_pend} {error(b_pend)} {s_q} {s_m} {s_b} {s_bv} {field(b_bv)} {s_br} {field(b_br)} {s_st}"
+              f" {(p_see.get('openChange') or {}).get('canVote')}")
+        s_2, _, p_2 = change_vote(dec2, d2, "APPROVE", reason="Misuse confirmed by the site visit")
+        s_3, _, p_3 = change_vote(dec3, d2, "REJECT", reason="One more week for the client")
+        done = (p_3.get("pastChanges") or [{}])[0]
+        events2 = (p_3.get("certificate") or {}).get("events") or []
+        _, b_pub = anon.call("GET", f"{PUBLIC}/{number2}")
+        told = search(NOTICE, f"self.recipient.id = {users['MgrA']['id']} AND self.kind = 'CERT_SUSPENDED' AND self.subjectId = {d2['id']}")
+        check("committee change: the second APPROVE still leaves it ACTIVE (2 of 3); the third vote decides by majority (2 approve,"
+              " 1 reject) → SUSPENDED, in the history with the requester and reason, the manager is told, the public check says so",
+              s_2 == 200 and (p_2.get("certificate") or {}).get("status") == "ACTIVE" and (p_2.get("openChange") or {}).get("votesCast") == 2
+              and s_3 == 200 and (p_3.get("certificate") or {}).get("status") == "SUSPENDED" and not p_3.get("openChange")
+              and (done.get("outcome"), done.get("approveVotes"), done.get("rejectVotes")) == ("APPROVED", 2, 1)
+              and sorted(v.get("vote") for v in done.get("votes") or []) == ["APPROVE", "APPROVE", "REJECT"]
+              and "One more week for the client" in [v.get("reason") for v in done.get("votes") or []]
+              and [e["action"] for e in events2] == ["ISSUED", "SUSPENDED"] and events2[-1].get("reason") == "Mark misuse reported"
+              and events2[-1].get("actorName") == "Wave4b Dec1" and len(told) == 1
+              and (b_pub.get("object") or {}).get("status") == "SUSPENDED",
+              f"{s_2} {(p_2.get('certificate') or {}).get('status')} {s_3} {(p_3.get('certificate') or {}).get('status')} {done} {events2} {len(told)}")
+        s_r1, b_r1 = act(dec2, d2, "restore", reason="Corrective action verified")
+        s_r2, _, _ = change_vote(dec1, d2, "REJECT", reason="Not verified on site")
+        s_r3, _, p_r = change_vote(dec3, d2, "REJECT", reason="Evidence incomplete")
+        rejected = (p_r.get("pastChanges") or [{}])[0]
+        s_none, b_none, _ = change_vote(dec1, d2, "APPROVE")
+        told = search(NOTICE, f"self.recipient.id = {users['MgrA']['id']} AND self.kind = 'CERT_CHANGE_REJECTED' AND self.subjectId = {d2['id']}")
+        _, b_tl = call(ro_c, "GET", f"/cycles/{d2['id']}/timeline")
+        kinds = [x.get("kind") for x in (b_tl.get("object") or []) if isinstance(x, dict)]
+        check("committee change rejected (1 for, 2 against): the round closes, the certificate stays SUSPENDED with no new event,"
+              " the manager is told; a vote with no round open → 409 NO_CHANGE_PENDING; the timeline shows the votes and the rejection",
+              s_r1 == 200 and ((b_r1.get("object") or {}).get("openChange") or {}).get("action") == "RESTORE" and s_r2 == s_r3 == 200
+              and (p_r.get("certificate") or {}).get("status") == "SUSPENDED" and not p_r.get("openChange")
+              and (rejected.get("action"), rejected.get("outcome"), rejected.get("approveVotes"), rejected.get("rejectVotes")) == ("RESTORE", "REJECTED", 1, 2)
+              and [e["action"] for e in (p_r.get("certificate") or {}).get("events") or []] == ["ISSUED", "SUSPENDED"]
+              and len(told) == 1 and s_none == 409 and error(b_none).get("code") == "NO_CHANGE_PENDING"
+              and "CERTIFICATE_CHANGE_VOTE" in kinds and "CERTIFICATE_CHANGE_REJECTED" in kinds,
+              f"{s_r1} {s_r2} {s_r3} {(p_r.get('certificate') or {}).get('status')} {rejected} {len(told)} {s_none} {error(b_none)} {kinds}")
+        act(dec1, d2, "restore", reason="Corrective action verified on site")
+        set_policy("cert.decision", {"mode": "INDEPENDENT_REVIEWER"}, cc)
+        s_k1, _, p_k1 = change_vote(dec2, d2, "APPROVE", reason="Verified")
+        s_k2, _, p_k2 = change_vote(dec3, d2, "APPROVE", reason="Verified too")
+        s_i, b_i = act(dec1, d2, "suspend", reason="Second misuse")
+        p_i = b_i.get("object") or {}
+        check("a change round keeps the committee it was opened with after the policy turns independent (3 votes → ACTIVE);"
+              " independent mode then suspends in one step, with no round",
+              s_k1 == 200 and (p_k1.get("openChange") or {}).get("votesCast") == 2 and (p_k1.get("certificate") or {}).get("status") == "SUSPENDED"
+              and s_k2 == 200 and (p_k2.get("certificate") or {}).get("status") == "ACTIVE"
+              and s_i == 200 and (p_i.get("certificate") or {}).get("status") == "SUSPENDED" and not p_i.get("openChange")
+              and len(p_i.get("pastChanges") or []) == 3,
+              f"{s_k1} {p_k1.get('openChange')} {s_k2} {(p_k2.get('certificate') or {}).get('status')} {s_i} {error(b_i)} {p_i.get('openChange')}")
+
         set_policy("cert.decision", {"mode": "COMMITTEE", "committeeSize": 2}, cc)
         d3, _ = ready_cycle(f"D3-{tag}", cc)
         decide(dec1, d3, reason="Grant")
@@ -590,6 +686,11 @@ def main():
         cycle_ids = [r["id"] for r in search(CYCLE, f"self.reference like '%{tag}'")]
         if cycle_ids:
             ids = ",".join(map(str, cycle_ids))
+            # certificate change rounds point at the certificate (which points at its grant round): they go first
+            for model, domain in ((VOTE, f"self.decision.changeAction IS NOT NULL AND self.decision.cycle.id in ({ids})"),
+                                  (DECISION, f"self.changeAction IS NOT NULL AND self.cycle.id in ({ids})")):
+                for row in search(model, domain):
+                    delete_record(admin, model, row["id"])
             for model, domain in ((CEVENT, f"self.certificate.cycle.id in ({ids})"), (CERT, f"self.cycle.id in ({ids})"),
                                   (VOTE, f"self.decision.cycle.id in ({ids})"), (DECISION, f"self.cycle.id in ({ids})"),
                                   (NOTICE, f"self.subject = 'CERT_CYCLE' AND self.subjectId in ({ids})"),

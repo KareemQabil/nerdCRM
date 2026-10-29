@@ -16,6 +16,7 @@ async function mockRetention(page: Page, { owner = true } = {}) {
     LEADS: [{ id: 11, label: "منى عادل", lastActivityOn: iso(-20, -12), dueSince: iso(-20) },
       { id: 12, label: "شركة النيل", lastActivityOn: iso(-5, -12), dueSince: iso(-5) }],
     CONTACTS: [{ id: 21, label: "هاني فؤاد", lastActivityOn: iso(-3, -24), dueSince: iso(-3) }],
+    NATIONAL_IDS: [{ id: 31, label: "ليلى سمير", lastActivityOn: iso(-35, -12), dueSince: iso(-35) }],
   };
   const decisions: Record<string, unknown>[] = [];
   const types = () => [
@@ -24,6 +25,7 @@ async function mockRetention(page: Page, { owner = true } = {}) {
     { dataType: "TRAINEES", set: false, months: null, policyVersionId: null, since: null, due: null, canAnonymize: false },
     { dataType: "DONORS", set: false, months: null, policyVersionId: null, since: null, due: null, canAnonymize: false },
     { dataType: "CONTACTS", set: true, months: 24, policyVersionId: 7, since: iso(-60), due: queues.CONTACTS.length, canAnonymize: false },
+    { dataType: "NATIONAL_IDS", set: true, months: 12, policyVersionId: 8, since: iso(-60), due: queues.NATIONAL_IDS.length, canAnonymize: true },
   ];
   await page.route("**/axelor-erp/ws/ioeti/**", async (route: Route) => {
     const url = new URL(route.request().url());
@@ -41,14 +43,14 @@ async function mockRetention(page: Page, { owner = true } = {}) {
     if (!owner) return failure(403, { code: "FORBIDDEN" });
     if (path === "/privacy/retention") return result({ today: iso(0), types: types() });
     if (path === "/privacy/retention/decisions") return result([...decisions].reverse());
-    const queue = path.match(/^\/privacy\/retention\/([A-Z]+)$/);
+    const queue = path.match(/^\/privacy\/retention\/([A-Z_]+)$/);
     if (queue) {
       const t = types().find(x => x.dataType === queue[1])!;
       if (!t.set) return failure(422, { code: "POLICY_NOT_SET" });
       return result({ dataType: t.dataType, months: t.months, cutoff: iso(0, -(t.months ?? 0)), total: (queues[t.dataType] ?? []).length,
         canAnonymize: t.canAnonymize, rows: queues[t.dataType] ?? [] });
     }
-    const decide = path.match(/^\/privacy\/retention\/([A-Z]+)\/(\d+)\/(keep|anonymize)$/);
+    const decide = path.match(/^\/privacy\/retention\/([A-Z_]+)\/(\d+)\/(keep|anonymize)$/);
     if (decide) {
       const [, type, id, kind] = decide;
       if (!String(body.reason ?? "").trim()) return failure(422, { code: "VALIDATION_FAILED", fields: [{ field: "reason", code: "REQUIRED" }] });
@@ -121,6 +123,26 @@ test("D-07: a policy owner reviews records past their retention period: keeps on
   await expect(page.locator(".policies-history")).toContainText("نزاع مفتوح مع العميل");
   await expect(page.locator(".policies-history")).toContainText("سارة منصور");
   await expect(page.locator(".policies-history")).not.toContainText("منى عادل");
+});
+
+test("D-07: a trainee's national ID past certificate + 12 months is erased, not the trainee", async ({ page }) => {
+  const { posted } = await mockRetention(page);
+  await page.goto("/#/retention");
+  const tiles = page.locator(".retention-types");
+  await expect(tiles.getByRole("button", { name: /الرقم القومي للمتدربين/ })).toContainText("سجل واحد للمراجعة");
+  await tiles.getByRole("button", { name: /الرقم القومي للمتدربين/ }).click();
+  const table = page.getByRole("table", { name: "السجلات المستحقة للمراجعة" });
+  const row = table.getByRole("row", { name: /ليلى سمير/ });
+  await expect(row.getByRole("button", { name: /تجهيل/ })).toHaveCount(0);
+  await row.getByRole("button", { name: /امسح الرقم/ }).click();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog).toContainText("الخطوة دي ما ترجعش");
+  await dialog.getByLabel("السبب").fill("سنة عدّت على الشهادة");
+  await dialog.getByLabel("فاهم إن التجهيل ما يرجعش").check();
+  await dialog.getByRole("button", { name: "تأكيد" }).click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  expect(posted.at(-1)).toEqual({ path: "/privacy/retention/NATIONAL_IDS/31/anonymize", body: { reason: "سنة عدّت على الشهادة" } });
+  await expect(tiles.getByRole("button", { name: /الرقم القومي للمتدربين/ })).toContainText("مفيش سجلات للمراجعة");
 });
 
 test("D-07: the retention review is offered to policy owners only, and the server's refusal is shown", async ({ page }) => {

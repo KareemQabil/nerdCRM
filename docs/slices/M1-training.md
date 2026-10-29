@@ -50,6 +50,12 @@ A record keeps the policy version it was decided under. A certificate keeps its 
 - Validation: 14 digits, a 2/3 century digit and a real birth date. Arabic-Indic digits are accepted and stored as ASCII.
 - `REQUIRED` refuses an enrolment without it, and `NOT_ASKED` refuses one with it.
 - While the policy is not set nothing is collected. A number offered anyway answers `POLICY_NOT_SET`; it is never stored.
+- **How long it is kept (owner decision, 2026-10-29):**
+  - The `NATIONAL_IDS` retention type of `privacy.retention` counts from the certificate's issue date, or from the cohort's
+    end when no certificate was issued. The recommended value is 12 months.
+  - When the period runs out, the record is listed in the retention queue. The policy owner erases the number in one step
+    ("امسح الرقم"); the enrolment and the certificate stay. Nothing is erased automatically.
+  - `retention_probe.py` checks it.
 
 **Money (the honest minimum path)**
 - Training fees are not invoiced by this module. Finance invoices through its own D-06 flow and then **links the enrolment to the issued customer invoice** (`TrainingFee`) with the enrolment's share including tax.

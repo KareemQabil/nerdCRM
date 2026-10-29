@@ -25,6 +25,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 
 /**
@@ -40,6 +41,9 @@ import java.util.Optional;
  *       for each GRANT vote and again when the votes are tallied.
  *   <li>A GRANT issues the certificate in the same transaction; a cycle has at most one certificate. A REFUSE closes the
  *       round; a later round may be opened (e.g. after more corrective action).
+ *   <li>Suspending, restoring and withdrawing follow the same mode (owner decision 2026-10-29): one independent reviewer
+ *       acts alone; a committee votes on a change round (APPROVE / REJECT, majority approves, a tie rejects). Change rounds
+ *       are kept apart from grant rounds ({@link #openRound} ignores them).
  * </ul>
  *
  * <p>Votes lock the cycle row ({@code PESSIMISTIC_FORCE_INCREMENT}): concurrent votes on one cycle take turns and a vote
@@ -93,13 +97,28 @@ public class CertificationDecisionService {
     return Query.of(ClientCertificate.class).filter("self.cycle = :cycle").bind("cycle", cycle).fetchOne();
   }
 
+  /** The open certification (grant) round of a cycle; certificate change rounds are not grant rounds. */
   public static CertificationDecision openRound(CertificationCycle cycle) {
-    return Query.of(CertificationDecision.class).filter("self.cycle = :cycle AND self.status = :open")
+    return Query.of(CertificationDecision.class).filter("self.cycle = :cycle AND self.status = :open AND self.changeAction IS NULL")
         .bind("cycle", cycle).bind("open", DecisionRules.ROUND_OPEN).order("-id").fetchOne();
   }
 
+  /** The certification (grant) rounds of a cycle, newest first. */
   public static List<CertificationDecision> rounds(CertificationCycle cycle) {
-    return Query.of(CertificationDecision.class).filter("self.cycle = :cycle").bind("cycle", cycle).order("-id").fetch(50);
+    return Query.of(CertificationDecision.class).filter("self.cycle = :cycle AND self.changeAction IS NULL").bind("cycle", cycle)
+        .order("-id").fetch(50);
+  }
+
+  /** The open committee round on a change to the certificate (at most one), or null. */
+  public static CertificationDecision openChange(ClientCertificate certificate) {
+    return Query.of(CertificationDecision.class).filter("self.certificate = :c AND self.status = :open AND self.changeAction IS NOT NULL")
+        .bind("c", certificate).bind("open", DecisionRules.ROUND_OPEN).order("-id").fetchOne();
+  }
+
+  /** The committee rounds on changes to the certificate, newest first. */
+  public static List<CertificationDecision> changeRounds(ClientCertificate certificate) {
+    return Query.of(CertificationDecision.class).filter("self.certificate = :c AND self.changeAction IS NOT NULL").bind("c", certificate)
+        .order("-id").fetch(50);
   }
 
   public static List<CertificationVote> votes(CertificationDecision round) {
@@ -268,14 +287,107 @@ public class CertificationDecisionService {
 
   // --- certificate life ------------------------------------------------------------------------------------------
 
-  /** Suspends, restores or withdraws a certificate (eligible decision makers only; checked by the caller). */
+  /**
+   * Suspends, restores or withdraws a certificate under the scheme's decision mode (owner decision 2026-10-29). An
+   * independent reviewer changes it at once. In a committee, the request opens a change round with the person's APPROVE
+   * vote (or, when that action's round is open, records their APPROVE vote); the change applies once the committee
+   * approves it. Another change while a round is open → 409 CHANGE_PENDING. Locks the cycle like a grant vote.
+   */
   @Transactional(rollbackOn = {Exception.class})
   public ClientCertificate change(ClientCertificate certificate, String action, String reason, User actor, LocalDate today) {
     CertificationCycle cycle = certificate.getCycle();
+    JPA.em().lock(cycle, LockModeType.PESSIMISTIC_FORCE_INCREMENT);
     requireDecisionMaker(actor, cycle);
+    PolicyService.Applied decisionPolicy = policies.require(DECISION_POLICY, scheme(cycle), today);
+    String code = DecisionRules.CHANGE_ACTIONS.get(action);
+    if (code == null) throw ApiException.notFound();
+    CertificationDecision open = openChange(certificate);
+    String step = DecisionRules.changeStep(open == null ? DecisionRules.mode(decisionPolicy.value()).mode() : null,
+        open == null ? null : open.getChangeAction(), code);
+    // the action must apply to the certificate as it is now (422 CERTIFICATE_STATE / CERTIFICATE_EXPIRED)
+    DecisionRules.next(DecisionRules.effectiveStatus(certificate.getStatus(), certificate.getExpiresOn(), today), action);
+    if (DecisionRules.CHANGE_APPLY.equals(step)) return apply(certificate, action, reason, actor, today);
+    if (DecisionRules.CHANGE_VOTE.equals(step)) return castChangeVote(certificate, open, actor, DecisionRules.APPROVE, reason, today);
+    DecisionRules.Mode mode = DecisionRules.mode(decisionPolicy.value());
+    CertificationDecision round = new CertificationDecision();
+    round.setCycle(cycle);
+    round.setCertificate(certificate);
+    round.setChangeAction(code);
+    round.setRequestedBy(actor);
+    round.setRequestReason(reason);
+    round.setMode(mode.mode());
+    round.setRequiredVotes(mode.requiredVotes());
+    round.setStatus(DecisionRules.ROUND_OPEN);
+    round.setPolicyVersion(JPA.find(PolicyVersion.class, decisionPolicy.versionId()));
+    round = JPA.save(round);
+    ClientCertificate result = castChangeVote(certificate, round, actor, DecisionRules.APPROVE, reason, today);
+    if (DecisionRules.ROUND_OPEN.equals(round.getStatus())) {
+      Notifier notifier = Beans.get(Notifier.class);
+      for (User member : eligible(cycle)) {
+        if (member.equals(actor)) continue;
+        notifier.notify(member, "CERT_CHANGE_VOTE_NEEDED", SUBJECT, cycle.getId(),
+            "Certificate change on " + cycle.getReference() + " awaits your vote");
+      }
+    }
+    return result;
+  }
+
+  /**
+   * A committee member's APPROVE or REJECT vote on the certificate's open change round. 409 NO_CHANGE_PENDING when no
+   * round is open, 409 ALREADY_VOTED for a second vote; an APPROVE needs the change to still apply (422). Locks the cycle.
+   */
+  @Transactional(rollbackOn = {Exception.class})
+  public ClientCertificate changeVote(ClientCertificate certificate, String vote, String reason, User voter, LocalDate today) {
+    CertificationCycle cycle = certificate.getCycle();
+    JPA.em().lock(cycle, LockModeType.PESSIMISTIC_FORCE_INCREMENT);
+    requireDecisionMaker(voter, cycle);
     policies.require(DECISION_POLICY, scheme(cycle), today);
-    String next = DecisionRules.next(DecisionRules.effectiveStatus(certificate.getStatus(), certificate.getExpiresOn(), today), action);
-    certificate.setStatus(next);
+    CertificationDecision open = openChange(certificate);
+    if (open == null) {
+      throw new ApiException(409, "NO_CHANGE_PENDING", "No committee vote on a change to this certificate is open.", null);
+    }
+    return castChangeVote(certificate, open, voter, vote, reason, today);
+  }
+
+  private ClientCertificate castChangeVote(ClientCertificate certificate, CertificationDecision round, User voter, String vote, String reason,
+      LocalDate today) {
+    if (votes(round).stream().anyMatch(v -> v.getVoter().equals(voter))) {
+      throw new ApiException(409, DecisionRules.ALREADY_VOTED, "You already voted on this change.", null);
+    }
+    String action = round.getChangeAction().toLowerCase(Locale.ROOT);
+    if (DecisionRules.APPROVE.equals(vote)) {
+      DecisionRules.next(DecisionRules.effectiveStatus(certificate.getStatus(), certificate.getExpiresOn(), today), action);
+    }
+    CertificationVote row = new CertificationVote();
+    row.setDecision(round);
+    row.setVoter(voter);
+    row.setVote(vote);
+    row.setReason(reason);
+    row.setCastAt(LocalDateTime.now());
+    JPA.save(row);
+    String outcome = DecisionRules.changeTally(round.getRequiredVotes(), votes(round).stream().map(CertificationVote::getVote).toList());
+    if (outcome == null) return certificate;
+    if (DecisionRules.APPROVED.equals(outcome)) {
+      DecisionRules.next(DecisionRules.effectiveStatus(certificate.getStatus(), certificate.getExpiresOn(), today), action);
+    }
+    round.setStatus(DecisionRules.ROUND_DECIDED);
+    round.setOutcome(outcome);
+    round.setDecidedAt(LocalDateTime.now());
+    JPA.save(round);
+    CertificationCycle cycle = certificate.getCycle();
+    if (DecisionRules.APPROVED.equals(outcome)) {
+      // the history keeps who asked for the change and why; the round keeps the committee's votes
+      return apply(certificate, action, round.getRequestReason(), round.getRequestedBy(), today);
+    }
+    Beans.get(Notifier.class).notify(cycle.getManager(), "CERT_CHANGE_REJECTED", SUBJECT, cycle.getId(),
+        "Certificate change on " + cycle.getReference() + " was rejected by the committee");
+    return certificate;
+  }
+
+  /** Applies a change: the new status, the event in the certificate's history and the programme manager's notice. */
+  private ClientCertificate apply(ClientCertificate certificate, String action, String reason, User actor, LocalDate today) {
+    CertificationCycle cycle = certificate.getCycle();
+    certificate.setStatus(DecisionRules.next(DecisionRules.effectiveStatus(certificate.getStatus(), certificate.getExpiresOn(), today), action));
     ClientCertificate saved = JPA.save(certificate);
     String kind = DecisionRules.EVENTS.get(action);
     event(saved, kind, reason, actor);

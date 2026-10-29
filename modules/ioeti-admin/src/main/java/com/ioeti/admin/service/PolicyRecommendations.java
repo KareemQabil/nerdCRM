@@ -123,6 +123,9 @@ public class PolicyRecommendations {
         why + "5 سنين زي مدة الاحتفاظ بالدفاتر الضريبية.", whyEn + "Five years, like the tax-record keeping period."));
     out.add(r("privacy.retention", "CONTACTS", "CONTACTS", "{'months':36}", Basis.PRACTICE,
         why + "3 سنين بعد آخر تعامل.", whyEn + "Three years after the last dealing."));
+    out.add(r("privacy.retention", "NATIONAL_IDS", "NATIONAL_IDS", "{'months':12}", Basis.PRACTICE,
+        why + "سنة بعد إصدار الشهادة (أو نهاية الدفعة من غير شهادة)، بعدها يتمسح الرقم. قرار المالك 2026-10-29.",
+        whyEn + "One year after the certificate is issued (or the cohort ends without one), then the number is erased. Owner decision 2026-10-29."));
     // --- D-12 leads
     out.add(r("leads.response-target", null, null, "{'firstContactHours':4,'qualificationHours':40}", Basis.PRACTICE,
         "أول تواصل خلال 4 ساعات عمل (نفس اليوم)، والتأهيل خلال أسبوع عمل.", "First contact within 4 working hours (the same day), qualified within a working week."));

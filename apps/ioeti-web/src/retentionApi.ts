@@ -5,7 +5,7 @@ import { ApiError, wrapped } from "./api";
  * reason, until a date) or anonymize. Nothing is removed or changed automatically. The server checks on every call that the
  * caller is a policy owner.
  */
-export type DataType = "LEADS" | "CANDIDATES" | "TRAINEES" | "DONORS" | "CONTACTS";
+export type DataType = "LEADS" | "CANDIDATES" | "TRAINEES" | "DONORS" | "CONTACTS" | "NATIONAL_IDS";
 /** One data type; `due` is null when no period is set (never shown as zero). */
 export type RetentionType = {
   dataType: DataType; set: boolean; months: number | null; policyVersionId: number | null; since: string | null; due: number | null; canAnonymize: boolean;

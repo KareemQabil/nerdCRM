@@ -36,6 +36,8 @@ CANDIDATE, PRIVATE = "com.ioeti.recruitment.db.RecruitmentCandidate", "com.ioeti
 DOC, NOTICE, OUTBOUND = "com.ioeti.content.db.RecordDocument", "com.ioeti.automation.db.InboxNotice", "com.ioeti.automation.db.OutboundMessage"
 VERSION, DECISION = "com.ioeti.core.db.PolicyVersion", "com.ioeti.workspace.db.RetentionDecision"
 AUDIT = "com.ioeti.admin.db.AdminAuditEvent"
+T = "com.ioeti.training.db."
+COURSE, COHORT, ENROLLMENT, NATID = T + "TrainingCourse", T + "TrainingCohort", T + "TrainingEnrollment", T + "TrainingNationalId"
 R, P = "/ws/ioeti/privacy/retention", "/ws/ioeti/policies"
 KEY = "privacy.retention"
 RESULTS = []
@@ -120,6 +122,16 @@ def main():
         cand, cand_recent = (create(CANDIDATE, {"displayName": f"{name} C{n}", "headline": "Quality engineer", "yearsExperience": 7}) for n in (1, 2))
         private = create(PRIVATE, {"candidate": {"id": cand["id"]}, "email": f"cand.{tag}@example.test", "phone": "+201000000000", "cvReference": "CV-1"})
         contact = create(PARTNER, {"name": f"{name} K", "isContact": True, "partnerTypeSelect": 2})
+        # national IDs (owner decision 2026-10-29): counted from the certificate, or from the cohort's end without one
+        course = create(COURSE, {"code": f"RET-{tag}", "name": f"Retention course {tag}"})
+        trainee = create(PARTNER, {"name": f"{name} T", "partnerTypeSelect": 2})
+        ids_due, ids_recent = [], []
+        for n, ended in ((1, today - timedelta(days=400)), (2, today - timedelta(days=30))):
+            cohort = create(COHORT, {"code": f"RET-{tag}-{n}", "course": {"id": course["id"]}, "capacity": 5, "statusSelect": 3,
+                                     "startDate": str(ended - timedelta(days=10)), "endDate": str(ended)})
+            enrol = create(ENROLLMENT, {"cohort": {"id": cohort["id"]}, "trainee": {"id": trainee["id"]}, "statusSelect": 1})
+            nat = create(NATID, {"enrollment": {"id": enrol["id"]}, "idNumber": f"2900101{n:07d}", "recordedAt": f"{ended}T09:00:00"})
+            (ids_due if n == 1 else ids_recent).append(nat["id"])
         age("crm_lead", [old["id"], kept["id"], filed["id"], followed["id"]], 400)
         age("ical_event", [event["id"]], 500)
         age("ioeti_rec_candidate", [cand["id"]], 800)
@@ -140,7 +152,7 @@ def main():
         s, _ = owner.call("GET", R + "/EVERYTHING")
         check("an unknown data type is not found (404)", s == 404, s)
 
-        for scope in ("LEADS", "CANDIDATES", "CONTACTS"):
+        for scope in ("LEADS", "CANDIDATES", "CONTACTS", "NATIONAL_IDS"):
             s, b = owner.call("POST", f"{P}/{KEY}", {"scope": scope, "value": {"months": 12}, "reason": f"probe {tag}"})
             assert s == 201, f"setting the period for {scope}: {s} {b}"
 
@@ -226,12 +238,23 @@ def main():
               s == 200 and c_after.get("displayName") == "Anonymized" and c_after.get("headline") is None
               and (p_after.get("email"), p_after.get("phone"), p_after.get("cvReference")) == (None, None, None), (s, c_after, p_after))
 
+        # --- national IDs ----------------------------------------------------------------------------------------------
+        s, b = owner.call("GET", R + "/NATIONAL_IDS")
+        nat_rows = {r["id"]: r for r in obj(b).get("rows", [])}
+        s2, b2 = owner.call("POST", f"{R}/NATIONAL_IDS/{ids_due[0]}/anonymize", {"reason": f"one year after the cohort {tag}"})
+        left = search(NATID, f"self.id IN ({ids_due[0]}, {ids_recent[0]})")
+        check("national IDs: due one period after the cohort ended without a certificate (a recent cohort is not); erasing removes the "
+              "number and keeps the enrolment; nothing else is touched",
+              s == 200 and ids_due[0] in nat_rows and ids_recent[0] not in nat_rows and s2 == 200
+              and [x["id"] for x in left] == [ids_recent[0]] and fetch(ENROLLMENT, enrol["id"], ("id",)).get("id") == enrol["id"],
+              (s, list(nat_rows), s2, left))
+
         # --- the decision log ---------------------------------------------------------------------------------------
         s, b = owner.call("GET", R + "/decisions")
         log = [d for d in (b.get("object") or b.get("data") or []) if f"{tag}" in (d.get("reason") or "")]
         kinds = sorted((d["dataType"], d["decision"]) for d in log)
         check("log: every decision is listed with its reason and who decided; no old name is in it",
-              s == 200 and kinds == sorted([("LEADS", "KEEP"), ("CONTACTS", "KEEP"), ("LEADS", "ANONYMIZED"), ("CANDIDATES", "ANONYMIZED")])
+              s == 200 and kinds == sorted([("LEADS", "KEEP"), ("CONTACTS", "KEEP"), ("LEADS", "ANONYMIZED"), ("CANDIDATES", "ANONYMIZED"), ("NATIONAL_IDS", "ANONYMIZED")])
               and all(d.get("decidedBy") == users["Owner"]["name"] for d in log) and name not in json.dumps(log, ensure_ascii=False), kinds)
         s, _ = other.call("GET", R + "/decisions")
         check("log: someone who is not a policy owner cannot read it (403)", s == 403, s)
@@ -254,8 +277,8 @@ def main():
             ids = [i for m, i in created if m == model]
             if ids:
                 created.extend((MESSAGE, m["id"]) for m in search(MESSAGE, f"self.relatedModel = '{model}' AND self.relatedId IN ({','.join(map(str, ids))})"))
-        order = {DECISION: 0, AUDIT: 0, VERSION: 1, MESSAGE: 1, NOTICE: 2, OUTBOUND: 2, DOC: 2, EVENT: 2, PRIVATE: 2, LEAD: 3, CANDIDATE: 3, PARTNER: 3, EMAIL: 4,
-                 USER: 5, GROUP: 6}
+        order = {DECISION: 0, AUDIT: 0, VERSION: 1, MESSAGE: 1, NOTICE: 2, OUTBOUND: 2, DOC: 2, EVENT: 2, PRIVATE: 2, NATID: 2, ENROLLMENT: 3,
+                 COHORT: 4, COURSE: 5, LEAD: 3, CANDIDATE: 3, PARTNER: 6, EMAIL: 4, USER: 7, GROUP: 8}
         complete, left = cleanup(admin, list(dict.fromkeys(created)), order)
         if not complete:
             print(f"FAIL cleanup left {left}")
