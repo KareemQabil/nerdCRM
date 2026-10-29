@@ -109,3 +109,10 @@
 .cert-dialog-field{display:flex;flex-direction:column;gap:6px;font-size:13px;margin-top:10px;}
 .cert-due-hint{display:flex;gap:6px;align-items:center;}
 @media (max-width:640px){.cert-card-head{flex-wrap:wrap;}.cert-schedule li{grid-template-columns:1fr auto;}.cert-schedule li>span:nth-child(3){grid-column:1/-1;}}
+/* D-02 (2026-10-29): committee votes on certificate changes */
+.cert-change-round{margin-block:10px;}
+.cert-change-request{display:grid;gap:4px;margin:0;}
+.cert-change-request div{display:flex;gap:8px;flex-wrap:wrap;}
+.cert-change-request dt{font-weight:700;color:var(--on-surface-variant);}
+.cert-change-request dd{margin:0;overflow-wrap:anywhere;}
+.cert-committee-note{margin-block-end:8px;}

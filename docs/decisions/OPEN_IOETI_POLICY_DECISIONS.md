@@ -110,8 +110,8 @@ Signer: the project owner, answering a structured interview in the engineering s
   - Decisions follow `cert.decision` per scheme (independent reviewer, or a committee of N: majority grants, a tie
     refuses); a GRANT issues the certificate (validity and surveillance from `cert.cycle`). Fail closed while either is unset.
   - The decision right is the role `ioeti-cert-decision-maker`; anyone who ever audited the client is refused.
-  - Suspend, restore and withdraw are taken by one eligible decision maker (not by the committee); to confirm with the
-    quality manager.
+  - Suspend, restore and withdraw follow the same mode as granting (owner confirmed 2026-10-29; built: committee change
+    rounds, migration V031).
   - The public check runs only while `channels.enabled` contains CERTIFICATE_CHECK (D-10).
   - See `docs/slices/M1-certification.md`.
 - **D-04 implemented (2026-10-27, M1):**
