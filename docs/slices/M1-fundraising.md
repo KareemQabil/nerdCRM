@@ -22,9 +22,10 @@ on a scratch copy of the dev schema. `db_migrate.py verify` still has to run onc
 | Void and reissue | `POST /receipts/{id}/void {version, reason}`. Reasons: WRONG_DONOR_DETAILS, WRONG_AMOUNT, COLLECTION_CORRECTED, DUPLICATE. A stale version → 409; twice → 422 `RECEIPT_VOIDED`. The voided receipt keeps its number. Issuing again creates a new number that records which receipt it replaces. |
 | Printable | `#/fundraising/receipts/{id}` is a receipt sheet with a print button. A print stylesheet prints the sheet only. |
 
-**Engineering choice: anonymous donors.** An anonymous donor stays unnamed in fundraising lists. Their receipt is still
-addressed to them: it carries the account name, and only people with read rights on receipts (finance) see it. Owners may
-revisit this under D-05 donor privacy.
+**Anonymous donors (owner decision, 2026-10-29).** An anonymous donor stays unnamed in fundraising lists, and their
+receipt carries no name either: it is printed as "anonymous donor" (`ReceiptRules.printedName`). Finance still finds who
+the donor is from the collection in the CRM. `fundraising_probe.py` checks it: a receipt reissued for a donor marked
+anonymous has no `donorName`, and the account name appears nowhere in it.
 
 ## Restricted funds: what is posted and what is only recorded
 

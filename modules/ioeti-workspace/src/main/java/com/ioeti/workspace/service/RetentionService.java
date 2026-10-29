@@ -26,7 +26,7 @@ import java.util.Optional;
  * <ul>
  *   <li><b>keep</b> it, with a reason and the date to review it again (at most one more period away); or
  *   <li><b>anonymize</b> it: the person's details are overwritten in place, the record and its business history stay.
- *       Offered for leads and candidates only. Trainees, donors and contacts are shared partner records that invoices,
+ *       Offered for leads and candidates; for a trainee's national ID it erases the number (the enrolment stays). Trainees, donors and contacts are shared partner records that invoices,
  *       receipts and certificates point to; what accounting must keep about them is not decided, so they can only be kept.
  * </ul>
  *
@@ -79,10 +79,17 @@ public class RetentionService {
           SELECT p.id AS id, COALESCE(NULLIF(p.full_name, ''), p.name) AS label,
             CAST(GREATEST(COALESCE(p.updated_on, p.created_on),
               (SELECT MAX(COALESCE(e.updated_on, e.created_on)) FROM ical_event e WHERE e.contact_partner = p.id)) AS date) AS last
-          FROM base_partner p WHERE p.is_contact = true""");
+          FROM base_partner p WHERE p.is_contact = true""",
+      // owner decision 2026-10-29: a trainee's national ID counts from the certificate's issue, or from the cohort's end
+      // when no certificate was issued; while the cohort runs it is never due
+      "NATIONAL_IDS", """
+          SELECT n.id AS id, COALESCE(NULLIF(p.full_name, ''), p.name) AS label,
+            CAST(COALESCE((SELECT MAX(c.issue_date) FROM ioeti_training_certificate c WHERE c.enrollment = e.id), h.end_date) AS date) AS last
+          FROM ioeti_training_national_id n JOIN ioeti_training_enrollment e ON e.id = n.enrollment
+            JOIN base_partner p ON p.id = e.trainee JOIN ioeti_training_cohort h ON h.id = e.cohort""");
 
   /** The data types whose records may be anonymized here. */
-  public static final List<String> ANONYMIZABLE = List.of("LEADS", "CANDIDATES");
+  public static final List<String> ANONYMIZABLE = List.of("LEADS", "CANDIDATES", "NATIONAL_IDS");
 
   /** The row source of each type, locked for one record (two reviewers cannot decide the same record at once). */
   static final Map<String, String> LOCKS = Map.of(
@@ -90,7 +97,8 @@ public class RetentionService {
       "CANDIDATES", "SELECT id FROM ioeti_rec_candidate WHERE id = ?1 FOR UPDATE",
       "TRAINEES", "SELECT id FROM base_partner WHERE id = ?1 FOR UPDATE",
       "DONORS", "SELECT id FROM ioeti_fund_donor WHERE id = ?1 FOR UPDATE",
-      "CONTACTS", "SELECT id FROM base_partner WHERE id = ?1 FOR UPDATE");
+      "CONTACTS", "SELECT id FROM base_partner WHERE id = ?1 FOR UPDATE",
+      "NATIONAL_IDS", "SELECT id FROM ioeti_training_national_id WHERE id = ?1 FOR UPDATE");
 
   /** The policy for one type: its version, period in months, and the cut-off (records last active on or before it are due). */
   public record Period(PolicyVersion version, int months, LocalDate cutoff) {}
@@ -194,6 +202,11 @@ public class RetentionService {
     }
     Period period = require(type, today);
     Due due = lockDue(type, period, today, id);
+    if ("NATIONAL_IDS".equals(type)) {
+      // the number itself is the personal data: it is erased; the enrolment and its certificate stay
+      update("DELETE FROM ioeti_training_national_id WHERE id = ?1", id);
+      return record(type, due, ANONYMIZED, reason, null, period, me);
+    }
     long files = "LEADS".equals(type)
         ? count("SELECT COUNT(*) FROM ioeti_doc_document WHERE subject_select = 1 AND subject_id = ?1", id) + files(LEAD_MODEL, id)
         : files(CANDIDATE_MODEL, id);

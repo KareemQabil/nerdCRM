@@ -13,7 +13,7 @@ import "./policies.css";
 import { ErrorBanner, PageHeader } from "./ui";
 
 const AREAS = ["FINANCE", "SALES", "LEADS", "CERTIFICATION", "TRAINING", "RECRUITMENT", "PRIVACY", "CHANNELS"] as const;
-const DATA_TYPES = ["LEADS", "CANDIDATES", "TRAINEES", "DONORS", "CONTACTS"];
+const DATA_TYPES = ["LEADS", "CANDIDATES", "TRAINEES", "DONORS", "CONTACTS", "NATIONAL_IDS"];
 /** D-12: the routing rules name teams and lead sources by id; the editor offers and shows them by name. */
 const REFERENCES: Record<string, keyof PolicyReferences> = { teamId: "teams", sourceId: "sources" };
 const Refs = createContext<PolicyReferences>({ teams: [], sources: [] });
@@ -102,7 +102,7 @@ const OPTIONS: Record<string, [string, string]> = {
   START_DATE: ["تاريخ بدء العمل", "Start date"], OFFER_ACCEPTED: ["قبول العرض", "Offer accepted"],
   REPLACE: ["استبدال المرشح", "Replace the candidate"], PARTIAL_REFUND: ["استرداد جزئي", "Partial refund"],
   SAT: ["السبت", "Sat"], SUN: ["الأحد", "Sun"], MON: ["الاثنين", "Mon"], TUE: ["الثلاثاء", "Tue"], WED: ["الأربعاء", "Wed"], THU: ["الخميس", "Thu"], FRI: ["الجمعة", "Fri"],
-  LEADS: ["الـ leads", "Leads"], CANDIDATES: ["المرشحين", "Candidates"], TRAINEES: ["المتدربين", "Trainees"], DONORS: ["المتبرعين", "Donors"], CONTACTS: ["جهات الاتصال", "Contacts"],
+  LEADS: ["الـ leads", "Leads"], CANDIDATES: ["المرشحين", "Candidates"], TRAINEES: ["المتدربين", "Trainees"], DONORS: ["المتبرعين", "Donors"], CONTACTS: ["جهات الاتصال", "Contacts"], NATIONAL_IDS: ["الرقم القومي للمتدربين", "Trainee national IDs"],
   LEAD_FORMS: ["نماذج الـ leads العامة", "Public lead forms"], CERTIFICATE_CHECK: ["التحقق من الشهادات", "Certificate check"],
   CLIENT_PORTAL: ["بوابة العملاء", "Client portal"], COURSE_SIGNUP: ["التسجيل في الكورسات", "Course sign-up"], EMAIL: ["البريد", "E-mail"],
   WHATSAPP: ["واتساب", "WhatsApp"], E_SIGNATURE: ["التوقيع الإلكتروني", "E-signature"], PAYMENTS: ["الدفع أونلاين", "Online payments"],

@@ -145,6 +145,18 @@ Signer: the project owner, answering a structured interview in the engineering s
     is 100%.
   - See `docs/slices/M1-training.md`.
 
+- **Owner answers (2026-10-29, signed by the owner in the session):**
+  - **PR #35** (lean staging package): merged.
+  - **D-02:** suspending, restoring and withdrawing a certificate follow the scheme's decision mode, the same as granting.
+    One eligible reviewer acts alone, or the committee of N votes (strict majority; a tie rejects).
+  - **D-05:** a donor who asked to stay anonymous gets a receipt with no name. It is printed as "anonymous donor". Finance
+    still finds the donor through the collection in the CRM.
+  - **D-07:** a trainee's national ID is kept until one year after the certificate is issued, or after the cohort ends
+    without one.
+    - It is a retention data type, `NATIONAL_IDS`; the recommended value is 12 months.
+    - When the period runs out, the record is listed for review. The policy owner erases the number in one step; the
+      enrolment and the certificate stay. Nothing is erased automatically.
+
 ## Related, owner-only actions (not engineering decisions)
 
 - Send, or decide not to send, the private upstream report for the AOP thread-bound identity issue. The draft is held outside the repository; see PR #9.

@@ -17,13 +17,13 @@ const L = {
   ar: {
     eyebrow: "الإدارة", title: "مراجعة الاحتفاظ بالبيانات",
     intro: "لما مدة الاحتفاظ بنوع بيانات تخلص من آخر نشاط على السجل، السجل بيظهر هنا للمراجعة. مفيش حذف ولا تعديل تلقائي: انت بتقرر لكل سجل — تحتفظ بيه بسبب لحد تاريخ، أو تجهّله.",
-    types: { LEADS: "الـ leads", CANDIDATES: "المرشحين", TRAINEES: "المتدربين", DONORS: "المتبرعين", CONTACTS: "جهات الاتصال" } as Record<DataType, string>,
+    types: { LEADS: "الـ leads", CANDIDATES: "المرشحين", TRAINEES: "المتدربين", DONORS: "المتبرعين", CONTACTS: "جهات الاتصال", NATIONAL_IDS: "الرقم القومي للمتدربين" } as Record<DataType, string>,
     notSet: "المدة مش مضبوطة", notSetHint: "مالك السياسات يحددها من صفحة السياسات (مدة الاحتفاظ بالبيانات).",
     months: (n: number) => n === 1 ? "شهر واحد" : n === 2 ? "شهرين" : n <= 10 ? `${n} شهور` : `${n} شهر`,
     due: (n: number) => n === 0 ? "مفيش سجلات للمراجعة" : n === 1 ? "سجل واحد للمراجعة" : `${n} سجلات للمراجعة`,
     queue: "السجلات المستحقة للمراجعة", empty: "مفيش سجلات مستحقة للمراجعة دلوقتي.",
     name: "السجل", last: "آخر نشاط", dueSince: "مستحق من", actions: "القرار", shown: (shown: number, total: number) => `بيظهر ${shown} من ${total}`,
-    keep: "احتفاظ", anonymize: "تجهيل", keepTitle: "الاحتفاظ بالسجل",
+    keep: "احتفاظ", anonymize: "تجهيل", erase: "امسح الرقم", keepTitle: "الاحتفاظ بالسجل",
     keepText: "السجل هيختفي من القائمة لحد تاريخ المراجعة الجاية، وبعدها يرجع لو لسه مستحق.",
     reason: "السبب", again: "راجعه تاني يوم", againHint: (max: string) => `بعد النهارده، ولحد ${max} بالكتير (مدة احتفاظ واحدة كمان).`,
     anonTitle: "تجهيل السجل",
@@ -40,13 +40,13 @@ const L = {
   en: {
     eyebrow: "Administration", title: "Retention review",
     intro: "When a data type's retention period has passed since a record's last activity, the record is listed here for review. Nothing is removed or changed automatically: you decide for each record — keep it, with a reason, until a date, or anonymize it.",
-    types: { LEADS: "Leads", CANDIDATES: "Candidates", TRAINEES: "Trainees", DONORS: "Donors", CONTACTS: "Contacts" } as Record<DataType, string>,
+    types: { LEADS: "Leads", CANDIDATES: "Candidates", TRAINEES: "Trainees", DONORS: "Donors", CONTACTS: "Contacts", NATIONAL_IDS: "Trainee national IDs" } as Record<DataType, string>,
     notSet: "Period not set", notSetHint: "A policy owner sets it under Policies (Data retention).",
     months: (n: number) => n === 1 ? "1 month" : `${n} months`,
     due: (n: number) => n === 0 ? "Nothing to review" : n === 1 ? "1 record to review" : `${n} records to review`,
     queue: "Records due for review", empty: "No records are due for review now.",
     name: "Record", last: "Last activity", dueSince: "Due since", actions: "Decision", shown: (shown: number, total: number) => `Showing ${shown} of ${total}`,
-    keep: "Keep", anonymize: "Anonymize", keepTitle: "Keep this record",
+    keep: "Keep", anonymize: "Anonymize", erase: "Erase the number", keepTitle: "Keep this record",
     keepText: "The record leaves the list until the review date, and comes back then if it is still due.",
     reason: "Reason", again: "Review again on", againHint: (max: string) => `After today, and by ${max} at the latest (one more retention period).`,
     anonTitle: "Anonymize this record",
@@ -110,7 +110,7 @@ export function RetentionPage({ language }: { language: Language }) {
       <button type="button" className="btn btn-small btn-secondary" onClick={() => { setNotice(""); setDeciding({ row: r, kind: "KEEP" }); }}>
         <Archive size={14}/>{l.keep}<span className="sr-only">: {r.label}</span></button>
       {queue?.canAnonymize && <button type="button" className="btn btn-small btn-danger" onClick={() => { setNotice(""); setDeciding({ row: r, kind: "ANONYMIZED" }); }}>
-        <EyeOff size={14}/>{l.anonymize}<span className="sr-only">: {r.label}</span></button>}
+        <EyeOff size={14}/>{chosen === "NATIONAL_IDS" ? l.erase : l.anonymize}<span className="sr-only">: {r.label}</span></button>}
     </span> },
   ];
   return <section className="page-enter policies-page retention-page">

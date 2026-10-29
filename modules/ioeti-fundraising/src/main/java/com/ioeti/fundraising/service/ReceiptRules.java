@@ -10,6 +10,8 @@ import java.util.regex.Pattern;
  *   <li>A receipt is issued only for a recorded collection: never for a pledge, an installment or a voided collection.
  *   <li>One receipt in force per collection; a voided receipt stays on file and a reissue gets a new number.
  *   <li>Numbers run per calendar year of issue: {@code DR-2026-000001}, never reused.
+ *   <li>A donor who asked to stay anonymous gets a receipt with no name ("anonymous donor" is printed); finance still finds
+ *       who it is from the collection in the CRM (owner decision, 2026-10-29).
  * </ul>
  */
 public final class ReceiptRules {
@@ -37,5 +39,10 @@ public final class ReceiptRules {
     if (collectionVoided) return "COLLECTION_VOIDED";
     if (receiptInForce) return "RECEIPT_EXISTS";
     return null;
+  }
+
+  /** The name printed on a receipt: none for a donor who asked to stay anonymous. */
+  public static String printedName(boolean anonymous, String accountName) {
+    return anonymous ? null : accountName;
   }
 }

@@ -324,6 +324,19 @@ def main():
               and r2.get("replacesNumber") == r1.get("number") and sorted(x["status"] for x in obj(all_r)) == ["ISSUED", "VOIDED"],
               f"{s_rv_stale} {s_rv_bad} {s_rv_a} {s_rv} {s_rv2} {s_r2} {r2}")
 
+        # owner decision 2026-10-29: a donor who asked to stay anonymous gets a receipt with no name (shown as anonymous)
+        _, dcur = admin.call("POST", f"/ws/rest/{DONOR}/{donor['id']}/fetch", {"fields": ["version"]})
+        admin.call("POST", f"/ws/rest/{DONOR}/{donor['id']}", {"data": {"id": donor["id"], "version": (dcur.get("data") or [{}])[0].get("version"),
+                                                                      "anonymous": True}})
+        s_rv3, _ = call(fin, "POST", f"/receipts/{r2['id']}/void", {"version": version(RECEIPT, r2["id"]), "reason": "WRONG_DONOR_DETAILS"})
+        s_r3, _, r3 = receipt(fin, k2["id"])
+        _, dcur = admin.call("POST", f"/ws/rest/{DONOR}/{donor['id']}/fetch", {"fields": ["version"]})
+        admin.call("POST", f"/ws/rest/{DONOR}/{donor['id']}", {"data": {"id": donor["id"], "version": (dcur.get("data") or [{}])[0].get("version"),
+                                                                      "anonymous": False}})
+        check("a donor who asked to stay anonymous: the reissued receipt carries no name (printed as anonymous), the amount stays",
+              s_rv3 == 200 and s_r3 == 201 and r3.get("donorName") is None and num(r3.get("amount")) == 150000
+              and foundation["name"] not in json.dumps(r3), f"{s_rv3} {s_r3} {r3}")
+
         # --- 4c. D-05 restricted funds: restriction → analytic account; allocation; the balance report ----------
         acct = create(ANALYTIC, {"code": f"AN{tag}", "name": f"Probe STEM {tag}", "statusSelect": 1})
         idle = create(ANALYTIC, {"code": f"AX{tag}", "name": f"Probe inactive {tag}", "statusSelect": 0})
