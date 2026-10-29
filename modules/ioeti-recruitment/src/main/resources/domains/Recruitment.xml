@@ -98,17 +98,81 @@
     ]]></extra-code>
   </entity>
 
+  <!-- RESTRICTED: the pay the client offered, written through the API and read on the server only, to compute the
+       placement fee (D-04). Never returned. -->
+  <entity name="OfferPrivateTerms" table="ioeti_rec_offer_private">
+    <many-to-one name="application" ref="CandidateApplication" title="Application" required="true" unique="true"/>
+    <decimal name="annualSalary" title="Annual salary" precision="20" scale="2" required="true"/>
+    <many-to-one name="currency" ref="com.axelor.apps.base.db.Currency" title="Currency" required="true"/>
+  </entity>
+
   <entity name="Placement" table="ioeti_rec_placement">
     <many-to-one name="application" ref="CandidateApplication" title="Application" required="true" unique="true"/>
     <date name="startDate" title="Start date" required="true"/>
     <integer name="guaranteeStatusSelect" title="Guarantee status" required="true"/>
+    <!-- D-04 (signed 2026-10-25): the client agreement (policy recruitment.agreement) the placement is decided under,
+         copied once so later policy changes do not rewrite it -->
+    <many-to-one name="agreementPolicy" ref="com.ioeti.core.db.PolicyVersion" title="Client agreement version"/>
+    <decimal name="feePercent" title="Fee (% of annual salary)" precision="5" scale="2"/>
+    <integer name="invoiceOnSelect" title="Fee invoiced on"/>
+    <integer name="guaranteeDays" title="Guarantee (days)"/>
+    <integer name="replacementSelect" title="If the candidate leaves in the guarantee"/>
+    <decimal name="refundPercent" title="Refund (%)" precision="5" scale="2"/>
+    <date name="guaranteeEndsOn" title="Guarantee ends on"/>
+    <date name="exitedOn" title="Left on"/>
+    <integer name="exitReasonSelect" title="Why the candidate left"/>
+    <integer name="exitOutcomeSelect" title="Guarantee outcome"/>
+    <many-to-one name="replacementOf" ref="Placement" title="Replaces placement"/>
+    <boolean name="feeWaived" title="Free replacement (no fee)"/>
 
     <extra-code><![CDATA[
       public static final int GUARANTEE_TERMS_PENDING = 1;
+      public static final int GUARANTEE_TERMS_APPLIED = 2;
+      public static final int GUARANTEE_EXITED = 3;
+      public static final int INVOICE_ON_START_DATE = 1;
+      public static final int INVOICE_ON_OFFER_ACCEPTED = 2;
+      public static final int RULE_REPLACE = 1;
+      public static final int RULE_PARTIAL_REFUND = 2;
+      public static final int RULE_NONE = 3;
+      public static final int EXIT_RESIGNED = 1;
+      public static final int EXIT_DISMISSED = 2;
+      public static final int EXIT_OTHER = 3;
+      public static final int OUTCOME_REPLACEMENT_OPENED = 1;
+      public static final int OUTCOME_REFUND_REQUESTED = 2;
+      public static final int OUTCOME_NO_REMEDY = 3;
+      public static final int OUTCOME_OUTSIDE_GUARANTEE = 4;
+      public static final int OUTCOME_NO_FEE_TO_REFUND = 5;
     ]]></extra-code>
   </entity>
 
-  <!-- A billable event of a placement. Amounts and invoicing wait for D-04 (fees) and D-06 (invoicing). -->
+  <!-- D-04 + D-06: a request to finance to invoice a placement fee, or to credit part of it after an early exit.
+       Recorded once per placement and kind; finance issues the invoice or credit note in accounting. -->
+  <entity name="RecruitmentFeeRequest" table="ioeti_rec_fee_request">
+    <many-to-one name="placement" ref="Placement" title="Placement" required="true"/>
+    <integer name="kindSelect" title="Request" required="true"/>
+    <many-to-one name="client" ref="com.axelor.apps.base.db.Partner" title="Client" required="true"/>
+    <decimal name="amountBeforeTax" title="Amount before tax" precision="20" scale="2" required="true"/>
+    <many-to-one name="currency" ref="com.axelor.apps.base.db.Currency" title="Currency" required="true"/>
+    <decimal name="ratePercent" title="Rate (%)" precision="5" scale="2" required="true"/>
+    <many-to-one name="agreementPolicy" ref="com.ioeti.core.db.PolicyVersion" title="Client agreement version"/>
+    <many-to-one name="refundOf" ref="RecruitmentFeeRequest" title="Credits the fee request"/>
+    <integer name="statusSelect" title="Status" required="true"/>
+    <many-to-one name="requestedBy" ref="com.axelor.auth.db.User" title="Requested by"/>
+    <datetime name="requestedAt" title="Requested at" required="true"/>
+
+    <unique-constraint columns="placement,kindSelect"/>
+
+    <extra-code><![CDATA[
+      public static final int KIND_FEE_INVOICE = 1;
+      public static final int KIND_REFUND_CREDIT = 2;
+      public static final int STATUS_REQUESTED = 1;
+      public static final int STATUS_CANCELLED = 2;
+      public static final int STATUS_ISSUED = 3;
+    ]]></extra-code>
+  </entity>
+
+  <!-- A billable event of a placement (offer accepted, candidate started); the client agreement says which one
+       triggers the fee request (D-04). -->
   <entity name="RecruitmentFeeMilestone" table="ioeti_rec_fee_milestone">
     <many-to-one name="placement" ref="Placement" title="Placement" required="true"/>
     <integer name="kindSelect" title="Event" required="true"/>

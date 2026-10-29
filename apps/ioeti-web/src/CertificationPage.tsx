@@ -1,16 +1,19 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  ArrowLeft, ArrowRight, BadgeCheck, CalendarCheck, CheckCircle2, CircleAlert, CircleDashed, ClipboardList, History,
-  LockKeyhole, Plus, RefreshCw, Search, ShieldCheck, UserCheck, XCircle,
+  ArrowLeft, ArrowRight, Award, Ban, BadgeCheck, CalendarCheck, CalendarClock, CheckCircle2, CircleAlert, CircleDashed, CirclePause,
+  CirclePlay, ClipboardList, Gavel, History, LockKeyhole, Plus, RefreshCw, Search, ShieldCheck, UserCheck, Users, XCircle,
 } from "lucide-react";
 import { ApiError, getAccounts, type AccountSummary, type BusinessLine } from "./api";
 import {
-  cancelAudit, closeNonconformity, completeAudit, createCycle, createQualification, getAuditorCandidates, getAudits,
-  getCycle, getCycles, getEligibleAuditors, getNonconformities, getQualifications, getTimeline, planAudit,
-  raiseNonconformity, respondNonconformity,
-  type AuditType, type CertificationAudit, type CertificationCycle, type CyclePhase, type DecisionBlocker, type NcGrade,
-  type Nonconformity, type Person, type Qualification, type TimelineEvent,
+  cancelAudit, changeCertificate, closeNonconformity, completeAudit, createCycle, createQualification, getAuditorCandidates, getAudits,
+  getCycle, getCycles, getDecision, getEligibleAuditors, getNonconformities, getQualifications, getTimeline, planAudit,
+  raiseNonconformity, recordDecision, respondNonconformity,
+  type AuditType, type CertificateAction, type CertificationAudit, type CertificationCycle, type CyclePhase, type DecisionBlocker,
+  type DecisionPanel, type DecisionRound, type IsoCertificate, type NcGrade, type Nonconformity, type Person, type Qualification,
+  type TimelineEvent, type Vote,
 } from "./certificationApi";
+import { Dialog } from "./Dialog";
+import { day } from "./format";
 import type { Language } from "./preferences";
 import "./certification.css";
 import { PageHeader } from "./ui";
@@ -23,11 +26,10 @@ const strings = {
     empty:"لا توجد دورات اعتماد مطابقة",loading:"جار التحميل...",retry:"إعادة المحاولة",open:"فتح",back:"العودة إلى دورات الاعتماد",
     reference:"المرجع",client:"العميل",chooseClient:"اختر العميل",standard:"المعيار",chooseStandard:"اختر المعيار",scope:"نطاق الاعتماد",
     sites:"عدد المواقع",manager:"مدير البرنامج",save:"حفظ",cancel:"إلغاء",openMajors:"عدم مطابقة جسيمة مفتوحة",
-    phases:{STAGE1_PENDING:"بانتظار المرحلة الأولى",STAGE2_PENDING:"بانتظار المرحلة الثانية",FINDINGS_OPEN:"ملاحظات جسيمة مفتوحة",READY_FOR_DECISION:"جاهزة لقرار الاعتماد"},
+    phases:{STAGE1_PENDING:"بانتظار المرحلة الأولى",STAGE2_PENDING:"بانتظار المرحلة الثانية",FINDINGS_OPEN:"ملاحظات جسيمة مفتوحة",READY_FOR_DECISION:"جاهزة لقرار الاعتماد",CERTIFIED:"معتمدة (صدرت الشهادة)"},
     readiness:"الجاهزية لقرار الاعتماد",readinessDesc:"ما يفصل هذه الدورة عن قرار الاعتماد، كما يحسبه الخادم.",
-    blockers:{STAGE1_NOT_COMPLETED:"إتمام تدقيق المرحلة الأولى",STAGE2_NOT_COMPLETED:"إتمام تدقيق المرحلة الثانية (بعد الأولى)",OPEN_MAJOR_NONCONFORMITIES:"إغلاق كل عدم المطابقات الجسيمة بعد رد العميل",POLICY_D02:"اعتماد سياسة الاعتماد (D-02): من يتخذ القرار، الحيادية، ترقيم الشهادات وصلاحيتها والمراقبة"},
-    decision:"قرار الاعتماد",certificate:"إصدار الشهادة",policyNote:"قرار الاعتماد وإصدار الشهادات وتدقيقات المراقبة وإعادة الاعتماد متوقفة حتى اعتماد IOETI للسياسة D-02. لا تُحسب أيام التدقيق ولا مدد الصلاحية هنا.",
-    programme:"برنامج التدقيق",stage:{STAGE1:"تدقيق المرحلة الأولى",STAGE2:"تدقيق المرحلة الثانية"},
+    blockers:{STAGE1_NOT_COMPLETED:"إتمام تدقيق المرحلة الأولى",STAGE2_NOT_COMPLETED:"إتمام تدقيق المرحلة الثانية (بعد الأولى)",OPEN_MAJOR_NONCONFORMITIES:"إغلاق كل عدم المطابقات الجسيمة بعد رد العميل",POLICY_D02:"ضبط سياسات الاعتماد لمعيار الدورة (D-02): مين ياخد القرار، وصلاحية الشهادة وإيقاع المراقبة"},
+    programme:"برنامج التدقيق",stage:{STAGE1:"تدقيق المرحلة الأولى",STAGE2:"تدقيق المرحلة الثانية",SURVEILLANCE:"تدقيق مراقبة",RECERTIFICATION:"تدقيق إعادة الاعتماد"},
     notPlanned:"لم يُخطط بعد",plannedDate:"تاريخ التدقيق المخطط",auditor:"المدقق الرئيسي",chooseAuditor:"اختر مدققًا مؤهلًا",
     noEligible:"لا يوجد مدقق مؤهل لهذا المعيار في هذا التاريخ. سجّل كفاءة مدقق أو اختر تاريخًا آخر.",pickDate:"اختر التاريخ لعرض المدققين المؤهلين في ذلك اليوم.",
     plan:"تخطيط التدقيق",completedOn:"تاريخ الإتمام",complete:"تسجيل الإتمام",cancelAudit:"إلغاء التدقيق",
@@ -36,11 +38,11 @@ const strings = {
     findings:"عدم المطابقات والملاحظات",noFindings:"لا توجد ملاحظات مسجلة",grade:"الدرجة",grades:{MAJOR:"جسيمة",MINOR:"بسيطة",OBSERVATION:"ملاحظة"},
     clause:"البند",statement:"بيان عدم المطابقة",raise:"تسجيل ملاحظة",response:"تصحيح العميل وإجراءه التصحيحي",respond:"تسجيل رد العميل",
     close:"إغلاق بعد التحقق",timeline:"سجل التدقيق",noTimeline:"لا توجد أحداث بعد",
-    events:{CYCLE_OPENED:"فُتحت دورة الاعتماد",AUDIT_PLANNED:"خُطط تدقيق",AUDIT_COMPLETED:"اكتمل تدقيق",AUDIT_CANCELLED:"أُلغي تدقيق",NC_RAISED:"سُجلت ملاحظة",NC_RESPONDED:"رد العميل",NC_CLOSED:"أُغلقت ملاحظة"},
+    events:{CYCLE_OPENED:"فُتحت دورة الاعتماد",AUDIT_PLANNED:"خُطط تدقيق",AUDIT_COMPLETED:"اكتمل تدقيق",AUDIT_CANCELLED:"أُلغي تدقيق",NC_RAISED:"سُجلت ملاحظة",NC_RESPONDED:"رد العميل",NC_CLOSED:"أُغلقت ملاحظة",DECISION_VOTE:"اتسجل صوت في قرار الاعتماد",DECISION_GRANT:"اتاخد قرار بمنح الشهادة",DECISION_REFUSE:"اتاخد قرار برفض المنح",CERTIFICATE_ISSUED:"صدرت الشهادة",CERTIFICATE_SUSPENDED:"اتوقفت الشهادة",CERTIFICATE_RESTORED:"الشهادة اتفعلت تاني",CERTIFICATE_WITHDRAWN:"اتسحبت الشهادة"},
     qualifications:"سجل كفاءة المدققين",noQualifications:"لا توجد كفاءات مسجلة",validFrom:"صالحة من",validUntil:"صالحة حتى",
     evidence:"مرجع الإثبات",addQualification:"تسجيل كفاءة",expired:"منتهية",candidatesDenied:"تسجيل الكفاءات متاح لمن يملك صلاحية ذلك فقط.",
     readonly:"عرض فقط: مدير البرنامج وحده يعدّل هذه الدورة.",
-    errors:{NOT_QUALIFIED:"المدقق غير مؤهل لهذا المعيار في التاريخ المخطط.",STAGE_EXISTS:"هذه المرحلة مخطط لها بالفعل في الدورة.",STAGE1_REQUIRED:"أتمّ تدقيق المرحلة الأولى قبل الثانية.",AUDIT_STATE:"لا يمكن تعديل إلا تدقيق مخطط.",AUDIT_CANCELLED:"لا تُسجل ملاحظات على تدقيق ملغى.",RESPONSE_REQUIRED:"سجّل رد العميل قبل الإغلاق.",NC_CLOSED:"هذه الملاحظة مغلقة بالفعل.",BLOCKED_BY_POLICY:"متوقف حتى اعتماد السياسة D-02.",conflict:"تم تعديل البيانات من مكان آخر؛ حدّثناها، أعد المحاولة.",invalid:"راجع الحقول المطلوبة وقيمها.",denied:"ليست لديك صلاحية لهذا الإجراء.",failed:"تعذّر تنفيذ الطلب."},
+    errors:{NOT_QUALIFIED:"المدقق غير مؤهل لهذا المعيار في التاريخ المخطط.",STAGE_EXISTS:"هذه المرحلة مخطط لها بالفعل في الدورة.",STAGE1_REQUIRED:"أتمّ تدقيق المرحلة الأولى قبل الثانية.",AUDIT_STATE:"لا يمكن تعديل إلا تدقيق مخطط.",AUDIT_CANCELLED:"لا تُسجل ملاحظات على تدقيق ملغى.",RESPONSE_REQUIRED:"سجّل رد العميل قبل الإغلاق.",NC_CLOSED:"هذه الملاحظة مغلقة بالفعل.",BLOCKED_BY_POLICY:"متوقف حتى اعتماد السياسة D-02.",POLICY_NOT_SET:"سياسات الاعتماد لمعيار الدورة مش متظبطة؛ صاحب السياسات يظبطها من صفحة السياسات.",NO_DECISION_RIGHT:"معندكش صلاحية قرار الاعتماد.",AUDITED_CLIENT:"إنت كنت مدقق عند العميل ده، فمينفعش تاخد قرار اعتماده (الحيادية).",ALREADY_VOTED:"إنت صوّت خلاص في القرار ده.",ALREADY_CERTIFIED:"الدورة دي صدرت لها شهادة خلاص.",NOT_READY:"الدورة مش جاهزة للمنح: لازم التدقيق يخلص وكل عدم المطابقات الجسيمة تتقفل.",CERTIFICATE_STATE:"الإجراء ده مش مناسب لحالة الشهادة دلوقتي.",CERTIFICATE_EXPIRED:"الشهادة انتهت ومينفعش تتغير.",CERTIFICATE_REQUIRED:"تدقيق المراقبة وإعادة الاعتماد بيتخطط بعد ما الشهادة تصدر وتكون سارية.",NO_CERTIFICATE:"الدورة دي ملهاش شهادة.",conflict:"تم تعديل البيانات من مكان آخر؛ حدّثناها، أعد المحاولة.",invalid:"راجع الحقول المطلوبة وقيمها.",denied:"ليست لديك صلاحية لهذا الإجراء.",failed:"تعذّر تنفيذ الطلب."},
   },
   en: {
     title:"Client ISO certification",desc:"Certification cycles, audit programme, auditor competence and nonconformities, within your permissions.",
@@ -49,11 +51,10 @@ const strings = {
     empty:"No matching certification cycles",loading:"Loading...",retry:"Retry",open:"Open",back:"Back to certification cycles",
     reference:"Reference",client:"Client",chooseClient:"Choose a client",standard:"Standard",chooseStandard:"Choose a standard",scope:"Certification scope",
     sites:"Sites",manager:"Programme manager",save:"Save",cancel:"Cancel",openMajors:"Open major nonconformities",
-    phases:{STAGE1_PENDING:"Awaiting Stage 1",STAGE2_PENDING:"Awaiting Stage 2",FINDINGS_OPEN:"Major findings open",READY_FOR_DECISION:"Ready for decision"},
+    phases:{STAGE1_PENDING:"Awaiting Stage 1",STAGE2_PENDING:"Awaiting Stage 2",FINDINGS_OPEN:"Major findings open",READY_FOR_DECISION:"Ready for decision",CERTIFIED:"Certified"},
     readiness:"Readiness for the certification decision",readinessDesc:"What stands between this cycle and a decision, as computed by the server.",
-    blockers:{STAGE1_NOT_COMPLETED:"Complete the Stage 1 audit",STAGE2_NOT_COMPLETED:"Complete the Stage 2 audit (after Stage 1)",OPEN_MAJOR_NONCONFORMITIES:"Close every major nonconformity after the client's response",POLICY_D02:"Sign the certification policy (D-02): decision maker, impartiality, certificate numbering, validity and surveillance"},
-    decision:"Certification decision",certificate:"Issue certificate",policyNote:"Certification decisions, certificates, surveillance and recertification audits are blocked until IOETI signs policy D-02. Audit days and validity periods are not computed here.",
-    programme:"Audit programme",stage:{STAGE1:"Stage 1 audit",STAGE2:"Stage 2 audit"},
+    blockers:{STAGE1_NOT_COMPLETED:"Complete the Stage 1 audit",STAGE2_NOT_COMPLETED:"Complete the Stage 2 audit (after Stage 1)",OPEN_MAJOR_NONCONFORMITIES:"Close every major nonconformity after the client's response",POLICY_D02:"Set the certification policies for this standard (D-02): who decides, certificate validity and surveillance rhythm"},
+    programme:"Audit programme",stage:{STAGE1:"Stage 1 audit",STAGE2:"Stage 2 audit",SURVEILLANCE:"Surveillance audit",RECERTIFICATION:"Recertification audit"},
     notPlanned:"Not planned yet",plannedDate:"Planned date",auditor:"Lead auditor",chooseAuditor:"Choose a qualified auditor",
     noEligible:"No auditor is qualified for this standard on that date. Record a qualification or choose another date.",pickDate:"Pick the date to see the auditors qualified on that day.",
     plan:"Plan audit",completedOn:"Completed on",complete:"Record completion",cancelAudit:"Cancel audit",
@@ -62,15 +63,15 @@ const strings = {
     findings:"Nonconformities and observations",noFindings:"No findings recorded",grade:"Grade",grades:{MAJOR:"Major",MINOR:"Minor",OBSERVATION:"Observation"},
     clause:"Clause",statement:"Nonconformity statement",raise:"Record finding",response:"Client correction and corrective action",respond:"Record client response",
     close:"Close after verification",timeline:"Audit history",noTimeline:"No events yet",
-    events:{CYCLE_OPENED:"Cycle opened",AUDIT_PLANNED:"Audit planned",AUDIT_COMPLETED:"Audit completed",AUDIT_CANCELLED:"Audit cancelled",NC_RAISED:"Finding recorded",NC_RESPONDED:"Client responded",NC_CLOSED:"Finding closed"},
+    events:{CYCLE_OPENED:"Cycle opened",AUDIT_PLANNED:"Audit planned",AUDIT_COMPLETED:"Audit completed",AUDIT_CANCELLED:"Audit cancelled",NC_RAISED:"Finding recorded",NC_RESPONDED:"Client responded",NC_CLOSED:"Finding closed",DECISION_VOTE:"Decision vote recorded",DECISION_GRANT:"Decision taken: certification granted",DECISION_REFUSE:"Decision taken: certification refused",CERTIFICATE_ISSUED:"Certificate issued",CERTIFICATE_SUSPENDED:"Certificate suspended",CERTIFICATE_RESTORED:"Certificate restored",CERTIFICATE_WITHDRAWN:"Certificate withdrawn"},
     qualifications:"Auditor competence register",noQualifications:"No qualifications recorded",validFrom:"Valid from",validUntil:"Valid until",
     evidence:"Evidence reference",addQualification:"Record qualification",expired:"Expired",candidatesDenied:"Only people allowed to record qualifications can add them.",
     readonly:"Read only: only the programme manager changes this cycle.",
-    errors:{NOT_QUALIFIED:"The auditor is not qualified for this standard on the planned date.",STAGE_EXISTS:"This stage is already planned for the cycle.",STAGE1_REQUIRED:"Complete the Stage 1 audit before Stage 2.",AUDIT_STATE:"Only a planned audit can be changed.",AUDIT_CANCELLED:"A cancelled audit cannot record findings.",RESPONSE_REQUIRED:"Record the client's response before closing.",NC_CLOSED:"This finding is already closed.",BLOCKED_BY_POLICY:"Blocked until policy D-02 is signed.",conflict:"The data changed elsewhere; it is refreshed, try again.",invalid:"Check the required fields and their values.",denied:"You do not have permission for this action.",failed:"The request failed."},
+    errors:{NOT_QUALIFIED:"The auditor is not qualified for this standard on the planned date.",STAGE_EXISTS:"This stage is already planned for the cycle.",STAGE1_REQUIRED:"Complete the Stage 1 audit before Stage 2.",AUDIT_STATE:"Only a planned audit can be changed.",AUDIT_CANCELLED:"A cancelled audit cannot record findings.",RESPONSE_REQUIRED:"Record the client's response before closing.",NC_CLOSED:"This finding is already closed.",BLOCKED_BY_POLICY:"Blocked until policy D-02 is signed.",POLICY_NOT_SET:"The certification policies for this standard are not set; a policy owner sets them under Policies.",NO_DECISION_RIGHT:"You do not have the certification decision right.",AUDITED_CLIENT:"You audited this client, so you cannot take its certification decisions (impartiality).",ALREADY_VOTED:"You already voted in this decision.",ALREADY_CERTIFIED:"This cycle already has its certificate.",NOT_READY:"Not ready to grant: the audits must be completed and every major nonconformity closed.",CERTIFICATE_STATE:"This action does not apply to the certificate's current status.",CERTIFICATE_EXPIRED:"The certificate has expired and can no longer change.",CERTIFICATE_REQUIRED:"Surveillance and recertification audits are planned once a certificate is issued and in force.",NO_CERTIFICATE:"This cycle has no certificate.",conflict:"The data changed elsewhere; it is refreshed, try again.",invalid:"Check the required fields and their values.",denied:"You do not have permission for this action.",failed:"The request failed."},
   },
 } as const;
 type Labels = typeof strings.ar | typeof strings.en;
-const PHASES: CyclePhase[] = ["STAGE1_PENDING","STAGE2_PENDING","FINDINGS_OPEN","READY_FOR_DECISION"];
+const PHASES: CyclePhase[] = ["STAGE1_PENDING","STAGE2_PENDING","FINDINGS_OPEN","READY_FOR_DECISION","CERTIFIED"];
 const BLOCKERS: DecisionBlocker[] = ["STAGE1_NOT_COMPLETED","STAGE2_NOT_COMPLETED","OPEN_MAJOR_NONCONFORMITIES","POLICY_D02"];
 
 function message(error: unknown, l: Labels): string {
@@ -188,11 +189,16 @@ function CycleRecord({cycleId,l,language}:{cycleId:number;l:Labels;language:Lang
   const [cycle,setCycle]=useState<CertificationCycle|null>(null);
   const [audits,setAudits]=useState<CertificationAudit[]>([]);
   const [timeline,setTimeline]=useState<TimelineEvent[]>([]);
+  const [decision,setDecision]=useState<DecisionPanel|null>(null);const [decisionError,setDecisionError]=useState("");
   const [error,setError]=useState("");const [loadError,setLoadError]=useState("");
+  const reloadDecision=useCallback(()=>getDecision(cycleId).then(p=>{setDecision(p);setDecisionError("");})
+    .catch(e=>setDecisionError(message(e,l))),[cycleId,l]);
   const reload=useCallback(async()=>{
     const [c,a,t]=await Promise.all([getCycle(cycleId),getAudits(cycleId),getTimeline(cycleId)]);
     setCycle(c);setAudits(a);setTimeline(t);
-  },[cycleId]);
+    // the decision panel loads on its own: the programme stays usable if it cannot be read
+    void reloadDecision();
+  },[cycleId,reloadDecision]);
   useEffect(()=>{void reload().catch(e=>setLoadError(message(e,l)));window.scrollTo({top:0,behavior:"instant"});},[reload,l]);
   const run=useCallback(async(action:()=>Promise<unknown>)=>{
     setError("");
@@ -205,6 +211,8 @@ function CycleRecord({cycleId,l,language}:{cycleId:number;l:Labels;language:Lang
   if(!cycle)return <div className="empty-state" role="status">{l.loading}</div>;
   const editable=cycle.managedByMe;
   const active=(type:AuditType)=>audits.find(a=>a.type===type&&a.status!=="CANCELLED")||null;
+  const d=decisionLabels[language];
+  const certificate=decision?.certificate??null;
   return <article className="record-workspace page-enter cert-record" aria-labelledby="cycle-title">
     <div className="record-context-bar"><a className="record-back" href="#/certification"><Back size={17}/>{l.back}</a>
       <span className="record-context-separator">/</span><span className="record-current" aria-current="page" dir="ltr">{cycle.reference}</span></div>
@@ -216,7 +224,9 @@ function CycleRecord({cycleId,l,language}:{cycleId:number;l:Labels;language:Lang
             {cycle.clientId!=null&&<a className="record-ref" href={"#/accounts/"+cycle.clientId}>{l.client}</a>}</div></div></div>
       <p className="record-hero-description">{cycle.scope}</p>
     </div><div className="record-hero-actions">
-      <span className="record-readonly-pill"><LockKeyhole size={14}/>{l.decision}</span>
+      <span className={"record-readonly-pill cert-hero-status"+(certificate?" is-"+certificate.status.toLowerCase():"")}>
+        {certificate?<><Award size={14}/><span dir="ltr">{certificate.number}</span> · {d.certStatus[certificate.status]}</>
+          :<><Gavel size={14}/>{decision?d.statusShort[decision.status]:d.title}</>}</span>
     </div></div>
     {error&&<div className="login-error" role="alert"><CircleAlert size={17}/>{error}</div>}
     {!editable&&<p className="record-security-note"><LockKeyhole size={15}/>{l.readonly}</p>}
@@ -225,9 +235,7 @@ function CycleRecord({cycleId,l,language}:{cycleId:number;l:Labels;language:Lang
         <div className="record-section-header"><div className="record-section-icon"><ShieldCheck size={20}/></div><div><h2 id="readiness-title">{l.readiness}</h2><p>{l.readinessDesc}</p></div></div>
         <ol className="cert-readiness">{BLOCKERS.map(b=>{const blocked=cycle.decisionBlockers.includes(b);
           return <li key={b} className={blocked?"is-blocked":"is-done"}>{blocked?<XCircle size={17}/>:<CheckCircle2 size={17}/>}<span>{l.blockers[b]}</span></li>;})}</ol>
-        <div className="lead-actions"><button type="button" className="btn btn-primary" disabled aria-describedby="cert-policy">{l.decision}</button>
-          <button type="button" className="btn btn-secondary" disabled aria-describedby="cert-policy">{l.certificate}</button></div>
-        <p className="record-security-note" id="cert-policy"><LockKeyhole size={15}/>{l.policyNote}</p>
+        <p className="cert-hint"><a className="text-action" href="#cert-decision-title">{d.goToDecision}</a></p>
       </section>
       <section className="record-content-card" aria-labelledby="cycle-facts">
         <div className="record-section-header"><div className="record-section-icon"><ClipboardList size={20}/></div><div><h2 id="cycle-facts">{l.scope}</h2></div></div>
@@ -240,11 +248,14 @@ function CycleRecord({cycleId,l,language}:{cycleId:number;l:Labels;language:Lang
         </dl>
       </section>
     </div>
+    <DecisionSection cycle={cycle} panel={decision} error={decisionError} l={l} d={d} language={language}
+      onChanged={async()=>{await reload().catch(e=>setLoadError(message(e,l)));}} onRetry={()=>void reloadDecision()}/>
     <section className="record-content-card cert-programme" aria-labelledby="programme-title">
       <div className="record-section-header"><div className="record-section-icon"><CalendarCheck size={20}/></div><div><h2 id="programme-title">{l.programme}</h2></div></div>
       <div className="cert-stages">{(["STAGE1","STAGE2"] as AuditType[]).map(type=><StageCard key={type} type={type} audit={active(type)}
         cycle={cycle} editable={editable} l={l} run={run} stage1Done={active("STAGE1")?.status==="COMPLETED"}/>)}</div>
     </section>
+    <FollowUps cycle={cycle} audits={audits} certificate={certificate} editable={editable} l={l} d={d} language={language} run={run}/>
     <section className="record-content-card" aria-labelledby="timeline-title">
       <div className="record-section-header"><div className="record-section-icon"><History size={20}/></div><div><h2 id="timeline-title">{l.timeline}</h2></div></div>
       {timeline.length===0?<div className="empty-state">{l.noTimeline}</div>
@@ -255,16 +266,17 @@ function CycleRecord({cycleId,l,language}:{cycleId:number;l:Labels;language:Lang
   </article>;
 }
 
-function StageCard({type,audit,cycle,editable,l,run,stage1Done}:{type:AuditType;audit:CertificationAudit|null;cycle:CertificationCycle;
-  editable:boolean;l:Labels;run:(a:()=>Promise<unknown>)=>Promise<boolean>;stage1Done:boolean}){
-  const [date,setDate]=useState("");const [eligible,setEligible]=useState<Person[]|null>(null);const [auditor,setAuditor]=useState("");
+function StageCard({type,audit,cycle,editable,l,run,stage1Done,suggestedDate,hint}:{type:AuditType;audit:CertificationAudit|null;cycle:CertificationCycle;
+  editable:boolean;l:Labels;run:(a:()=>Promise<unknown>)=>Promise<boolean>;stage1Done:boolean;suggestedDate?:string;hint?:string}){
+  const [date,setDate]=useState(suggestedDate??"");const [eligible,setEligible]=useState<Person[]|null>(null);const [auditor,setAuditor]=useState("");
   const [doneOn,setDoneOn]=useState(today());const [busy,setBusy]=useState(false);
   useEffect(()=>{setAuditor("");setEligible(null);if(!date)return;let current=true;
     void getEligibleAuditors(cycle.id,date).then(r=>{if(current)setEligible(r);}).catch(()=>{if(current)setEligible([]);});
     return()=>{current=false;};},[date,cycle.id]);
   const act=async(action:()=>Promise<unknown>)=>{if(busy)return;setBusy(true);await run(action);setBusy(false);};
-  return <div className={"cert-stage"+(audit?" is-"+audit.status.toLowerCase():"")} aria-labelledby={"stage-"+type}>
-    <div className="cert-stage-head"><h3 id={"stage-"+type}>{l.stage[type]}</h3>
+  const headingId="stage-"+type+"-"+(audit?.id??"new");
+  return <div className={"cert-stage"+(audit?" is-"+audit.status.toLowerCase():"")} aria-labelledby={headingId}>
+    <div className="cert-stage-head"><h3 id={headingId}>{l.stage[type]}</h3>
       <span className="record-status-tag">{audit?l.status[audit.status]:l.notPlanned}</span></div>
     {audit?<dl className="record-properties">
       <div><dt>{l.plannedDate}</dt><dd dir="ltr">{audit.plannedDate}</dd></div>
@@ -273,6 +285,7 @@ function StageCard({type,audit,cycle,editable,l,run,stage1Done}:{type:AuditType;
     </dl>:editable?<form className="opportunity-form cert-form" onSubmit={e=>{e.preventDefault();
         void act(async()=>{await planAudit(cycle.id,cycle.version,type,date,Number(auditor));setDate("");});}}>
       {type==="STAGE2"&&!stage1Done&&<p className="cert-hint">{l.stage2Hint}</p>}
+      {hint&&<p className="cert-hint cert-due-hint"><CalendarClock size={14}/>{hint}</p>}
       <label><span>{l.plannedDate}</span><input type="date" required value={date} onChange={e=>setDate(e.target.value)}/></label>
       <label><span>{l.auditor}</span><select required value={auditor} disabled={!eligible||eligible.length===0} onChange={e=>setAuditor(e.target.value)}>
         <option value="">{l.chooseAuditor}</option>{(eligible||[]).map(p=><option key={p.id} value={p.id}>{p.name}</option>)}</select></label>
@@ -351,4 +364,244 @@ function QualificationsView({l,standards}:{l:Labels;standards:BusinessLine[]}){
           <td><span dir="ltr">{qr.validUntil}</span>{qr.validUntil<now&&<span className="cert-expired"> · {l.expired}</span>}</td><td dir="ltr">{qr.evidenceReference||"—"}</td></tr>)}</tbody></table></div>}
     </div>
   </>;
+}
+
+/* --- D-02: certification decision, certificate and follow-up audits ------------------------------------------------- */
+
+const decisionLabels = {
+  ar: {
+    title:"قرار الاعتماد",goToDecision:"روح لقرار الاعتماد",loading:"جاري تحميل القرار...",retry:"إعادة المحاولة",
+    statusShort:{BLOCKED_BY_POLICY:"القرار متوقف على السياسات",NOT_READY:"التدقيق لسه مخلصش",AWAITING_DECISION:"مستني قرار الاعتماد",GRANTED:"اتمنحت الشهادة",REFUSED:"آخر قرار: رفض المنح"},
+    status:{
+      BLOCKED_BY_POLICY:"القرار متوقف لحد ما سياسات الاعتماد لمعيار الدورة تتظبط. ده مقصود: محدش ياخد قرار من غير ما يكون معروف مين اللي من حقه يقرر وصلاحية الشهادة قد إيه.",
+      NOT_READY:"لسه بدري على القرار: لازم تدقيق المرحلة الأولى والثانية يخلصوا الأول.",
+      AWAITING_DECISION:"الدورة مستنية قرار الاعتماد.",
+      REFUSED:"آخر قرار كان رفض المنح. ممكن ياخدوا قرار جديد بعد ما العميل يستكمل الإجراءات التصحيحية.",
+      GRANTED:"اتمنحت الشهادة وصدرت برقمها.",
+    },
+    missingIntro:(code:string)=>`ناقص تتظبط السياسات دي لمعيار ${code}:`,
+    missing:{"cert.decision":"مين ياخد القرار: مراجع مستقل واحد أو لجنة (cert.decision)","cert.cycle":"صلاحية الشهادة بالشهور وإيقاع تدقيق المراقبة (cert.cycle)"},
+    ownerHint:"صاحب السياسات بس هو اللي يظبطها، من صفحة السياسات.",openPolicies:"فتح السياسات",
+    modeTitle:"طريقة القرار",
+    mode:{INDEPENDENT_REVIEWER:"مراجع مستقل واحد بياخد القرار ويكتب سببه.",COMMITTEE:(n:number)=>`لجنة من ${n} أعضاء مستقلين، كل عضو بيصوّت. القرار بالأغلبية، والتعادل بيعتبر رفض.`},
+    rules:(v:number|null,s:number|null)=>v&&s?`الشهادة صالحة ${v} شهر من تاريخ إصدارها، وتدقيق المراقبة كل ${s} شهر.`:"",
+    impartiality:"اللي ياخد القرار عمره ما يكون كان مدقق عند نفس العميل، في أي دورة.",
+    whoDecides:"مين يقدر ياخد القرار",
+    nobody:{
+      NO_ROLE_HOLDERS:"محدش عنده صلاحية قرار الاعتماد لسه. مسؤول النظام يدي الدور ioeti-cert-decision-maker لشخص مستقل عن فريق التدقيق.",
+      ALL_AUDITED_CLIENT:"كل اللي عندهم صلاحية القرار كانوا مدققين عند العميل ده، فمحدش منهم ينفع يقرر (الحيادية). محتاجين شخص مستقل.",
+      NOT_ENOUGH_ELIGIBLE:"عدد المستقلين اللي يقدروا يصوتوا أقل من عدد أعضاء اللجنة المطلوب، فالقرار مش هيكتمل. زوّدوا أعضاء مستقلين أو صاحب السياسات يغيّر حجم اللجنة.",
+    },
+    votesSoFar:(n:number,m:number)=>`${n} من ${m} أصوات`,votedAt:"صوّت",
+    hiddenVotes:"الأصوات وأسبابها بتظهر لما كل الأعضاء يصوتوا، عشان كل عضو يقرر باستقلال.",
+    cannot:{NO_DECISION_RIGHT:"إنت معندكش صلاحية قرار الاعتماد، فالقرار هنا للعرض بس.",AUDITED_CLIENT:"إنت كنت مدقق عند العميل ده، فمينفعش تاخد قرار اعتماده (الحيادية).",ALREADY_VOTED:"إنت صوّت خلاص؛ مستنيين باقي أعضاء اللجنة."},
+    yourDecision:"قرارك",yourVote:"صوتك",grant:"منح الشهادة",refuse:"رفض المنح",reason:"سبب القرار",reasonHint:"اكتب الأساس اللي بنيت عليه قرارك (نتيجة التدقيق، الإجراءات التصحيحية...).",
+    submit:"سجّل قرار الاعتماد",submitVote:"سجّل صوتك في قرار الاعتماد",
+    grantBlocked:"المنح مش متاح لحد ما كل عدم المطابقات الجسيمة تتقفل. الرفض متاح.",grantIssues:"المنح بيصدر الشهادة فورًا برقم جديد.",
+    pastRounds:"قرارات سابقة",outcome:{GRANT:"منح",REFUSE:"رفض"},decidedOn:"اتاخد في",tally:(g:number,r:number)=>`${g} منح · ${r} رفض`,
+    certificate:"الشهادة",number:"رقم الشهادة",issuedOn:"تاريخ الإصدار",expiresOn:"صالحة لحد",
+    certStatus:{ACTIVE:"سارية",SUSPENDED:"موقوفة",WITHDRAWN:"مسحوبة",EXPIRED:"منتهية"},
+    surveillance:"مواعيد تدقيق المراقبة",surveillanceEvery:(n:number)=>`كل ${n} شهر من تاريخ الإصدار`,due:(n:number)=>`المراقبة ${n}`,
+    done:"اتعمل",overdue:"متأخر",upcoming:"جاي",recertBy:"تدقيق إعادة الاعتماد قبل",
+    actions:{suspend:"إيقاف الشهادة",restore:"إعادة تفعيل الشهادة",withdraw:"سحب الشهادة"},
+    actionHint:{suspend:"الشهادة هتظهر موقوفة في التحقق العام لحد ما تتفعل تاني.",restore:"الشهادة هترجع سارية.",withdraw:"السحب نهائي ومينفعش يترجع فيه. الشهادة هتظهر مسحوبة في التحقق العام."},
+    actionReason:"السبب (بيتسجل في سجل الشهادة)",confirm:"تأكيد",cancel:"إلغاء",
+    manageOnly:"الإيقاف وإعادة التفعيل والسحب لصاحب صلاحية القرار اللي ما دققش عند العميل ده بس.",
+    history:"سجل الشهادة",events:{ISSUED:"صدرت",SUSPENDED:"اتوقفت",RESTORED:"اتفعلت تاني",WITHDRAWN:"اتسحبت"},
+    followUps:"تدقيقات المراقبة وإعادة الاعتماد",followUpsLocked:"بتتخطط بعد ما الشهادة تصدر وطول ما هي سارية أو موقوفة.",
+    nextSurveillance:(date:string)=>`الموعد المقترح للمراقبة الجاية: ${date}`,recertHint:(date:string)=>`لازم يخلص قبل انتهاء الشهادة: ${date}`,
+  },
+  en: {
+    title:"Certification decision",goToDecision:"Go to the certification decision",loading:"Loading the decision...",retry:"Retry",
+    statusShort:{BLOCKED_BY_POLICY:"Decision blocked by policy",NOT_READY:"Audits not finished",AWAITING_DECISION:"Awaiting the decision",GRANTED:"Certification granted",REFUSED:"Last decision: refused"},
+    status:{
+      BLOCKED_BY_POLICY:"The decision waits until the certification policies for this standard are set. This is on purpose: nobody decides before it is known who may decide and how long a certificate is valid.",
+      NOT_READY:"Too early to decide: the Stage 1 and Stage 2 audits must be completed first.",
+      AWAITING_DECISION:"The cycle awaits its certification decision.",
+      REFUSED:"The last decision refused certification. A new decision can be taken after the client completes corrective action.",
+      GRANTED:"Certification was granted and the certificate issued with its number.",
+    },
+    missingIntro:(code:string)=>`These policies are not set for ${code}:`,
+    missing:{"cert.decision":"Who decides: one independent reviewer or a committee (cert.decision)","cert.cycle":"Certificate validity in months and surveillance rhythm (cert.cycle)"},
+    ownerHint:"Only a policy owner sets them, under Policies.",openPolicies:"Open Policies",
+    modeTitle:"How the decision is taken",
+    mode:{INDEPENDENT_REVIEWER:"One independent reviewer decides and records the reason.",COMMITTEE:(n:number)=>`A committee of ${n} independent members votes. Majority wins; a tie refuses.`},
+    rules:(v:number|null,s:number|null)=>v&&s?`A certificate is valid ${v} months from issue, with surveillance every ${s} months.`:"",
+    impartiality:"Whoever decides was never an auditor of the same client, in any cycle.",
+    whoDecides:"Who may decide",
+    nobody:{
+      NO_ROLE_HOLDERS:"Nobody holds the certification decision right yet. An administrator gives the ioeti-cert-decision-maker role to someone independent of the audit team.",
+      ALL_AUDITED_CLIENT:"Everyone with the decision right audited this client, so none of them may decide (impartiality). Someone independent is needed.",
+      NOT_ENOUGH_ELIGIBLE:"Fewer independent people can vote than the committee needs, so the decision cannot complete. Add independent members, or a policy owner changes the committee size.",
+    },
+    votesSoFar:(n:number,m:number)=>`${n} of ${m} votes`,votedAt:"voted",
+    hiddenVotes:"Votes and their reasons are shown once every member has voted, so each member decides independently.",
+    cannot:{NO_DECISION_RIGHT:"You do not have the certification decision right; this is for reading only.",AUDITED_CLIENT:"You audited this client, so you cannot take its certification decisions (impartiality).",ALREADY_VOTED:"You have voted; waiting for the other committee members."},
+    yourDecision:"Your decision",yourVote:"Your vote",grant:"Grant certification",refuse:"Refuse certification",reason:"Reason for the decision",reasonHint:"State what the decision rests on (audit results, corrective actions...).",
+    submit:"Record the certification decision",submitVote:"Record your vote on the certification decision",
+    grantBlocked:"Granting is unavailable until every major nonconformity is closed. Refusing is available.",grantIssues:"Granting issues the certificate at once, with a new number.",
+    pastRounds:"Earlier decisions",outcome:{GRANT:"Granted",REFUSE:"Refused"},decidedOn:"Decided on",tally:(g:number,r:number)=>`${g} grant · ${r} refuse`,
+    certificate:"Certificate",number:"Certificate number",issuedOn:"Issued on",expiresOn:"Valid until",
+    certStatus:{ACTIVE:"Active",SUSPENDED:"Suspended",WITHDRAWN:"Withdrawn",EXPIRED:"Expired"},
+    surveillance:"Surveillance schedule",surveillanceEvery:(n:number)=>`every ${n} months from issue`,due:(n:number)=>`Surveillance ${n}`,
+    done:"Done",overdue:"Overdue",upcoming:"Upcoming",recertBy:"Recertification audit before",
+    actions:{suspend:"Suspend certificate",restore:"Restore certificate",withdraw:"Withdraw certificate"},
+    actionHint:{suspend:"The certificate shows as suspended in the public check until it is restored.",restore:"The certificate becomes active again.",withdraw:"Withdrawal is final and cannot be undone. The certificate shows as withdrawn in the public check."},
+    actionReason:"Reason (kept in the certificate's history)",confirm:"Confirm",cancel:"Cancel",
+    manageOnly:"Suspending, restoring and withdrawing are for holders of the decision right who never audited this client.",
+    history:"Certificate history",events:{ISSUED:"Issued",SUSPENDED:"Suspended",RESTORED:"Restored",WITHDRAWN:"Withdrawn"},
+    followUps:"Surveillance and recertification audits",followUpsLocked:"Planned once the certificate is issued, while it is active or suspended.",
+    nextSurveillance:(date:string)=>`Suggested date for the next surveillance: ${date}`,recertHint:(date:string)=>`Must be done before the certificate expires: ${date}`,
+  },
+};
+type DecisionLabels = typeof decisionLabels.ar | typeof decisionLabels.en;
+
+function DecisionSection({cycle,panel,error,l,d,language,onChanged,onRetry}:{cycle:CertificationCycle;panel:DecisionPanel|null;error:string;
+  l:Labels;d:DecisionLabels;language:Language;onChanged:()=>Promise<void>;onRetry:()=>void}){
+  const [vote,setVote]=useState<Vote|"">("");const [reason,setReason]=useState("");const [busy,setBusy]=useState(false);const [formError,setFormError]=useState("");
+  const head=<div className="record-section-header"><div className="record-section-icon"><Gavel size={20}/></div>
+    <div><h2 id="cert-decision-title">{d.title}</h2>{panel&&<p>{d.status[panel.status]}</p>}</div></div>;
+  if(error||!panel)return <section className="record-content-card cert-decision" aria-labelledby="cert-decision-title">{head}
+    {error?<div className="error-banner" role="status"><CircleAlert size={17}/><span>{error}</span>
+      <button type="button" className="btn btn-secondary" onClick={onRetry}><RefreshCw size={15}/>{d.retry}</button></div>
+    :<div className="empty-state" role="status">{d.loading}</div>}</section>;
+  const committee=panel.mode==="COMMITTEE";
+  const ar=language==="ar";
+  const submit=async()=>{
+    if(busy||!vote||!reason.trim())return;
+    setBusy(true);setFormError("");
+    try{await recordDecision(cycle.id,panel.cycleVersion,vote,reason.trim());setVote("");setReason("");}
+    catch(e){setFormError(message(e,l));}
+    finally{await onChanged();setBusy(false);}
+  };
+  return <section className={"record-content-card cert-decision is-"+panel.status.toLowerCase()} aria-labelledby="cert-decision-title">
+    {head}
+    {panel.missingPolicies.length>0&&<div className="cert-policy-missing" role="note">
+      <strong>{d.missingIntro(cycle.standardCode)}</strong>
+      <ul>{panel.missingPolicies.map(k=><li key={k}><LockKeyhole size={14}/>{d.missing[k]}</li>)}</ul>
+      <p>{d.ownerHint} <a className="text-action" href="#/policies">{d.openPolicies}</a></p>
+    </div>}
+    {panel.mode&&<div className="cert-decision-grid">
+      <div className="cert-decision-block"><h3>{d.modeTitle}</h3>
+        <p>{panel.mode==="COMMITTEE"?d.mode.COMMITTEE(panel.requiredVotes??0):d.mode.INDEPENDENT_REVIEWER}</p>
+        {d.rules(panel.validityMonths,panel.surveillanceMonths)&&<p className="cert-hint">{d.rules(panel.validityMonths,panel.surveillanceMonths)}</p>}
+        <p className="cert-hint"><ShieldCheck size={14}/> {d.impartiality}</p></div>
+      {!panel.certificate&&<div className="cert-decision-block"><h3><Users size={16}/> {d.whoDecides}</h3>
+        {panel.nobodyReason?<p className="cert-nobody" role="note"><CircleAlert size={15}/>{d.nobody[panel.nobodyReason]}</p>:null}
+        {panel.eligibleDeciders.length>0&&<ul className="cert-people">{panel.eligibleDeciders.map(p=><li key={p.id}><UserCheck size={14}/>{p.name}</li>)}</ul>}
+      </div>}
+    </div>}
+    {panel.openRound&&<RoundCard round={panel.openRound} d={d} ar={ar} open/>}
+    {!panel.certificate&&panel.status!=="BLOCKED_BY_POLICY"&&panel.status!=="NOT_READY"&&(panel.canVote
+      ?<form className="cert-vote-form" aria-label={committee?d.yourVote:d.yourDecision} onSubmit={e=>{e.preventDefault();void submit();}}>
+        <fieldset><legend>{committee?d.yourVote:d.yourDecision}</legend>
+          <div className="cert-vote-choices" role="radiogroup" aria-label={committee?d.yourVote:d.yourDecision}>
+            <label className={"cert-vote-choice is-grant"+(vote==="GRANT"?" is-selected":"")+(panel.canGrant?"":" is-disabled")}>
+              <input type="radio" name="cert-vote" value="GRANT" checked={vote==="GRANT"} disabled={!panel.canGrant} onChange={()=>setVote("GRANT")}/>
+              <Award size={16}/>{d.grant}</label>
+            <label className={"cert-vote-choice is-refuse"+(vote==="REFUSE"?" is-selected":"")}>
+              <input type="radio" name="cert-vote" value="REFUSE" checked={vote==="REFUSE"} onChange={()=>setVote("REFUSE")}/>
+              <Ban size={16}/>{d.refuse}</label>
+          </div>
+          <p className="cert-hint">{panel.canGrant?d.grantIssues:d.grantBlocked}</p>
+          <label className="cert-wide"><span>{d.reason}</span><textarea required rows={3} maxLength={4000} value={reason}
+            placeholder={d.reasonHint} onChange={e=>setReason(e.target.value)}/></label>
+        </fieldset>
+        {formError&&<div className="login-error" role="alert"><CircleAlert size={17}/>{formError}</div>}
+        <div className="lead-actions"><button type="submit" className="btn btn-primary" disabled={busy||!vote||!reason.trim()}>
+          <Gavel size={16}/>{committee?d.submitVote:d.submit}</button></div>
+      </form>
+      :panel.cannotDecideReason&&<p className="record-security-note"><LockKeyhole size={15}/>{d.cannot[panel.cannotDecideReason]}</p>)}
+    {panel.certificate&&<CertificateCard cycle={cycle} certificate={panel.certificate} canManage={panel.canManageCertificate} l={l} d={d} ar={ar} onChanged={onChanged}/>}
+    {panel.pastRounds.length>0&&<div className="cert-past-rounds"><h3>{d.pastRounds}</h3>
+      {panel.pastRounds.map(r=><RoundCard key={r.id} round={r} d={d} ar={ar}/>)}</div>}
+  </section>;
+}
+
+function RoundCard({round,d,ar,open}:{round:DecisionRound;d:DecisionLabels;ar:boolean;open?:boolean}){
+  return <div className={"cert-round"+(round.outcome?" is-"+round.outcome.toLowerCase():"")}>
+    <div className="cert-round-head">
+      {open?<strong>{d.votesSoFar(round.votesCast,round.requiredVotes)}</strong>
+        :<strong>{round.outcome?d.outcome[round.outcome]:""}</strong>}
+      {round.decidedAt&&<span className="cert-hint">{d.decidedOn} {day(round.decidedAt,ar)}</span>}
+      {!open&&round.grantVotes!=null&&round.refuseVotes!=null&&round.requiredVotes>1&&<span className="cert-hint">{d.tally(round.grantVotes,round.refuseVotes)}</span>}
+    </div>
+    {open&&round.requiredVotes>1&&<div className="cert-meter" aria-hidden="true"><span style={{width:`${Math.min(100,round.votesCast*100/round.requiredVotes)}%`}}/></div>}
+    <ul className="cert-votes">{round.votes.map(v=><li key={v.voterId}>
+      <UserCheck size={14}/><strong>{v.voterName}</strong>
+      {v.vote?<span className={"cert-vote-tag is-"+v.vote.toLowerCase()}>{d.outcome[v.vote]}</span>:<span className="cert-hint">{d.votedAt}</span>}
+      {v.reason&&<p>{v.reason}</p>}
+    </li>)}</ul>
+    {open&&round.requiredVotes>1&&<p className="cert-hint">{d.hiddenVotes}</p>}
+  </div>;
+}
+
+function CertificateCard({cycle,certificate,canManage,l,d,ar,onChanged}:{cycle:CertificationCycle;certificate:IsoCertificate;canManage:boolean;
+  l:Labels;d:DecisionLabels;ar:boolean;onChanged:()=>Promise<void>}){
+  const [action,setAction]=useState<CertificateAction|null>(null);const [reason,setReason]=useState("");
+  const [busy,setBusy]=useState(false);const [error,setError]=useState("");
+  const available:CertificateAction[]=certificate.status==="ACTIVE"?["suspend","withdraw"]:certificate.status==="SUSPENDED"?["restore","withdraw"]:[];
+  const close=()=>{if(!busy){setAction(null);setReason("");setError("");}};
+  const confirm=async()=>{
+    if(!action||busy||!reason.trim())return;
+    setBusy(true);setError("");
+    try{await changeCertificate(cycle.id,action,certificate.version,reason.trim());setAction(null);setReason("");await onChanged();}
+    catch(e){setError(message(e,l));await onChanged();}
+    finally{setBusy(false);}
+  };
+  const icon={suspend:<CirclePause size={16}/>,restore:<CirclePlay size={16}/>,withdraw:<Ban size={16}/>};
+  return <div className={"cert-card is-"+certificate.status.toLowerCase()} aria-labelledby="cert-card-title">
+    <div className="cert-card-head"><Award size={26}/>
+      <div><h3 id="cert-card-title">{d.certificate}</h3><span className="cert-card-number" dir="ltr">{certificate.number}</span></div>
+      <span className={"cert-status-badge is-"+certificate.status.toLowerCase()}>{d.certStatus[certificate.status]}</span></div>
+    <dl className="record-properties">
+      <div><dt>{d.number}</dt><dd dir="ltr">{certificate.number}</dd></div>
+      <div><dt>{l.standard}</dt><dd dir="ltr">{certificate.standardCode}</dd></div>
+      <div><dt>{d.issuedOn}</dt><dd>{day(certificate.issuedOn,ar)}</dd></div>
+      <div><dt>{d.expiresOn}</dt><dd>{day(certificate.expiresOn,ar)}</dd></div>
+    </dl>
+    <div className="cert-schedule"><h4><CalendarClock size={15}/> {d.surveillance} <small>({d.surveillanceEvery(certificate.surveillanceMonths)})</small></h4>
+      <ol>{certificate.surveillance.map(s=><li key={s.index} className={s.done?"is-done":s.overdue?"is-overdue":""}>
+        <span>{d.due(s.index)}</span><span>{day(s.dueOn,ar)}</span>
+        <span className="cert-hint">{s.done?d.done:s.overdue?d.overdue:d.upcoming}</span></li>)}
+        <li><span>{d.recertBy}</span><span>{day(certificate.recertificationDueBy,ar)}</span><span/></li></ol></div>
+    {available.length>0&&(canManage
+      ?<div className="lead-actions cert-card-actions">{available.map(a=><button key={a} type="button"
+          className={"btn btn-secondary"+(a==="withdraw"?" cert-withdraw":"")} onClick={()=>setAction(a)}>{icon[a]}{d.actions[a]}</button>)}</div>
+      :<p className="record-security-note"><LockKeyhole size={15}/>{d.manageOnly}</p>)}
+    {certificate.events.length>0&&<div className="cert-card-history"><h4>{d.history}</h4>
+      <ol className="cert-timeline">{certificate.events.map((e,i)=><li key={i}><span className="cert-timeline-dot"/>
+        <div><strong>{d.events[e.action]}</strong>{e.actorName?` · ${e.actorName}`:""}{e.reason&&<p>{e.reason}</p>}
+          <small dir="ltr">{e.at?e.at.replace("T"," ").slice(0,16):""}</small></div></li>)}</ol></div>}
+    {action&&<Dialog title={d.actions[action]} description={d.actionHint[action]} kicker={certificate.number} busy={busy} onClose={close}
+      footer={<><button type="button" className="btn btn-secondary" disabled={busy} onClick={close}>{d.cancel}</button>
+        <button type="button" className="btn btn-primary" disabled={busy||!reason.trim()} onClick={()=>void confirm()}>{icon[action]}{d.confirm}</button></>}>
+      {error&&<div className="login-error" role="alert"><CircleAlert size={17}/>{error}</div>}
+      <label className="cert-dialog-field"><span>{d.actionReason}</span>
+        <textarea rows={3} maxLength={4000} value={reason} onChange={e=>setReason(e.target.value)}/></label>
+    </Dialog>}
+  </div>;
+}
+
+function FollowUps({cycle,audits,certificate,editable,l,d,language,run}:{cycle:CertificationCycle;audits:CertificationAudit[];certificate:IsoCertificate|null;
+  editable:boolean;l:Labels;d:DecisionLabels;language:Language;run:(a:()=>Promise<unknown>)=>Promise<boolean>}){
+  const followUps=audits.filter(a=>(a.type==="SURVEILLANCE"||a.type==="RECERTIFICATION")&&a.status!=="CANCELLED");
+  const inForce=certificate&&(certificate.status==="ACTIVE"||certificate.status==="SUSPENDED");
+  if(!certificate&&followUps.length===0)return null;
+  const ar=language==="ar";
+  const nextDue=certificate?.surveillance.find(s=>!s.done)??null;
+  const surveillancePlanned=followUps.some(a=>a.type==="SURVEILLANCE"&&a.status==="PLANNED");
+  const recert=followUps.find(a=>a.type==="RECERTIFICATION")??null;
+  return <section className="record-content-card cert-programme" aria-labelledby="followups-title">
+    <div className="record-section-header"><div className="record-section-icon"><CalendarClock size={20}/></div>
+      <div><h2 id="followups-title">{d.followUps}</h2>{!inForce&&<p>{d.followUpsLocked}</p>}</div></div>
+    <div className="cert-stages">
+      {followUps.map(a=><StageCard key={a.id} type={a.type} audit={a} cycle={cycle} editable={editable} l={l} run={run} stage1Done/>)}
+      {inForce&&editable&&!surveillancePlanned&&<StageCard key={"plan-s-"+(nextDue?.dueOn??"")} type="SURVEILLANCE" audit={null} cycle={cycle}
+        editable={editable} l={l} run={run} stage1Done suggestedDate={nextDue?.dueOn}
+        hint={nextDue?d.nextSurveillance(day(nextDue.dueOn,ar)):undefined}/>}
+      {inForce&&editable&&!recert&&certificate&&<StageCard key="plan-r" type="RECERTIFICATION" audit={null} cycle={cycle} editable={editable} l={l}
+        run={run} stage1Done hint={d.recertHint(day(certificate.recertificationDueBy,ar))}/>}
+    </div>
+  </section>;
 }

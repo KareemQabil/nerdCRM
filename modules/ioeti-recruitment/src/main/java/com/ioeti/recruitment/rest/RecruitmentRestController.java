@@ -1,5 +1,6 @@
 package com.ioeti.recruitment.rest;
 
+import com.axelor.apps.base.db.Currency;
 import com.axelor.apps.base.db.Partner;
 import com.axelor.auth.AuthUtils;
 import com.axelor.auth.db.AuditableModel;
@@ -22,14 +23,18 @@ import com.ioeti.recruitment.db.CandidateConsent;
 import com.ioeti.recruitment.db.CandidatePrivateProfile;
 import com.ioeti.recruitment.db.ClientInterview;
 import com.ioeti.recruitment.db.ClientJobOrder;
+import com.ioeti.recruitment.db.OfferPrivateTerms;
 import com.ioeti.recruitment.db.Placement;
 import com.ioeti.recruitment.db.RecruitmentCandidate;
 import com.ioeti.recruitment.db.RecruitmentFeeMilestone;
+import com.ioeti.recruitment.db.RecruitmentFeeRequest;
 import com.ioeti.recruitment.db.repo.CandidateApplicationRepository;
 import com.ioeti.recruitment.db.repo.CandidateConsentRepository;
 import com.ioeti.recruitment.db.repo.ClientInterviewRepository;
 import com.ioeti.recruitment.db.repo.ClientJobOrderRepository;
-import com.ioeti.recruitment.db.repo.RecruitmentFeeMilestoneRepository;
+import com.ioeti.recruitment.db.repo.PlacementRepository;
+import com.ioeti.recruitment.db.repo.RecruitmentFeeRequestRepository;
+import com.ioeti.recruitment.service.PlacementTerms;
 import com.ioeti.recruitment.service.RecruitmentService;
 import io.swagger.v3.oas.annotations.Operation;
 import jakarta.ws.rs.Consumes;
@@ -56,10 +61,11 @@ import java.util.regex.Pattern;
  * submission, client interviews, offers, placements and fee milestones. Every record goes through
  * native permissions and record filters; unknown and unreadable ids answer the same 404.
  *
- * <p>Candidate contact data, pay expectations and CV references are written through a separate
- * entity and never returned (G-007 RESTRICTED); reading them needs D-04 and D-07. Fail closed until
- * D-04 (and D-06 for invoicing): disclosing the private profile or CV to a client, fee amounts and
- * invoicing, guarantee terms and replacement claims.
+ * <p>Candidate contact data, pay expectations, CV references and the offered salary are written through separate
+ * entities and never returned (G-007 RESTRICTED). D-04 (signed 2026-10-25): the CV and contact details reach a client
+ * only through the client portal (D-10, not built), so sharing stays closed. Placement fees, the guarantee and its
+ * replacement or refund follow the client agreement policy {@code recruitment.agreement}; fees and credits become
+ * requests for finance, which issues them in accounting (D-06).
  */
 @Path("/ioeti/recruitment")
 @Produces(MediaType.APPLICATION_JSON)
@@ -82,6 +88,11 @@ public class RecruitmentRestController {
   static final Map<String, Integer> OUTCOMES = Map.of(
       "PASSED", ClientInterviewRepository.OUTCOME_PASSED, "FAILED", ClientInterviewRepository.OUTCOME_FAILED,
       "NO_SHOW", ClientInterviewRepository.OUTCOME_NO_SHOW);
+  static final Map<String, Integer> EXIT_REASONS = Map.of(
+      "RESIGNED", PlacementRepository.EXIT_RESIGNED, "DISMISSED", PlacementRepository.EXIT_DISMISSED,
+      "OTHER", PlacementRepository.EXIT_OTHER);
+  static final String[] OUTCOME_NAMES = {
+      "REPLACEMENT_OPENED", "REFUND_REQUESTED", "NO_REMEDY", "OUTSIDE_GUARANTEE", "NO_FEE_TO_REFUND"};
   static final Map<String, Integer> ORDER_STATUS = Map.of(
       "ON_HOLD", ClientJobOrderRepository.STATUS_ON_HOLD, "OPEN", ClientJobOrderRepository.STATUS_OPEN,
       "CLOSED", ClientJobOrderRepository.STATUS_CLOSED);
@@ -361,11 +372,12 @@ public class RecruitmentRestController {
 
   @POST
   @Path("/applications/{id}/share-cv")
-  @Operation(summary = "Send the CV or private profile to the client: blocked until D-04", tags = {"IOETI recruitment"})
+  @Operation(summary = "Share the CV or contact details with the client: only through the client portal (D-04, D-10), not built", tags = {"IOETI recruitment"})
   @IoetiEndpoint
   public Response shareCv(@PathParam("id") Long id) {
     RecordAccess.writable(CandidateApplication.class, id);
-    throw ApiException.policyBlocked("D-04");
+    throw new ApiException(422, "BLOCKED_BY_POLICY", "D-04: a candidate's CV and contact details are shared with a client only "
+        + "through the client portal, with the candidate's consent for this job order; the portal (D-10) is not built yet.", null);
   }
 
   @GET
@@ -420,13 +432,31 @@ public class RecruitmentRestController {
   @POST
   @Path("/applications/{id}/offer")
   @Consumes(MediaType.APPLICATION_JSON)
-  @Operation(summary = "Record the client's offer (terms are not stored: D-04)", tags = {"IOETI recruitment"})
+  @Operation(summary = "Record the client's offer; the offered annual salary is write-only (D-04)", tags = {"IOETI recruitment"})
   @IoetiEndpoint
   public Response offer(@PathParam("id") Long id, RecordOffer command) {
     CandidateApplication application = writable(CandidateApplication.class, id, command == null ? null : command.version());
     LocalDate on = requiredDate("offerDate", command.offerDate());
-    write(() -> Beans.get(RecruitmentService.class).offer(application, on));
+    BigDecimal salary = command.annualSalary() == null ? null : salary(command.annualSalary());
+    Currency currency = salary == null ? null : currency(command.currencyCode());
+    if (salary != null) new SecurityCheck().createAccess(OfferPrivateTerms.class).writeAccess(OfferPrivateTerms.class).check();
+    write(() -> Beans.get(RecruitmentService.class).offer(application, on, salary, currency));
+    // the salary is never echoed back
     return ResponseConstructor.build(Response.Status.OK, "Offer recorded", view(application));
+  }
+
+  @PUT
+  @Path("/applications/{id}/offer-terms")
+  @Consumes(MediaType.APPLICATION_JSON)
+  @Operation(summary = "Record or correct the offered annual salary (write-only; used on the server for the fee)", tags = {"IOETI recruitment"})
+  @IoetiEndpoint
+  public Response offerTerms(@PathParam("id") Long id, SaveOfferTerms command) {
+    CandidateApplication application = writable(CandidateApplication.class, id, command == null ? null : command.version());
+    new SecurityCheck().createAccess(OfferPrivateTerms.class).writeAccess(OfferPrivateTerms.class).check();
+    BigDecimal salary = salary(command.annualSalary());
+    Currency currency = currency(command.currencyCode());
+    write(() -> Beans.get(RecruitmentService.class).saveOfferTerms(application, salary, currency));
+    return ResponseConstructor.build(Response.Status.OK, "Offer terms recorded", view(application));
   }
 
   @POST
@@ -469,36 +499,66 @@ public class RecruitmentRestController {
     return ResponseConstructor.build(Response.Status.OK, "Placements", rows);
   }
 
+  @GET
+  @Path("/placements/{id}")
+  @Operation(summary = "One placement: fee status, client agreement terms and the guarantee", tags = {"IOETI recruitment"})
+  @IoetiEndpoint
+  public Response placement(@PathParam("id") Long id) {
+    return ResponseConstructor.build(Response.Status.OK, "Placement", view(RecordAccess.readable(Placement.class, id)));
+  }
+
   @POST
   @Path("/placements/{id}/started")
   @Consumes(MediaType.APPLICATION_JSON)
-  @Operation(summary = "Record that the candidate started work (fee milestone, idempotent)", tags = {"IOETI recruitment"})
+  @Operation(summary = "Record that the candidate started work (idempotent); starts the guarantee and, on a START_DATE agreement, requests the fee", tags = {"IOETI recruitment"})
   @IoetiEndpoint
   public Response started(@PathParam("id") Long id, RecordStart command) {
     Placement placement = RecordAccess.writable(Placement.class, id);
     LocalDate on = requiredDate("startedOn", command == null ? null : command.startedOn());
-    RecruitmentFeeMilestone[] saved = new RecruitmentFeeMilestone[1];
-    write(() -> saved[0] = Beans.get(RecruitmentService.class)
-        .recordMilestone(placement, RecruitmentFeeMilestoneRepository.KIND_CANDIDATE_STARTED, on));
+    if (on.isAfter(LocalDate.now())) throw ApiException.invalidField("startedOn", "RANGE", "A start cannot be recorded in the future.");
+    write(() -> Beans.get(RecruitmentService.class).started(placement, on));
     return ResponseConstructor.build(Response.Status.OK, "Start recorded", view(placement));
   }
 
   @POST
   @Path("/placements/{id}/invoice")
-  @Operation(summary = "Invoice the recruitment fee: blocked until D-04 and D-06", tags = {"IOETI recruitment"})
+  @Operation(summary = "Ask finance to invoice the placement fee (feePercent of the offered annual salary), once (D-04, D-06)", tags = {"IOETI recruitment"})
   @IoetiEndpoint
   public Response invoice(@PathParam("id") Long id) {
-    RecordAccess.writable(Placement.class, id);
-    throw ApiException.policyBlocked("D-04 and D-06");
+    Placement placement = RecordAccess.writable(Placement.class, id);
+    write(() -> Beans.get(RecruitmentService.class).requestFee(placement, LocalDate.now()));
+    return ResponseConstructor.build(Response.Status.OK, "Fee requested", view(placement));
   }
 
   @POST
-  @Path("/placements/{id}/replacement")
-  @Operation(summary = "Claim a guarantee replacement: blocked until D-04", tags = {"IOETI recruitment"})
+  @Path("/placements/{id}/early-exit")
+  @Consumes(MediaType.APPLICATION_JSON)
+  @Operation(summary = "Record that the candidate left; within the guarantee the client agreement's rule applies (D-04)", tags = {"IOETI recruitment"})
   @IoetiEndpoint
-  public Response replacement(@PathParam("id") Long id) {
-    RecordAccess.writable(Placement.class, id);
-    throw ApiException.policyBlocked("D-04");
+  public Response earlyExit(@PathParam("id") Long id, RecordExit command) {
+    Placement placement = writable(Placement.class, id, command == null ? null : command.version());
+    LocalDate on = requiredDate("exitedOn", command.exitedOn());
+    if (on.isAfter(LocalDate.now())) throw ApiException.invalidField("exitedOn", "RANGE", "A departure cannot be recorded in the future.");
+    Integer reason = command.reason() == null ? null : EXIT_REASONS.get(command.reason());
+    if (reason == null) throw ApiException.invalidField("reason", "UNAVAILABLE", "Use RESIGNED, DISMISSED or OTHER.");
+    write(() -> Beans.get(RecruitmentService.class).exit(placement, on, reason, LocalDate.now()));
+    return ResponseConstructor.build(Response.Status.OK, "Departure recorded", view(placement));
+  }
+
+  @GET
+  @Path("/fee-requests")
+  @Operation(summary = "Placement fee and credit requests for finance: open (default) or all", tags = {"IOETI recruitment"})
+  @IoetiEndpoint
+  public Response feeRequests(@QueryParam("state") String state) {
+    new SecurityCheck().readAccess(RecruitmentFeeRequest.class).check();
+    boolean all = "ALL".equalsIgnoreCase(state);
+    if (!all && state != null && !state.isBlank() && !"OPEN".equalsIgnoreCase(state)) {
+      throw ApiException.invalidField("state", "UNAVAILABLE", "Use OPEN or ALL.");
+    }
+    Filter where = all ? null : new JPQLFilter("self.statusSelect = ?", RecruitmentFeeRequestRepository.STATUS_REQUESTED);
+    List<FeeRequestView> rows = readable(RecruitmentFeeRequest.class, where).order("requestedAt").fetch(500).stream()
+        .map(RecruitmentRestController::view).toList();
+    return ResponseConstructor.build(Response.Status.OK, "Fee requests", rows);
   }
 
   // --- helpers -------------------------------------------------------------------------------------
@@ -527,6 +587,23 @@ public class RecruitmentRestController {
 
   private static void write(Runnable command) {
     OptimisticLockConflicts.translate(command::run);
+  }
+
+  static final BigDecimal MAX_SALARY = new BigDecimal("1000000000000");
+
+  static BigDecimal salary(BigDecimal value) {
+    if (value == null) throw ApiException.invalidField("annualSalary", "REQUIRED", "This field is required.");
+    if (value.signum() <= 0 || value.compareTo(MAX_SALARY) >= 0 || value.stripTrailingZeros().scale() > 2) {
+      throw ApiException.invalidField("annualSalary", "RANGE", "Enter a positive amount with up to 2 decimals.");
+    }
+    return value;
+  }
+
+  /** Currencies are reference data; the code must exist. */
+  static Currency currency(String code) {
+    Currency currency = code == null || !code.matches("[A-Z]{3}") ? null : Query.of(Currency.class).filter("self.codeISO = ?1", code).fetchOne();
+    if (currency == null) throw ApiException.invalidField("currencyCode", "UNAVAILABLE", "Use a configured currency code such as EGP.");
+    return currency;
   }
 
   static String checkedText(String field, String value, int max, boolean required) {
@@ -559,7 +636,7 @@ public class RecruitmentRestController {
     Partner client = order.getClient();
     boolean canReadClient = security.isPermitted(JpaSecurity.CAN_READ, Partner.class, client.getId());
     List<CandidateApplication> pipeline = Query.of(CandidateApplication.class).filter("self.jobOrder = ?1", order).fetch();
-    long placed = pipeline.stream().filter(a -> a.getStageSelect() == CandidateApplicationRepository.STAGE_PLACED).count();
+    long placed = RecruitmentService.activePlacements(order);
     long active = pipeline.stream().filter(a -> !RecruitmentService.isClosed(a.getStageSelect())).count();
     return new JobOrderView(order.getId(), order.getVersion(), order.getReference(),
         canReadClient ? client.getId() : null, canReadClient ? client.getName() : null, order.getTitle(), order.getHeadcount(),
@@ -587,7 +664,8 @@ public class RecruitmentRestController {
         candidate.getId(), candidate.getDisplayName(), candidate.getHeadline(),
         name(application.getStageSelect(), STAGES), application.getSubmittedAt(), application.getOfferDate(),
         name(application.getOfferStatusSelect(), "PENDING", "ACCEPTED", "DECLINED"),
-        RecruitmentService.validConsent(candidate, application.getJobOrder()) != null);
+        RecruitmentService.validConsent(candidate, application.getJobOrder()) != null,
+        RecruitmentService.offerTerms(application) != null);
   }
 
   static InterviewView view(ClientInterview interview) {
@@ -597,12 +675,47 @@ public class RecruitmentRestController {
 
   static PlacementView view(Placement placement) {
     CandidateApplication application = placement.getApplication();
+    ClientJobOrder order = application.getJobOrder();
+    JpaSecurity security = Beans.get(JpaSecurity.class);
+    LocalDate today = LocalDate.now();
     List<String> milestones = Query.of(RecruitmentFeeMilestone.class).filter("self.placement = ?1", placement)
         .order("kindSelect").fetch().stream()
         .map(m -> name(m.getKindSelect(), "OFFER_ACCEPTED", "CANDIDATE_STARTED")).toList();
-    return new PlacementView(placement.getId(), placement.getVersion(), application.getId(),
-        application.getCandidate().getDisplayName(), placement.getStartDate(), "TERMS_PENDING_POLICY", milestones,
-        "BLOCKED_BY_POLICY");
+    boolean terms = placement.getAgreementPolicy() != null;
+    LocalDate startedOn = RecruitmentService.startedOn(placement);
+    LocalDate ends = placement.getGuaranteeEndsOn();
+    RecruitmentFeeRequest fee = RecruitmentService.feeRequest(placement, RecruitmentFeeRequestRepository.KIND_FEE_INVOICE);
+    RecruitmentFeeRequest credit = RecruitmentService.feeRequest(placement, RecruitmentFeeRequestRepository.KIND_REFUND_CREDIT);
+    // the fee is a share of the salary: its amount is shown only to those who may read the fee request (finance)
+    boolean feeVisible = fee != null && security.isPermitted(JpaSecurity.CAN_READ, RecruitmentFeeRequest.class, fee.getId());
+    boolean creditVisible = credit != null && security.isPermitted(JpaSecurity.CAN_READ, RecruitmentFeeRequest.class, credit.getId());
+    boolean canReadClient = security.isPermitted(JpaSecurity.CAN_READ, Partner.class, order.getClient().getId());
+    boolean active = ends != null && startedOn != null && placement.getExitedOn() == null && !today.isAfter(ends);
+    return new PlacementView(placement.getId(), placement.getVersion(), application.getId(), order.getId(), order.getReference(),
+        canReadClient ? order.getClient().getName() : null, application.getCandidate().getDisplayName(), placement.getStartDate(),
+        startedOn, PlacementTerms.guaranteeStatus(terms, startedOn, ends, placement.getExitedOn(), today), milestones,
+        RecruitmentService.feeStatus(placement), feeVisible ? fee.getAmountBeforeTax() : null, fee == null ? null : fee.getCurrency().getCodeISO(),
+        placement.getFeePercent(), terms ? RecruitmentService.invoiceOn(placement) : null, fee == null ? null : fee.getRequestedAt(),
+        placement.getGuaranteeDays(), ends, active ? (Long) PlacementTerms.daysLeft(ends, today) : null, RecruitmentService.rule(placement),
+        placement.getRefundPercent(), placement.getExitedOn(), name(placement.getExitReasonSelect(), "RESIGNED", "DISMISSED", "OTHER"),
+        name(placement.getExitOutcomeSelect(), OUTCOME_NAMES), credit == null ? null : RecruitmentService.requestStatus(credit),
+        creditVisible ? credit.getAmountBeforeTax() : null, placement.getReplacementOf() == null ? null : placement.getReplacementOf().getId(),
+        Boolean.TRUE.equals(placement.getFeeWaived()), RecruitmentService.offerTerms(application) != null,
+        security.isPermitted(JpaSecurity.CAN_WRITE, Placement.class, placement.getId()));
+  }
+
+  static FeeRequestView view(RecruitmentFeeRequest request) {
+    JpaSecurity security = Beans.get(JpaSecurity.class);
+    Placement placement = request.getPlacement();
+    Partner client = request.getClient();
+    boolean canReadClient = security.isPermitted(JpaSecurity.CAN_READ, Partner.class, client.getId());
+    return new FeeRequestView(request.getId(), request.getVersion(),
+        request.getKindSelect() == RecruitmentFeeRequestRepository.KIND_REFUND_CREDIT ? "REFUND_CREDIT" : "FEE_INVOICE",
+        RecruitmentService.requestStatus(request), placement.getId(), placement.getApplication().getJobOrder().getReference(),
+        canReadClient ? client.getId() : null, canReadClient ? client.getName() : null,
+        placement.getApplication().getCandidate().getDisplayName(), request.getAmountBeforeTax(), request.getCurrency().getCodeISO(),
+        request.getRatePercent(), request.getRequestedBy() == null ? null : request.getRequestedBy().getName(), request.getRequestedAt(),
+        request.getRefundOf() == null ? null : request.getRefundOf().getId());
   }
 
   public record VersionOnly(Integer version) {}
@@ -616,7 +729,9 @@ public class RecruitmentRestController {
   public record MoveApplication(Integer version, String stage) {}
   public record ScheduleInterview(Integer version, Integer round, String scheduledAt) {}
   public record RecordOutcome(Integer version, String outcome) {}
-  public record RecordOffer(Integer version, String offerDate) {}
+  public record RecordOffer(Integer version, String offerDate, BigDecimal annualSalary, String currencyCode) {}
+  public record SaveOfferTerms(Integer version, BigDecimal annualSalary, String currencyCode) {}
+  public record RecordExit(Integer version, String exitedOn, String reason) {}
   public record OfferAnswer(Integer version, Boolean accepted) {}
   public record ConfirmPlacement(Integer version, String startDate) {}
   public record RecordStart(String startedOn) {}
@@ -632,9 +747,24 @@ public class RecruitmentRestController {
       String evidenceReference, LocalDateTime revokedAt, boolean active) {}
   public record ApplicationView(
       Long id, Integer version, Long jobOrderId, Long candidateId, String candidateName, String candidateHeadline,
-      String stage, LocalDateTime submittedAt, LocalDate offerDate, String offerStatus, boolean consentOnFile) {}
+      String stage, LocalDateTime submittedAt, LocalDate offerDate, String offerStatus, boolean consentOnFile,
+      boolean offerTermsOnFile) {}
   public record InterviewView(Long id, Integer version, Integer round, LocalDateTime scheduledAt, String outcome) {}
+  /**
+   * invoicingStatus: REQUESTED, CANCELLED or ISSUED once requested; otherwise POLICY_NOT_SET, NOT_DUE, OFFER_TERMS_MISSING or
+   * WAIVED_REPLACEMENT. guaranteeStatus: TERMS_PENDING, NOT_STARTED, ACTIVE, CLOSED, EARLY_EXIT or EXITED_AFTER. feeAmount
+   * and refundAmount only for readers of the fee request.
+   */
   public record PlacementView(
-      Long id, Integer version, Long applicationId, String candidateName, LocalDate startDate, String guaranteeStatus,
-      List<String> feeMilestones, String invoicingStatus) {}
+      Long id, Integer version, Long applicationId, Long jobOrderId, String jobOrderReference, String clientName,
+      String candidateName, LocalDate startDate, LocalDate startedOn, String guaranteeStatus, List<String> feeMilestones,
+      String invoicingStatus, BigDecimal feeAmount, String feeCurrency, BigDecimal feePercent, String invoiceOn,
+      LocalDateTime feeRequestedAt, Integer guaranteeDays, LocalDate guaranteeEndsOn, Long guaranteeDaysLeft,
+      String replacementRule, BigDecimal refundPercent, LocalDate exitedOn, String exitReason, String exitOutcome,
+      String refundStatus, BigDecimal refundAmount, Long replacementOfId, boolean feeWaived, boolean offerTermsOnFile,
+      boolean canEdit) {}
+  public record FeeRequestView(
+      Long id, Integer version, String kind, String status, Long placementId, String jobOrderReference, Long clientId,
+      String clientName, String candidateName, BigDecimal amount, String currency, BigDecimal ratePercent, String requestedBy,
+      LocalDateTime requestedAt, Long refundOfId) {}
 }

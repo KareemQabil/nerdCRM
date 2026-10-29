@@ -58,4 +58,11 @@ class FundraisingRulesTest {
     assertEquals("FOUNDATION", FundraisingRestController.name(2, FundraisingRestController.DONOR_TYPES));
     assertThrows(ApiException.class, () -> FundraisingRestController.select("kind", "LOAN", FundraisingRestController.KINDS));
   }
+
+  @Test
+  void receiptVoidReasonsAreStableCodes() {
+    assertEquals(3, FundraisingRestController.select("reason", "COLLECTION_CORRECTED", FundraisingRestController.RECEIPT_VOID_REASONS));
+    assertThrows(ApiException.class, () -> FundraisingRestController.select("reason", "CHANGED_MIND", FundraisingRestController.RECEIPT_VOID_REASONS));
+    assertTrue(FundraisingRestController.RESTRICTION_CODE.matcher("GIRLS-STEM").matches());
+  }
 }

@@ -6,7 +6,8 @@ apply from: new File(projectDir.canonicalFile, "../../gradle/ioeti-module.gradle
 
 // IOETI external training (Wave 4): courses, cohorts with capacity and waitlist, enrolment of
 // external trainees, sessions and attendance. AOS talent training is for employees only, so this is
-// a new bounded context. Certificates, refunds and cohort cancellation wait for policy D-03.
+// a new bounded context. D-03 (signed 2026-10-25): certificates on the course's criteria, national IDs per course,
+// and refunds computed from the cancellation policy, credited in Axelor accounting (D-06).
 axelor {
 	title "IOETI Training"
 	description "IOETI external training: courses, cohorts, enrolment, attendance"
@@ -18,6 +19,8 @@ dependencies {
 	api project(":modules:ioeti-core")
 	// courses belong to a business line (TRAINING)
 	api project(":modules:ioeti-business-lines")
+	// refunds are credited against the enrolment's issued invoice (D-06: full Axelor accounting)
+	api project(":modules:axelor-account")
 
 	implementation libs.swagger_jaxrs
 }

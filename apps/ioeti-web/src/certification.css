@@ -43,3 +43,69 @@
 @media (max-width:640px){.cert-stages{grid-template-columns:1fr;}.cert-filters>*{flex:1 1 100%;}}
 .cert-form textarea,.cert-nc-actions textarea{background:var(--surface);color:var(--on-surface);border:1px solid var(--outline-variant);border-radius:var(--radius);padding:10px 12px;min-height:64px;}
 .cert-form textarea:focus-visible,.cert-nc-actions textarea:focus-visible{outline:2px solid var(--primary);outline-offset:1px;}
+
+/* M1 (D-02): certification decision, certificate and follow-up audits */
+.cert-hero-status.is-active{border-color:var(--success);color:var(--success);}
+.cert-hero-status.is-suspended{border-color:var(--warning);color:var(--warning);}
+.cert-hero-status.is-withdrawn,.cert-hero-status.is-expired{border-color:var(--error);color:var(--error);}
+.cert-decision{margin-top:20px;display:flex;flex-direction:column;gap:16px;}
+.cert-decision .record-section-header{margin-bottom:0;}
+.cert-policy-missing{border:1px solid var(--warning);background:var(--warning-container);border-radius:var(--radius);padding:12px 14px;font-size:13px;line-height:1.7;}
+.cert-policy-missing ul{list-style:none;margin:6px 0;padding:0;display:flex;flex-direction:column;gap:4px;}
+.cert-policy-missing li{display:flex;gap:8px;align-items:center;}
+.cert-policy-missing p{margin:4px 0 0;}
+.cert-decision-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px;}
+.cert-decision-block{border:1px solid var(--outline-variant);border-radius:var(--radius-lg,14px);padding:14px;min-width:0;}
+.cert-decision-block h3{margin:0 0 8px;font-size:14px;display:flex;align-items:center;gap:6px;}
+.cert-decision-block p{margin:0 0 6px;font-size:13px;line-height:1.7;}
+.cert-decision-block .cert-hint{display:flex;gap:6px;align-items:flex-start;}
+.cert-nobody{display:flex;gap:8px;align-items:flex-start;color:var(--error);}
+.cert-nobody svg{flex-shrink:0;margin-top:3px;}
+.cert-people,.cert-votes{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px;font-size:13px;}
+.cert-people li,.cert-votes li{display:flex;gap:6px;align-items:center;flex-wrap:wrap;}
+.cert-votes li p{flex-basis:100%;margin:2px 0 4px;color:var(--on-surface-variant);line-height:1.6;}
+.cert-round{border:1px solid var(--outline-variant);border-radius:var(--radius-lg,14px);padding:12px 14px;display:flex;flex-direction:column;gap:8px;}
+.cert-round.is-grant{border-inline-start:4px solid var(--success);}
+.cert-round.is-refuse{border-inline-start:4px solid var(--error);}
+.cert-round-head{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;}
+.cert-meter{height:6px;border-radius:999px;background:var(--surface-variant);overflow:hidden;}
+.cert-meter span{display:block;height:100%;background:var(--primary);border-radius:inherit;}
+.cert-vote-tag{font-size:11px;font-weight:800;padding:2px 8px;border-radius:999px;}
+.cert-vote-tag.is-grant{background:var(--success-container);color:var(--success);}
+.cert-vote-tag.is-refuse{background:var(--error-container);color:var(--error);}
+.cert-vote-form fieldset{border:1px solid var(--outline-variant);border-radius:var(--radius-lg,14px);margin:0;padding:14px;display:flex;flex-direction:column;gap:10px;min-width:0;}
+.cert-vote-form legend{font-weight:800;font-size:14px;padding:0 6px;}
+.cert-vote-form label.cert-wide{display:flex;flex-direction:column;gap:6px;font-size:13px;}
+.cert-vote-form textarea,.cert-dialog-field textarea{width:100%;font:inherit;resize:vertical;background:var(--surface);color:var(--on-surface);border:1px solid var(--outline-variant);border-radius:var(--radius);padding:10px 12px;min-height:72px;box-sizing:border-box;}
+.cert-vote-choices{display:flex;gap:10px;flex-wrap:wrap;}
+.cert-vote-choice{flex:1 1 180px;display:flex;align-items:center;gap:8px;border:1px solid var(--outline-variant);border-radius:var(--radius);padding:12px 14px;cursor:pointer;font-weight:700;font-size:14px;}
+.cert-vote-choice input{margin:0;}
+.cert-vote-choice.is-grant.is-selected{border-color:var(--success);background:var(--success-container);color:var(--success);}
+.cert-vote-choice.is-refuse.is-selected{border-color:var(--error);background:var(--error-container);color:var(--error);}
+.cert-vote-choice.is-disabled{opacity:.55;cursor:not-allowed;}
+.cert-vote-choice:focus-within{outline:2px solid var(--primary);outline-offset:1px;}
+.cert-vote-form .lead-actions{margin-top:10px;}
+.cert-past-rounds{display:flex;flex-direction:column;gap:10px;}
+.cert-past-rounds h3{margin:0;font-size:14px;}
+.cert-card{border:1px solid var(--outline-variant);border-radius:var(--radius-lg,14px);padding:16px;display:flex;flex-direction:column;gap:14px;border-top:4px solid var(--success);}
+.cert-card.is-suspended{border-top-color:var(--warning);}
+.cert-card.is-withdrawn,.cert-card.is-expired{border-top-color:var(--error);}
+.cert-card-head{display:flex;gap:12px;align-items:center;}
+.cert-card-head>svg{color:var(--primary);flex-shrink:0;}
+.cert-card-head h3{margin:0;font-size:13px;color:var(--on-surface-variant);font-weight:600;}
+.cert-card-head>div{flex:1;min-width:0;}
+.cert-card-number{font-size:20px;font-weight:800;letter-spacing:.02em;overflow-wrap:anywhere;}
+.cert-status-badge{font-size:12px;font-weight:800;padding:4px 12px;border-radius:999px;background:var(--success-container);color:var(--success);white-space:nowrap;}
+.cert-status-badge.is-suspended{background:var(--warning-container);color:var(--warning);}
+.cert-status-badge.is-withdrawn,.cert-status-badge.is-expired{background:var(--error-container);color:var(--error);}
+.cert-schedule h4,.cert-card-history h4{margin:0 0 8px;font-size:13px;display:flex;gap:6px;align-items:center;flex-wrap:wrap;}
+.cert-schedule small{font-weight:400;color:var(--on-surface-variant);}
+.cert-schedule ol{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px;}
+.cert-schedule li{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr) auto;gap:8px;font-size:13px;padding:6px 10px;border-radius:var(--radius);background:var(--surface-variant);}
+.cert-schedule li.is-done{color:var(--success);}
+.cert-schedule li.is-overdue{color:var(--error);font-weight:700;}
+.cert-card-history p{margin:2px 0;font-size:12px;color:var(--on-surface-variant);}
+.cert-withdraw{color:var(--error);border-color:var(--error);}
+.cert-dialog-field{display:flex;flex-direction:column;gap:6px;font-size:13px;margin-top:10px;}
+.cert-due-hint{display:flex;gap:6px;align-items:center;}
+@media (max-width:640px){.cert-card-head{flex-wrap:wrap;}.cert-schedule li{grid-template-columns:1fr auto;}.cert-schedule li>span:nth-child(3){grid-column:1/-1;}}

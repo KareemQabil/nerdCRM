@@ -26,8 +26,8 @@ import java.util.List;
  * That keeps "confirmed enrolments never exceed capacity" and "waitlist positions are 1..n with no
  * gaps" true under concurrency.
  *
- * <p>Not here, by policy D-03: attendance thresholds, pass rules, certificates, refunds and cohort
- * cancellation (they fail closed in the API).
+ * <p>D-03 rules (certificates, national IDs, refunds and cohort cancellation) live in {@link CompletionService} and
+ * {@link RefundService}; they call in here for the seat changes.
  */
 public class TrainingService {
 
@@ -41,7 +41,7 @@ public class TrainingService {
   }
 
   @Transactional(rollbackOn = {Exception.class})
-  public TrainingEnrollment enroll(TrainingCohort cohort, Partner trainee, Partner client) {
+  public TrainingEnrollment enroll(TrainingCohort cohort, Partner trainee, Partner client, String nationalId) {
     JPA.em().lock(cohort, LockModeType.PESSIMISTIC_FORCE_INCREMENT);
     if (!Integer.valueOf(TrainingCohortRepository.STATUS_OPEN).equals(cohort.getStatusSelect())) {
       throw new ApiException(422, "COHORT_NOT_OPEN", "This cohort is not open for enrolment.", null);
@@ -58,12 +58,15 @@ public class TrainingService {
     enrollment.setClient(client);
     enrollment.setStatusSelect(placement.status());
     enrollment.setWaitlistPosition(placement.waitlistPosition());
-    return JPA.save(enrollment);
+    TrainingEnrollment saved = JPA.save(enrollment);
+    // checked against the course's rule by the caller; kept apart from the enrolment (restricted data)
+    if (nationalId != null) CompletionService.storeIdentity(saved, nationalId);
+    return saved;
   }
 
   /** Cancels an enrolment; a freed seat goes to the first trainee on the waitlist. */
   @Transactional(rollbackOn = {Exception.class})
-  public TrainingEnrollment cancel(TrainingEnrollment enrollment) {
+  public TrainingEnrollment cancel(TrainingEnrollment enrollment, java.time.LocalDate today) {
     TrainingCohort cohort = Locks.parent(enrollment.getCohort());
     if (Integer.valueOf(TrainingEnrollmentRepository.STATUS_CANCELLED).equals(enrollment.getStatusSelect())) {
       throw new ApiException(422, "ALREADY_CANCELLED", "This enrolment is already cancelled.", null);
@@ -71,6 +74,7 @@ public class TrainingService {
     boolean freedSeat = isConfirmed(enrollment);
     enrollment.setStatusSelect(TrainingEnrollmentRepository.STATUS_CANCELLED);
     enrollment.setWaitlistPosition(null);
+    enrollment.setCancelledOn(today);
     List<TrainingEnrollment> waitlist = active(cohort).stream()
         .filter(e -> !e.equals(enrollment) && !isConfirmed(e))
         .sorted(Comparator.comparing(TrainingEnrollment::getWaitlistPosition))

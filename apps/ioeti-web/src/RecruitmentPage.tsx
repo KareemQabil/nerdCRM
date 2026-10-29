@@ -1,18 +1,20 @@
 import { useCallback, useEffect, useState } from "react";
 import {
-  ArrowLeft, ArrowRight, BriefcaseBusiness, CheckCircle2, CircleAlert, CircleDashed, ClipboardCheck, FileLock2,
-  LockKeyhole, Plus, RefreshCw, Search, Send, UserRound, UsersRound,
+  ArrowLeft, ArrowRight, BadgeCheck, BriefcaseBusiness, CheckCircle2, CircleAlert, CircleDashed, ClipboardCheck, FileLock2,
+  HandCoins, LockKeyhole, LogOut, Plus, RefreshCw, Search, Send, ShieldCheck, UserRound, UsersRound,
 } from "lucide-react";
 import { ApiError, getAccounts, type AccountSummary } from "./api";
 import {
   answerOffer, attachCandidate, confirmPlacement, createCandidate, createJobOrder, getApplications, getCandidate,
-  getCandidates, getConsents, getInterviews, getJobOrder, getJobOrders, getPlacements, moveApplication, recordConsent,
-  recordOffer, recordOutcome, recordStart, revokeConsent, savePrivateProfile, scheduleInterview, setJobOrderStatus,
-  submitApplication,
-  type Application, type Candidate, type Consent, type ConsentMethod, type Interview, type JobOrder, type PlacementRecord, type Stage,
+  getCandidates, getConsents, getInterviews, getJobOrder, getJobOrders, getPlacement, getPlacements, moveApplication, recordConsent,
+  recordExit, recordOffer, recordOutcome, recordStart, requestFee, revokeConsent, saveOfferTerms, savePrivateProfile, scheduleInterview,
+  setJobOrderStatus, submitApplication,
+  type Application, type Candidate, type Consent, type ConsentMethod, type ExitReason, type Interview, type JobOrder, type PlacementRecord, type Stage,
 } from "./recruitmentApi";
 import type { Language } from "./preferences";
 import "./recruitment.css";
+import { Dialog } from "./Dialog";
+import { amount, day, quantity } from "./format";
 import { ErrorBanner, PageHeader } from "./ui";
 
 const strings = {
@@ -28,14 +30,28 @@ const strings = {
     stages:{SOURCED:"مصدر",SCREENED:"تم الفرز",SHORTLISTED:"القائمة المختصرة",SUBMITTED:"مُرشح للعميل",INTERVIEWING:"مقابلات",OFFERED:"عرض عمل",PLACED:"تم التعيين",REJECTED:"مرفوض",WITHDRAWN:"انسحب"},
     consentOk:"موافقة سارية لهذا الطلب",consentMissing:"لا توجد موافقة سارية لهذا الطلب",
     screen:"تم الفرز",shortlist:"إلى القائمة المختصرة",reject:"رفض",withdraw:"انسحاب",submit:"ترشيح للعميل",
-    submitNote:"يُشارك مع العميل الملف غير المقيّد فقط (الاسم والخبرة). مشاركة السيرة الذاتية وبيانات التواصل متوقفة حتى اعتماد D-04.",
+    submitNote:"يُشارك مع العميل الملف غير المقيّد بس (الاسم والخبرة). السيرة الذاتية وبيانات التواصل بتتشارك بس من بوابة العملاء وبموافقة المرشح على الطلب ده (D-04)، والبوابة لسه مش متاحة.",
     shareCv:"مشاركة السيرة الذاتية",interviews:"مقابلات العميل",round:"الجولة",scheduledAt:"الموعد",schedule:"جدولة مقابلة",
     outcomes:{PENDING:"بانتظار النتيجة",PASSED:"اجتاز",FAILED:"لم يجتز",NO_SHOW:"لم يحضر"},passed:"اجتاز",failed:"لم يجتز",noShow:"لم يحضر",
     offer:"عرض العمل",offerDate:"تاريخ العرض",recordOffer:"تسجيل عرض العميل",accepted:"قَبِل العرض",declined:"رفض العرض",
-    offerNote:"لا تُسجل شروط العرض (الراتب) هنا حتى اعتماد D-04.",startDate:"تاريخ بدء العمل",place:"تأكيد التعيين",
-    placements:"التعيينات",guarantee:"الضمان",guaranteePending:"شروط الضمان بانتظار السياسة D-04",fees:"أحداث الأتعاب",
-    fee:{OFFER_ACCEPTED:"قبول العرض",CANDIDATE_STARTED:"بدء العمل"},recordStarted:"تسجيل بدء العمل",invoice:"إصدار فاتورة الأتعاب",replacement:"طلب بديل",
-    feeNote:"قيم الأتعاب والفواتير وطلبات البديل متوقفة حتى اعتماد D-04 وD-06.",
+    offerNote:"الراتب السنوي المعروض بيتسجل ومش بيتعرض لحد؛ السيستم بيستخدمه بس عشان يحسب الأتعاب.",startDate:"تاريخ بدء العمل",place:"تأكيد التعيين",
+    annualSalary:"الراتب السنوي المعروض",currencyCode:"العملة",saveOfferTerms:"تسجيل الراتب المعروض",offerTermsOnFile:"الراتب المعروض متسجّل (مش بيتعرض)",offerTermsMissing:"الراتب المعروض مش متسجّل؛ الأتعاب بتتحسب منه",
+    placements:"التعيينات",guarantee:"الضمان",guaranteePending:"شروط الضمان بانتظار اتفاقية العميل",fees:"أحداث الأتعاب",
+    fee:{OFFER_ACCEPTED:"قبول العرض",CANDIDATE_STARTED:"بدء العمل"},recordStarted:"تسجيل بدء العمل",invoice:"طلب الأتعاب من المالية",
+    feeNote:"الأتعاب والضمان والبديل ماشيين على اتفاقية العميل. افتح التعيين عشان تشوف حالتهم.",feeCol:"الأتعاب",
+    placementTitle:"التعيين",backToOrder:"العودة لطلب التوظيف",feeTitle:"أتعاب التعيين",guaranteeTitle:"فترة الضمان",
+    feeStatus:{REQUESTED:"اتبعت للمالية",ISSUED:"اتعملت الفاتورة",CANCELLED:"اتلغى الطلب",POLICY_NOT_SET:"اتفاقية العميل مش مضبوطة",NOT_DUE:"لسه مش مستحقة",OFFER_TERMS_MISSING:"الراتب المعروض ناقص",WAIVED_REPLACEMENT:"بديل مجاني من غير أتعاب"},
+    feeWhy:{POLICY_NOT_SET:"مفيش اتفاقية توظيف (السياسة recruitment.agreement) للعميل ده ولا قيمة عامة. مالك السياسات يضبطها من صفحة السياسات، وبعدها اطلب الأتعاب.",NOT_DUE:"الاتفاقية بتطلب الفاتورة يوم استلام الشغل: سجّل بدء العمل والطلب هيتبعت للمالية لوحده.",OFFER_TERMS_MISSING:"الأتعاب نسبة من الراتب السنوي المعروض: سجّله في طلب المرشح (مش هيتعرض).",WAIVED_REPLACEMENT:"التعيين ده هو البديل المجاني اللي الاتفاقية بتديه بعد ما مرشح سابق ساب في الضمان.",REQUESTED:"المالية هتصدر الفاتورة في الحسابات. الطلب بيتعمل مرة واحدة بس لكل تعيين.",ISSUED:"المالية أصدرت الفاتورة.",CANCELLED:"المالية لغت الطلب."},
+    feeAmount:"قيمة الأتعاب قبل الضريبة",feeHidden:"القيمة بتظهر للمالية بس (لأنها بتكشف الراتب)",feePercent:"النسبة من الراتب السنوي",invoiceOnLabel:"الفاتورة عند",invoiceOn:{START_DATE:"استلام الشغل",OFFER_ACCEPTED:"قبول العرض"},requestedAt:"اتطلبت يوم",
+    policiesLink:"صفحة السياسات",startedOn:"بدأ الشغل يوم",notStarted:"لسه ما بدأش",
+    gStatus:{TERMS_PENDING:"مستني اتفاقية العميل",NOT_STARTED:"بيبدأ مع استلام الشغل",ACTIVE:"ساري",CLOSED:"خلص",EARLY_EXIT:"ساب في الضمان",EXITED_AFTER:"ساب بعد الضمان"},
+    guaranteeDays:"مدة الضمان",days:"يوم",endsOn:"آخر يوم",daysLeft:"باقي",rule:"لو ساب في الضمان",
+    rules:{REPLACE:"بديل مجاني",PARTIAL_REFUND:"استرداد جزئي",NONE:"لا شيء"},
+    ruleWill:{REPLACE:"طلب التوظيف هيتفتح تاني لبديل مجاني، ومفيش أتعاب على البديل.",PARTIAL_REFUND:"هيتبعت للمالية طلب إشعار دائن بنسبة {p}% من الأتعاب.",NONE:"الاتفاقية مفيهاش بديل ولا استرداد؛ هيتسجل الترك بس.",AFTER:"التاريخ ده بعد آخر يوم في الضمان: هيتسجل الترك بس من غير بديل ولا استرداد.",NO_FEE:"مفيش طلب أتعاب اتبعت للمالية، فمفيش حاجة تتسترد."},
+    exitAction:"تسجيل ترك المرشح للشغل",exitTitle:"المرشح ساب الشغل",exitedOn:"ساب يوم",exitReason:"السبب",reasons:{RESIGNED:"استقال",DISMISSED:"العميل أنهى التعاقد",OTHER:"سبب تاني"},
+    willHappen:"اللي هيحصل حسب اتفاقية العميل",confirmExit:"تسجيل الترك",
+    outcomes2:{REPLACEMENT_OPENED:"اتفتح طلب بديل مجاني",REFUND_REQUESTED:"اتبعت للمالية طلب إشعار دائن",NO_REMEDY:"مفيش بديل ولا استرداد حسب الاتفاقية",OUTSIDE_GUARANTEE:"ساب بعد الضمان",NO_FEE_TO_REFUND:"مفيش أتعاب تتسترد"},
+    refund:"الإشعار الدائن",replacementOf:"بديل مجاني لتعيين سابق",openPlacement:"فتح التعيين",termsPendingNote:"الاتفاقية لسه ما اتطبقتش على التعيين ده: لو مضبوطة دلوقتي هتتطبق وقت التسجيل، ولو مش مضبوطة التسجيل هيترفض.",
     profile:"الملف غير المقيّد",displayName:"الاسم",headline:"الدور الحالي",years:"سنوات الخبرة",
     privateTitle:"البيانات المقيّدة",privateOnFile:"مسجلة (لا تُعرض)",privateNone:"غير مسجلة",
     privateNote:"البريد والهاتف والراتب المتوقع ومرجع السيرة الذاتية تُسجل ولا تُعرض. قراءتها متوقفة حتى اعتماد D-04 وD-07.",
@@ -43,7 +59,7 @@ const strings = {
     consents:"الموافقات",noConsents:"لا توجد موافقات مسجلة",jobOrder:"طلب التوظيف",chooseOrder:"اختر طلب التوظيف",method:"طريقة الموافقة",
     methods:{WRITTEN:"كتابية",EMAIL:"بريد إلكتروني",RECORDED_CALL:"مكالمة مسجلة"},givenOn:"تاريخ الموافقة",evidence:"مرجع الإثبات",
     recordConsent:"تسجيل موافقة",revoke:"سحب الموافقة",revoked:"مسحوبة",readonly:"عرض فقط: المسؤول وحده يعدّل هذا السجل.",
-    errors:{CONSENT_REQUIRED:"سجّل موافقة المرشح على هذا الطلب قبل ترشيحه للعميل.",STAGE_TRANSITION:"هذا الانتقال غير مسموح من المرحلة الحالية.",ALREADY_IN_PIPELINE:"المرشح موجود بالفعل في مسار هذا الطلب.",ORDER_NOT_OPEN:"طلب التوظيف ليس مفتوحًا.",ORDER_STATE:"لا يمكن تغيير حالة طلب مكتمل أو مغلق.",ALREADY_PLACED:"تم تعيين هذا المرشح بالفعل.",HEADCOUNT_FILLED:"اكتملت كل وظائف هذا الطلب.",OUTCOME_RECORDED:"سُجلت نتيجة هذه المقابلة بالفعل.",CONSENT_REVOKED:"هذه الموافقة مسحوبة بالفعل.",BLOCKED_BY_POLICY:"متوقف حتى اعتماد السياسة.",conflict:"تم تعديل البيانات من مكان آخر؛ حدّثناها، أعد المحاولة.",invalid:"راجع الحقول المطلوبة وقيمها.",denied:"ليست لديك صلاحية لهذا الإجراء.",failed:"تعذّر تنفيذ الطلب."},
+    errors:{POLICY_NOT_SET:"اتفاقية التوظيف للعميل ده مش مضبوطة؛ مالك السياسات يضبطها من صفحة السياسات.",FEE_NOT_DUE:"الأتعاب لسه مش مستحقة: الاتفاقية بتطلبها يوم استلام الشغل.",OFFER_TERMS_MISSING:"سجّل الراتب السنوي المعروض الأول.",FEE_WAIVED:"ده بديل مجاني ومالوش أتعاب.",FEE_REQUESTED:"الأتعاب اتطلبت بالفعل؛ الراتب المعروض مبيتغيرش بعدها.",ALREADY_EXITED:"ترك المرشح متسجّل بالفعل.",NOT_STARTED:"سجّل بدء العمل الأول.",CONSENT_REQUIRED:"سجّل موافقة المرشح على هذا الطلب قبل ترشيحه للعميل.",STAGE_TRANSITION:"هذا الانتقال غير مسموح من المرحلة الحالية.",ALREADY_IN_PIPELINE:"المرشح موجود بالفعل في مسار هذا الطلب.",ORDER_NOT_OPEN:"طلب التوظيف ليس مفتوحًا.",ORDER_STATE:"لا يمكن تغيير حالة طلب مكتمل أو مغلق.",ALREADY_PLACED:"تم تعيين هذا المرشح بالفعل.",HEADCOUNT_FILLED:"اكتملت كل وظائف هذا الطلب.",OUTCOME_RECORDED:"سُجلت نتيجة هذه المقابلة بالفعل.",CONSENT_REVOKED:"هذه الموافقة مسحوبة بالفعل.",BLOCKED_BY_POLICY:"متوقف حتى اعتماد السياسة.",conflict:"تم تعديل البيانات من مكان آخر؛ حدّثناها، أعد المحاولة.",invalid:"راجع الحقول المطلوبة وقيمها.",denied:"ليست لديك صلاحية لهذا الإجراء.",failed:"تعذّر تنفيذ الطلب."},
   },
   en: {
     title:"Client recruitment",desc:"Client job orders, candidates, consent, the submission pipeline and placements, within your permissions.",
@@ -57,14 +73,28 @@ const strings = {
     stages:{SOURCED:"Sourced",SCREENED:"Screened",SHORTLISTED:"Shortlisted",SUBMITTED:"Submitted",INTERVIEWING:"Interviewing",OFFERED:"Offered",PLACED:"Placed",REJECTED:"Rejected",WITHDRAWN:"Withdrawn"},
     consentOk:"Valid consent for this job order",consentMissing:"No valid consent for this job order",
     screen:"Mark screened",shortlist:"Shortlist",reject:"Reject",withdraw:"Withdraw",submit:"Submit to client",
-    submitNote:"Only the non-restricted profile (name, experience) is shared. Sharing the CV and contact details waits for D-04.",
+    submitNote:"Only the non-restricted profile (name, experience) is shared. The CV and contact details are shared only through the client portal with the candidate's consent for this job order (D-04); the portal is not available yet.",
     shareCv:"Share CV",interviews:"Client interviews",round:"Round",scheduledAt:"Scheduled at",schedule:"Schedule interview",
     outcomes:{PENDING:"Awaiting outcome",PASSED:"Passed",FAILED:"Failed",NO_SHOW:"No show"},passed:"Passed",failed:"Failed",noShow:"No show",
     offer:"Job offer",offerDate:"Offer date",recordOffer:"Record client offer",accepted:"Offer accepted",declined:"Offer declined",
-    offerNote:"Offer terms (salary) are not recorded here until D-04.",startDate:"Start date",place:"Confirm placement",
-    placements:"Placements",guarantee:"Guarantee",guaranteePending:"Guarantee terms pending policy D-04",fees:"Fee events",
-    fee:{OFFER_ACCEPTED:"Offer accepted",CANDIDATE_STARTED:"Candidate started"},recordStarted:"Record start",invoice:"Invoice fee",replacement:"Claim replacement",
-    feeNote:"Fee amounts, invoices and replacement claims wait for D-04 and D-06.",
+    offerNote:"The offered annual salary is recorded but never shown; it is used only to compute the fee.",startDate:"Start date",place:"Confirm placement",
+    annualSalary:"Offered annual salary",currencyCode:"Currency",saveOfferTerms:"Record offered salary",offerTermsOnFile:"Offered salary on file (not shown)",offerTermsMissing:"No offered salary on file; the fee is computed from it",
+    placements:"Placements",guarantee:"Guarantee",guaranteePending:"Guarantee terms wait for the client agreement",fees:"Fee events",
+    fee:{OFFER_ACCEPTED:"Offer accepted",CANDIDATE_STARTED:"Candidate started"},recordStarted:"Record start",invoice:"Request the fee from finance",
+    feeNote:"Fees, the guarantee and replacements follow the client's agreement. Open a placement to see them.",feeCol:"Fee",
+    placementTitle:"Placement",backToOrder:"Back to the job order",feeTitle:"Placement fee",guaranteeTitle:"Guarantee period",
+    feeStatus:{REQUESTED:"Sent to finance",ISSUED:"Invoiced",CANCELLED:"Request cancelled",POLICY_NOT_SET:"Client agreement not set",NOT_DUE:"Not due yet",OFFER_TERMS_MISSING:"Offered salary missing",WAIVED_REPLACEMENT:"Free replacement, no fee"},
+    feeWhy:{POLICY_NOT_SET:"There is no recruitment agreement (policy recruitment.agreement) for this client and no default. A policy owner sets it under Policies; then request the fee.",NOT_DUE:"The agreement invoices on the start date: record the start and the request goes to finance by itself.",OFFER_TERMS_MISSING:"The fee is a share of the offered annual salary: record it on the candidate's application (it is never shown).",WAIVED_REPLACEMENT:"This placement is the free replacement the agreement grants after an earlier candidate left within the guarantee.",REQUESTED:"Finance issues the invoice in accounting. There is one request per placement.",ISSUED:"Finance issued the invoice.",CANCELLED:"Finance cancelled the request."},
+    feeAmount:"Fee before tax",feeHidden:"Shown to finance only (it reveals the salary)",feePercent:"Share of annual salary",invoiceOnLabel:"Invoiced on",invoiceOn:{START_DATE:"Start date",OFFER_ACCEPTED:"Offer accepted"},requestedAt:"Requested on",
+    policiesLink:"Policies",startedOn:"Started on",notStarted:"Not started yet",
+    gStatus:{TERMS_PENDING:"Waiting for the client agreement",NOT_STARTED:"Starts with the first working day",ACTIVE:"Running",CLOSED:"Ended",EARLY_EXIT:"Left within the guarantee",EXITED_AFTER:"Left after the guarantee"},
+    guaranteeDays:"Guarantee",days:"days",endsOn:"Last day",daysLeft:"Left",rule:"If the candidate leaves in the guarantee",
+    rules:{REPLACE:"Free replacement",PARTIAL_REFUND:"Partial refund",NONE:"Nothing"},
+    ruleWill:{REPLACE:"The job order reopens for a free replacement; the replacement carries no fee.",PARTIAL_REFUND:"Finance gets a credit-note request for {p}% of the fee.",NONE:"The agreement grants no replacement or refund; only the departure is recorded.",AFTER:"That date is after the guarantee's last day: only the departure is recorded.",NO_FEE:"No fee request was sent to finance, so there is nothing to refund."},
+    exitAction:"Record that the candidate left",exitTitle:"The candidate left",exitedOn:"Left on",exitReason:"Reason",reasons:{RESIGNED:"Resigned",DISMISSED:"Client ended the contract",OTHER:"Other reason"},
+    willHappen:"What happens under the client agreement",confirmExit:"Record departure",
+    outcomes2:{REPLACEMENT_OPENED:"Free replacement opened",REFUND_REQUESTED:"Credit-note request sent to finance",NO_REMEDY:"No replacement or refund under the agreement",OUTSIDE_GUARANTEE:"Left after the guarantee",NO_FEE_TO_REFUND:"No fee to refund"},
+    refund:"Credit note",replacementOf:"Free replacement of an earlier placement",openPlacement:"Open placement",termsPendingNote:"No client agreement is applied to this placement yet: if one is set now it applies when you record; if not, recording is refused.",
     profile:"Non-restricted profile",displayName:"Name",headline:"Current role",years:"Years of experience",
     privateTitle:"Restricted data",privateOnFile:"On file (not shown)",privateNone:"Not on file",
     privateNote:"E-mail, phone, expected salary and CV reference are recorded but never shown. Reading them waits for D-04 and D-07.",
@@ -72,7 +102,7 @@ const strings = {
     consents:"Consents",noConsents:"No consents recorded",jobOrder:"Job order",chooseOrder:"Choose a job order",method:"Method",
     methods:{WRITTEN:"Written",EMAIL:"E-mail",RECORDED_CALL:"Recorded call"},givenOn:"Given on",evidence:"Evidence reference",
     recordConsent:"Record consent",revoke:"Revoke consent",revoked:"Revoked",readonly:"Read only: only the owner changes this record.",
-    errors:{CONSENT_REQUIRED:"Record the candidate's consent for this job order before submitting.",STAGE_TRANSITION:"This change is not allowed from the current stage.",ALREADY_IN_PIPELINE:"The candidate is already in this job order's pipeline.",ORDER_NOT_OPEN:"The job order is not open.",ORDER_STATE:"A filled or closed job order cannot change status.",ALREADY_PLACED:"This candidate is already placed.",HEADCOUNT_FILLED:"Every position of this job order is filled.",OUTCOME_RECORDED:"This interview already has an outcome.",CONSENT_REVOKED:"This consent is already revoked.",BLOCKED_BY_POLICY:"Blocked until the policy is signed.",conflict:"The data changed elsewhere; it is refreshed, try again.",invalid:"Check the required fields and their values.",denied:"You do not have permission for this action.",failed:"The request failed."},
+    errors:{POLICY_NOT_SET:"The client's recruitment agreement is not set; a policy owner sets it under Policies.",FEE_NOT_DUE:"The fee is not due yet: the agreement invoices on the start date.",OFFER_TERMS_MISSING:"Record the offered annual salary first.",FEE_WAIVED:"This is a free replacement without a fee.",FEE_REQUESTED:"The fee was already requested; the offered salary no longer changes.",ALREADY_EXITED:"The departure is already recorded.",NOT_STARTED:"Record the start first.",CONSENT_REQUIRED:"Record the candidate's consent for this job order before submitting.",STAGE_TRANSITION:"This change is not allowed from the current stage.",ALREADY_IN_PIPELINE:"The candidate is already in this job order's pipeline.",ORDER_NOT_OPEN:"The job order is not open.",ORDER_STATE:"A filled or closed job order cannot change status.",ALREADY_PLACED:"This candidate is already placed.",HEADCOUNT_FILLED:"Every position of this job order is filled.",OUTCOME_RECORDED:"This interview already has an outcome.",CONSENT_REVOKED:"This consent is already revoked.",BLOCKED_BY_POLICY:"Blocked until the policy is signed.",conflict:"The data changed elsewhere; it is refreshed, try again.",invalid:"Check the required fields and their values.",denied:"You do not have permission for this action.",failed:"The request failed."},
   },
 } as const;
 type Labels = typeof strings.ar | typeof strings.en;
@@ -118,6 +148,7 @@ export function RecruitmentPage({language}:{language:Language}){
   const Back=language==="ar"?ArrowRight:ArrowLeft;
   if(route[0]==="orders"&&/^\d+$/.test(route[1]||""))return <JobOrderRecord key={route[1]} orderId={Number(route[1])} l={l} Back={Back}/>;
   if(route[0]==="candidates"&&/^\d+$/.test(route[1]||""))return <CandidateRecord key={route[1]} candidateId={Number(route[1])} l={l} Back={Back}/>;
+  if(route[0]==="placements"&&/^\d+$/.test(route[1]||""))return <PlacementPage key={route[1]} placementId={Number(route[1])} l={l} ar={language==="ar"} Back={Back}/>;
   const tab=route[0]==="candidates"?"candidates":"orders";
   return <section className="page-enter rec-page">
     <PageHeader className="directory-head" eyebrow={language==="ar"?"التنفيذ والخدمات":"Delivery & services"} title={l.title} description={l.desc}/>
@@ -224,12 +255,14 @@ function JobOrderRecord({orderId,l,Back}:{orderId:number;l:Labels;Back:typeof Ar
     {current&&<ApplicationPanel key={current.id+":"+current.version} app={current} editable={editable} l={l} run={run} busy={busy}/>}
     <section className="record-content-card" aria-labelledby="placements-title">
       <div className="record-section-header"><div className="record-section-icon"><ClipboardCheck size={20}/></div><div><h2 id="placements-title">{l.placements}</h2></div></div>
-      {placements.length===0?<p className="rec-muted">{l.empty}</p>:<div className="table-scroll"><table><thead><tr><th>{l.displayName}</th><th>{l.startDate}</th><th>{l.guarantee}</th><th>{l.fees}</th><th><span className="sr-only">{l.recordStarted}</span></th></tr></thead>
-        <tbody>{placements.map(p=><tr key={p.id}><td><strong>{p.candidateName}</strong></td><td dir="ltr">{p.startDate}</td><td>{l.guaranteePending}</td>
+      {placements.length===0?<p className="rec-muted">{l.empty}</p>:<div className="table-scroll"><table><thead><tr><th>{l.displayName}</th><th>{l.startDate}</th><th>{l.guarantee}</th><th>{l.fees}</th><th>{l.feeCol}</th><th><span className="sr-only">{l.openPlacement}</span></th></tr></thead>
+        <tbody>{placements.map(p=><tr key={p.id}><td><strong>{p.candidateName}</strong></td><td dir="ltr">{p.startDate}</td>
+          <td>{(l.gStatus as Record<string,string>)[p.guaranteeStatus]??l.guaranteePending}</td>
           <td>{p.feeMilestones.map(f=>l.fee[f]).join(" · ")||"—"}</td>
-          <td>{editable&&!p.feeMilestones.includes("CANDIDATE_STARTED")&&<button type="button" className="text-action" disabled={busy} onClick={()=>void run(()=>recordStart(p.id,p.startDate))}>{l.recordStarted}</button>}</td></tr>)}</tbody></table></div>}
-      <div className="lead-actions"><button type="button" className="btn btn-secondary" disabled aria-describedby="rec-fee-note">{l.invoice}</button><button type="button" className="btn btn-secondary" disabled aria-describedby="rec-fee-note">{l.replacement}</button></div>
-      <p className="record-security-note" id="rec-fee-note"><LockKeyhole size={15}/>{l.feeNote}</p>
+          <td>{(l.feeStatus as Record<string,string>)[p.invoicingStatus]??"—"}</td>
+          <td className="rec-row-actions">{editable&&!p.feeMilestones.includes("CANDIDATE_STARTED")&&<button type="button" className="text-action" disabled={busy} onClick={()=>void run(()=>recordStart(p.id,p.startDate))}>{l.recordStarted}</button>}
+            <a className="text-action" href={"#/recruitment/placements/"+p.id}>{l.openPlacement}</a></td></tr>)}</tbody></table></div>}
+      <p className="record-security-note" id="rec-fee-note"><ShieldCheck size={15}/>{l.feeNote}</p>
     </section>
   </article>;
 }
@@ -237,6 +270,7 @@ function JobOrderRecord({orderId,l,Back}:{orderId:number;l:Labels;Back:typeof Ar
 function ApplicationPanel({app,editable,l,run,busy}:{app:Application;editable:boolean;l:Labels;run:(a:()=>Promise<unknown>)=>Promise<boolean>;busy:boolean}){
   const [interviews,setInterviews]=useState<Interview[]>([]);const [round,setRound]=useState("1");const [at,setAt]=useState("");
   const [offerOn,setOfferOn]=useState(today());const [start,setStart]=useState("");
+  const [salary,setSalary]=useState("");const [currency,setCurrency]=useState("EGP");
   const loadInterviews=useCallback(()=>getInterviews(app.id).then(setInterviews).catch(()=>setInterviews([])),[app.id]);
   useEffect(()=>{void loadInterviews();},[loadInterviews]);
   const act=(a:()=>Promise<unknown>)=>void run(a).then(()=>loadInterviews());
@@ -269,9 +303,19 @@ function ApplicationPanel({app,editable,l,run,busy}:{app:Application;editable:bo
     </div>}
     {(app.stage==="INTERVIEWING"||app.stage==="OFFERED"||app.stage==="PLACED")&&<div className="rec-sub"><h3>{l.offer}</h3>
       {app.offerDate&&<p><span dir="ltr">{app.offerDate}</span> · {app.offerStatus==="ACCEPTED"?l.accepted:app.offerStatus==="DECLINED"?l.declined:"…"}</p>}
-      {editable&&app.stage==="INTERVIEWING"&&<form className="opportunity-form rec-form" onSubmit={e=>{e.preventDefault();act(()=>recordOffer(app.id,app.version,offerOn));}}>
+      {editable&&app.stage==="INTERVIEWING"&&<form className="opportunity-form rec-form" autoComplete="off" onSubmit={e=>{e.preventDefault();
+          act(async()=>{await recordOffer(app.id,app.version,offerOn,salary?{annualSalary:salary,currencyCode:currency}:undefined);setSalary("");});}}>
         <label><span>{l.offerDate}</span><input type="date" required value={offerOn} onChange={e=>setOfferOn(e.target.value)}/></label>
+        <label><span>{l.annualSalary}</span><input inputMode="decimal" dir="ltr" value={salary} onChange={e=>setSalary(e.target.value)}/></label>
+        <label><span>{l.currencyCode}</span><input dir="ltr" maxLength={3} pattern="[A-Z]{3}" value={currency} onChange={e=>setCurrency(e.target.value.toUpperCase())}/></label>
         <button type="submit" className="btn btn-secondary" disabled={busy}>{l.recordOffer}</button></form>}
+      {(app.stage==="OFFERED"||app.stage==="PLACED")&&<p className={app.offerTermsOnFile?"rec-consent-ok":"rec-consent-missing"}>
+        {app.offerTermsOnFile?<FileLock2 size={14}/>:<CircleAlert size={14}/>}{app.offerTermsOnFile?l.offerTermsOnFile:l.offerTermsMissing}</p>}
+      {editable&&(app.stage==="OFFERED"||app.stage==="PLACED")&&!app.offerTermsOnFile&&<form className="opportunity-form rec-form" autoComplete="off"
+        onSubmit={e=>{e.preventDefault();act(async()=>{await saveOfferTerms(app.id,app.version,salary,currency);setSalary("");});}}>
+        <label><span>{l.annualSalary}</span><input required inputMode="decimal" dir="ltr" value={salary} onChange={e=>setSalary(e.target.value)}/></label>
+        <label><span>{l.currencyCode}</span><input required dir="ltr" maxLength={3} pattern="[A-Z]{3}" value={currency} onChange={e=>setCurrency(e.target.value.toUpperCase())}/></label>
+        <button type="submit" className="btn btn-secondary" disabled={busy}><FileLock2 size={15}/>{l.saveOfferTerms}</button></form>}
       {editable&&app.stage==="OFFERED"&&app.offerStatus==="PENDING"&&<div className="lead-actions">
         <button type="button" className="btn btn-primary" disabled={busy} onClick={()=>act(()=>answerOffer(app.id,app.version,true))}>{l.accepted}</button>
         <button type="button" className="btn btn-secondary" disabled={busy} onClick={()=>act(()=>answerOffer(app.id,app.version,false))}>{l.declined}</button></div>}
@@ -362,5 +406,101 @@ function CandidateRecord({candidateId,l,Back}:{candidateId:number;l:Labels;Back:
           <button type="submit" className="btn btn-secondary" disabled={busy}><Plus size={16}/>{l.recordConsent}</button></form>}
       </section>
     </div>
+  </article>;
+}
+
+/** A placement's own page (D-04): the fee request, the guarantee countdown and the early-exit action under the client agreement. */
+function PlacementPage({placementId,l,ar,Back}:{placementId:number;l:Labels;ar:boolean;Back:typeof ArrowLeft}){
+  const [p,setP]=useState<PlacementRecord|null>(null);const [loadError,setLoadError]=useState("");
+  const [app,setApp]=useState<Application|null>(null);
+  const [startOn,setStartOn]=useState("");const [salary,setSalary]=useState("");const [currency,setCurrency]=useState("EGP");
+  const [exiting,setExiting]=useState(false);const [exitOn,setExitOn]=useState(today());const [reason,setReason]=useState<ExitReason>("RESIGNED");
+  const reload=useCallback(async()=>{
+    const next=await getPlacement(placementId);setP(next);
+    if(next.jobOrderId!=null&&next.canEdit)setApp((await getApplications(next.jobOrderId)).find(a=>a.id===next.applicationId)??null);
+  },[placementId]);
+  useEffect(()=>{void reload().catch(e=>setLoadError(message(e,l)));},[reload,l]);
+  const {busy,error,run}=useAction(l,reload);
+  if(loadError)return <section className="page-enter"><a className="record-back" href="#/recruitment"><Back size={17}/>{l.back}</a><ErrorBanner message={loadError}/></section>;
+  if(!p)return <div className="empty-state" role="status">{l.loading}</div>;
+  const editable=p.canEdit===true;
+  const fee=p.invoicingStatus as keyof typeof l.feeStatus;
+  const started=p.feeMilestones.includes("CANDIDATE_STARTED");
+  const requested=fee==="REQUESTED"||fee==="ISSUED"||fee==="CANCELLED";
+  const exited=!!p.exitedOn;
+  const total=p.guaranteeDays??0;const left=p.guaranteeDaysLeft??null;
+  const within=p.guaranteeEndsOn?exitOn<=p.guaranteeEndsOn:false;
+  const will=!p.replacementRule?null:!within?l.ruleWill.AFTER:p.replacementRule==="PARTIAL_REFUND"&&!requested?l.ruleWill.NO_FEE
+    :l.ruleWill[p.replacementRule].replace("{p}",quantity(p.refundPercent));
+  const orderHref=p.jobOrderId!=null?"#/recruitment/orders/"+p.jobOrderId:"#/recruitment";
+  return <article className="record-workspace page-enter rec-record" aria-labelledby="pl-title">
+    <div className="record-context-bar"><a className="record-back" href={orderHref}><Back size={17}/>{l.backToOrder}</a><span className="record-context-separator">/</span><span className="record-current">{p.candidateName}</span></div>
+    <div className="record-hero"><div className="record-hero-main">
+      <span className="eyebrow"><span className="record-eyebrow-dot"/>{l.placementTitle}{p.clientName?` · ${p.clientName}`:""}</span>
+      <div className="record-hero-heading"><div className="record-identity-icon"><BadgeCheck size={30}/></div>
+        <div><h1 id="pl-title">{p.candidateName}</h1><div className="record-tags">
+          {p.jobOrderReference&&<a className="record-ref" href={orderHref} dir="ltr">{p.jobOrderReference}</a>}
+          <span className="record-ref">{l.startDate}: {day(p.startDate,ar)}</span>
+          <span className={"rec-status rec-guarantee-"+String(p.guaranteeStatus).toLowerCase()}>{(l.gStatus as Record<string,string>)[p.guaranteeStatus]??p.guaranteeStatus}</span>
+          {p.feeWaived&&<span className="record-ref">{l.replacementOf}</span>}</div></div></div>
+    </div></div>
+    {error&&<div className="login-error" role="alert"><CircleAlert size={17}/>{error}</div>}
+    {!editable&&<p className="record-security-note"><LockKeyhole size={15}/>{l.readonly}</p>}
+    <div className="record-content-grid">
+      <section className="record-content-card rec-fee-card" aria-labelledby="pl-fee">
+        <div className="record-section-header"><div className="record-section-icon"><HandCoins size={20}/></div><div><h2 id="pl-fee">{l.feeTitle}</h2>
+          <p><span className={"rec-status rec-fee-"+String(fee).toLowerCase()}>{l.feeStatus[fee]??fee}</span></p></div></div>
+        <p className={requested||fee==="WAIVED_REPLACEMENT"?"rec-muted":"rec-why"} role={requested?undefined:"note"}>{l.feeWhy[fee]??""}
+          {fee==="POLICY_NOT_SET"&&<> <a href="#/policies">{l.policiesLink}</a></>}</p>
+        <dl className="rec-terms">
+          {p.feePercent!=null&&<div><dt>{l.feePercent}</dt><dd dir="ltr">{quantity(p.feePercent)}%</dd></div>}
+          {p.invoiceOn&&<div><dt>{l.invoiceOnLabel}</dt><dd>{l.invoiceOn[p.invoiceOn]}</dd></div>}
+          {requested&&<div><dt>{l.feeAmount}</dt><dd dir="ltr">{p.feeAmount!=null?amount(p.feeAmount,p.feeCurrency):<small>{l.feeHidden}</small>}</dd></div>}
+          {p.feeRequestedAt&&<div><dt>{l.requestedAt}</dt><dd>{day(p.feeRequestedAt,ar)}</dd></div>}
+          {p.refundStatus&&<div><dt>{l.refund}</dt><dd>{(l.feeStatus as Record<string,string>)[p.refundStatus]??p.refundStatus}{p.refundAmount!=null?<> · <span dir="ltr">{amount(p.refundAmount,p.feeCurrency)}</span></>:null}</dd></div>}
+        </dl>
+        {editable&&fee==="OFFER_TERMS_MISSING"&&app&&<form className="opportunity-form rec-form" autoComplete="off"
+          onSubmit={e=>{e.preventDefault();void run(async()=>{await saveOfferTerms(app.id,app.version,salary,currency);setSalary("");});}}>
+          <label><span>{l.annualSalary}</span><input required inputMode="decimal" dir="ltr" value={salary} onChange={e=>setSalary(e.target.value)}/></label>
+          <label><span>{l.currencyCode}</span><input required dir="ltr" maxLength={3} pattern="[A-Z]{3}" value={currency} onChange={e=>setCurrency(e.target.value.toUpperCase())}/></label>
+          <button type="submit" className="btn btn-primary" disabled={busy}><FileLock2 size={15}/>{l.saveOfferTerms}</button>
+          <p className="rec-hint">{l.offerNote}</p></form>}
+        {editable&&(fee==="POLICY_NOT_SET"||fee==="OFFER_TERMS_MISSING")&&<div className="lead-actions">
+          <button type="button" className="btn btn-secondary" disabled={busy} onClick={()=>void run(()=>requestFee(p.id))}><RefreshCw size={15}/>{l.invoice}</button></div>}
+      </section>
+      <section className="record-content-card rec-guarantee-card" aria-labelledby="pl-guarantee">
+        <div className="record-section-header"><div className="record-section-icon"><ShieldCheck size={20}/></div><div><h2 id="pl-guarantee">{l.guaranteeTitle}</h2>
+          <p><span className={"rec-status rec-guarantee-"+String(p.guaranteeStatus).toLowerCase()}>{(l.gStatus as Record<string,string>)[p.guaranteeStatus]??p.guaranteeStatus}</span>
+            {" "}{started&&p.startedOn?<>{l.startedOn} {day(p.startedOn,ar)}</>:l.notStarted}</p></div></div>
+        {p.guaranteeStatus==="ACTIVE"&&left!=null&&<div className="rec-countdown" role="group" aria-label={l.daysLeft}>
+          <strong dir="ltr">{left}</strong><span>{l.days} {l.daysLeft}</span>
+          <div className="rec-meter" aria-hidden="true"><span style={{width:(total>0?Math.min(100,Math.round(100*(total-left)/total)):100)+"%"}}/></div></div>}
+        <dl className="rec-terms">
+          {p.guaranteeDays!=null&&<div><dt>{l.guaranteeDays}</dt><dd>{p.guaranteeDays} {l.days}</dd></div>}
+          {p.guaranteeEndsOn&&<div><dt>{l.endsOn}</dt><dd>{day(p.guaranteeEndsOn,ar)}</dd></div>}
+          {p.replacementRule&&<div><dt>{l.rule}</dt><dd>{l.rules[p.replacementRule]}{p.replacementRule==="PARTIAL_REFUND"&&p.refundPercent!=null?<span dir="ltr"> ({quantity(p.refundPercent)}%)</span>:null}</dd></div>}
+          {exited&&<div><dt>{l.exitedOn}</dt><dd>{day(p.exitedOn,ar)}{p.exitReason?` · ${l.reasons[p.exitReason]}`:""}</dd></div>}
+          {p.exitOutcome&&<div><dt>{l.willHappen}</dt><dd>{l.outcomes2[p.exitOutcome]}</dd></div>}
+        </dl>
+        {p.guaranteeStatus==="TERMS_PENDING"&&<p className="rec-why" role="note">{l.feeWhy.POLICY_NOT_SET} <a href="#/policies">{l.policiesLink}</a></p>}
+        {editable&&!started&&<form className="opportunity-form rec-form" onSubmit={e=>{e.preventDefault();void run(()=>recordStart(p.id,startOn||p.startDate));}}>
+          <label><span>{l.startDate}</span><input type="date" required max={today()} value={startOn||p.startDate} onChange={e=>setStartOn(e.target.value)}/></label>
+          <button type="submit" className="btn btn-primary" disabled={busy}><CheckCircle2 size={15}/>{l.recordStarted}</button></form>}
+        {editable&&started&&!exited&&<div className="lead-actions">
+          <button type="button" className="btn btn-secondary" disabled={busy} onClick={()=>setExiting(true)}><LogOut size={15}/>{l.exitAction}</button></div>}
+      </section>
+    </div>
+    {exiting&&<Dialog title={l.exitTitle} kicker={p.candidateName} busy={busy} onClose={()=>setExiting(false)}
+      footer={<><button type="button" className="btn btn-secondary" disabled={busy} onClick={()=>setExiting(false)}>{l.cancel}</button>
+        <button type="submit" form="rec-exit-form" className="btn btn-primary" disabled={busy}>{l.confirmExit}</button></>}>
+      <form id="rec-exit-form" className="opportunity-form rec-form" onSubmit={e=>{e.preventDefault();
+          void run(()=>recordExit(p.id,p.version,exitOn,reason)).then(ok=>{if(ok)setExiting(false);});}}>
+        <label><span>{l.exitedOn}</span><input type="date" required min={p.startedOn??undefined} max={today()} value={exitOn} onChange={e=>setExitOn(e.target.value)}/></label>
+        <label><span>{l.exitReason}</span><select value={reason} onChange={e=>setReason(e.target.value as ExitReason)}>
+          {(["RESIGNED","DISMISSED","OTHER"] as ExitReason[]).map(r=><option key={r} value={r}>{l.reasons[r]}</option>)}</select></label>
+      </form>
+      <div className="rec-will" role="status" aria-live="polite"><strong>{l.willHappen}</strong><p>{will??l.termsPendingNote}</p></div>
+      {error&&<div className="login-error" role="alert"><CircleAlert size={17}/>{error}</div>}
+    </Dialog>}
   </article>;
 }

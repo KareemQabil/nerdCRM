@@ -56,7 +56,7 @@ Before this change, each scheme had to be set separately.
 | Certification cycle | 36 months; surveillance every 12 | Standard | ISO/IEC 17021-1. |
 | Training certificate | 80% attendance; 70% pass mark | Practice | |
 | National ID | Optional | Practice | Stored as restricted data. |
-| Training cancellation | 100% refund ≥14 days before the start; 50% ≥7 days; 0 after | Practice | |
+| Training cancellation | 100% refund ≥14 days before the start; 50% ≥7 days; 0 after; 100% when we cancel the cohort | Practice | |
 | Recruitment agreement | 15% of annual salary, invoiced on the start date, 90-day replacement guarantee | Practice | Can be set per client. |
 | External channels | None switched on | Practice | Each channel is switched on when its credentials are set and tested. |
 

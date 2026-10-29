@@ -28,6 +28,8 @@
     <extra-code><![CDATA[
       public static final int TYPE_STAGE1 = 1;
       public static final int TYPE_STAGE2 = 2;
+      public static final int TYPE_SURVEILLANCE = 3;
+      public static final int TYPE_RECERTIFICATION = 4;
       public static final int STATUS_PLANNED = 1;
       public static final int STATUS_COMPLETED = 2;
       public static final int STATUS_CANCELLED = 3;
@@ -60,6 +62,60 @@
       public static final int STATUS_RESPONDED = 2;
       public static final int STATUS_CLOSED = 3;
     ]]></extra-code>
+  </entity>
+
+  <!-- D-02 (signed 2026-10-25): one certification decision round on a cycle. The mode and the number of votes come from the
+       scheme's cert.decision policy when the round opens and stay with the round. An independent reviewer's round needs one
+       vote; a committee's needs committeeSize votes from distinct eligible people (majority wins, a tie refuses). -->
+  <entity name="CertificationDecision" table="ioeti_cert_decision">
+    <many-to-one name="cycle" ref="CertificationCycle" title="Cycle" required="true"/>
+    <!-- INDEPENDENT_REVIEWER or COMMITTEE -->
+    <string name="mode" title="Mode" required="true" max="30"/>
+    <integer name="requiredVotes" title="Votes required" required="true"/>
+    <!-- OPEN or DECIDED -->
+    <string name="status" title="Status" required="true" max="20"/>
+    <!-- GRANT or REFUSE once decided -->
+    <string name="outcome" title="Outcome" max="20"/>
+    <datetime name="decidedAt" title="Decided at"/>
+    <many-to-one name="policyVersion" ref="com.ioeti.core.db.PolicyVersion" title="Decision policy version" required="true"/>
+  </entity>
+
+  <!-- One person's vote (or an independent reviewer's decision) in a round, with the reason. Rows are never changed. -->
+  <entity name="CertificationVote" table="ioeti_cert_vote">
+    <many-to-one name="decision" ref="CertificationDecision" title="Decision" required="true"/>
+    <many-to-one name="voter" ref="com.axelor.auth.db.User" title="Decided by" required="true"/>
+    <!-- GRANT or REFUSE -->
+    <string name="vote" title="Vote" required="true" max="10"/>
+    <string name="reason" title="Reason" required="true" large="true"/>
+    <datetime name="castAt" title="Cast at" required="true"/>
+    <unique-constraint columns="decision,voter"/>
+  </entity>
+
+  <!-- The certificate a GRANT issues: number per scheme and year, validity and surveillance rhythm from the scheme's
+       cert.cycle policy at issue. ACTIVE, SUSPENDED or WITHDRAWN (final); past its expiry it reads as EXPIRED. -->
+  <entity name="ClientCertificate" table="ioeti_cert_certificate">
+    <many-to-one name="cycle" ref="CertificationCycle" title="Cycle" required="true"/>
+    <many-to-one name="decision" ref="CertificationDecision" title="Decision" required="true"/>
+    <string name="number" title="Certificate number" required="true" unique="true" max="60"/>
+    <integer name="issueYear" title="Issue year" required="true"/>
+    <integer name="serial" title="Serial" required="true"/>
+    <date name="issuedOn" title="Issued on" required="true"/>
+    <date name="expiresOn" title="Expires on" required="true"/>
+    <integer name="surveillanceMonths" title="Surveillance every (months)" required="true"/>
+    <!-- ACTIVE, SUSPENDED or WITHDRAWN -->
+    <string name="status" title="Status" required="true" max="20"/>
+    <many-to-one name="cyclePolicy" ref="com.ioeti.core.db.PolicyVersion" title="Certification cycle policy version" required="true"/>
+    <unique-constraint columns="cycle"/>
+  </entity>
+
+  <!-- Audit trail of a certificate: issued, suspended, restored, withdrawn; who, when and why. Rows are never changed. -->
+  <entity name="CertificateEvent" table="ioeti_cert_certificate_event">
+    <many-to-one name="certificate" ref="ClientCertificate" title="Certificate" required="true"/>
+    <!-- ISSUED, SUSPENDED, RESTORED or WITHDRAWN -->
+    <string name="action" title="Action" required="true" max="20"/>
+    <string name="reason" title="Reason" large="true"/>
+    <many-to-one name="actor" ref="com.axelor.auth.db.User" title="By" required="true"/>
+    <datetime name="occurredAt" title="At" required="true"/>
   </entity>
 
 </domain-models>

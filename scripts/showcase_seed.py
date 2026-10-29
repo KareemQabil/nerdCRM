@@ -24,6 +24,7 @@ from api_smoke_test import ENV, ROOT, Client, axelor_password_hash, ok, rest_cre
 from probe_fixtures import CONTRACT, RESERVED_SEQUENCE, _delete_where, cleanup, delete_contract  # noqa: E402
 
 USER, GROUP, PERM = "com.axelor.auth.db.User", "com.axelor.auth.db.Group", "com.axelor.auth.db.Permission"
+ROLE = "com.axelor.auth.db.Role"
 PARTNER, PRODUCT, COMPANY = "com.axelor.apps.base.db.Partner", "com.axelor.apps.base.db.Product", "com.axelor.apps.base.db.Company"
 CURRENCY, SOURCE, CAMPAIGN = "com.axelor.apps.base.db.Currency", "com.axelor.apps.base.db.Source", "com.axelor.apps.marketing.db.Campaign"
 STOCK_LOCATION, STOCK_CONFIG = "com.axelor.apps.stock.db.StockLocation", "com.axelor.apps.stock.db.StockConfig"
@@ -57,6 +58,20 @@ PEOPLE = {  # login: (display name, group)
     "sara": ("سارة منصور", "sales"), "hany": ("هاني فؤاد", "manager"), "karim": ("كريم حسن", "ops"),
     "mona": ("منى عادل", "cert"), "laila": ("ليلى سمير", "training"), "omar": ("عمر شريف", "recruit"), "nour": ("نور الهدى", "fund"),
 }
+
+# Rights on the records the M1 decisions added (D-02, D-03, D-04, D-05). Kept apart so an existing showcase gets them too
+# ("grants", run by the Railway bootstrap on every start): fictional people only.
+MODULE_GRANTS = {
+    "cert": [("c.decision", C + "CertificationDecision", "rd"), ("c.vote", C + "CertificationVote", "rd"),
+             ("c.certificate", C + "ClientCertificate", "rd"), ("c.certevent", C + "CertificateEvent", "rd")],
+    "training": [("t.certificate", T + "TrainingCertificate", "rw"), ("t.nationalid", T + "TrainingNationalId", "w"),
+                 ("t.fee", T + "TrainingFee", "rd"), ("t.refund", T + "TrainingRefund", "rw")],
+    "recruit": [("r.offerterms", R + "OfferPrivateTerms", "w"), ("r.feerequest", R + "RecruitmentFeeRequest", "rd")],
+    "fund": [("f.receipt", F + "DonationReceipt", "rd"), ("f.restriction", F + "FundRestriction", "rd")],
+}
+GRANT_RIGHTS = {"rd": dict(canRead=True), "rw": dict(canRead=True, canWrite=True, canCreate=True), "w": dict(canWrite=True, canCreate=True)}
+# D-02: the certification manager of the showcase may take decisions (never on a client she audited; the server checks)
+DECISION_ROLE, DECISION_PERSON = "ioeti-cert-decision-maker", "mona"
 
 
 def admin_client():
@@ -477,7 +492,68 @@ def teardown():
     return 0 if complete else 1
 
 
+def grants():
+    """Adds the M1 rights (and the decision role) to an existing, complete showcase; idempotent. Anything it creates is
+    recorded in the state file, so teardown removes it."""
+    if not os.path.exists(STATE):
+        print("SHOWCASE_GRANTS=SKIP no showcase")
+        return 0
+    with open(STATE, encoding="utf-8") as f:
+        state = json.load(f)
+    if not state.get("complete"):
+        print("SHOWCASE_GRANTS=SKIP showcase incomplete")
+        return 0
+    admin = admin_client()
+
+    def search(model, domain, fields=("id",)):
+        _, body = admin.call("POST", f"/ws/rest/{model}/search", {"fields": list(fields), "data": {"_domain": domain}})
+        return body.get("data") or []
+
+    def create(model, values):
+        _, body = rest_create(admin, model, values)
+        if not ok(body):
+            raise SystemExit(f"SHOWCASE_GRANTS=FAIL creating {model.split('.')[-1]}: {json.dumps(body, ensure_ascii=False)[:300]}")
+        state["created"].append([model, body["data"][0]["id"]])
+        return body["data"][0]
+
+    def link(model, rid, field, ids):
+        _, cur = admin.call("POST", f"/ws/rest/{model}/{rid}/fetch", {"fields": ["version", field]})
+        row = (cur.get("data") or [{}])[0]
+        have = {x["id"] for x in row.get(field) or []}
+        if set(ids) <= have:
+            return 0
+        _, body = admin.call("POST", f"/ws/rest/{model}/{rid}", {"data": {"id": rid, "version": row.get("version"),
+                                                                          field: [{"id": x} for x in sorted(have | set(ids))]}})
+        if not ok(body):
+            raise SystemExit(f"SHOWCASE_GRANTS=FAIL updating {model.split('.')[-1]}: {json.dumps(body, ensure_ascii=False)[:300]}")
+        return len(set(ids) - have)
+
+    added = 0
+    try:
+        for group, rows in MODULE_GRANTS.items():
+            found = search(GROUP, f"self.code = 'showcase-{group}'")
+            if not found:
+                continue
+            ids = []
+            for name, model, rights in rows:
+                existing = search(PERM, f"self.name = 'showcase.{name}'")
+                ids.append(existing[0]["id"] if existing else create(PERM, {"name": f"showcase.{name}", "object": model, **GRANT_RIGHTS[rights]})["id"])
+            added += link(GROUP, found[0]["id"], "permissions", ids)
+        person = search(USER, f"self.code = 'showcase.{DECISION_PERSON}'")
+        if person:
+            role = search(ROLE, f"self.name = '{DECISION_ROLE}'")
+            role_id = role[0]["id"] if role else create(ROLE, {"name": DECISION_ROLE})["id"]
+            added += link(USER, person[0]["id"], "roles", [role_id])
+    finally:
+        with open(STATE, "w", encoding="utf-8") as f:
+            json.dump(state, f)
+    print(f"SHOWCASE_GRANTS=PASS added={added}")
+    return 0
+
+
 if __name__ == "__main__":
-    if len(sys.argv) < 2 or sys.argv[1] not in ("setup", "teardown"):
-        raise SystemExit("usage: showcase_seed.py setup [--demo-states] | teardown")
+    if len(sys.argv) < 2 or sys.argv[1] not in ("setup", "teardown", "grants"):
+        raise SystemExit("usage: showcase_seed.py setup [--demo-states] | grants | teardown")
+    if sys.argv[1] == "grants":
+        sys.exit(grants())
     sys.exit(setup("--demo-states" in sys.argv) or 0 if sys.argv[1] == "setup" else teardown())

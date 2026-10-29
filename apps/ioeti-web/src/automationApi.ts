@@ -46,6 +46,9 @@ export function noticeRoute(notice: Notice): string | null {
     case "HANDOVER": case "ENGAGEMENT": return "#/operations";
     case "VISIT": return `#/visits/${notice.subjectId}`;
     case "QUALITY": return `#/quality/${notice.subjectId}`;
+    case "CERT_CYCLE": return `#/certification/${notice.subjectId}`;
+    case "TRAINING_REFUND": return "#/training";
+    case "PLACEMENT": return `#/recruitment/placements/${notice.subjectId}`;
     default: return null;
   }
 }

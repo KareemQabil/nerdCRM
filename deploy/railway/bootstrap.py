@@ -57,13 +57,15 @@ def seed_showcase(admin, env):
     _, found = admin.call("POST", f"/ws/rest/{USER}/search", {"fields": ["id"], "data": {"_domain": "self.code = 'showcase.sara'"}})
     if found.get("data") and state.get("complete"):
         log("showcase already present")
+        run_seed(env, "grants")  # rights on records added since the showcase was seeded (idempotent)
         return
     if found.get("data") and not state:
         log("showcase users exist without a state file; left as they are")
         return
     if state and not state.get("complete") and not run_seed(env, "teardown"):
         return
-    run_seed(env, "setup")
+    if run_seed(env, "setup"):
+        run_seed(env, "grants")
 
 
 def main():
