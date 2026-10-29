@@ -1,0 +1,24 @@
+# Staging pilot only. Provision /etc/ioeti/staging.env with chmod 0600, readable by ioeti.
+[Unit]
+Description=IOETI Axelor controlled internal staging
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ioeti
+Group=ioeti
+WorkingDirectory=/srv/ioeti/current
+EnvironmentFile=/etc/ioeti/staging.env
+Environment=IOETI_STAGING_CONFIG=/var/lib/ioeti/config/axelor-staging.properties
+ExecStart=/usr/bin/bash /srv/ioeti/current/scripts/staging_run.sh
+Restart=on-failure
+RestartSec=10
+TimeoutStartSec=420
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+
+[Install]
+WantedBy=multi-user.target
