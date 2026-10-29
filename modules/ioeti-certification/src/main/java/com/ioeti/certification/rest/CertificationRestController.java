@@ -314,6 +314,27 @@ public class CertificationRestController {
     return ResponseConstructor.build(Response.Status.OK, "Certificate updated", DecisionViews.panel(JPA.find(CertificationCycle.class, id)));
   }
 
+  @POST
+  @Path("/cycles/{id}/certificate/change-vote")
+  @Consumes(MediaType.APPLICATION_JSON)
+  @Operation(summary = "A committee member's vote on the open certificate change: APPROVE or REJECT with the reason (D-02)", tags = {"IOETI certification"})
+  @IoetiEndpoint
+  public Response certificateChangeVote(@PathParam("id") Long id, DecisionViews.CertChangeVoteCommand command) {
+    if (command == null) throw ApiException.badRequest("Vote details are required.");
+    // decision makers read the cycle but do not manage it: the certificate's version guards the vote, the cycle lock orders votes
+    CertificationCycle cycle = RecordAccess.readable(CertificationCycle.class, id);
+    ClientCertificate certificate = CertificationDecisionService.certificate(cycle);
+    if (certificate == null) throw new ApiException(422, "NO_CERTIFICATE", "This cycle has no certificate.", null);
+    if (command.version() == null) throw ApiException.badRequest("Record version is required.");
+    ConflictChecker.checkVersion(certificate, command.version());
+    String vote = command.vote() == null ? null : command.vote().strip().toUpperCase();
+    if (!DecisionRules.CHANGE_VOTES.contains(vote)) throw ApiException.invalidField("vote", "UNAVAILABLE", "Use APPROVE or REJECT.");
+    String reason = checkedText("reason", command.reason(), MAX_TEXT, true);
+    User me = AuthUtils.getUser();
+    write(() -> Beans.get(CertificationDecisionService.class).changeVote(certificate, vote, reason, me, CertificationDecisionService.today()));
+    return ResponseConstructor.build(Response.Status.OK, "Vote recorded", DecisionViews.panel(JPA.find(CertificationCycle.class, id)));
+  }
+
 
   // --- audit programme -----------------------------------------------------------------------------
 

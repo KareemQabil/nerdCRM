@@ -27,7 +27,9 @@ import java.util.Optional;
 /**
  * D-02 views of a cycle's decision and certificate. Decision data is part of the cycle: whoever may read the cycle reads
  * it (people's names are PERSONAL, reasons are BUSINESS). While a committee round is open, it shows who voted but not how,
- * so members decide independently; votes and reasons are shown once the round is decided.
+ * so members decide independently; votes and reasons are shown once the round is decided. The same holds for committee
+ * rounds on a certificate change (suspend, restore, withdraw; owner decision 2026-10-29); the requester's reason is shown
+ * from the start, since it is what the committee votes on.
  */
 final class DecisionViews {
 
@@ -83,9 +85,40 @@ final class DecisionViews {
     Integer surveillance = cyclePolicy.map(p -> p.value().path("surveillanceMonths").asInt()).orElse(null);
     boolean canManage = certificate != null && !DecisionRules.NO_DECISION_RIGHT.equals(reason) && !DecisionRules.AUDITED_CLIENT.equals(reason)
         && decisionPolicy.isPresent();
+    CertChangeRoundView openChange = null;
+    List<CertChangeRoundView> pastChanges = new ArrayList<>();
+    if (certificate != null) {
+      CertificationDecision change = CertificationDecisionService.openChange(certificate);
+      String cannotVote = change == null ? null : CertificationDecisionService.cannotDecide(me, cycle, change);
+      if (change != null && cannotVote == null && decisionPolicy.isEmpty()) cannotVote = "POLICY_NOT_SET";
+      if (change != null) openChange = change(change, cannotVote);
+      for (CertificationDecision round : CertificationDecisionService.changeRounds(certificate)) {
+        if (change == null || !round.equals(change)) pastChanges.add(change(round, null));
+      }
+    }
     return new CertDecisionPanel(cycle.getId(), cycle.getVersion(), service.status(cycle, today), missing, mode, required, validity, surveillance,
         blockers, canVote, canGrant, certificate == null ? reason : null, eligible.stream().map(u -> new AuditorView(u.getId(), u.getName())).toList(),
-        nobody, open == null ? null : round(open), past, certificate == null ? null : certificate(certificate, today), canManage);
+        nobody, open == null ? null : round(open), past, certificate == null ? null : certificate(certificate, today), canManage,
+        openChange, pastChanges);
+  }
+
+  /**
+   * A committee round on a certificate change. While open: who voted (not how), and whether the person reading may vote
+   * ({@code cannotVote} null) or why not; once decided: every vote with its reason.
+   */
+  static CertChangeRoundView change(CertificationDecision round, String cannotVote) {
+    boolean decided = DecisionRules.ROUND_DECIDED.equals(round.getStatus());
+    List<CertificationVote> votes = CertificationDecisionService.votes(round);
+    List<CertVoteView> rows = votes.stream().map(v -> new CertVoteView(v.getVoter().getId(), v.getVoter().getName(),
+        decided ? v.getVote() : null, decided ? v.getReason() : null, v.getCastAt())).toList();
+    User requester = round.getRequestedBy();
+    boolean open = !decided;
+    return new CertChangeRoundView(round.getId(), round.getChangeAction(), round.getMode(), round.getRequiredVotes(), round.getStatus(),
+        round.getOutcome(), requester == null ? null : requester.getId(), requester == null ? null : requester.getName(), round.getRequestReason(),
+        round.getCreatedOn(), round.getDecidedAt(), votes.size(),
+        decided ? (int) votes.stream().filter(v -> DecisionRules.APPROVE.equals(v.getVote())).count() : null,
+        decided ? (int) votes.stream().filter(v -> DecisionRules.REJECT.equals(v.getVote())).count() : null, rows,
+        open && cannotVote == null, open ? cannotVote : null);
   }
 
   static CertRoundView round(CertificationDecision round) {
@@ -124,6 +157,15 @@ final class DecisionViews {
       for (CertificateEvent e : CertificationDecisionService.events(certificate)) {
         events.add(new TimelineEvent(e.getOccurredAt(), "CERTIFICATE_" + e.getAction(), certificate.getNumber(), e.getActor().getName()));
       }
+      // committee votes on certificate changes; an approved change shows as the certificate event above
+      for (CertificationDecision round : CertificationDecisionService.changeRounds(certificate)) {
+        for (CertificationVote vote : CertificationDecisionService.votes(round)) {
+          events.add(new TimelineEvent(vote.getCastAt(), "CERTIFICATE_CHANGE_VOTE", certificate.getNumber(), vote.getVoter().getName()));
+        }
+        if (DecisionRules.REJECTED.equals(round.getOutcome())) {
+          events.add(new TimelineEvent(round.getDecidedAt(), "CERTIFICATE_CHANGE_REJECTED", certificate.getNumber(), null));
+        }
+      }
     }
   }
 
@@ -137,14 +179,20 @@ final class DecisionViews {
 
   public record CertDecisionCommand(Integer version, String vote, String reason) {}
   public record CertActionCommand(Integer version, String reason) {}
+  public record CertChangeVoteCommand(Integer version, String vote, String reason) {}
   public record CertDecisionPanel(
       Long cycleId, Integer cycleVersion, String status, List<String> missingPolicies, String mode, Integer requiredVotes,
       Integer validityMonths, Integer surveillanceMonths, List<String> blockers, boolean canVote, boolean canGrant,
       String cannotDecideReason, List<AuditorView> eligibleDeciders, String nobodyReason, CertRoundView openRound,
-      List<CertRoundView> pastRounds, IsoCertificateView certificate, boolean canManageCertificate) {}
+      List<CertRoundView> pastRounds, IsoCertificateView certificate, boolean canManageCertificate, CertChangeRoundView openChange,
+      List<CertChangeRoundView> pastChanges) {}
   public record CertRoundView(
       Long id, String mode, Integer requiredVotes, String status, String outcome, LocalDateTime decidedAt, int votesCast,
       Integer grantVotes, Integer refuseVotes, List<CertVoteView> votes) {}
+  public record CertChangeRoundView(
+      Long id, String action, String mode, Integer requiredVotes, String status, String outcome, Long requestedById, String requestedByName,
+      String reason, LocalDateTime openedAt, LocalDateTime decidedAt, int votesCast, Integer approveVotes, Integer rejectVotes,
+      List<CertVoteView> votes, boolean canVote, String cannotVoteReason) {}
   public record CertVoteView(Long voterId, String voterName, String vote, String reason, LocalDateTime castAt) {}
   public record IsoCertificateView(
       Long id, Integer version, String number, String standardCode, LocalDate issuedOn, LocalDate expiresOn, String status,

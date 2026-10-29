@@ -161,6 +161,38 @@ class DecisionRulesTest {
   }
 
   @Test
+  void certificateChangeTallyIsTheGrantRuleApproveNeedsAStrictMajority() {
+    assertNull(DecisionRules.changeTally(3, List.of("APPROVE")), "one of three: still open");
+    assertNull(DecisionRules.changeTally(3, List.of("APPROVE", "APPROVE")), "two of three: still open, even if already a majority");
+    assertEquals("APPROVED", DecisionRules.changeTally(3, List.of("APPROVE", "REJECT", "APPROVE")));
+    assertEquals("REJECTED", DecisionRules.changeTally(3, List.of("APPROVE", "REJECT", "REJECT")));
+    assertEquals("REJECTED", DecisionRules.changeTally(2, List.of("APPROVE", "REJECT")), "tie rejects");
+    assertEquals("REJECTED", DecisionRules.changeTally(4, List.of("APPROVE", "APPROVE", "REJECT", "REJECT")), "tie rejects");
+    assertEquals("APPROVED", DecisionRules.changeTally(1, List.of("APPROVE")));
+    // anything that is not an APPROVE counts against the change
+    assertEquals("REJECTED", DecisionRules.changeTally(1, List.of("GRANT")));
+    assertEquals(Set.of("SUSPEND", "RESTORE", "WITHDRAW"), new HashSet<>(DecisionRules.CHANGE_ACTIONS.values()));
+    assertEquals(DecisionRules.EVENTS.keySet(), DecisionRules.CHANGE_ACTIONS.keySet());
+  }
+
+  @Test
+  void certificateChangeFollowsTheModeAndOneChangeRoundAtATime() {
+    assertEquals("APPLY", DecisionRules.changeStep("INDEPENDENT_REVIEWER", null, "SUSPEND"), "an independent reviewer acts alone");
+    assertEquals("OPEN", DecisionRules.changeStep("COMMITTEE", null, "WITHDRAW"), "a committee opens a round");
+    assertEquals("VOTE", DecisionRules.changeStep("COMMITTEE", "SUSPEND", "SUSPEND"), "the same change joins the open round");
+    // a round keeps its mode: with a round open, the policy's current mode does not matter
+    assertEquals("VOTE", DecisionRules.changeStep("INDEPENDENT_REVIEWER", "RESTORE", "RESTORE"));
+    assertEquals("VOTE", DecisionRules.changeStep(null, "RESTORE", "RESTORE"));
+    ApiException pending = assertThrows(ApiException.class, () -> DecisionRules.changeStep("COMMITTEE", "SUSPEND", "WITHDRAW"));
+    assertEquals(409, pending.status());
+    assertEquals("CHANGE_PENDING", pending.code());
+    assertEquals("CHANGE_PENDING", assertThrows(ApiException.class, () -> DecisionRules.changeStep("INDEPENDENT_REVIEWER", "SUSPEND", "RESTORE")).code(),
+        "an open committee round blocks even an independent reviewer");
+    assertEquals("POLICY_NOT_SET", assertThrows(ApiException.class, () -> DecisionRules.changeStep(null, null, "SUSPEND")).code(), "fail closed");
+    assertEquals("POLICY_NOT_SET", assertThrows(ApiException.class, () -> DecisionRules.changeStep("VOTE", null, "SUSPEND")).code());
+  }
+
+  @Test
   void phaseAndDecisionStatusFollowTheCertificateThePoliciesAndTheAudits() {
     ClientCertificate certificate = new ClientCertificate();
     List<String> none = List.of();

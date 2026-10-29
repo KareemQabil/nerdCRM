@@ -78,13 +78,20 @@
     <string name="outcome" title="Outcome" max="20"/>
     <datetime name="decidedAt" title="Decided at"/>
     <many-to-one name="policyVersion" ref="com.ioeti.core.db.PolicyVersion" title="Decision policy version" required="true"/>
+    <!-- D-02 (owner decision confirmed 2026-10-29): suspending, restoring and withdrawing a certificate follow the same mode.
+         A CHANGE round names the action (SUSPEND, RESTORE or WITHDRAW), the certificate, who asked and why; its votes are
+         APPROVE or REJECT and its outcome APPROVED or REJECTED. All four are empty on a grant round. -->
+    <string name="changeAction" title="Certificate change" max="20"/>
+    <many-to-one name="certificate" ref="ClientCertificate" title="Certificate"/>
+    <many-to-one name="requestedBy" ref="com.axelor.auth.db.User" title="Requested by"/>
+    <string name="requestReason" title="Reason for the change" large="true"/>
   </entity>
 
   <!-- One person's vote (or an independent reviewer's decision) in a round, with the reason. Rows are never changed. -->
   <entity name="CertificationVote" table="ioeti_cert_vote">
     <many-to-one name="decision" ref="CertificationDecision" title="Decision" required="true"/>
     <many-to-one name="voter" ref="com.axelor.auth.db.User" title="Decided by" required="true"/>
-    <!-- GRANT or REFUSE -->
+    <!-- GRANT or REFUSE; APPROVE or REJECT in a certificate change round -->
     <string name="vote" title="Vote" required="true" max="10"/>
     <string name="reason" title="Reason" required="true" large="true"/>
     <datetime name="castAt" title="Cast at" required="true"/>
